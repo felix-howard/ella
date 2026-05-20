@@ -90,27 +90,14 @@ describe('document access hardening', () => {
     vi.mocked(getSignedDownloadUrl).mockResolvedValue('https://signed.example.com/file.pdf')
   })
 
-  it('generates staff document signed URLs with a 15-minute TTL and audit event', async () => {
+  it('generates staff document signed URLs with a 15-minute TTL without activity feed noise', async () => {
     const res = await app.request('/cases/images/img_1/signed-url')
     const json = await res.json()
 
     expect(res.status).toBe(200)
     expect(json.expiresIn).toBe(900)
     expect(getSignedDownloadUrl).toHaveBeenCalledWith('cases/case_1/docs/private.pdf', 900)
-    expect(logStaffActivity).toHaveBeenCalledWith(
-      expect.objectContaining({
-        organizationId: 'org_1',
-        clientId: 'client_1',
-        caseId: 'case_1',
-        rawImageId: 'img_1',
-        actorStaffId: 'staff_1',
-        action: 'document.signed_url_created',
-        category: 'DOCUMENT',
-        targetType: 'RAW_IMAGE',
-        targetId: 'img_1',
-        riskLevel: ActivityRiskLevel.MEDIUM,
-      })
-    )
+    expect(logStaffActivity).not.toHaveBeenCalled()
   })
 
   it('proxies staff document files with no-store headers and audit event', async () => {

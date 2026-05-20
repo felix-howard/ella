@@ -7,6 +7,15 @@
 
 ## 2026-05-20
 
+### Workspace/API: Recent Activity Noise Reduction
+**Status:** Complete
+
+**Changed:**
+- Removed category filter pills from Recent Activity.
+- Added max-height scroll behavior so the activity card stays contained.
+- Stopped writing activity rows for temporary document signed URL creation.
+- Hid routine document access rows from activity timelines so old `document.signed_url_created` and `document.file_proxied` records do not dominate the feed.
+
 ### Workspace/API: Comprehensive User Activity Log Rollout
 **Status:** Complete
 

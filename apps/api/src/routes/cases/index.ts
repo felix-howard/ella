@@ -572,10 +572,6 @@ casesRoute.get('/images/:imageId/signed-url', async (c) => {
       caseId: true,
       r2Key: true,
       filename: true,
-      mimeType: true,
-      status: true,
-      classifiedType: true,
-      category: true,
       isStorageDeleted: true,
       storageDeletedAt: true,
       retentionDeletedAt: true,
@@ -617,28 +613,6 @@ casesRoute.get('/images/:imageId/signed-url', async (c) => {
       500
     )
   }
-
-  void logStaffActivity({
-    organizationId: image.taxCase.client.organizationId,
-    clientId: image.taxCase.client.id,
-    caseId: image.caseId,
-    rawImageId: image.id,
-    actorStaffId: staffId,
-    category: ACTIVITY_CATEGORIES.DOCUMENT,
-    targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
-    targetId: image.id,
-    summary: 'Created temporary document download URL',
-    action: ACTIVITY_ACTIONS.DOCUMENT.SIGNED_URL_CREATED,
-    riskLevel: ActivityRiskLevel.MEDIUM,
-    metadata: {
-      rawImageId: image.id,
-      docType: image.classifiedType,
-      category: image.category,
-      mimeType: image.mimeType,
-      status: image.status,
-    },
-    request: getAuditRequestContext(c),
-  })
 
   return c.json({
     id: image.id,

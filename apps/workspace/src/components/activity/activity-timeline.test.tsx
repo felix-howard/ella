@@ -134,20 +134,22 @@ describe('ActivityTimeline', () => {
   })
 
   it('uses recent activity query mode', () => {
-    renderToStaticMarkup(<ActivityTimeline scope="recent" />)
+    const markup = renderToStaticMarkup(<ActivityTimeline scope="recent" />)
 
     const options = useQueryMock.mock.calls[0][0] as { queryKey: unknown[]; queryFn: () => unknown }
-    expect(options.queryKey).toEqual(['activity', 'recent', null, { limit: 20, category: undefined }])
+    expect(markup).toContain('max-h-[640px]')
+    expect(markup).not.toContain('Activity category')
+    expect(options.queryKey).toEqual(['activity', 'recent', null, { limit: 20 }])
     options.queryFn()
-    expect(recentMock).toHaveBeenCalledWith({ limit: 20, category: undefined })
+    expect(recentMock).toHaveBeenCalledWith({ limit: 20 })
   })
 
   it('uses client activity query mode', () => {
     renderToStaticMarkup(<ActivityTimeline scope="client" clientId="client_1" />)
 
     const options = useQueryMock.mock.calls[0][0] as { queryKey: unknown[]; queryFn: () => unknown }
-    expect(options.queryKey).toEqual(['activity', 'client', 'client_1', { limit: 20, category: undefined }])
+    expect(options.queryKey).toEqual(['activity', 'client', 'client_1', { limit: 20 }])
     options.queryFn()
-    expect(clientMock).toHaveBeenCalledWith('client_1', { limit: 20, category: undefined })
+    expect(clientMock).toHaveBeenCalledWith('client_1', { limit: 20 })
   })
 })

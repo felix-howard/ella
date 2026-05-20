@@ -1,9 +1,7 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertCircle, Clock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { api, type ActivityCategory, type ActivityTimelineItem } from '../../lib/api-client'
-import { ActivityCategoryFilter } from './activity-category-filter'
+import { api, type ActivityTimelineItem } from '../../lib/api-client'
 import { ActivityRow } from './activity-row'
 
 type ActivityTimelineProps = {
@@ -11,7 +9,6 @@ type ActivityTimelineProps = {
   clientId?: string
   title?: string
   limit?: number
-  showFilters?: boolean
 }
 
 export function ActivityTimeline({
@@ -19,11 +16,9 @@ export function ActivityTimeline({
   clientId,
   title,
   limit = 20,
-  showFilters = true,
 }: ActivityTimelineProps) {
   const { t } = useTranslation()
-  const [category, setCategory] = useState<ActivityCategory | undefined>()
-  const filters = { limit, category }
+  const filters = { limit }
   const query = useQuery({
     queryKey: ['activity', scope, clientId ?? null, filters],
     queryFn: () => scope === 'client' && clientId
@@ -34,23 +29,22 @@ export function ActivityTimeline({
   })
 
   return (
-    <section className="bg-card rounded-xl border border-border p-4 sm:p-6">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <h2 className="text-lg font-semibold text-primary">
+    <section className="flex max-h-[640px] min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card p-4 sm:p-6">
+      <div className="mb-4 shrink-0">
+        <h2 className="text-lg font-semibold text-foreground">
           {title ?? t(scope === 'client' ? 'clientOverview.recentActivity' : 'dashboard.recentActivity')}
         </h2>
-        {showFilters && (
-          <ActivityCategoryFilter value={category} onChange={setCategory} disabled={query.isLoading} />
-        )}
       </div>
-      <ActivityTimelineContent
-        items={query.data?.data ?? []}
-        isLoading={query.isLoading}
-        isError={query.isError}
-        emptyLabel={t(scope === 'client' ? 'activity.empty.client' : 'activity.empty.recent')}
-        errorLabel={t('activity.error')}
-        onRetry={() => void query.refetch()}
-      />
+      <div className="min-h-0 overflow-y-auto pr-1">
+        <ActivityTimelineContent
+          items={query.data?.data ?? []}
+          isLoading={query.isLoading}
+          isError={query.isError}
+          emptyLabel={t(scope === 'client' ? 'activity.empty.client' : 'activity.empty.recent')}
+          errorLabel={t('activity.error')}
+          onRetry={() => void query.refetch()}
+        />
+      </div>
     </section>
   )
 }

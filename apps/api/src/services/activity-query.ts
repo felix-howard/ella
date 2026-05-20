@@ -3,10 +3,14 @@ import { buildClientScopeFilter, verifyClientAccess } from '../lib/org-scope'
 import { prisma } from '../lib/db'
 import { resolveAvatarUrl } from './storage'
 import { toActivityTimelineItem } from './activity-log'
-import type { ActivityCategory, ActivityTargetType } from './activity-actions'
+import { ACTIVITY_ACTIONS, type ActivityCategory, type ActivityTargetType } from './activity-actions'
 import type { AuthUser } from './auth'
 
 const DEFAULT_LIMIT = 20
+const TIMELINE_HIDDEN_ACTIONS = [
+  ACTIVITY_ACTIONS.DOCUMENT.SIGNED_URL_CREATED,
+  ACTIVITY_ACTIONS.DOCUMENT.FILE_PROXIED,
+]
 
 export class InvalidActivityCursorError extends Error {
   constructor() {
@@ -60,7 +64,10 @@ function isAdmin(user: AuthUser) {
 
 function baseWhere(user: AuthUser): Prisma.ActivityLogWhereInput {
   if (!user.organizationId) return { id: '__NO_ACCESS__' }
-  return { organizationId: user.organizationId }
+  return {
+    organizationId: user.organizationId,
+    action: { notIn: TIMELINE_HIDDEN_ACTIONS },
+  }
 }
 
 async function getAccessibleClientAndCaseIds(user: AuthUser) {

@@ -140,6 +140,7 @@ describe('activity route', () => {
         organizationId: 'org_1',
         category: 'MESSAGE',
         riskLevel: 'LOW',
+        action: { notIn: ['document.signed_url_created', 'document.file_proxied'] },
       }),
       take: 21,
     }))
@@ -159,6 +160,7 @@ describe('activity route', () => {
     expect(mockActivityFindMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         organizationId: 'org_1',
+        action: { notIn: ['document.signed_url_created', 'document.file_proxied'] },
         OR: [
           { clientId: { in: ['client_1'] } },
           { clientId: null, caseId: null, actorStaffId: 'staff_1' },
@@ -200,6 +202,7 @@ describe('activity route', () => {
       where: expect.objectContaining({
         organizationId: 'org_1',
         category: 'DOCUMENT',
+        action: { notIn: ['document.signed_url_created', 'document.file_proxied'] },
         OR: [
           { clientId: 'client_1' },
           { targetType: 'CLIENT', targetId: 'client_1' },

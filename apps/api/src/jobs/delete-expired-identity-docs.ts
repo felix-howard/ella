@@ -5,8 +5,8 @@ import { deleteFile } from '../services/storage'
 import {
   IDENTITY_RETENTION_DELETE_REASON,
   IDENTITY_RETENTION_DELETE_IN_PROGRESS_REASON,
-  IDENTITY_RETENTION_DOC_TYPES,
   IDENTITY_RETENTION_POLICY,
+  getIdentityRetentionDocWhere,
   isCaseFiled,
   isIdentityRetentionDoc,
   refreshIdentityRetentionForImage,
@@ -68,7 +68,7 @@ export async function deleteExpiredIdentityDocs(now = new Date()): Promise<{
         retentionDeletedAt: null,
         retentionDeleteReason: IDENTITY_RETENTION_DELETE_REASON,
         isStorageDeleted: false,
-        classifiedType: { in: [...IDENTITY_RETENTION_DOC_TYPES] },
+        ...getIdentityRetentionDocWhere(),
         taxCase: {
           is: {
             OR: [
@@ -136,7 +136,7 @@ export async function deleteExpiredIdentityDocs(now = new Date()): Promise<{
         retentionDeletedAt: null,
         retentionDeleteReason: IDENTITY_RETENTION_DELETE_IN_PROGRESS_REASON,
         isStorageDeleted: false,
-        classifiedType: { in: [...IDENTITY_RETENTION_DOC_TYPES] },
+        ...getIdentityRetentionDocWhere(),
         taxCase: {
           is: {
             OR: [

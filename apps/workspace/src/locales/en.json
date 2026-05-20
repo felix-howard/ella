@@ -487,6 +487,7 @@
   "files.uploadedAt": "Uploaded",
   "files.retention.noticeTitle": "Identity document retention",
   "files.retention.noticeBody": "Storage images auto-delete on the shown dates. Metadata and audit history stay retained.",
+  "files.retention.scheduledDate": "{{count}} identity doc(s) delete starting {{date}}",
   "files.retention.days_one": "{{count}} day left",
   "files.retention.days_other": "{{count}} days left",
   "files.retention.deleted": "Storage deleted",

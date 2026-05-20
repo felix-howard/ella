@@ -11,7 +11,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, GripVertical, Check, X, Loader2, Eye, Globe, Phone, ArrowRightLeft } from 'lucide-react'
 import { cn } from '@ella/ui'
-import { api, type RawImage, type DigitalDoc, type EntityInfo } from '../../lib/api-client'
+import { api, type RawImage, type DigitalDoc, type EntityInfo, type IdentityRetentionExtensionDays } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { formatUploadDateTime, sanitizeText } from '../../lib/formatters'
@@ -24,6 +24,7 @@ import { groupDocuments } from '../../lib/document-grouping'
 import { GroupedFileRow, GroupConnector, PageBadge } from './grouped-file-row'
 import { IdentityRetentionBadge } from './identity-retention-badge'
 import { getIdentityRetentionState, isRetentionStorageDeleted } from './identity-retention'
+import { IdentityRetentionSectionNotice } from './identity-retention-section-notice'
 
 export interface FileCategorySectionProps {
   categoryKey: DocCategoryKey
@@ -42,6 +43,13 @@ export interface FileCategorySectionProps {
   entityMap?: Map<string, { entityClientId: string; entityName: string; entityIndex: number }>
   /** All entities in group (unified mode only, for "Move to..." dropdown) */
   entities?: EntityInfo[]
+  identityRetentionSummary?: {
+    scheduledCount: number
+    nextDeletionLabel: string | null
+    canExtend: boolean
+    isExtendPending: boolean
+    onExtend?: (days: IdentityRetentionExtensionDays) => Promise<unknown> | unknown
+  }
 }
 
 /**
@@ -60,8 +68,8 @@ export function FileCategorySection({
   defaultCollapsed,
   entityMap,
   entities,
+  identityRetentionSummary,
 }: FileCategorySectionProps) {
-  const { t } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(!defaultCollapsed)
   const [isDragOver, setIsDragOver] = useState(false)
   const Icon = config.icon
@@ -184,15 +192,13 @@ export function FileCategorySection({
         !isExpanded && 'hidden'
       )}>
         {hasIdentityRetentionCountdown && (
-          <div className="flex items-start gap-2 px-4 py-3 bg-amber-50/70 text-amber-900 dark:bg-amber-950/25 dark:text-amber-200">
-            <Clock className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs font-medium">{t('files.retention.noticeTitle')}</p>
-              <p className="text-xs text-amber-800/80 dark:text-amber-200/80">
-                {t('files.retention.noticeBody')}
-              </p>
-            </div>
-          </div>
+          <IdentityRetentionSectionNotice
+            scheduledCount={identityRetentionSummary?.scheduledCount}
+            nextDeletionLabel={identityRetentionSummary?.nextDeletionLabel}
+            canExtend={Boolean(identityRetentionSummary?.canExtend)}
+            isExtendPending={Boolean(identityRetentionSummary?.isExtendPending)}
+            onExtend={identityRetentionSummary?.onExtend}
+          />
         )}
 
         {/* Render grouped documents */}

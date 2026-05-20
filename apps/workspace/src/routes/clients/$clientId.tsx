@@ -33,7 +33,6 @@ import {
   Pencil,
   Check,
   X,
-  CalendarClock,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button, buttonVariants, Input } from '@ella/ui'
@@ -840,17 +839,6 @@ function ClientDetailPage() {
                         : t('clientDetail.filed')}
                     </span>
                   )}
-                  {isFiled && (
-                    <span className="flex items-center gap-1">
-                      <CalendarClock className="w-3.5 h-3.5" aria-hidden="true" />
-                      {scheduledIdentityRetentionCount > 0 && nextIdentityDeletionLabel
-                        ? t('clientDetail.identityRetentionScheduled', {
-                            count: scheduledIdentityRetentionCount,
-                            date: nextIdentityDeletionLabel,
-                          })
-                        : t('clientDetail.identityRetentionPolicy')}
-                    </span>
-                  )}
                   {client.managedBy && (
                     <span className="flex items-center gap-1">
                       <Users className="w-3.5 h-3.5" aria-hidden="true" />
@@ -897,6 +885,7 @@ function ClientDetailPage() {
                 isReopenPending={reopenMutation.isPending}
                 isExtendRetentionPending={extendIdentityRetentionMutation.isPending}
                 canExtendIdentityRetention={scheduledIdentityRetentionCount > 0}
+                showExtendIdentityRetention={false}
                 onMarkFiled={() => markFiledMutation.mutateAsync()}
                 onReopen={() => reopenMutation.mutateAsync()}
                 onExtendIdentityRetention={(days) => extendIdentityRetentionMutation.mutateAsync(days)}
@@ -1016,6 +1005,13 @@ function ClientDetailPage() {
           docs={digitalDocs}
           clientGroupId={!isBusiness && client.clientGroupId ? client.clientGroupId : undefined}
           taxYear={selectedEngagement?.taxYear}
+          identityRetentionSummary={{
+            scheduledCount: scheduledIdentityRetentionCount,
+            nextDeletionLabel: nextIdentityDeletionLabel,
+            canExtend: isFiled && scheduledIdentityRetentionCount > 0,
+            isExtendPending: extendIdentityRetentionMutation.isPending,
+            onExtend: (days) => extendIdentityRetentionMutation.mutateAsync(days),
+          }}
         />
       )}
 

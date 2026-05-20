@@ -21,6 +21,7 @@ export const IDENTITY_RETENTION_DOC_TYPES = [
 ] as const satisfies readonly DocType[]
 
 const identityDocTypeSet = new Set<DocType>(IDENTITY_RETENTION_DOC_TYPES)
+const categoryFallbackDocTypeSet = new Set<DocType>(['OTHER', 'UNKNOWN'])
 
 type PrismaTx = Omit<
   PrismaClient,
@@ -48,7 +49,25 @@ export function getRetentionDeleteAt(filedAt: Date, days = getIdentityRetentionD
 }
 
 export function isIdentityRetentionDoc(input: RetentionCandidate): boolean {
-  return Boolean(input.classifiedType && identityDocTypeSet.has(input.classifiedType))
+  if (input.classifiedType && identityDocTypeSet.has(input.classifiedType)) return true
+  if (input.category !== 'IDENTITY') return false
+
+  return !input.classifiedType || categoryFallbackDocTypeSet.has(input.classifiedType)
+}
+
+export function getIdentityRetentionDocWhere() {
+  return {
+    OR: [
+      { classifiedType: { in: [...IDENTITY_RETENTION_DOC_TYPES] } },
+      {
+        category: 'IDENTITY' as const,
+        OR: [
+          { classifiedType: null },
+          { classifiedType: { in: [...categoryFallbackDocTypeSet] } },
+        ],
+      },
+    ],
+  }
 }
 
 export function isCaseFiled(input: CaseRetentionState): boolean {
@@ -191,7 +210,7 @@ export async function scheduleIdentityRetentionForFiledCase(
           retentionDeletedAt: null,
           isStorageDeleted: false,
           retentionDeleteAt: null,
-          classifiedType: { in: [...IDENTITY_RETENTION_DOC_TYPES] },
+          ...getIdentityRetentionDocWhere(),
         },
         select: {
           id: true,

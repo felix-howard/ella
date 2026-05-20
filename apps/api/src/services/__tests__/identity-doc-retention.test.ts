@@ -43,8 +43,10 @@ describe('identity document retention', () => {
   it('identifies explicit identity doc types and excludes income docs', () => {
     expect(isIdentityRetentionDoc({ classifiedType: 'SSN_CARD', category: null })).toBe(true)
     expect(isIdentityRetentionDoc({ classifiedType: 'PASSPORT', category: 'IDENTITY' })).toBe(true)
+    expect(isIdentityRetentionDoc({ classifiedType: 'OTHER', category: 'IDENTITY' })).toBe(true)
+    expect(isIdentityRetentionDoc({ classifiedType: 'UNKNOWN', category: 'IDENTITY' })).toBe(true)
+    expect(isIdentityRetentionDoc({ classifiedType: null, category: 'IDENTITY' })).toBe(true)
     expect(isIdentityRetentionDoc({ classifiedType: 'POWER_OF_ATTORNEY', category: 'IDENTITY' })).toBe(false)
-    expect(isIdentityRetentionDoc({ classifiedType: null, category: 'IDENTITY' })).toBe(false)
     expect(isIdentityRetentionDoc({ classifiedType: 'W2', category: 'INCOME' })).toBe(false)
   })
 
@@ -153,6 +155,18 @@ describe('identity document retention', () => {
         retentionDeleteAt: new Date('2026-08-16T12:00:00.000Z'),
       }),
     })
+    expect(mockTaxCase.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({
+        rawImages: expect.objectContaining({
+          where: expect.objectContaining({
+            OR: expect.arrayContaining([
+              expect.objectContaining({ classifiedType: { in: expect.any(Array) } }),
+              expect.objectContaining({ category: 'IDENTITY' }),
+            ]),
+          }),
+        }),
+      }),
+    }))
     expect(mockLogSystemActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'document.retention_scheduled',
@@ -162,6 +176,39 @@ describe('identity document retention', () => {
         rawImageId: 'img_identity',
       })
     )
+  })
+
+  it('schedules identity category docs when classification is ambiguous', async () => {
+    const filedAt = new Date('2026-05-18T12:00:00.000Z')
+    mockTaxCase.findUnique.mockResolvedValueOnce({
+      id: 'case_1',
+      filedAt,
+      status: 'FILED',
+      isFiled: true,
+      clientId: 'client_1',
+      client: { organizationId: 'org_1' },
+      rawImages: [
+        {
+          id: 'img_other_identity',
+          caseId: 'case_1',
+          classifiedType: 'OTHER',
+          category: 'IDENTITY',
+        },
+      ],
+    } as never)
+    mockRawImage.update.mockResolvedValueOnce({ id: 'img_other_identity' } as never)
+
+    await expect(scheduleIdentityRetentionForFiledCase('case_1')).resolves.toEqual({
+      scheduled: 1,
+    })
+
+    expect(mockRawImage.update).toHaveBeenCalledWith({
+      where: { id: 'img_other_identity' },
+      data: expect.objectContaining({
+        retentionPolicy: IDENTITY_RETENTION_POLICY,
+        retentionDeleteAt: new Date('2026-08-16T12:00:00.000Z'),
+      }),
+    })
   })
 
   it('preserves a later manually extended retention date during refresh', async () => {

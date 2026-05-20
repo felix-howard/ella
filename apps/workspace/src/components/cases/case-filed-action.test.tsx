@@ -72,6 +72,22 @@ describe('CaseFiledAction', () => {
     expect(markup).not.toContain('Mark return filed')
   })
 
+  it('can hide the header extend retention action for filed cases', () => {
+    const markup = renderToStaticMarkup(
+      <CaseFiledAction
+        activeCase={{ id: 'case_1', isFiled: true, status: 'FILED', filedAt: '2026-05-20T00:00:00.000Z' }}
+        onMarkFiled={vi.fn()}
+        onReopen={vi.fn()}
+        canExtendIdentityRetention
+        showExtendIdentityRetention={false}
+        onExtendIdentityRetention={vi.fn()}
+      />,
+    )
+
+    expect(markup).toContain('Reopen filing')
+    expect(markup).not.toContain('Extend identity retention')
+  })
+
   it('treats filed status drift as filed for action visibility', () => {
     const markup = renderToStaticMarkup(
       <CaseFiledAction

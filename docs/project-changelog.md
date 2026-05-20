@@ -7,6 +7,16 @@
 
 ## 2026-05-20
 
+### API/Workspace: Identity Retention Countdown Eligibility
+**Status:** Complete
+
+**Changed:**
+- Fixed filed-case identity retention scheduling for Identity category uploads whose classifier type is ambiguous (`OTHER`, `UNKNOWN`, or empty).
+- Kept known non-retention identity-category document types, such as Power of Attorney, excluded from auto-delete.
+- Ensured the expired identity-doc deletion job uses the same eligibility gate as scheduling, so Files tab countdown badges have matching backend behavior.
+- Added Files API read-repair so existing filed cases schedule missing identity retention before returning file rows.
+- Moved retention date and extend action from the client header into the Identity Documents section.
+
 ### Portal: Solo Upload File List
 **Status:** Complete
 

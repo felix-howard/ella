@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import JSZip from 'jszip'
 import { Upload, Download, CheckCheck, Loader2, FolderSync, Sparkles } from 'lucide-react'
 import { cn, Button } from '@ella/ui'
-import { api, fetchMediaBlob, type RawImage, type DigitalDoc, type DocCategory, type EntityInfo } from '../../lib/api-client'
+import { api, fetchMediaBlob, type RawImage, type DigitalDoc, type DocCategory, type EntityInfo, type IdentityRetentionExtensionDays } from '../../lib/api-client'
 import { toast, hotToast } from '../../stores/toast-store'
 import { DOC_CATEGORIES, CATEGORY_ORDER, isValidCategory, type DocCategoryKey } from '../../lib/doc-categories'
 import { groupDocuments } from '../../lib/document-grouping'
@@ -39,6 +39,13 @@ export interface FilesTabProps {
   clientGroupId?: string | null
   /** Tax year for group images query */
   taxYear?: number
+  identityRetentionSummary?: {
+    scheduledCount: number
+    nextDeletionLabel: string | null
+    canExtend: boolean
+    isExtendPending: boolean
+    onExtend?: (days: IdentityRetentionExtensionDays) => Promise<unknown> | unknown
+  }
 }
 
 /** Navigation item for file viewer modals */
@@ -63,6 +70,7 @@ export function FilesTab({
   isLoading: parentLoading,
   clientGroupId,
   taxYear,
+  identityRetentionSummary,
 }: FilesTabProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -922,6 +930,7 @@ export function FilesTab({
             defaultCollapsed={images.length > 30 && idx > 0}
             entityMap={isUnifiedMode ? entityMap : undefined}
             entities={isUnifiedMode ? entities : undefined}
+            identityRetentionSummary={categoryKey === 'IDENTITY' ? identityRetentionSummary : undefined}
           />
         )
       })}

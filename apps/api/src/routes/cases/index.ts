@@ -469,6 +469,10 @@ casesRoute.get('/:id/images', zValidator('query', listImagesQuerySchema), async 
     return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
   }
 
+  // Read-repair filed cases so existing identity-category uploads created
+  // before the current eligibility rules still return countdown metadata.
+  await scheduleIdentityRetentionForFiledCase(id)
+
   const where: Record<string, unknown> = { caseId: id }
   if (status) where.status = status as RawImageStatus
 

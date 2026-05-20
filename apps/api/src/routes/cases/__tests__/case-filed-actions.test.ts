@@ -46,7 +46,7 @@ const scopedCaseWhere = {
   id: caseId,
   client: { organizationId: 'org_1', managedById: 'staff_1' },
 }
-const actionSelect = { id: true, status: true, isFiled: true, filedAt: true }
+const actionSelect = { id: true, clientId: true, status: true, isFiled: true, filedAt: true }
 
 const app = new Hono<{ Variables: AuthVariables }>()
 app.use('*', async (c, next) => {
@@ -96,6 +96,7 @@ describe('case filed action semantics', () => {
     mockTxCount(1)
     txMock.taxCase.findUnique.mockResolvedValueOnce({
       id: caseId,
+      clientId: 'client_1',
       status: 'FILED',
       isFiled: true,
       filedAt,

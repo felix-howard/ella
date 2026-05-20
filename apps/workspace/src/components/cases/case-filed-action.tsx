@@ -13,6 +13,7 @@ interface CaseFiledActionProps {
   isReopenPending?: boolean
   isExtendRetentionPending?: boolean
   canExtendIdentityRetention?: boolean
+  showExtendIdentityRetention?: boolean
   onMarkFiled: () => Promise<unknown> | unknown
   onReopen: () => Promise<unknown> | unknown
   onExtendIdentityRetention?: (days: IdentityRetentionExtensionDays) => Promise<unknown> | unknown
@@ -32,6 +33,7 @@ export function CaseFiledAction({
   isReopenPending = false,
   isExtendRetentionPending = false,
   canExtendIdentityRetention = false,
+  showExtendIdentityRetention = true,
   onMarkFiled,
   onReopen,
   onExtendIdentityRetention,
@@ -76,7 +78,7 @@ export function CaseFiledAction({
     <>
       {isFiled ? (
         <>
-          {onExtendIdentityRetention && canExtendIdentityRetention && (
+          {showExtendIdentityRetention && onExtendIdentityRetention && canExtendIdentityRetention && (
             <Button
               onClick={() => setIsExtendOpen(true)}
               disabled={isExtendRetentionPending}

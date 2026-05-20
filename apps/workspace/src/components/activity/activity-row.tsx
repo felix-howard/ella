@@ -25,7 +25,6 @@ export function ActivityRow({ item }: ActivityRowProps) {
           <ActorAvatar item={item} fallbackName={actorName} />
           <span className="min-w-0 truncate text-sm font-medium text-foreground">{actorName}</span>
           <span className="text-xs text-muted-foreground">{t(`activity.category.${item.category}`)}</span>
-          {item.riskLevel !== 'LOW' && <RiskBadge riskLevel={item.riskLevel} />}
         </div>
         <p className="mt-1 break-words text-sm leading-5 text-foreground">{item.summary}</p>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -61,19 +60,6 @@ function ActorAvatar({ item, fallbackName }: { item: ActivityTimelineItem; fallb
       aria-hidden="true"
     >
       {getInitials(fallbackName)}
-    </span>
-  )
-}
-
-function RiskBadge({ riskLevel }: { riskLevel: ActivityTimelineItem['riskLevel'] }) {
-  const { t } = useTranslation()
-  const className = riskLevel === 'HIGH'
-    ? 'border-destructive/30 bg-destructive/10 text-destructive'
-    : 'border-amber-500/30 bg-amber-500/10 text-amber-700'
-
-  return (
-    <span className={cn('rounded-full border px-2 py-0.5 text-[11px] font-medium', className)}>
-      {t(`activity.risk.${riskLevel}`)}
     </span>
   )
 }

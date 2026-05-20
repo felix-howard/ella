@@ -122,7 +122,7 @@ describe('ActivityTimeline', () => {
     expect(errorMarkup).toContain('Could not load activity')
   })
 
-  it('renders row summary, actor, target, and high-risk badge', () => {
+  it('renders row summary, actor, and target without risk badge chrome', () => {
     const markup = renderToStaticMarkup(
       <ActivityRow item={activity({ riskLevel: 'HIGH' })} />,
     )
@@ -130,7 +130,7 @@ describe('ActivityTimeline', () => {
     expect(markup).toContain('Agent One')
     expect(markup).toContain('Staff sent SMS to Client One')
     expect(markup).toContain('Client One')
-    expect(markup).toContain('High risk')
+    expect(markup).not.toContain('High risk')
   })
 
   it('uses recent activity query mode', () => {

@@ -12,6 +12,7 @@ import {
   refreshIdentityRetentionForImage,
 } from '../services/identity-doc-retention'
 import { logSystemActivity } from '../services/activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../services/activity-actions'
 
 const BATCH_SIZE = 100
 
@@ -174,7 +175,11 @@ export async function deleteExpiredIdentityDocs(now = new Date()): Promise<{
         clientId: image.taxCase.clientId,
         caseId: image.caseId,
         rawImageId: image.id,
-        action: 'IDENTITY_DOCUMENT_RETENTION_DELETE_FAILED',
+        category: ACTIVITY_CATEGORIES.DOCUMENT,
+        targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
+        targetId: image.id,
+        summary: 'Failed to delete expired identity document',
+        action: ACTIVITY_ACTIONS.DOCUMENT.RETENTION_DELETE_FAILED,
         riskLevel: ActivityRiskLevel.HIGH,
         metadata: {
           rawImageId: image.id,
@@ -213,7 +218,11 @@ export async function deleteExpiredIdentityDocs(now = new Date()): Promise<{
       clientId: image.taxCase.clientId,
       caseId: image.caseId,
       rawImageId: image.id,
-      action: 'IDENTITY_DOCUMENT_RETENTION_DELETED',
+      category: ACTIVITY_CATEGORIES.DOCUMENT,
+      targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
+      targetId: image.id,
+      summary: 'Deleted expired identity document',
+      action: ACTIVITY_ACTIONS.DOCUMENT.RETENTION_DELETED,
       riskLevel: ActivityRiskLevel.HIGH,
       metadata: {
         rawImageId: image.id,

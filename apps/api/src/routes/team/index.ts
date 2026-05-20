@@ -3,8 +3,9 @@
  * Endpoints for org member listing, invitations, role changes, and deactivation
  * Uses Clerk Backend API for org membership operations
  */
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { zValidator } from '@hono/zod-validator'
+import { ActivityRiskLevel } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { clerkClient } from '../../lib/clerk-client'
 import { deactivateStaff } from '../../services/auth'
@@ -26,12 +27,41 @@ import {
   generateAvatarKey,
   resolveAvatarUrl,
 } from '../../services/storage'
+import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 
 const teamRoute = new Hono<{ Variables: AuthVariables }>()
 
 /** Check if requester can edit target staff (self or org admin) */
 function canEditStaff(user: { staffId: string | null; orgRole: string | null }, targetStaffId: string): boolean {
   return targetStaffId === user.staffId || user.orgRole === 'org:admin'
+}
+
+async function logTeamMemberActivity(
+  c: Context<{ Variables: AuthVariables }>,
+  user: AuthVariables['user'],
+  targetStaffId: string,
+  input: {
+    summary: string
+    action: string
+    riskLevel?: ActivityRiskLevel
+    metadata?: Record<string, unknown>
+  }
+) {
+  if (!user.staffId) return
+
+  await logStaffActivity({
+    organizationId: user.organizationId,
+    actorStaffId: user.staffId,
+    category: ACTIVITY_CATEGORIES.TEAM,
+    targetType: ACTIVITY_TARGET_TYPES.STAFF,
+    targetId: targetStaffId,
+    summary: input.summary,
+    action: input.action,
+    riskLevel: input.riskLevel ?? ActivityRiskLevel.LOW,
+    metadata: input.metadata,
+    request: getAuditRequestContext(c),
+  })
 }
 
 // All team routes require active org
@@ -95,6 +125,25 @@ teamRoute.post(
         inviterUserId: user.id,
         redirectUrl: `${config.workspaceUrl}/accept-invitation`,
       })
+
+      if (user.staffId) {
+        await logStaffActivity({
+          organizationId: user.organizationId,
+          actorStaffId: user.staffId,
+          category: ACTIVITY_CATEGORIES.TEAM,
+          targetType: ACTIVITY_TARGET_TYPES.ORGANIZATION,
+          targetId: user.organizationId,
+          summary: 'Invited team member',
+          action: ACTIVITY_ACTIONS.TEAM.MEMBER_INVITED,
+          riskLevel: ActivityRiskLevel.MEDIUM,
+          metadata: {
+            role,
+            invitationId: invitation.id,
+            status: invitation.status,
+          },
+          request: getAuditRequestContext(c),
+        })
+      }
 
       return c.json({
         success: true,
@@ -167,6 +216,16 @@ teamRoute.patch(
 
       // Audit log (async, non-blocking)
       logTeamAction('ROLE_CHANGED', staffId, user.staffId, { oldValue: oldRole, newValue: role })
+      await logTeamMemberActivity(c, user, staffId, {
+        summary: 'Updated team member role',
+        action: ACTIVITY_ACTIONS.TEAM.MEMBER_UPDATED,
+        riskLevel: ActivityRiskLevel.HIGH,
+        metadata: {
+          changedFields: ['role'],
+          previousRole: oldRole,
+          newRole: dbRole,
+        },
+      })
 
       return c.json({ success: true })
     } catch (error: unknown) {
@@ -204,6 +263,15 @@ teamRoute.patch(
     logTeamAction('CONTRACTOR_AGENT_CHANGED', staffId, user.staffId, {
       oldValue: { isContractorAgent: staff.isContractorAgent },
       newValue: { isContractorAgent },
+    })
+    await logTeamMemberActivity(c, user, staffId, {
+      summary: 'Updated contractor agent access',
+      action: ACTIVITY_ACTIONS.TEAM.MEMBER_UPDATED,
+      riskLevel: ActivityRiskLevel.MEDIUM,
+      metadata: {
+        changedFields: ['isContractorAgent'],
+        isContractorAgent,
+      },
     })
 
     return c.json({ success: true, staff: updated })
@@ -254,6 +322,14 @@ teamRoute.delete(
       oldValue: { name: staff.name, email: staff.email },
       newValue: { isActive: false },
     })
+    await logTeamMemberActivity(c, user, staffId, {
+      summary: 'Deactivated team member',
+      action: ACTIVITY_ACTIONS.TEAM.MEMBER_DEACTIVATED,
+      riskLevel: ActivityRiskLevel.HIGH,
+      metadata: {
+        changedFields: ['isActive', 'deactivatedAt'],
+      },
+    })
 
     return c.json({ success: true })
   }
@@ -294,6 +370,14 @@ teamRoute.patch(
       oldValue: { isActive: true },
       newValue: { isActive: false, deactivatedAt: new Date().toISOString() },
     })
+    await logTeamMemberActivity(c, user, staffId, {
+      summary: 'Archived team member',
+      action: ACTIVITY_ACTIONS.TEAM.MEMBER_ARCHIVED,
+      riskLevel: ActivityRiskLevel.HIGH,
+      metadata: {
+        changedFields: ['isActive', 'deactivatedAt'],
+      },
+    })
 
     return c.json({ success: true })
   }
@@ -328,6 +412,14 @@ teamRoute.patch(
     logTeamAction('STAFF_UNARCHIVED', staffId, user.staffId, {
       oldValue: { isActive: false },
       newValue: { isActive: true, deactivatedAt: null },
+    })
+    await logTeamMemberActivity(c, user, staffId, {
+      summary: 'Unarchived team member',
+      action: ACTIVITY_ACTIONS.TEAM.MEMBER_UNARCHIVED,
+      riskLevel: ActivityRiskLevel.MEDIUM,
+      metadata: {
+        changedFields: ['isActive', 'deactivatedAt'],
+      },
     })
 
     return c.json({ success: true })
@@ -384,6 +476,21 @@ teamRoute.delete(
         invitationId,
         requestingUserId: user.id,
       })
+
+      if (user.staffId) {
+        await logStaffActivity({
+          organizationId: user.organizationId,
+          actorStaffId: user.staffId,
+          category: ACTIVITY_CATEGORIES.TEAM,
+          targetType: ACTIVITY_TARGET_TYPES.ORGANIZATION,
+          targetId: user.organizationId,
+          summary: 'Revoked team invitation',
+          action: ACTIVITY_ACTIONS.TEAM.INVITATION_REVOKED,
+          riskLevel: ActivityRiskLevel.MEDIUM,
+          metadata: { invitationId },
+          request: getAuditRequestContext(c),
+        })
+      }
 
       return c.json({ success: true })
     } catch (error: unknown) {
@@ -478,6 +585,15 @@ teamRoute.patch(
     }
 
     if (!canEditStaff(user, targetStaffId)) {
+      await logTeamMemberActivity(c, user, targetStaffId, {
+        summary: 'Denied team profile edit attempt',
+        action: ACTIVITY_ACTIONS.PROFILE.UPDATED,
+        riskLevel: ActivityRiskLevel.HIGH,
+        metadata: {
+          result: 'denied',
+          reason: 'forbidden_profile_edit',
+        },
+      })
       return c.json({ error: 'Can only edit your own profile' }, 403)
     }
 
@@ -543,6 +659,29 @@ teamRoute.patch(
         newValue: { name, phoneNumber, notifyOnUpload, notifyOnChat },
       })
     }
+
+    await logStaffActivity({
+      organizationId: user.organizationId,
+      actorStaffId: user.staffId ?? targetStaffId,
+      category: ACTIVITY_CATEGORIES.PROFILE,
+      targetType: ACTIVITY_TARGET_TYPES.STAFF,
+      targetId: targetStaffId,
+      summary: 'Updated staff profile',
+      action: ACTIVITY_ACTIONS.PROFILE.UPDATED,
+      riskLevel: targetStaffId === user.staffId ? ActivityRiskLevel.LOW : ActivityRiskLevel.MEDIUM,
+      metadata: {
+        changedFields: getChangedFieldNames({
+          firstName,
+          lastName,
+          phoneNumber,
+          title,
+          notifyOnUpload,
+          notifyOnChat,
+        }),
+        editedSelf: targetStaffId === user.staffId,
+      },
+      request: getAuditRequestContext(c),
+    })
 
     return c.json({ success: true, staff: { ...updated, avatarUrl: await resolveAvatarUrl(updated.avatarUrl) } })
   }
@@ -621,6 +760,15 @@ teamRoute.put(
     }
 
     if (!canEditStaff(user, targetStaffId)) {
+      await logTeamMemberActivity(c, user, targetStaffId, {
+        summary: 'Denied notification subscription edit attempt',
+        action: ACTIVITY_ACTIONS.TEAM.NOTIFICATION_SUBSCRIPTIONS_UPDATED,
+        riskLevel: ActivityRiskLevel.HIGH,
+        metadata: {
+          result: 'denied',
+          reason: 'forbidden_subscription_edit',
+        },
+      })
       return c.json({ error: 'Forbidden' }, 403)
     }
 
@@ -662,6 +810,17 @@ teamRoute.put(
     // Audit log
     logTeamAction('NOTIFICATION_SUBSCRIPTIONS_UPDATED', targetStaffId, user.staffId, {
       newValue: { targetStaffIds, type },
+    })
+    await logTeamMemberActivity(c, user, targetStaffId, {
+      summary: 'Updated notification subscriptions',
+      action: ACTIVITY_ACTIONS.TEAM.NOTIFICATION_SUBSCRIPTIONS_UPDATED,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        changedFields: ['notificationSubscriptions'],
+        subscriptionType: type,
+        count: targetStaffIds.length,
+        editedSelf: targetStaffId === user.staffId,
+      },
     })
 
     return c.json({ success: true })
@@ -737,6 +896,21 @@ teamRoute.patch(
 
     // Verify key belongs to this staff
     if (!r2Key.startsWith(`avatars/${targetStaffId}/`)) {
+      await logStaffActivity({
+        organizationId: user.organizationId,
+        actorStaffId: user.staffId ?? targetStaffId,
+        category: ACTIVITY_CATEGORIES.PROFILE,
+        targetType: ACTIVITY_TARGET_TYPES.STAFF,
+        targetId: targetStaffId,
+        summary: 'Denied invalid staff avatar update',
+        action: ACTIVITY_ACTIONS.PROFILE.AVATAR_UPDATED,
+        riskLevel: ActivityRiskLevel.HIGH,
+        metadata: {
+          result: 'denied',
+          reason: 'invalid_avatar_key',
+        },
+        request: getAuditRequestContext(c),
+      })
       return c.json({ error: 'Invalid avatar key' }, 400)
     }
 
@@ -767,6 +941,22 @@ teamRoute.patch(
         newValue: r2Key,
       })
     }
+
+    await logStaffActivity({
+      organizationId: user.organizationId,
+      actorStaffId: user.staffId ?? targetStaffId,
+      category: ACTIVITY_CATEGORIES.PROFILE,
+      targetType: ACTIVITY_TARGET_TYPES.STAFF,
+      targetId: targetStaffId,
+      summary: 'Updated staff avatar',
+      action: ACTIVITY_ACTIONS.PROFILE.AVATAR_UPDATED,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        changedFields: ['avatarUrl'],
+        editedSelf: targetStaffId === user.staffId,
+      },
+      request: getAuditRequestContext(c),
+    })
 
     // Return a fresh presigned URL for immediate display
     const avatarUrl = await resolveAvatarUrl(r2Key)

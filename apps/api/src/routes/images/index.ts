@@ -2,7 +2,7 @@
  * Raw Images API routes
  * Classification update and image management operations
  */
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../../lib/db'
@@ -19,11 +19,64 @@ import {
   logStaffActivities,
   logStaffActivity,
 } from '../../services/activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 import { refreshIdentityRetentionForImage } from '../../services/identity-doc-retention'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import type { AuthVariables } from '../../middleware/auth'
 
 const imagesRoute = new Hono<{ Variables: AuthVariables }>()
+
+type ImageActivityContext = {
+  id: string
+  caseId: string
+  mimeType?: string | null
+  status?: string | null
+  classifiedType?: string | null
+  category?: string | null
+  taxCase: {
+    client: {
+      id: string
+      organizationId: string | null
+    }
+  }
+}
+
+async function logImageMutation(
+  c: Context<{ Variables: AuthVariables }>,
+  user: AuthVariables['user'],
+  image: ImageActivityContext,
+  input: {
+    summary: string
+    action: string
+    riskLevel?: ActivityRiskLevel
+    metadata?: Record<string, unknown>
+  }
+) {
+  if (!user.staffId) return
+
+  await logStaffActivity({
+    organizationId: image.taxCase.client.organizationId,
+    clientId: image.taxCase.client.id,
+    caseId: image.caseId,
+    rawImageId: image.id,
+    actorStaffId: user.staffId,
+    category: ACTIVITY_CATEGORIES.DOCUMENT,
+    targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
+    targetId: image.id,
+    summary: input.summary,
+    action: input.action,
+    riskLevel: input.riskLevel ?? ActivityRiskLevel.LOW,
+    metadata: {
+      rawImageId: image.id,
+      docType: image.classifiedType,
+      category: image.category,
+      mimeType: image.mimeType,
+      status: image.status,
+      ...input.metadata,
+    },
+    request: getAuditRequestContext(c),
+  })
+}
 
 // Schema for classification update
 const updateClassificationSchema = z.object({
@@ -115,7 +168,7 @@ imagesRoute.patch(
     // Find the raw image with case info (org-scoped)
     const rawImage = await prisma.rawImage.findFirst({
       where: { id, taxCase: { client: buildClientScopeFilter(user) } },
-      include: { taxCase: true },
+      include: { taxCase: { include: { client: { select: { id: true, organizationId: true } } } } },
     })
 
     if (!rawImage) {
@@ -186,6 +239,15 @@ imagesRoute.patch(
       // Update case activity timestamp on classification approval
       await updateLastActivity(rawImage.caseId)
       await refreshIdentityRetentionForImage(id)
+      await logImageMutation(c, user, rawImage, {
+        summary: 'Approved document classification',
+        action: ACTIVITY_ACTIONS.DOCUMENT.CLASSIFICATION_APPROVED,
+        riskLevel: ActivityRiskLevel.MEDIUM,
+        metadata: {
+          changedFields: ['classifiedType', 'status', 'aiConfidence', 'checklistItemId'],
+          newDocType: docType,
+        },
+      })
 
       return c.json({
         success: true,
@@ -223,6 +285,16 @@ imagesRoute.patch(
         })
       })
 
+      await logImageMutation(c, user, rawImage, {
+        summary: 'Rejected document classification',
+        action: ACTIVITY_ACTIONS.DOCUMENT.CLASSIFICATION_REJECTED,
+        riskLevel: ActivityRiskLevel.MEDIUM,
+        metadata: {
+          changedFields: ['classifiedType', 'status', 'aiConfidence'],
+          rejectedDocType: docType,
+        },
+      })
+
       return c.json({
         success: true,
         status: 'BLURRY',
@@ -253,6 +325,11 @@ imagesRoute.post('/:id/reclassify', async (c) => {
       status: true,
       classifiedType: true,
       category: true,
+      taxCase: {
+        select: {
+          client: { select: { id: true, organizationId: true } },
+        },
+      },
     },
   })
 
@@ -311,6 +388,16 @@ imagesRoute.post('/:id/reclassify', async (c) => {
     },
   })
 
+  await logImageMutation(c, user, rawImage, {
+    summary: 'Triggered document reclassification',
+    action: ACTIVITY_ACTIONS.DOCUMENT.RECLASSIFY_TRIGGERED,
+    riskLevel: ActivityRiskLevel.MEDIUM,
+    metadata: {
+      changedFields: ['status', 'classifiedType', 'category', 'aiConfidence', 'checklistItemId'],
+      previousStatus: rawImage.status,
+    },
+  })
+
   return c.json({
     success: true,
     message: 'Reclassification triggered',
@@ -335,6 +422,14 @@ imagesRoute.patch('/:id/move', zValidator('json', moveImageSchema), async (c) =>
       caseId: true,
       checklistItemId: true,
       classifiedType: true,
+      status: true,
+      category: true,
+      mimeType: true,
+      taxCase: {
+        select: {
+          client: { select: { id: true, organizationId: true } },
+        },
+      },
     },
   })
 
@@ -403,6 +498,18 @@ imagesRoute.patch('/:id/move', zValidator('json', moveImageSchema), async (c) =>
         status: 'HAS_RAW' as ChecklistItemStatus,
       },
     })
+  })
+
+  await logImageMutation(c, user, rawImage, {
+    summary: 'Moved document to checklist item',
+    action: ACTIVITY_ACTIONS.DOCUMENT.MOVED,
+    riskLevel: ActivityRiskLevel.LOW,
+    metadata: {
+      changedFields: ['checklistItemId', 'classifiedType', 'status'],
+      previousChecklistItemId: rawImage.checklistItemId,
+      newChecklistItemId: targetChecklistItemId,
+      newDocType: targetItem.template?.docType,
+    },
   })
 
   return c.json({
@@ -533,6 +640,17 @@ imagesRoute.post('/:id/request-reupload', zValidator('json', requestReuploadSche
     }
   }
 
+  await logImageMutation(c, user, result.image, {
+    summary: 'Requested document reupload',
+    action: ACTIVITY_ACTIONS.DOCUMENT.REUPLOAD_REQUESTED,
+    riskLevel: ActivityRiskLevel.MEDIUM,
+    metadata: {
+      changedFields: ['reuploadRequested', 'reuploadRequestedAt', 'reuploadFields', 'status'],
+      reuploadFieldCount: fields.length,
+      smsSent,
+    },
+  })
+
   return c.json({
     success: true,
     message: 'Reupload requested',
@@ -560,7 +678,16 @@ imagesRoute.patch('/:id/rename', zValidator('json', renameSchema), async (c) => 
   // Find and update the raw image (org-scoped)
   const rawImage = await prisma.rawImage.findFirst({
     where: { id, taxCase: { client: buildClientScopeFilter(user) } },
-    select: { id: true, filename: true },
+    select: {
+      id: true,
+      caseId: true,
+      filename: true,
+      mimeType: true,
+      status: true,
+      classifiedType: true,
+      category: true,
+      taxCase: { select: { client: { select: { id: true, organizationId: true } } } },
+    },
   })
 
   if (!rawImage) {
@@ -573,6 +700,13 @@ imagesRoute.patch('/:id/rename', zValidator('json', renameSchema), async (c) => 
     where: { id },
     data: { displayName: sanitizedFilename },
     select: { id: true, filename: true, displayName: true },
+  })
+
+  await logImageMutation(c, user, rawImage, {
+    summary: 'Renamed document',
+    action: ACTIVITY_ACTIONS.DOCUMENT.UPDATED,
+    riskLevel: ActivityRiskLevel.LOW,
+    metadata: { changedFields: ['displayName'] },
   })
 
   return c.json({
@@ -595,7 +729,15 @@ imagesRoute.patch('/:id/category', zValidator('json', changeCategorySchema), asy
   // Find and update the raw image (org-scoped)
   const rawImage = await prisma.rawImage.findFirst({
     where: { id, taxCase: { client: buildClientScopeFilter(user) } },
-    select: { id: true, category: true, caseId: true },
+    select: {
+      id: true,
+      category: true,
+      caseId: true,
+      mimeType: true,
+      status: true,
+      classifiedType: true,
+      taxCase: { select: { client: { select: { id: true, organizationId: true } } } },
+    },
   })
 
   if (!rawImage) {
@@ -609,6 +751,17 @@ imagesRoute.patch('/:id/category', zValidator('json', changeCategorySchema), asy
     select: { id: true, category: true },
   })
   await refreshIdentityRetentionForImage(id)
+
+  await logImageMutation(c, user, rawImage, {
+    summary: 'Updated document category',
+    action: ACTIVITY_ACTIONS.DOCUMENT.UPDATED,
+    riskLevel: ActivityRiskLevel.LOW,
+    metadata: {
+      changedFields: ['category'],
+      previousCategory: rawImage.category,
+      newCategory: updated.category,
+    },
+  })
 
   return c.json({
     success: true,
@@ -631,7 +784,15 @@ imagesRoute.patch('/batch-category', zValidator('json', batchCategorySchema), as
       id: { in: imageIds },
       taxCase: { client: buildClientScopeFilter(user) },
     },
-    select: { id: true },
+    select: {
+      id: true,
+      caseId: true,
+      mimeType: true,
+      status: true,
+      classifiedType: true,
+      category: true,
+      taxCase: { select: { client: { select: { id: true, organizationId: true } } } },
+    },
   })
 
   if (images.length !== imageIds.length) {
@@ -644,6 +805,30 @@ imagesRoute.patch('/batch-category', zValidator('json', batchCategorySchema), as
     data: { category: category as DocCategory },
   })
   await Promise.all(imageIds.map((imageId) => refreshIdentityRetentionForImage(imageId)))
+
+  void logStaffActivities(
+    images.map((image) => ({
+      organizationId: image.taxCase.client.organizationId,
+      clientId: image.taxCase.client.id,
+      caseId: image.caseId,
+      rawImageId: image.id,
+      actorStaffId: user.staffId ?? '',
+      category: ACTIVITY_CATEGORIES.DOCUMENT,
+      targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
+      targetId: image.id,
+      summary: 'Updated document category',
+      action: ACTIVITY_ACTIONS.DOCUMENT.UPDATED,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        rawImageId: image.id,
+        docType: image.classifiedType,
+        previousCategory: image.category,
+        newCategory: category,
+        batch: true,
+      },
+      request: getAuditRequestContext(c),
+    })).filter((input) => input.actorStaffId)
+  )
 
   return c.json({
     success: true,
@@ -698,7 +883,11 @@ imagesRoute.delete('/:id', async (c) => {
     caseId: image.caseId,
     rawImageId: image.id,
     actorStaffId: staffId,
-    action: 'DOCUMENT_DELETED',
+    category: ACTIVITY_CATEGORIES.DOCUMENT,
+    targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
+    targetId: image.id,
+    summary: 'Deleted document file',
+    action: ACTIVITY_ACTIONS.DOCUMENT.DELETED,
     riskLevel: ActivityRiskLevel.HIGH,
     metadata: {
       rawImageId: image.id,
@@ -723,7 +912,16 @@ imagesRoute.post('/:id/classify-anyway', async (c) => {
 
   const image = await prisma.rawImage.findFirst({
     where: { id, taxCase: { client: buildClientScopeFilter(user) } },
-    select: { id: true, status: true, caseId: true, r2Key: true, mimeType: true },
+    select: {
+      id: true,
+      status: true,
+      caseId: true,
+      r2Key: true,
+      mimeType: true,
+      classifiedType: true,
+      category: true,
+      taxCase: { select: { client: { select: { id: true, organizationId: true } } } },
+    },
   })
 
   if (!image) {
@@ -747,6 +945,16 @@ imagesRoute.post('/:id/classify-anyway', async (c) => {
       caseId: image.caseId,
       r2Key: image.r2Key,
       mimeType: image.mimeType || 'application/octet-stream',
+    },
+  })
+
+  await logImageMutation(c, user, image, {
+    summary: 'Forced document classification',
+    action: ACTIVITY_ACTIONS.DOCUMENT.RECLASSIFY_TRIGGERED,
+    riskLevel: ActivityRiskLevel.MEDIUM,
+    metadata: {
+      changedFields: ['status', 'imageGroupId'],
+      previousStatus: image.status,
     },
   })
 
@@ -824,7 +1032,11 @@ imagesRoute.post('/batch-mark-viewed', async (c) => {
       caseId: image.caseId,
       rawImageId: image.id,
       actorStaffId: staffId,
-      action: 'DOCUMENT_MARKED_VIEWED',
+      category: ACTIVITY_CATEGORIES.DOCUMENT,
+      targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
+      targetId: image.id,
+      summary: 'Marked document viewed',
+      action: ACTIVITY_ACTIONS.DOCUMENT.MARKED_VIEWED,
       riskLevel: ActivityRiskLevel.LOW,
       metadata: {
         rawImageId: image.id,
@@ -905,7 +1117,11 @@ imagesRoute.post('/:id/mark-viewed', async (c) => {
     caseId: image.caseId,
     rawImageId: image.id,
     actorStaffId: staffId,
-    action: 'DOCUMENT_MARKED_VIEWED',
+    category: ACTIVITY_CATEGORIES.DOCUMENT,
+    targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
+    targetId: image.id,
+    summary: 'Marked document viewed',
+    action: ACTIVITY_ACTIONS.DOCUMENT.MARKED_VIEWED,
     riskLevel: ActivityRiskLevel.LOW,
     metadata: {
       rawImageId: image.id,
@@ -936,10 +1152,14 @@ imagesRoute.patch('/:id/reassign-entity', zValidator('json', reassignEntitySchem
       id: true,
       caseId: true,
       checklistItemId: true,
+      mimeType: true,
+      status: true,
+      classifiedType: true,
+      category: true,
       taxCase: {
         select: {
           taxYear: true,
-          client: { select: { id: true, clientGroupId: true } },
+          client: { select: { id: true, organizationId: true, clientGroupId: true } },
         },
       },
     },
@@ -1021,6 +1241,18 @@ imagesRoute.patch('/:id/reassign-entity', zValidator('json', reassignEntitySchem
 
   await refreshIdentityRetentionForImage(id)
 
+  await logImageMutation(c, user, rawImage, {
+    summary: 'Reassigned document entity',
+    action: ACTIVITY_ACTIONS.DOCUMENT.MOVED,
+    riskLevel: ActivityRiskLevel.MEDIUM,
+    metadata: {
+      changedFields: ['caseId', 'routedFromCaseId', 'entityConfidence', 'checklistItemId'],
+      fromCaseId: rawImage.caseId,
+      toCaseId: targetCaseId,
+      targetClientId,
+    },
+  })
+
   return c.json({
     success: true,
     id: updated.id,
@@ -1041,7 +1273,15 @@ imagesRoute.patch('/:id/rotation', zValidator('json', updateRotationSchema), asy
   // Find and update the raw image (org-scoped)
   const rawImage = await prisma.rawImage.findFirst({
     where: { id, taxCase: { client: buildClientScopeFilter(user) } },
-    select: { id: true },
+    select: {
+      id: true,
+      caseId: true,
+      mimeType: true,
+      status: true,
+      classifiedType: true,
+      category: true,
+      taxCase: { select: { client: { select: { id: true, organizationId: true } } } },
+    },
   })
 
   if (!rawImage) {
@@ -1053,6 +1293,16 @@ imagesRoute.patch('/:id/rotation', zValidator('json', updateRotationSchema), asy
     where: { id },
     data: { rotation },
     select: { id: true, rotation: true },
+  })
+
+  await logImageMutation(c, user, rawImage, {
+    summary: 'Rotated document',
+    action: ACTIVITY_ACTIONS.DOCUMENT.UPDATED,
+    riskLevel: ActivityRiskLevel.LOW,
+    metadata: {
+      changedFields: ['rotation'],
+      rotation: updated.rotation,
+    },
   })
 
   return c.json({
@@ -1079,10 +1329,16 @@ imagesRoute.post('/:id/move-to-case', zValidator('json', moveToCaseSchema), asyn
       id: true,
       caseId: true,
       checklistItemId: true,
+      mimeType: true,
+      status: true,
+      classifiedType: true,
+      category: true,
       taxCase: {
         select: {
           client: {
             select: {
+              id: true,
+              organizationId: true,
               clientGroupId: true,
               clientGroup: { select: { organizationId: true } },
             },
@@ -1180,6 +1436,17 @@ imagesRoute.post('/:id/move-to-case', zValidator('json', moveToCaseSchema), asyn
 
   // Refresh activity timestamps on both cases (best-effort)
   await Promise.all([updateLastActivity(previousCaseId), updateLastActivity(targetCaseId)])
+
+  await logImageMutation(c, user, rawImage, {
+    summary: 'Moved document to tax case',
+    action: ACTIVITY_ACTIONS.DOCUMENT.MOVED,
+    riskLevel: ActivityRiskLevel.MEDIUM,
+    metadata: {
+      changedFields: ['caseId', 'routedFromCaseId', 'checklistItemId', 'entityConfidence'],
+      fromCaseId: previousCaseId,
+      toCaseId: targetCaseId,
+    },
+  })
 
   return c.json({
     moved: true,

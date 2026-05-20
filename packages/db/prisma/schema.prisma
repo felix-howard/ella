@@ -1342,6 +1342,11 @@ model ActivityLog {
   caseId         String?
   rawImageId     String?
   magicLinkId    String?
+  category       String?
+  targetType     String?
+  targetId       String?
+  targetLabel    String?
+  summary        String?           @db.Text
   actorType      ActivityActorType
   actorStaffId   String?
   action         String
@@ -1360,6 +1365,9 @@ model ActivityLog {
   @@index([actorStaffId, createdAt])
   @@index([magicLinkId, createdAt])
   @@index([action, createdAt])
+  @@index([organizationId, category, createdAt])
+  @@index([targetType, targetId, createdAt])
+  @@index([actorStaffId, category, createdAt])
 }
 
 // Audit log for tracking field-level changes

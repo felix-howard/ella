@@ -44,6 +44,7 @@ export function UploadLinkManager({ caseId, clientId, onSendSms, isSendingSms = 
   const daysUntilExpiry = getDaysUntilExpiry(currentLink?.expiresAt ?? null)
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey })
+    await queryClient.invalidateQueries({ queryKey: ['activity'] })
     if (clientId) {
       await queryClient.invalidateQueries({ queryKey: ['client', clientId] })
     }

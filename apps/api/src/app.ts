@@ -44,6 +44,7 @@ import { clientGroupsRoute } from './routes/client-groups'
 import { agreementsStaffRoute, agreementsPublicRoute } from './routes/agreements'
 import { agreementTemplatesRoute } from './routes/agreement-templates'
 import { leadMessagesRoute } from './routes/leads/messages'
+import { activityRoute } from './routes/activity'
 
 const app = new OpenAPIHono()
 
@@ -103,6 +104,7 @@ app.use('/terms/*', authMiddleware)
 app.use('/contractor-agreements/*', authMiddleware)
 app.use('/client-groups/*', authMiddleware)
 app.use('/agreement-templates/*', authMiddleware)
+app.use('/activity/*', authMiddleware)
 
 // Routes (with deprecation headers for clientId-based queries)
 app.use('/clients/*', deprecationHeadersMiddleware)
@@ -133,6 +135,7 @@ app.route('/contractor-agreements', contractorAgreementsRoute)
 app.route('/campaigns', campaignsRoute) // Admin-only, inline auth middleware
 app.route('/client-groups', clientGroupsRoute)
 app.route('/agreement-templates', agreementTemplatesRoute)
+app.route('/activity', activityRoute)
 
 // OpenAPI documentation
 app.doc('/doc', {

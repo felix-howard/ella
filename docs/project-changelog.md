@@ -7,6 +7,34 @@
 
 ## 2026-05-20
 
+### Workspace/API: Comprehensive User Activity Log Rollout
+**Status:** Complete
+
+**Changed:**
+- Completed rollout docs and checklist for `ActivityLog` as the canonical user/system action timeline.
+- Dashboard recent activity now uses `api.activity.recent`; client overview uses `api.activity.client`.
+- Removed message body snippets from the legacy `/clients/:id/activity` fallback response.
+- Documented privacy boundary: no message bodies, phone numbers, emails, addresses, SSN/TIN/EIN raw values, tokens, signed URLs, OCR/raw text, R2 keys, or long notes in activity metadata/UI.
+- Deferred admin-only detail drawer and CSV export as future options.
+
+### API: Activity Query API Phase 03
+**Status:** Complete
+
+**Changed:**
+- Added authenticated `/activity/recent` and `/activity/clients/:clientId` endpoints for org-wide and client-scoped activity timelines.
+- Returned safe timeline DTOs with actor hydration, cursor pagination, and no raw metadata exposure.
+- Invalid or stale cursors now return 400 `INVALID_CURSOR`; client access stays org-scoped.
+- Workspace API gained `api.activity.recent` and `api.activity.client` helpers.
+
+### API/DB: Activity Log Taxonomy and Safe Timeline Contract
+**Status:** Complete
+
+**Changed:**
+- Added canonical `ActivityLog` taxonomy with grouped `ACTIVITY_ACTIONS`, category and target metadata, and stable safe-summary fields for UI surfaces.
+- Expanded metadata redaction to cover message/body/content, notes, phone, email, address, avatar, signature, URL, token, OCR, and storage-key patterns.
+- Added DTO mapping so timelines render normalized activity items instead of raw metadata.
+- Enriched route and job logging for upload links, portal rate limits, document access, case retention, and other server-side business actions.
+
 ### Security: Operational Filed Retention Workflow Rollout
 **Status:** Complete
 

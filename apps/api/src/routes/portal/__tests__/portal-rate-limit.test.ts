@@ -162,9 +162,12 @@ describe('Portal rate limits', () => {
         caseId: 'case_1',
         magicLinkId: 'link_valid_a',
         actorType: ActivityActorType.CLIENT_PORTAL,
-        action: 'portal.read.rate_limited',
+        action: 'system.rate_limited',
+        category: 'SYSTEM',
+        targetType: 'MAGIC_LINK',
+        targetId: 'link_valid_a',
         riskLevel: ActivityRiskLevel.MEDIUM,
-        ipAddress: '203.0.113.10',
+        ipAddress: 'unknown',
       }),
     })
   })
@@ -263,9 +266,12 @@ describe('Portal rate limits', () => {
       data: expect.objectContaining({
         magicLinkId: 'link_valid_upload',
         actorType: ActivityActorType.CLIENT_PORTAL,
-        action: 'portal.upload.rate_limited',
+        action: 'system.rate_limited',
+        category: 'SYSTEM',
+        targetType: 'MAGIC_LINK',
+        targetId: 'link_valid_upload',
         riskLevel: ActivityRiskLevel.MEDIUM,
-        ipAddress: '203.0.113.40',
+        ipAddress: 'unknown',
       }),
     })
   })

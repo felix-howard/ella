@@ -104,7 +104,10 @@ describe('document access hardening', () => {
         caseId: 'case_1',
         rawImageId: 'img_1',
         actorStaffId: 'staff_1',
-        action: 'DOCUMENT_SIGNED_URL_CREATED',
+        action: 'document.signed_url_created',
+        category: 'DOCUMENT',
+        targetType: 'RAW_IMAGE',
+        targetId: 'img_1',
         riskLevel: ActivityRiskLevel.MEDIUM,
       })
     )
@@ -132,7 +135,10 @@ describe('document access hardening', () => {
     expect(res.headers.get('expires')).toBe('0')
     expect(logStaffActivity).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: 'DOCUMENT_FILE_PROXIED',
+        action: 'document.file_proxied',
+        category: 'DOCUMENT',
+        targetType: 'RAW_IMAGE',
+        targetId: 'img_1',
         riskLevel: ActivityRiskLevel.MEDIUM,
       })
     )

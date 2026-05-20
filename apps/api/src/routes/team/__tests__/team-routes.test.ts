@@ -57,6 +57,22 @@ vi.mock('../../../services/audit-logger', () => ({
   logTeamAction: vi.fn(),
 }))
 
+// Mock activity logger
+vi.mock('../../../services/activity-log', () => ({
+  getAuditRequestContext: vi.fn(() => ({
+    ipAddress: '127.0.0.1',
+    userAgent: 'vitest',
+    route: '/team/test',
+    method: 'POST',
+  })),
+  getChangedFieldNames: vi.fn((input: Record<string, unknown>) =>
+    Object.entries(input)
+      .filter(([, value]) => value !== undefined)
+      .map(([key]) => key)
+  ),
+  logStaffActivity: vi.fn(),
+}))
+
 // Mock auth middleware against the injected test user.
 vi.mock('../../../middleware/auth', () => ({
   requireOrg: async (_c: unknown, next: () => Promise<void>) => next(),
@@ -74,6 +90,7 @@ import { prisma } from '../../../lib/db'
 import { clerkClient } from '../../../lib/clerk-client'
 import { deactivateStaff } from '../../../services/auth'
 import { logTeamAction } from '../../../services/audit-logger'
+import { logStaffActivity } from '../../../services/activity-log'
 import { getSignedUploadUrl, generateAvatarKey, getSignedDownloadUrl } from '../../../services/storage'
 import type { AuthVariables } from '../../../middleware/auth'
 import { teamRoute } from '../index'
@@ -195,6 +212,16 @@ describe('Team Routes', () => {
       const body = await res.json()
       expect(body.success).toBe(true)
       expect(body.invitation.emailAddress).toBe('new@test.com')
+      expect(logStaffActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organizationId: 'org_db_1',
+          actorStaffId: 'staff_1',
+          action: 'team.member_invited',
+          metadata: expect.not.objectContaining({
+            emailAddress: expect.anything(),
+          }),
+        })
+      )
     })
 
     it('rejects invalid email', async () => {

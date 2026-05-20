@@ -3,7 +3,7 @@
  * Magic link access and document upload for clients
  */
 import { Hono } from 'hono'
-import { ActivityActorType, ActivityRiskLevel } from '@ella/db'
+import { ActivityRiskLevel } from '@ella/db'
 import { createHash } from 'node:crypto'
 import { prisma } from '../../lib/db'
 import {
@@ -22,7 +22,8 @@ import {
   getRateLimitRetryAfterSeconds,
   isRateLimitExceeded,
 } from '../../middleware/rate-limiter'
-import { getAuditRequestContext, logActivity } from '../../services/activity-log'
+import { getAuditRequestContext, logClientPortalActivity } from '../../services/activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 import { PORTAL_ERROR_MESSAGES, assertCaseInScope, buildCaseChecklistPayload } from './helpers'
 
 const portalRoute = new Hono()
@@ -115,14 +116,18 @@ async function logPortalRateLimitHit(
   data: ValidPortalLinkData,
   route: 'read' | 'upload'
 ): Promise<void> {
-  await logActivity({
+  await logClientPortalActivity({
     organizationId: data.clientGroup?.organizationId ?? data.taxCase?.client.organizationId ?? null,
     clientId: data.taxCase?.client.id ?? null,
     caseId: data.taxCase?.id ?? null,
     magicLinkId: data.magicLinkId,
-    actorType: ActivityActorType.CLIENT_PORTAL,
-    action: `portal.${route}.rate_limited`,
+    category: ACTIVITY_CATEGORIES.SYSTEM,
+    targetType: ACTIVITY_TARGET_TYPES.MAGIC_LINK,
+    targetId: data.magicLinkId,
+    targetLabel: route,
+    action: ACTIVITY_ACTIONS.SYSTEM.RATE_LIMITED,
     riskLevel: ActivityRiskLevel.MEDIUM,
+    summary: `Portal ${route} rate limit hit`,
     metadata: {
       scope: data.scope,
       route,

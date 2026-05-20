@@ -260,7 +260,9 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /clients/:id/avatar` - Confirm avatar upload + return signed download URL (Phase 02 Backend)
 - `DELETE /clients/:id/avatar` - Remove client avatar (Phase 02 Backend)
 - `PATCH /clients/:id/notes` - Update client notes/internal comments (Phase 02 Backend)
-- `GET /clients/:id/activity` - Get recent activity timeline (uploads, messages, case updates, Phase 02 Backend)
+- `GET /activity/recent` - Get org-scoped recent activity timeline with safe DTOs, cursor pagination, and filters (`limit`, `category`, `actorStaffId`, `riskLevel`). Invalid cursors return 400 `INVALID_CURSOR`.
+- `GET /activity/clients/:clientId` - Get client-scoped activity timeline with safe DTOs and cursor pagination. Access stays org-scoped; inaccessible clients return 404.
+- `GET /clients/:id/activity` - Legacy client overview timeline kept during the workspace migration; sanitized message rows do not include message body snippets.
 - `GET /clients/:id/stats` - Get quick stats (totalFiles, taxYears, verifiedPercent, lastMessageAt, Phase 02 Backend)
 - Status endpoints for action tracking. Client.source expanded to 5 values: MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED.
 
@@ -390,6 +392,8 @@ Organization (root entity)
 **Audit Logging:**
 - AuditLog tracks: entity type, id, field, old/new values, changedBy, timestamp
 - All org-scoped changes logged for compliance
+- ActivityLog tracks server-side business actions with category, target, actor, risk, and safe summary fields; metadata is redacted before persistence and should not be rendered raw in UI.
+- Timeline and activity surfaces should use `toActivityTimelineItem()` or equivalent safe DTOs, not the stored metadata JSON.
 
 ## Database Schema
 
@@ -412,6 +416,7 @@ Organization (root entity)
 - **DocumentGroup** - Phase 2/3 multi-page document grouping: baseName (base filename), documentType (identified type), pageCount (pages in group), confidence (AI confidence), images relation (array of RawImages). Indexes: caseId, caseId+createdAt. Phase 3 Enhancement: sortDocumentsByPageMarker() orders docs by extracted pageMarker.currentPage with fallback to upload order. validatePageSequence() checks for gaps and duplicates in page ordering.
 - **DigitalDoc** - OCR extracted fields
 - **ShareableDocument** (Prisma model name; table preserved as `DraftReturn` via `@@map`) - taxCaseId FK (Cascade delete), r2Key (unique storage), filename, fileSize, title (default: "Draft Return", min 1 / max 100 chars, unique per case+ACTIVE+non-deleted), version tracking (auto-increment per section via (taxCaseId, title) grouping; rename propagates title across all versions to keep grouping stable), uploadedById FK to Staff, status (DocumentStatus enum: ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, deletedAt (soft-delete — single source of truth for "removed"), magicLinks relation. Indexes: taxCaseId, (taxCaseId, status, deletedAt)
+- **ActivityLog** - canonical org-scoped event stream for business actions. Fields: organizationId, clientId, caseId, rawImageId, magicLinkId, category, targetType, targetId, targetLabel, summary, actorType, actorStaffId, action, riskLevel, redacted metadata, request context. Indexes support org/category, target lookup, and actor/category lookup. Used for upload links, portal rate limits, document access, retention jobs, profile/team/settings changes, leads, auth, and other system events.
 - **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token (unique, 12-char base36), caseId/type reference, optional `draftReturnId` FK (SetNull) pointing at current ShareableDocument — FK column name preserved for zero data movement, isActive, expiresAt (14-day TTL for DRAFT_RETURN, null for others), usageCount, lastUsedAt. On version upload the same token is retained and `draftReturnId` is repointed to the new version. Indexes: token (unique), caseId+type, draftReturnId
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
@@ -1002,9 +1007,16 @@ PATCH /clients/:id/notes
   Request: { notes: string } (HTML, max 50KB)
   Response: { id, notes, notesUpdatedAt, updatedAt }
 
-GET /clients/:id/activity
-  Response: ActivityItem[] (10 items max, desc by timestamp)
-  Types: upload | message | case_updated
+GET /activity/recent
+  Response: ActivityTimelineResponse { data[], nextCursor }
+  Notes: Org-scoped, safe DTOs only, filters: limit/category/actorStaffId/riskLevel
+
+GET /activity/clients/:clientId
+  Response: ActivityTimelineResponse { data[], nextCursor }
+  Notes: Client-scoped, safe DTOs only, invalid cursor returns 400 INVALID_CURSOR
+
+GET /clients/:id/activity (legacy)
+  Response: ActivityItem[] (legacy sanitized fallback; message descriptions do not include body snippets)
 
 GET /clients/:id/stats
   Response: { totalFiles, taxYears[], verifiedPercent, lastMessageAt }
@@ -2322,20 +2334,43 @@ Client {
 - Output: `{ id, notes, notesUpdatedAt, updatedAt }`
 - XSS prevention: Frontend auto-escapes React rendering (notes aren't treated as raw HTML)
 
-**Activity Timeline (`GET /clients/:id/activity`):**
-Aggregates recent events across client's tax cases in single endpoint:
+**Activity Timeline (`GET /activity/recent` and `GET /activity/clients/:clientId`):**
+Aggregates recent events into safe timeline DTOs with actor hydration and cursor pagination:
 ```typescript
-ActivityItem {
-  type: 'upload' | 'message' | 'case_updated'
+ActivityTimelineResponse {
+  data: ActivityTimelineResponseItem[]
+  nextCursor: string | null
+}
+
+ActivityTimelineResponseItem {
   id: string
-  timestamp: string (ISO8601)
-  description: string
+  createdAt: string
+  category: ActivityCategory
+  action: string
+  riskLevel: ActivityRiskLevel
+  summary: string
+  actor: {
+    type: ActivityActorType
+    staffId: string | null
+    name: string | null
+    avatarUrl: string | null
+  }
+  target: {
+    type: ActivityTargetType
+    id: string | null
+    label: string | null
+  }
+  clientId: string | null
+  caseId: string | null
+  route: string | null
+  method: string | null
 }
 ```
-- **uploads:** RawImage entries (displayName or filename)
-- **messages:** SMS/PORTAL messages (direction + first 50 chars of content)
-- **case_updated:** TaxCase status changes (year + current status)
-- Returns top 10 most recent (sorted desc by timestamp)
+- **Safe surface:** no raw `metadata`, IP address, or user-agent in the list response.
+- **Cursor handling:** stale or out-of-scope cursors return 400 `INVALID_CURSOR`.
+- **Actor hydration:** actor names/avatar URLs are joined from org-scoped `Staff` records.
+- **Workspace display:** dashboard shows recent org/access-scoped actions; client overview shows the same canonical stream filtered to that client.
+- **Future option:** admin-only detail drawer and CSV export can expose more context later, but must keep the same redaction boundary.
 
 **Quick Stats (`GET /clients/:id/stats`):**
 Single query endpoint for client overview cards:
@@ -2351,7 +2386,8 @@ Single query endpoint for client overview cards:
 **API Integration:**
 ```typescript
 // In api-client.ts
-api.clients.getActivity(clientId)       // GET /clients/:id/activity
+api.activity.recent({ limit: 20 })       // GET /activity/recent
+api.activity.client(clientId)            // GET /activity/clients/:clientId
 api.clients.getStats(clientId)          // GET /clients/:id/stats
 api.clients.avatarPresignedUrl(clientId, { contentType, fileSize })
 api.clients.confirmAvatar(clientId, { r2Key })
@@ -2455,7 +2491,9 @@ All avatar/notes UI will need i18n keys in workspace:
 **Data Isolation:**
 - Org-scoped queries at middleware & service layer
 - Client.managedById FK enforces single-manager relationship
-- Audit logging for all changes
+- ActivityLog is the canonical user/system timeline for meaningful mutations; route instrumentation records actor, org scope, target, request context, risk, and redacted metadata.
+- Audit logging remains for legacy field-level snapshots and specialized destructive snapshots.
+- `/admin/*` configuration routes require org admin access, and voice caller lookup is org-scoped.
 
 **Authentication:**
 - Clerk OAuth with org management

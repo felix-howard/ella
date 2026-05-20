@@ -15,6 +15,7 @@ import {
   getAuditRequestContext,
   logStaffActivity,
 } from '../../services/activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 import {
   caseIdParamSchema,
   extendUploadLinkSchema,
@@ -131,6 +132,16 @@ async function logUploadLinkAction(
     actorStaffId: user.staffId,
     action,
     riskLevel,
+    category: ACTIVITY_CATEGORIES.UPLOAD_LINK,
+    targetType: ACTIVITY_TARGET_TYPES.MAGIC_LINK,
+    targetId: link.id,
+    targetLabel: link.taxCase?.client.name,
+    summary:
+      action === ACTIVITY_ACTIONS.UPLOAD_LINK.GENERATED
+        ? `Generated upload link for ${link.taxCase?.client.name ?? 'client'}`
+        : action === ACTIVITY_ACTIONS.UPLOAD_LINK.EXTENDED
+          ? `Extended upload link for ${link.taxCase?.client.name ?? 'client'}`
+          : `Revoked upload link for ${link.taxCase?.client.name ?? 'client'}`,
     metadata,
     request: getAuditRequestContext(c),
   })
@@ -210,7 +221,7 @@ uploadLinksRoute.post(
       include: { taxCase: { select: { id: true, client: { select: { id: true, organizationId: true } } } } },
     })
 
-    await logUploadLinkAction(c, user, link, 'upload_link.revoked', ActivityRiskLevel.HIGH, {
+    await logUploadLinkAction(c, user, link, ACTIVITY_ACTIONS.UPLOAD_LINK.REVOKED, ActivityRiskLevel.HIGH, {
       previousStatus,
       newStatus: 'REVOKED' satisfies MagicLinkStatus,
     })
@@ -250,7 +261,7 @@ uploadLinksRoute.post(
       include: { taxCase: { select: { id: true, client: { select: { id: true, organizationId: true } } } } },
     })
 
-    await logUploadLinkAction(c, user, link, 'upload_link.extended', ActivityRiskLevel.MEDIUM, {
+    await logUploadLinkAction(c, user, link, ACTIVITY_ACTIONS.UPLOAD_LINK.EXTENDED, ActivityRiskLevel.MEDIUM, {
       previousStatus: status,
       days,
       expiresAt: expiresAt.toISOString(),
@@ -287,7 +298,7 @@ uploadLinksRoute.post(
       return c.json({ error: 'LINK_NOT_FOUND', message: 'Generated link was not found' }, 500)
     }
 
-    await logUploadLinkAction(c, user, link, 'upload_link.generated', ActivityRiskLevel.HIGH, {
+    await logUploadLinkAction(c, user, link, ACTIVITY_ACTIONS.UPLOAD_LINK.GENERATED, ActivityRiskLevel.HIGH, {
       scope: created.scope,
       clientGroupId: created.clientGroupId,
       expiresAt: created.expiresAt?.toISOString() ?? null,

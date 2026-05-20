@@ -38,6 +38,11 @@ Ella streamlines tax preparation workflows by automating document collection, cl
 - Voicemail recording and transcription
 - Magic link portal for client communication
 
+### Operational Activity
+- Canonical `ActivityLog` timeline for meaningful staff, client, and system actions
+- Dashboard recent activity and client overview activity surfaces
+- Redacted activity metadata: no message bodies, phone numbers, emails, tokens, signed URLs, OCR text, storage keys, or long notes
+
 ### AI & Automation
 - Google Gemini 2.0-flash integration
 - Automatic document classification
@@ -148,6 +153,7 @@ ella/
 3. **Database** (Prisma) → Multi-tenant data isolation
 4. **AI Services** (Gemini) → Document processing
 5. **External** (Twilio, R2) → Communication & storage
+6. **ActivityLog** → Server-confirmed action timeline for dashboard/client overview
 
 ## Project Phases
 

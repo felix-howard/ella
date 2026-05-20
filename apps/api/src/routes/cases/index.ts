@@ -2,7 +2,7 @@
  * Tax Cases API routes
  * CRUD operations for tax case management
  */
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
 import { getPaginationParams, buildPaginationResponse } from '../../lib/constants'
@@ -24,6 +24,12 @@ import { generateChecklist } from '../../services/checklist-generator'
 import { getSignedDownloadUrl, SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS } from '../../services/storage'
 import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
 import {
+  ACTIVITY_ACTIONS,
+  ACTIVITY_CATEGORIES,
+  ACTIVITY_TARGET_TYPES,
+  type ActivityTargetType,
+} from '../../services/activity-actions'
+import {
   clearScheduledIdentityRetentionForCase,
   extendScheduledIdentityRetentionForCase,
   scheduleIdentityRetentionForFiledCase,
@@ -37,6 +43,40 @@ import { buildNestedClientScope, buildClientScopeFilter } from '../../lib/org-sc
 import { isBizWithGroup } from '../../lib/client-helpers'
 
 const casesRoute = new Hono<{ Variables: AuthVariables }>()
+
+async function logCaseMutation(
+  c: Context<{ Variables: AuthVariables }>,
+  user: AuthVariables['user'],
+  input: {
+    clientId: string
+    caseId: string
+    targetId?: string
+    targetType?: ActivityTargetType
+    targetLabel?: string
+    summary: string
+    action: string
+    riskLevel?: ActivityRiskLevel
+    metadata?: Record<string, unknown>
+  }
+) {
+  if (!user.staffId) return
+
+  await logStaffActivity({
+    organizationId: user.organizationId,
+    clientId: input.clientId,
+    caseId: input.caseId,
+    actorStaffId: user.staffId,
+    category: ACTIVITY_CATEGORIES.CASE,
+    targetType: input.targetType ?? ACTIVITY_TARGET_TYPES.CASE,
+    targetId: input.targetId ?? input.caseId,
+    targetLabel: input.targetLabel,
+    summary: input.summary,
+    action: input.action,
+    riskLevel: input.riskLevel ?? ActivityRiskLevel.LOW,
+    metadata: input.metadata,
+    request: getAuditRequestContext(c),
+  })
+}
 
 function getGenericPatchTransitions(currentStatus: TaxCaseStatus): TaxCaseStatus[] {
   return getValidNextStatuses(currentStatus).filter((nextStatus) => {
@@ -151,6 +191,21 @@ casesRoute.post('/', zValidator('json', createCaseSchema), async (c) => {
     await generateChecklist(taxCase.id, taxTypes as TaxType[], client.profile)
   }
 
+  await logCaseMutation(c, user, {
+    clientId,
+    caseId: taxCase.id,
+    targetLabel: `${taxYear}`,
+    summary: 'Created tax case',
+    action: ACTIVITY_ACTIONS.CASE.CREATED,
+    riskLevel: ActivityRiskLevel.MEDIUM,
+    metadata: {
+      taxYear,
+      taxTypes,
+      status: taxCase.status,
+      engagementId: taxCase.engagementId,
+    },
+  })
+
   return c.json(
     {
       id: taxCase.id,
@@ -223,7 +278,7 @@ casesRoute.patch('/:id', zValidator('json', updateCaseSchema), async (c) => {
   // Fetch current case to validate transition (org-scoped)
   const currentCase = await prisma.taxCase.findFirst({
     where: { id, ...buildNestedClientScope(user) },
-    select: { status: true },
+    select: { status: true, clientId: true },
   })
 
   if (!currentCase) {
@@ -312,6 +367,19 @@ casesRoute.patch('/:id', zValidator('json', updateCaseSchema), async (c) => {
       409
     )
   }
+
+  await logCaseMutation(c, user, {
+    clientId: patchResult.clientId,
+    caseId: id,
+    summary: isStatusChange ? 'Changed tax case status' : 'Updated tax case',
+    action: isStatusChange ? ACTIVITY_ACTIONS.CASE.STATUS_CHANGED : ACTIVITY_ACTIONS.CASE.UPDATED,
+    riskLevel: isStatusChange ? ActivityRiskLevel.MEDIUM : ActivityRiskLevel.LOW,
+    metadata: {
+      changedFields: Object.keys(updateData),
+      previousStatus: currentCase.status,
+      newStatus: patchResult.status,
+    },
+  })
 
   return c.json({
     ...patchResult,
@@ -556,7 +624,11 @@ casesRoute.get('/images/:imageId/signed-url', async (c) => {
     caseId: image.caseId,
     rawImageId: image.id,
     actorStaffId: staffId,
-    action: 'DOCUMENT_SIGNED_URL_CREATED',
+    category: ACTIVITY_CATEGORIES.DOCUMENT,
+    targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
+    targetId: image.id,
+    summary: 'Created temporary document download URL',
+    action: ACTIVITY_ACTIONS.DOCUMENT.SIGNED_URL_CREATED,
     riskLevel: ActivityRiskLevel.MEDIUM,
     metadata: {
       rawImageId: image.id,
@@ -653,7 +725,11 @@ casesRoute.get('/images/:imageId/file', async (c) => {
       caseId: image.caseId,
       rawImageId: image.id,
       actorStaffId: staffId,
-      action: 'DOCUMENT_FILE_PROXIED',
+      category: ACTIVITY_CATEGORIES.DOCUMENT,
+      targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
+      targetId: image.id,
+      summary: 'Viewed document through file proxy',
+      action: ACTIVITY_ACTIONS.DOCUMENT.FILE_PROXIED,
       riskLevel: ActivityRiskLevel.MEDIUM,
       metadata: {
         rawImageId: image.id,
@@ -695,7 +771,7 @@ casesRoute.post('/:id/checklist/items', zValidator('json', addChecklistItemSchem
   // Verify case exists and belongs to user's org
   const taxCase = await prisma.taxCase.findFirst({
     where: { id: caseId, ...buildNestedClientScope(user) },
-    select: { id: true },
+    select: { id: true, clientId: true },
   })
 
   if (!taxCase) {
@@ -748,6 +824,23 @@ casesRoute.post('/:id/checklist/items', zValidator('json', addChecklistItemSchem
     },
   })
 
+  await logCaseMutation(c, user, {
+    clientId: taxCase.clientId,
+    caseId,
+    targetType: ACTIVITY_TARGET_TYPES.CHECKLIST_ITEM,
+    targetId: item.id,
+    targetLabel: template.labelVi,
+    summary: 'Added checklist item',
+    action: ACTIVITY_ACTIONS.CASE.UPDATED,
+    riskLevel: ActivityRiskLevel.LOW,
+    metadata: {
+      changedFields: ['checklistItems'],
+      docType,
+      expectedCount: expectedCount ?? 1,
+      manuallyAdded: true,
+    },
+  })
+
   return c.json({ data: item }, 201)
 })
 
@@ -764,7 +857,7 @@ casesRoute.patch(
     // Verify case belongs to user's org
     const caseCheck = await prisma.taxCase.findFirst({
       where: { id: caseId, ...buildNestedClientScope(user) },
-      select: { id: true },
+      select: { id: true, clientId: true },
     })
     if (!caseCheck) {
       return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
@@ -794,6 +887,21 @@ casesRoute.patch(
       },
     })
 
+    await logCaseMutation(c, user, {
+      clientId: caseCheck.clientId,
+      caseId,
+      targetType: ACTIVITY_TARGET_TYPES.CHECKLIST_ITEM,
+      targetId: itemId,
+      targetLabel: updatedItem.template.labelVi,
+      summary: 'Skipped checklist item',
+      action: ACTIVITY_ACTIONS.CASE.UPDATED,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        changedFields: ['status', 'skippedAt', 'skippedById', 'skippedReason'],
+        status: 'NOT_REQUIRED',
+      },
+    })
+
     return c.json({ data: updatedItem })
   }
 )
@@ -806,7 +914,7 @@ casesRoute.patch('/:id/checklist/items/:itemId/unskip', async (c) => {
   // Verify case belongs to user's org
   const caseCheck = await prisma.taxCase.findFirst({
     where: { id: caseId, ...buildNestedClientScope(user) },
-    select: { id: true },
+    select: { id: true, clientId: true },
   })
   if (!caseCheck) {
     return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
@@ -843,6 +951,21 @@ casesRoute.patch('/:id/checklist/items/:itemId/unskip', async (c) => {
     include: { template: true },
   })
 
+  await logCaseMutation(c, user, {
+    clientId: caseCheck.clientId,
+    caseId,
+    targetType: ACTIVITY_TARGET_TYPES.CHECKLIST_ITEM,
+    targetId: itemId,
+    targetLabel: updatedItem.template.labelVi,
+    summary: 'Unskipped checklist item',
+    action: ACTIVITY_ACTIONS.CASE.UPDATED,
+    riskLevel: ActivityRiskLevel.LOW,
+    metadata: {
+      changedFields: ['status', 'skippedAt', 'skippedById', 'skippedReason'],
+      status: newStatus,
+    },
+  })
+
   return c.json({ data: updatedItem })
 })
 
@@ -857,7 +980,7 @@ casesRoute.patch(
     // Verify case belongs to user's org
     const caseCheck = await prisma.taxCase.findFirst({
       where: { id: caseId, ...buildNestedClientScope(user) },
-      select: { id: true },
+      select: { id: true, clientId: true },
     })
     if (!caseCheck) {
       return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
@@ -879,6 +1002,20 @@ casesRoute.patch(
       include: { template: true },
     })
 
+    await logCaseMutation(c, user, {
+      clientId: caseCheck.clientId,
+      caseId,
+      targetType: ACTIVITY_TARGET_TYPES.CHECKLIST_ITEM,
+      targetId: itemId,
+      targetLabel: updatedItem.template.labelVi,
+      summary: 'Updated checklist item notes',
+      action: ACTIVITY_ACTIONS.CASE.UPDATED,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        changedFields: ['notes'],
+      },
+    })
+
     return c.json({ data: updatedItem })
   }
 )
@@ -895,7 +1032,7 @@ casesRoute.post('/:id/send-to-review', zValidator('param', caseIdParamSchema), a
   // Verify case exists and check current state (org-scoped)
   const taxCase = await prisma.taxCase.findFirst({
     where: { id, ...buildNestedClientScope(user) },
-    select: { isInReview: true, isFiled: true },
+    select: { clientId: true, isInReview: true, isFiled: true },
   })
 
   if (!taxCase) {
@@ -915,6 +1052,18 @@ casesRoute.post('/:id/send-to-review', zValidator('param', caseIdParamSchema), a
     data: {
       isInReview: true,
       lastActivityAt: new Date(),
+    },
+  })
+
+  await logCaseMutation(c, user, {
+    clientId: taxCase.clientId,
+    caseId: id,
+    summary: 'Sent tax case to review',
+    action: ACTIVITY_ACTIONS.CASE.STATUS_CHANGED,
+    riskLevel: ActivityRiskLevel.MEDIUM,
+    metadata: {
+      changedFields: ['isInReview', 'lastActivityAt'],
+      isInReview: true,
     },
   })
 
@@ -960,6 +1109,7 @@ casesRoute.post('/:id/mark-filed', zValidator('param', caseIdParamSchema), async
       where: { id },
       select: {
         id: true,
+        clientId: true,
         status: true,
         isFiled: true,
         filedAt: true,
@@ -980,6 +1130,19 @@ casesRoute.post('/:id/mark-filed', zValidator('param', caseIdParamSchema), async
   if (!result.updated) {
     return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
   }
+
+  await logCaseMutation(c, user, {
+    clientId: result.updated.clientId,
+    caseId: id,
+    summary: 'Marked tax case filed',
+    action: ACTIVITY_ACTIONS.CASE.STATUS_CHANGED,
+    riskLevel: ActivityRiskLevel.HIGH,
+    metadata: {
+      changedFields: ['isFiled', 'isInReview', 'status', 'filedAt', 'lastActivityAt'],
+      status: result.updated.status,
+      scheduledIdentityDocs: result.scheduledIdentityDocs,
+    },
+  })
 
   return c.json({
     success: true,
@@ -1028,6 +1191,7 @@ casesRoute.post('/:id/reopen', zValidator('param', caseIdParamSchema), async (c)
       where: { id },
       select: {
         id: true,
+        clientId: true,
         status: true,
         isFiled: true,
         filedAt: true,
@@ -1048,6 +1212,19 @@ casesRoute.post('/:id/reopen', zValidator('param', caseIdParamSchema), async (c)
   if (!result.updated) {
     return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
   }
+
+  await logCaseMutation(c, user, {
+    clientId: result.updated.clientId,
+    caseId: id,
+    summary: 'Reopened filed tax case',
+    action: ACTIVITY_ACTIONS.CASE.STATUS_CHANGED,
+    riskLevel: ActivityRiskLevel.HIGH,
+    metadata: {
+      changedFields: ['isFiled', 'isInReview', 'status', 'filedAt', 'lastActivityAt'],
+      status: result.updated.status,
+      clearedIdentityDocs: result.clearedIdentityDocs,
+    },
+  })
 
   return c.json({
     success: true,
@@ -1116,7 +1293,11 @@ casesRoute.post(
       clientId: result.taxCase.clientId,
       caseId: id,
       actorStaffId: staffId,
-      action: 'IDENTITY_DOCUMENT_RETENTION_EXTENDED',
+      category: ACTIVITY_CATEGORIES.DOCUMENT,
+      targetType: ACTIVITY_TARGET_TYPES.CASE,
+      targetId: id,
+      summary: 'Extended identity document retention',
+      action: ACTIVITY_ACTIONS.DOCUMENT.RETENTION_EXTENDED,
       riskLevel: ActivityRiskLevel.MEDIUM,
       metadata: {
         days,

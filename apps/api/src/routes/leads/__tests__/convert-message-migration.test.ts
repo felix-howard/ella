@@ -85,6 +85,22 @@ vi.mock('../../../middleware/rate-limiter', () => ({
   rateLimiter: () => async (_c: unknown, next: () => Promise<void>) => next(),
 }))
 
+vi.mock('../../../services/activity-log', () => ({
+  getAuditRequestContext: vi.fn(() => ({
+    ipAddress: '127.0.0.1',
+    userAgent: 'vitest',
+    route: '/leads/test',
+    method: 'POST',
+  })),
+  getChangedFieldNames: vi.fn((input: Record<string, unknown>) =>
+    Object.entries(input)
+      .filter(([, value]) => value !== undefined)
+      .map(([key]) => key)
+  ),
+  logStaffActivity: vi.fn(),
+  logSystemActivity: vi.fn(),
+}))
+
 vi.mock('../../../middleware/auth', () => {
   const authMiddleware = async (c: any, next: () => Promise<void>) => {
     if (!c.get('user')) {

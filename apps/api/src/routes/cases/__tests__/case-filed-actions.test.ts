@@ -238,7 +238,10 @@ describe('case filed action semantics', () => {
         clientId: 'client_1',
         caseId,
         actorStaffId: 'staff_1',
-        action: 'IDENTITY_DOCUMENT_RETENTION_EXTENDED',
+        action: 'document.retention_extended',
+        category: 'DOCUMENT',
+        targetType: 'CASE',
+        targetId: caseId,
         metadata: expect.objectContaining({
           days: 30,
           scheduledIdentityDocs: 2,

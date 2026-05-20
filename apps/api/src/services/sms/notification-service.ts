@@ -192,7 +192,7 @@ export async function notifyMissingDocuments(caseId: string): Promise<SendMessag
  * - No reminder sent in last 24 hours
  * - Case has activity (created > 3 days ago to give client time to upload)
  */
-export async function getCasesNeedingReminders(): Promise<
+export async function getCasesNeedingReminders(organizationId?: string): Promise<
   Array<{ caseId: string; clientName: string; missingCount: number }>
 > {
   const gracePeriodDate = new Date(Date.now() - CASE_GRACE_PERIOD_MS)
@@ -202,6 +202,7 @@ export async function getCasesNeedingReminders(): Promise<
     where: {
       status: 'WAITING_DOCS',
       createdAt: { lte: gracePeriodDate },
+      ...(organizationId ? { client: { organizationId } } : {}),
       checklistItems: {
         some: {
           status: 'MISSING',
@@ -244,13 +245,13 @@ export async function getCasesNeedingReminders(): Promise<
  * Batch send missing documents reminders with concurrency control
  * Returns summary of sent/failed notifications
  */
-export async function sendBatchMissingReminders(): Promise<{
+export async function sendBatchMissingReminders(organizationId?: string): Promise<{
   sent: number
   failed: number
   skipped: number
   details: Array<{ caseId: string; result: string }>
 }> {
-  const casesToNotify = await getCasesNeedingReminders()
+  const casesToNotify = await getCasesNeedingReminders(organizationId)
 
   const results = {
     sent: 0,

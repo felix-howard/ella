@@ -2,7 +2,7 @@
  * Clients API routes
  * CRUD operations for client management
  */
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
@@ -51,7 +51,13 @@ import { rateLimiter } from '../../middleware/rate-limiter'
 import { requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import { ActivityRiskLevel } from '@ella/db'
-import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
+import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
+import {
+  ACTIVITY_ACTIONS,
+  ACTIVITY_CATEGORIES,
+  ACTIVITY_TARGET_TYPES,
+  type ActivityTargetType,
+} from '../../services/activity-actions'
 import { clientsAgreementsRoute } from './agreements'
 import { clientsAgreementsStaffRoute } from './agreements-staff'
 import {
@@ -114,6 +120,40 @@ clientsRoute.route('/', clientsAgreementsStaffRoute)
  */
 function computeDisplayName(firstName: string, lastName?: string | null): string {
   return lastName ? `${firstName} ${lastName}` : firstName
+}
+
+async function logClientMutation(
+  c: Context<{ Variables: AuthVariables }>,
+  user: AuthVariables['user'],
+  input: {
+    clientId: string
+    caseId?: string | null
+    targetId?: string
+    targetType?: ActivityTargetType
+    targetLabel?: string | null
+    summary: string
+    action: string
+    riskLevel?: ActivityRiskLevel
+    metadata?: Record<string, unknown>
+  }
+) {
+  if (!user.staffId) return
+
+  await logStaffActivity({
+    organizationId: user.organizationId,
+    clientId: input.clientId,
+    caseId: input.caseId,
+    actorStaffId: user.staffId,
+    category: ACTIVITY_CATEGORIES.CLIENT,
+    targetType: input.targetType ?? ACTIVITY_TARGET_TYPES.CLIENT,
+    targetId: input.targetId ?? input.clientId,
+    targetLabel: input.targetLabel,
+    summary: input.summary,
+    action: input.action,
+    riskLevel: input.riskLevel ?? ActivityRiskLevel.LOW,
+    metadata: input.metadata,
+    request: getAuditRequestContext(c),
+  })
 }
 
 
@@ -580,6 +620,21 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
     }
   }
 
+  await logClientMutation(c, user, {
+    clientId: result.client.id,
+    caseId: result.taxCase.id,
+    targetLabel: result.client.name,
+    summary: 'Created client',
+    action: ACTIVITY_ACTIONS.CLIENT.CREATED,
+    riskLevel: ActivityRiskLevel.MEDIUM,
+    metadata: {
+      clientType: result.client.clientType,
+      taxYear: result.taxCase.taxYear,
+      taxTypes: result.taxCase.taxTypes,
+      welcomeSmsSent: smsStatus.sent,
+    },
+  })
+
   return c.json(
     {
       client: {
@@ -965,6 +1020,17 @@ clientsRoute.patch(
       data: { ...prismaUpdateData, updatedById: user.staffId },
     })
 
+    await logClientMutation(c, user, {
+      clientId: id,
+      targetLabel: client.name,
+      summary: 'Updated client',
+      action: ACTIVITY_ACTIONS.CLIENT.UPDATED,
+      riskLevel: hasBusinessFieldUpdate ? ActivityRiskLevel.MEDIUM : ActivityRiskLevel.LOW,
+      metadata: {
+        changedFields: getChangedFieldNames(updateData),
+      },
+    })
+
     return c.json({
       ...client,
       name: computeDisplayName(client.firstName, client.lastName),
@@ -1102,6 +1168,19 @@ clientsRoute.patch(
         logProfileChanges(id, allChanges).catch((err) => {
           console.error('[Profile Update] Failed to log changes:', err)
         })
+        await logClientMutation(c, user, {
+          clientId: id,
+          caseId: activeCaseId,
+          targetLabel: client.name,
+          summary: 'Updated client profile',
+          action: ACTIVITY_ACTIONS.CLIENT.UPDATED,
+          riskLevel: ActivityRiskLevel.LOW,
+          metadata: {
+            changedFields: allChanges.map((change) => change.field),
+            checklistRefreshed,
+            cascadeCleanupCount: changedToFalse.length,
+          },
+        })
       }
 
       return c.json({
@@ -1215,6 +1294,16 @@ clientsRoute.patch(
 
     // Validate r2Key belongs to this client (prevent path traversal)
     if (!r2Key.startsWith(`client-avatars/${id}/`)) {
+      await logClientMutation(c, user, {
+        clientId: id,
+        summary: 'Denied invalid client avatar update',
+        action: ACTIVITY_ACTIONS.CLIENT.AVATAR_UPDATED,
+        riskLevel: ActivityRiskLevel.HIGH,
+        metadata: {
+          result: 'denied',
+          reason: 'invalid_avatar_key',
+        },
+      })
       return c.json({ error: 'INVALID_KEY', message: 'Avatar key does not belong to this client' }, 400)
     }
 
@@ -1224,6 +1313,14 @@ clientsRoute.patch(
       where: { id },
       data: { avatarUrl: r2Key },
       select: { id: true, avatarUrl: true, updatedAt: true },
+    })
+
+    await logClientMutation(c, user, {
+      clientId: id,
+      summary: 'Updated client avatar',
+      action: ACTIVITY_ACTIONS.CLIENT.AVATAR_UPDATED,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: { changedFields: ['avatarUrl'] },
     })
 
     return c.json({
@@ -1256,6 +1353,14 @@ clientsRoute.delete(
       where: { id },
       data: { avatarUrl: null },
       select: { id: true, avatarUrl: true, updatedAt: true },
+    })
+
+    await logClientMutation(c, user, {
+      clientId: id,
+      summary: 'Deleted client avatar',
+      action: ACTIVITY_ACTIONS.CLIENT.AVATAR_DELETED,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: { changedFields: ['avatarUrl'] },
     })
 
     return c.json({
@@ -1295,6 +1400,14 @@ clientsRoute.patch(
         notesUpdatedAt: new Date(),
       },
       select: { id: true, notes: true, notesUpdatedAt: true, updatedAt: true },
+    })
+
+    await logClientMutation(c, user, {
+      clientId: id,
+      summary: 'Updated client notes',
+      action: ACTIVITY_ACTIONS.CLIENT.NOTES_UPDATED,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: { changedFields: ['notes', 'notesUpdatedAt'] },
     })
 
     return c.json({
@@ -1347,7 +1460,7 @@ clientsRoute.get(
         where: { conversation: { caseId: { in: caseIds } } },
         orderBy: { createdAt: 'desc' },
         take: 10,
-        select: { id: true, direction: true, content: true, channel: true, callStatus: true, recordingDuration: true, createdAt: true },
+        select: { id: true, direction: true, channel: true, callStatus: true, recordingDuration: true, createdAt: true },
       }),
       // TaxCase status changes (use updatedAt as proxy)
       prisma.taxCase.findMany({
@@ -1404,10 +1517,7 @@ clientsRoute.get(
         type: 'message' as const,
         id: msg.id,
         timestamp: msg.createdAt.toISOString(),
-        description:
-          msg.direction === 'INBOUND'
-            ? `Client sent: "${(msg.content || '').substring(0, 50)}${(msg.content || '').length > 50 ? '...' : ''}"`
-            : `Staff sent: "${(msg.content || '').substring(0, 50)}${(msg.content || '').length > 50 ? '...' : ''}"`,
+        description: msg.direction === 'INBOUND' ? 'Client sent a message' : 'Staff sent a message',
         channel: msg.channel,
         callStatus: msg.callStatus,
         recordingDuration: msg.recordingDuration,
@@ -1533,6 +1643,17 @@ clientsRoute.delete('/:id', zValidator('param', clientIdParamSchema), async (c) 
         staffId: user.staffId ?? null,
         organizationId: user.organizationId,
       })
+      await logClientMutation(c, user, {
+        clientId: id,
+        summary: 'Deleted Schedule C business client',
+        action: ACTIVITY_ACTIONS.CLIENT.DELETED,
+        riskLevel: ActivityRiskLevel.HIGH,
+        metadata: {
+          clientType: client.clientType,
+          scheduleCExpenseIds: result.scheduleCExpenseIds,
+          expenseCount: result.expenseCount,
+        },
+      })
       return c.json({
         success: true,
         message: 'Client deleted successfully',
@@ -1586,6 +1707,17 @@ clientsRoute.delete('/:id', zValidator('param', clientIdParamSchema), async (c) 
       await prisma.clientGroup.delete({ where: { id: client.clientGroupId } }).catch(() => {})
     }
   }
+
+  await logClientMutation(c, user, {
+    clientId: id,
+    summary: 'Deleted client',
+    action: ACTIVITY_ACTIONS.CLIENT.DELETED,
+    riskLevel: ActivityRiskLevel.HIGH,
+    metadata: {
+      clientType: client.clientType,
+      deletedBusinessCount: deletedBusinessIds.length,
+    },
+  })
 
   return c.json({
     success: true,
@@ -1654,6 +1786,20 @@ clientsRoute.patch(
     const managedBy = updated.managedBy
       ? { ...updated.managedBy, avatarUrl: await resolveAvatarUrl(updated.managedBy.avatarUrl) }
       : null
+
+    await logClientMutation(c, user, {
+      clientId: id,
+      targetLabel: updated.name,
+      summary: 'Changed client manager',
+      action: ACTIVITY_ACTIONS.CLIENT.MANAGER_CHANGED,
+      riskLevel: ActivityRiskLevel.MEDIUM,
+      metadata: {
+        changedFields: ['managedById'],
+        managedById: staffId,
+        propagatedToGroup: Boolean(client.clientGroupId),
+      },
+    })
+
     return c.json({ data: { managedBy } })
   }
 )
@@ -1807,10 +1953,16 @@ clientsRoute.post(
     if (!existingPortalLink && user.staffId) {
       await logStaffActivity({
         organizationId: user.organizationId,
+        clientId: client.id,
         caseId: targetCaseId,
         magicLinkId: portalLink.id,
         actorStaffId: user.staffId,
-        action: 'upload_link.generated',
+        category: ACTIVITY_CATEGORIES.UPLOAD_LINK,
+        targetType: ACTIVITY_TARGET_TYPES.MAGIC_LINK,
+        targetId: portalLink.id,
+        targetLabel: client.name,
+        summary: `Generated upload link for ${client.name}`,
+        action: ACTIVITY_ACTIONS.UPLOAD_LINK.GENERATED,
         riskLevel: ActivityRiskLevel.HIGH,
         metadata: {
           source: 'send_upload_link',
@@ -2040,6 +2192,21 @@ clientsRoute.post(
         }
       }
 
+      await logClientMutation(c, user, {
+        clientId: result.individualClient.id,
+        caseId: result.indivCase.id,
+        targetLabel: result.individualClient.name,
+        summary: 'Created client with linked businesses',
+        action: ACTIVITY_ACTIONS.CLIENT.CREATED,
+        riskLevel: ActivityRiskLevel.MEDIUM,
+        metadata: {
+          clientType: result.individualClient.clientType,
+          businessCount: result.businessClients.length,
+          groupId: result.group.id,
+          welcomeSmsSent: smsStatus.sent,
+        },
+      })
+
       return c.json(
         {
           success: true,
@@ -2191,6 +2358,22 @@ clientsRoute.post(
       if (individualCase) {
         await upgradeActivePortalLinksToGroup(individualCase.id, result.group.id)
       }
+
+      await logClientMutation(c, user, {
+        clientId,
+        caseId: result.bizCase.id,
+        targetLabel: client.name,
+        summary: 'Linked business to client',
+        action: ACTIVITY_ACTIONS.CLIENT.BUSINESS_LINKED,
+        riskLevel: ActivityRiskLevel.MEDIUM,
+        metadata: {
+          businessClientId: result.businessClient.id,
+          groupId: result.group.id,
+          taxYear: result.bizCase.taxYear,
+          taxTypes: result.bizTaxTypes,
+          upgradedPortalLinks: Boolean(individualCase),
+        },
+      })
 
       return c.json(
         {

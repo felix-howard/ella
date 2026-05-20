@@ -558,6 +558,15 @@ export const api = {
       }),
   },
 
+  // Activity timeline
+  activity: {
+    recent: (params?: ActivityQueryParams) =>
+      request<ActivityTimelineResponse>('/activity/recent', { params: params ? { ...params } : undefined }),
+
+    client: (clientId: string, params?: Omit<ActivityQueryParams, 'actorStaffId'>) =>
+      request<ActivityTimelineResponse>(`/activity/clients/${clientId}`, { params: params ? { ...params } : undefined }),
+  },
+
   // Tax Cases
   cases: {
     list: (params?: { page?: number; limit?: number; status?: string; taxYear?: number; clientId?: string }) =>
@@ -2122,6 +2131,70 @@ export interface ClientActivity {
   callStatus?: string | null
   recordingDuration?: number | null
   direction?: string
+}
+
+export type ActivityCategory =
+  | 'CLIENT'
+  | 'CASE'
+  | 'DOCUMENT'
+  | 'MESSAGE'
+  | 'PROFILE'
+  | 'SETTINGS'
+  | 'TEAM'
+  | 'LEAD'
+  | 'UPLOAD_LINK'
+  | 'AUTH'
+  | 'SYSTEM'
+
+export type ActivityRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'
+
+export interface ActivityQueryParams {
+  limit?: number
+  cursor?: string
+  category?: ActivityCategory
+  actorStaffId?: string
+  riskLevel?: ActivityRiskLevel
+}
+
+export interface ActivityTimelineItem {
+  id: string
+  createdAt: string
+  category: ActivityCategory
+  action: string
+  riskLevel: ActivityRiskLevel
+  summary: string
+  actor: {
+    type: 'STAFF' | 'CLIENT_PORTAL' | 'SYSTEM'
+    staffId: string | null
+    name: string | null
+    avatarUrl: string | null
+  }
+  target: {
+    type:
+      | 'CLIENT'
+      | 'CASE'
+      | 'RAW_IMAGE'
+      | 'MAGIC_LINK'
+      | 'MESSAGE'
+      | 'CONVERSATION'
+      | 'STAFF'
+      | 'ORGANIZATION'
+      | 'LEAD'
+      | 'TEMPLATE'
+      | 'CHECKLIST_ITEM'
+      | 'UNKNOWN'
+    id: string | null
+    label: string | null
+  }
+  clientId: string | null
+  caseId: string | null
+  route: string | null
+  method: string | null
+}
+
+export interface ActivityTimelineResponse {
+  data: ActivityTimelineItem[]
+  nextCursor: string | null
 }
 
 export interface TaxCaseSummary {

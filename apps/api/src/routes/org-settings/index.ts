@@ -5,11 +5,13 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-import { Prisma } from '@ella/db'
+import { ActivityRiskLevel, Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { clerkClient } from '../../lib/clerk-client'
 import { UPLOAD_LINK_TEMPLATE_IDS } from '../../services/sms/upload-link-template-resolver'
 import type { AuthVariables } from '../../middleware/auth'
+import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 
 const orgSettingsRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -101,12 +103,32 @@ orgSettingsRoute.patch(
       return c.json({ error: 'No organization' }, 403)
     }
 
+    const data = c.req.valid('json')
+
     // Only admins can update org settings
     if (user.orgRole !== 'org:admin' && user.role !== 'ADMIN') {
+      if (user.staffId) {
+        await logStaffActivity({
+          organizationId: user.organizationId,
+          actorStaffId: user.staffId,
+          category: ACTIVITY_CATEGORIES.SETTINGS,
+          targetType: ACTIVITY_TARGET_TYPES.ORGANIZATION,
+          targetId: user.organizationId,
+          summary: 'Denied organization settings update attempt',
+          action: ACTIVITY_ACTIONS.SETTINGS.ORGANIZATION_UPDATED,
+          riskLevel: ActivityRiskLevel.HIGH,
+          metadata: {
+            result: 'denied',
+            reason: 'non_admin_org_settings_update',
+            changedFields: getChangedFieldNames(data),
+          },
+          request: getAuditRequestContext(c),
+        })
+      }
       return c.json({ error: 'Admin access required' }, 403)
     }
 
-    const data = c.req.valid('json')
+    const changedFields = getChangedFieldNames(data)
 
     // Validate slug uniqueness if provided
     if (data.slug) {
@@ -162,6 +184,21 @@ orgSettingsRoute.patch(
       } catch (err) {
         console.error('[OrgSettings] Failed to sync organization metadata to Clerk:', err)
       }
+    }
+
+    if (user.staffId) {
+      await logStaffActivity({
+        organizationId: user.organizationId,
+        actorStaffId: user.staffId,
+        category: ACTIVITY_CATEGORIES.SETTINGS,
+        targetType: ACTIVITY_TARGET_TYPES.ORGANIZATION,
+        targetId: user.organizationId,
+        summary: 'Updated organization settings',
+        action: ACTIVITY_ACTIONS.SETTINGS.ORGANIZATION_UPDATED,
+        riskLevel: ActivityRiskLevel.MEDIUM,
+        metadata: { changedFields },
+        request: getAuditRequestContext(c),
+      })
     }
 
     return c.json({

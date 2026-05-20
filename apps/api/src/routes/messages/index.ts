@@ -28,11 +28,13 @@ import {
   resolveAvatarUrl,
   SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS,
 } from '../../services/storage'
-import type { MessageChannel, MessageDirection } from '@ella/db'
+import { ActivityRiskLevel, type MessageChannel, type MessageDirection } from '@ella/db'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import { isBizWithGroup } from '../../lib/client-helpers'
 import { inngest } from '../../lib/inngest'
 import type { AuthVariables } from '../../middleware/auth'
+import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 
 /**
  * Extract R2 keys from signed R2 URLs
@@ -69,6 +71,12 @@ function extractR2KeysFromUrls(urls: string[]): string[] {
 }
 
 const messagesRoute = new Hono<{ Variables: AuthVariables }>()
+
+function getTwilioStatusCategory(status: string | null): string | null {
+  if (!status) return null
+  if (status.startsWith('ERROR:')) return 'failed'
+  return status
+}
 
 // GET /messages/conversations - List all conversations for unified inbox
 messagesRoute.get(
@@ -546,6 +554,31 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
     })
   }
 
+  if (user.staffId) {
+    await logStaffActivity({
+      organizationId: user.organizationId,
+      clientId: taxCase.client.id,
+      caseId,
+      actorStaffId: user.staffId,
+      category: ACTIVITY_CATEGORIES.MESSAGE,
+      targetType: ACTIVITY_TARGET_TYPES.MESSAGE,
+      targetId: message.id,
+      targetLabel: taxCase.client.name,
+      summary: channel === 'SMS' ? 'Sent SMS to client' : 'Sent portal message to client',
+      action: ACTIVITY_ACTIONS.MESSAGE.SENT,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        channel,
+        messageId: message.id,
+        conversationId: conversation.id,
+        templateName,
+        smsSent,
+        twilioStatusCategory: getTwilioStatusCategory(twilioStatus),
+      },
+      request: getAuditRequestContext(c),
+    })
+  }
+
   return c.json(
     {
       message: {
@@ -573,7 +606,7 @@ messagesRoute.post('/remind/:caseId', async (c) => {
   // Verify case exists and belongs to user's org
   const taxCase = await prisma.taxCase.findFirst({
     where: { id: caseId, client: buildClientScopeFilter(user) },
-    select: { id: true, status: true },
+    select: { id: true, clientId: true, status: true },
   })
 
   if (!taxCase) {
@@ -586,6 +619,28 @@ messagesRoute.post('/remind/:caseId', async (c) => {
 
   const result = await notifyMissingDocuments(caseId)
 
+  if (user.staffId) {
+    await logStaffActivity({
+      organizationId: user.organizationId,
+      clientId: taxCase.clientId,
+      caseId,
+      actorStaffId: user.staffId,
+      category: ACTIVITY_CATEGORIES.MESSAGE,
+      targetType: result.messageId ? ACTIVITY_TARGET_TYPES.MESSAGE : ACTIVITY_TARGET_TYPES.CASE,
+      targetId: result.messageId ?? caseId,
+      summary: 'Sent missing document reminder',
+      action: ACTIVITY_ACTIONS.MESSAGE.REMINDER_SENT,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        channel: 'SMS',
+        messageId: result.messageId,
+        smsSent: result.smsSent,
+        result: result.success ? 'sent' : 'failed',
+      },
+      request: getAuditRequestContext(c),
+    })
+  }
+
   return c.json({
     success: result.success,
     smsSent: result.smsSent,
@@ -597,11 +652,41 @@ messagesRoute.post('/remind/:caseId', async (c) => {
 // POST /messages/remind-batch - Send reminders to all eligible cases
 // Should be called by cron job (e.g., daily at 10am)
 messagesRoute.post('/remind-batch', async (c) => {
+  const user = c.get('user')
+
+  if (user.orgRole !== 'org:admin' && user.role !== 'ADMIN') {
+    return c.json({ error: 'Admin access required' }, 403)
+  }
+
+  if (!user.organizationId) {
+    return c.json({ error: 'No organization' }, 403)
+  }
+
   if (!isSmsEnabled()) {
     return c.json({ error: 'SMS_DISABLED', message: 'SMS is not configured' }, 400)
   }
 
-  const result = await sendBatchMissingReminders()
+  const result = await sendBatchMissingReminders(user.organizationId)
+
+  if (user.staffId) {
+    await logStaffActivity({
+      organizationId: user.organizationId,
+      actorStaffId: user.staffId,
+      category: ACTIVITY_CATEGORIES.MESSAGE,
+      targetType: ACTIVITY_TARGET_TYPES.ORGANIZATION,
+      targetId: user.organizationId,
+      summary: 'Triggered batch missing document reminders',
+      action: ACTIVITY_ACTIONS.MESSAGE.BATCH_REMINDER_SENT,
+      riskLevel: ActivityRiskLevel.MEDIUM,
+      metadata: {
+        channel: 'SMS',
+        sent: result.sent,
+        failed: result.failed,
+        skipped: result.skipped,
+      },
+      request: getAuditRequestContext(c),
+    })
+  }
 
   return c.json({
     success: true,

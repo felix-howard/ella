@@ -342,6 +342,7 @@ function ClientDetailPage() {
       toast.success(t('clients.uploadLinkSent'))
       const targetCaseId = data.targetCaseId || uploadLinkCaseId || activeCaseId
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+      queryClient.invalidateQueries({ queryKey: ['activity'] })
       if (targetCaseId) {
         queryClient.invalidateQueries({ queryKey: ['uploadLinks', targetCaseId] })
         queryClient.invalidateQueries({ queryKey: ['messages', 'case', targetCaseId] })

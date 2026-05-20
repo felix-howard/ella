@@ -155,7 +155,10 @@ describe('identity document retention', () => {
     })
     expect(mockLogSystemActivity).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: 'IDENTITY_DOCUMENT_RETENTION_SCHEDULED',
+        action: 'document.retention_scheduled',
+        category: 'DOCUMENT',
+        targetType: 'RAW_IMAGE',
+        targetId: 'img_identity',
         rawImageId: 'img_identity',
       })
     )

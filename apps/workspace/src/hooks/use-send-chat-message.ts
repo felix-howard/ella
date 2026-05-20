@@ -64,6 +64,7 @@ export function useSendChatMessage(context: ChatContext, options: UseSendChatMes
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey })
+      queryClient.invalidateQueries({ queryKey: ['activity'] })
       onSent?.()
     },
     onError: (_err, _vars, ctx) => {

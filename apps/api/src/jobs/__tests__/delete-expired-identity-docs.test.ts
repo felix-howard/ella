@@ -117,7 +117,10 @@ describe('delete expired identity docs job', () => {
     })
     expect(mockLogSystemActivity).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: 'IDENTITY_DOCUMENT_RETENTION_DELETED',
+        action: 'document.retention_deleted',
+        category: 'DOCUMENT',
+        targetType: 'RAW_IMAGE',
+        targetId: 'img_1',
         rawImageId: 'img_1',
       })
     )

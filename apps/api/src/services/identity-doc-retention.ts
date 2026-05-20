@@ -2,6 +2,7 @@ import { ActivityRiskLevel, type DocCategory, type DocType, type PrismaClient } 
 import { prisma } from '../lib/db'
 import { config } from '../lib/config'
 import { logSystemActivity } from './activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from './activity-actions'
 
 export const IDENTITY_RETENTION_POLICY = 'IDENTITY_DOCUMENT_AFTER_FILED'
 export const IDENTITY_RETENTION_DELETE_REASON = 'identity_document_retention_policy'
@@ -68,7 +69,11 @@ async function logRetentionScheduled(input: {
     clientId: input.clientId,
     caseId: input.caseId,
     rawImageId: input.rawImageId,
-    action: 'IDENTITY_DOCUMENT_RETENTION_SCHEDULED',
+    category: ACTIVITY_CATEGORIES.DOCUMENT,
+    targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
+    targetId: input.rawImageId,
+    summary: 'Scheduled identity document retention deletion',
+    action: ACTIVITY_ACTIONS.DOCUMENT.RETENTION_SCHEDULED,
     riskLevel: ActivityRiskLevel.MEDIUM,
     metadata: {
       rawImageId: input.rawImageId,

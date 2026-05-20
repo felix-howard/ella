@@ -16,18 +16,18 @@ export function ActivityRow({ item }: ActivityRowProps) {
   const actorName = item.actor.name ?? t(`activity.actor.${item.actor.type}`)
   const title = formatFullDateTime(item.createdAt)
   const content = (
-    <div className="flex gap-3 py-3">
-      <div className={cn('z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border', className)}>
-        <Icon className="h-4 w-4" aria-hidden="true" />
+    <div className="flex gap-2 py-2">
+      <div className={cn('z-10 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border', className)}>
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-sm leading-5">
           <ActorAvatar item={item} fallbackName={actorName} />
-          <span className="min-w-0 truncate text-sm font-medium text-foreground">{actorName}</span>
+          <span className="font-semibold text-foreground">{actorName}</span>
+          <span className="break-words text-foreground">{item.summary}</span>
           <span className="text-xs text-muted-foreground">{t(`activity.category.${item.category}`)}</span>
         </div>
-        <p className="mt-1 break-words text-sm leading-5 text-foreground">{item.summary}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs leading-4 text-muted-foreground">
           {item.target.label && <span className="max-w-full truncate">{item.target.label}</span>}
           <time dateTime={item.createdAt} title={title}>
             {formatRelativeTime(item.createdAt, i18n.language)}
@@ -48,7 +48,7 @@ function ActorAvatar({ item, fallbackName }: { item: ActivityTimelineItem; fallb
       <img
         src={item.actor.avatarUrl}
         alt=""
-        className="h-6 w-6 rounded-full object-cover"
+        className="h-5 w-5 rounded-full object-cover"
         referrerPolicy="no-referrer"
       />
     )
@@ -56,7 +56,7 @@ function ActorAvatar({ item, fallbackName }: { item: ActivityTimelineItem; fallb
 
   return (
     <span
-      className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold', avatarColor.bg, avatarColor.text)}
+      className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold', avatarColor.bg, avatarColor.text)}
       aria-hidden="true"
     >
       {getInitials(fallbackName)}

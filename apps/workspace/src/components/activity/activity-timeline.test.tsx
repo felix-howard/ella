@@ -137,7 +137,7 @@ describe('ActivityTimeline', () => {
     const markup = renderToStaticMarkup(<ActivityTimeline scope="recent" />)
 
     const options = useQueryMock.mock.calls[0][0] as { queryKey: unknown[]; queryFn: () => unknown }
-    expect(markup).toContain('max-h-[640px]')
+    expect(markup).toContain('max-h-[420px]')
     expect(markup).not.toContain('Activity category')
     expect(options.queryKey).toEqual(['activity', 'recent', null, { limit: 20 }])
     options.queryFn()

@@ -60,10 +60,11 @@ function DashboardPage() {
   return (
     <PageContainer>
       <TodaySummary staffName={userName} />
+      <div className="mb-8">
+        <ActivityTimeline scope="recent" />
+      </div>
       <StatsOverview stats={stats} />
       <QuickActions />
-
-      <ActivityTimeline scope="recent" />
     </PageContainer>
   )
 }

@@ -29,8 +29,8 @@ export function ActivityTimeline({
   })
 
   return (
-    <section className="flex max-h-[640px] min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card p-4 sm:p-6">
-      <div className="mb-4 shrink-0">
+    <section className="flex max-h-[420px] min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card p-4 sm:p-5">
+      <div className="mb-3 shrink-0">
         <h2 className="text-lg font-semibold text-foreground">
           {title ?? t(scope === 'client' ? 'clientOverview.recentActivity' : 'dashboard.recentActivity')}
         </h2>
@@ -95,8 +95,8 @@ export function ActivityTimelineContent({
 
   return (
     <div className="relative">
-      <div className="absolute bottom-4 left-[25px] top-4 w-px bg-border" aria-hidden="true" />
-      <div className="space-y-1">
+      <div className="absolute bottom-3 left-[21px] top-3 w-px bg-border" aria-hidden="true" />
+      <div className="space-y-0.5">
         {items.map((item) => <ActivityRow key={item.id} item={item} />)}
       </div>
     </div>
@@ -105,11 +105,11 @@ export function ActivityTimelineContent({
 
 function ActivityTimelineSkeleton() {
   return (
-    <div className="space-y-4" aria-label="Loading activity">
+    <div className="space-y-2" aria-label="Loading activity">
       {[1, 2, 3].map((item) => (
-        <div key={item} className="flex gap-3 px-2 py-3">
-          <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-muted" />
-          <div className="min-w-0 flex-1 space-y-2">
+        <div key={item} className="flex gap-2 px-2 py-2">
+          <div className="h-7 w-7 shrink-0 animate-pulse rounded-full bg-muted" />
+          <div className="min-w-0 flex-1 space-y-1.5">
             <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
             <div className="h-3 w-4/5 animate-pulse rounded bg-muted" />
             <div className="h-3 w-24 animate-pulse rounded bg-muted" />

@@ -136,6 +136,12 @@ function ErrorView({ error, onRetry }: { error: ErrorState | null; onRetry: () =
 
   const isInvalidLink = error?.code === 'INVALID_TOKEN' || error?.code === 'EXPIRED_TOKEN'
   const isRateLimited = error?.code === 'RATE_LIMITED'
+  const errorMessage =
+    error?.code === 'INVALID_TOKEN'
+      ? t('portal.invalidLinkMessage')
+      : error?.code === 'EXPIRED_TOKEN'
+        ? t('portal.expiredLinkMessage')
+        : error?.message || t('portal.contactOffice')
 
   return (
     <div className="flex-1 flex items-center justify-center p-6" role="alert" aria-live="polite">
@@ -148,7 +154,7 @@ function ErrorView({ error, onRetry }: { error: ErrorState | null; onRetry: () =
           {isInvalidLink ? t('portal.invalidLink') : t('portal.errorLoading')}
         </h2>
 
-        <p className="text-muted-foreground mb-6">{error?.message || t('portal.contactOffice')}</p>
+        <p className="text-muted-foreground mb-6">{errorMessage}</p>
 
         {!isInvalidLink && !isRateLimited && (
           <Button onClick={onRetry} className="gap-2" aria-label={t('common.tryAgain')}>

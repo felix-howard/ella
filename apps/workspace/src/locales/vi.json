@@ -367,7 +367,6 @@
   "uploadLinks.replaceTitle": "Thay link upload?",
   "uploadLinks.replaceDescription": "Link upload hiện tại sẽ bị thu hồi và link mới sẽ được tạo.",
   "uploadLinks.replaceSuccess": "Đã tạo link thay thế",
-  "uploadLinks.confirmAuditHint": "Hành động này được ghi vào nhật ký hoạt động.",
   "sendUploadLinkModal.title": "Tin nhắn sẽ được gửi",
   "sendUploadLinkModal.sendButton": "Gửi link upload",
   "clients.managedBy": "Người quản lý",

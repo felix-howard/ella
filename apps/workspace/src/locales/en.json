@@ -369,7 +369,6 @@
   "uploadLinks.replaceTitle": "Replace upload link?",
   "uploadLinks.replaceDescription": "The current upload link will be revoked and a new link created.",
   "uploadLinks.replaceSuccess": "Replacement link created",
-  "uploadLinks.confirmAuditHint": "This action is recorded in the activity log.",
   "sendUploadLinkModal.title": "Message to be sent",
   "sendUploadLinkModal.sendButton": "Send Upload Link",
   "clients.managedBy": "Managed By",

@@ -1,6 +1,6 @@
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Button, Modal, ModalBody, ModalDescription, ModalFooter, ModalHeader, ModalTitle } from '@ella/ui'
+import { Button, Modal, ModalDescription, ModalFooter, ModalHeader, ModalTitle } from '@ella/ui'
 
 interface UploadLinkConfirmModalProps {
   open: boolean
@@ -34,11 +34,6 @@ export function UploadLinkConfirmModal({
         </div>
         <ModalDescription>{description}</ModalDescription>
       </ModalHeader>
-      <ModalBody>
-        <p className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-          {t('uploadLinks.confirmAuditHint')}
-        </p>
-      </ModalBody>
       <ModalFooter>
         <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>
           {t('common.cancel')}

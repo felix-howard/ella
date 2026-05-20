@@ -71,15 +71,75 @@ const Modal = React.forwardRef<HTMLDivElement, ModalProps>(
     },
     ref
   ) => {
-    // Handle escape key press
+    const contentRef = React.useRef<HTMLDivElement | null>(null)
+
+    const setContentRef = React.useCallback(
+      (node: HTMLDivElement | null) => {
+        contentRef.current = node
+        if (typeof ref === 'function') {
+          ref(node)
+        } else if (ref) {
+          ref.current = node
+        }
+      },
+      [ref]
+    )
+
+    const getFocusableElements = React.useCallback(() => {
+      const content = contentRef.current
+      if (!content) return []
+      return Array.from(
+        content.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => !element.hasAttribute('disabled') && element.offsetParent !== null)
+    }, [])
+
+    // Handle escape key and keep keyboard focus inside the dialog.
     React.useEffect(() => {
-      if (!closeOnEscape || !open) return
-      const handleEscape = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') onClose()
+      if (!open) return
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape' && closeOnEscape) {
+          onClose()
+          return
+        }
+
+        if (e.key !== 'Tab') return
+
+        const focusable = getFocusableElements()
+        if (focusable.length === 0) {
+          e.preventDefault()
+          contentRef.current?.focus()
+          return
+        }
+
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        const active = document.activeElement
+
+        if (e.shiftKey && active === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && active === last) {
+          e.preventDefault()
+          first.focus()
+        }
       }
-      document.addEventListener('keydown', handleEscape)
-      return () => document.removeEventListener('keydown', handleEscape)
-    }, [closeOnEscape, open, onClose])
+      document.addEventListener('keydown', handleKeyDown)
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }, [closeOnEscape, getFocusableElements, open, onClose])
+
+    React.useEffect(() => {
+      if (!open) return
+      const previousActiveElement = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
+      window.setTimeout(() => {
+        const firstFocusable = getFocusableElements()[0]
+        ;(firstFocusable ?? contentRef.current)?.focus()
+      }, 0)
+      return () => previousActiveElement?.focus()
+    }, [getFocusableElements, open])
 
     // Prevent body scroll when modal is open
     React.useEffect(() => {
@@ -110,7 +170,11 @@ const Modal = React.forwardRef<HTMLDivElement, ModalProps>(
         aria-labelledby={ariaLabelledby}
         aria-describedby={ariaDescribedby}
       >
-        <div ref={ref} className={cn(modalContentVariants({ size, open }), className)}>
+        <div
+          ref={setContentRef}
+          className={cn(modalContentVariants({ size, open }), className)}
+          tabIndex={-1}
+        >
           {showCloseButton && (
             <button
               onClick={onClose}

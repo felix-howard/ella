@@ -33,6 +33,7 @@ import {
   Pencil,
   Check,
   X,
+  CalendarClock,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button, buttonVariants, Input } from '@ella/ui'
@@ -60,6 +61,7 @@ import {
   ClientOverviewTab,
   BusinessDeleteWithScheduleCModal,
 } from '../../components/clients'
+import { CaseFiledAction } from '../../components/cases/case-filed-action'
 import { useDeleteBusinessWithScheduleC } from '../../hooks/use-delete-business-with-schedule-c'
 import { countScheduleCExpenseLines } from '../../lib/schedule-c-expense-helpers'
 import { FilesTab } from '../../components/files'
@@ -74,6 +76,7 @@ import { useChatUnread } from '../../hooks/use-chat-unread'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, formatPhoneInput, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { api, type TaxCaseStatus, type RawImage, type DigitalDoc, type ClientPreview, type BusinessType } from '../../lib/api-client'
+import type { IdentityRetentionExtensionDays } from '../../lib/api-client'
 import { computeStatus } from '../../lib/computed-status'
 import { isScheduleCEligibleBusiness, BUSINESS_TYPE_LABELS } from '../../lib/business-type-helpers'
 import { IndividualScheduleCActivities } from '../../components/cases/tabs/schedule-c-tab/individual-schedule-c-activities'
@@ -116,7 +119,7 @@ export const Route = createFileRoute('/clients/$clientId')({
 })
 
 function ClientDetailPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { clientId } = Route.useParams()
   const { tab: tabFromSearch } = Route.useSearch()
   const navigate = useNavigate()
@@ -159,6 +162,14 @@ function ClientDetailPage() {
     phone: string
     email: string
   } | null>(null)
+
+  const invalidateRetentionQueries = useCallback((caseId?: string | null) => {
+    queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+    if (caseId) {
+      queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+    }
+    queryClient.invalidateQueries({ queryKey: ['group-images'] })
+  }, [clientId, queryClient])
 
   // Mutation for adding checklist item
   const addChecklistItemMutation = useMutation({
@@ -228,9 +239,13 @@ function ClientDetailPage() {
 
   const markFiledMutation = useMutation({
     mutationFn: () => api.cases.markFiled(activeCaseId!),
-    onSuccess: () => {
-      toast.success(t('clientDetail.markFiledSuccess'))
-      queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+    onSuccess: (data) => {
+      toast.success(
+        data.scheduledIdentityDocs > 0
+          ? t('clientDetail.markFiledSuccessWithCount', { count: data.scheduledIdentityDocs })
+          : t('clientDetail.markFiledSuccessNoDocs')
+      )
+      invalidateRetentionQueries(activeCaseId)
     },
     onError: () => {
       toast.error(t('clientDetail.markFiledError'))
@@ -239,12 +254,32 @@ function ClientDetailPage() {
 
   const reopenMutation = useMutation({
     mutationFn: () => api.cases.reopen(activeCaseId!),
-    onSuccess: () => {
-      toast.success(t('clientDetail.reopenSuccess'))
-      queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+    onSuccess: (data) => {
+      toast.success(
+        data.clearedIdentityDocs > 0
+          ? t('clientDetail.reopenSuccessWithCount', { count: data.clearedIdentityDocs })
+          : t('clientDetail.reopenSuccess')
+      )
+      invalidateRetentionQueries(activeCaseId)
     },
     onError: () => {
       toast.error(t('clientDetail.reopenError'))
+    },
+  })
+
+  const extendIdentityRetentionMutation = useMutation({
+    mutationFn: (days: IdentityRetentionExtensionDays) =>
+      api.cases.extendIdentityRetention(activeCaseId!, { days }),
+    onSuccess: (data) => {
+      toast.success(
+        data.extendedIdentityDocs > 0
+          ? t('clientDetail.extendRetentionSuccessWithCount', { count: data.extendedIdentityDocs })
+          : t('clientDetail.extendRetentionSuccessNoDocs')
+      )
+      invalidateRetentionQueries(activeCaseId)
+    },
+    onError: () => {
+      toast.error(t('clientDetail.extendRetentionError'))
     },
   })
 
@@ -566,7 +601,18 @@ function ClientDetailPage() {
 
   // Get isInReview and isFiled from activeCase (type-safe via TaxCaseSummary)
   const isInReview = activeCase?.isInReview ?? false
-  const isFiled = activeCase?.isFiled ?? false
+  const isFiled = Boolean(activeCase?.isFiled || activeCase?.status === 'FILED' || activeCase?.filedAt)
+  const filedDateLabel = activeCase?.filedAt
+    ? new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(activeCase.filedAt))
+    : null
+  const scheduledIdentityRetentionCount = activeCase?.identityRetentionSummary?.scheduledIdentityDocs ?? 0
+  const nextIdentityDeletionAt = activeCase?.identityRetentionSummary?.nextIdentityDeletionAt
+    ? new Date(activeCase.identityRetentionSummary.nextIdentityDeletionAt)
+    : null
+  const nextIdentityDeletionLabel = nextIdentityDeletionAt
+    && !Number.isNaN(nextIdentityDeletionAt.getTime())
+    ? new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(nextIdentityDeletionAt)
+    : null
 
   const computedStatus: TaxCaseStatus | null = activeCase
     ? computeStatus({
@@ -785,6 +831,25 @@ function ClientDetailPage() {
                       {UI_TEXT.form.taxYear} {activeCase.taxYear}
                     </span>
                   )}
+                  {isFiled && (
+                    <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                      <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                      {filedDateLabel
+                        ? t('clientDetail.filedOn', { date: filedDateLabel })
+                        : t('clientDetail.filed')}
+                    </span>
+                  )}
+                  {isFiled && (
+                    <span className="flex items-center gap-1">
+                      <CalendarClock className="w-3.5 h-3.5" aria-hidden="true" />
+                      {scheduledIdentityRetentionCount > 0 && nextIdentityDeletionLabel
+                        ? t('clientDetail.identityRetentionScheduled', {
+                            count: scheduledIdentityRetentionCount,
+                            date: nextIdentityDeletionLabel,
+                          })
+                        : t('clientDetail.identityRetentionPolicy')}
+                    </span>
+                  )}
                   {client.managedBy && (
                     <span className="flex items-center gap-1">
                       <Users className="w-3.5 h-3.5" aria-hidden="true" />
@@ -810,7 +875,7 @@ function ClientDetailPage() {
             </div>
 
             {/* Right: Actions */}
-            <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+            <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 sm:flex-1 sm:justify-end">
               {activeCase && computedStatus === 'ENTRY_COMPLETE' && !isInReview && (
                 <Button
                   onClick={() => sendToReviewMutation.mutate()}
@@ -825,32 +890,16 @@ function ClientDetailPage() {
                 </Button>
               )}
 
-              {isInReview && !isFiled && (
-                <Button
-                  onClick={() => markFiledMutation.mutate()}
-                  disabled={markFiledMutation.isPending}
-                  size="sm"
-                >
-                  {markFiledMutation.isPending && (
-                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                  )}
-                  {t('clientDetail.markFiled')}
-                </Button>
-              )}
-
-              {isFiled && (
-                <Button
-                  onClick={() => reopenMutation.mutate()}
-                  disabled={reopenMutation.isPending}
-                  size="sm"
-                  variant="outline"
-                >
-                  {reopenMutation.isPending && (
-                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                  )}
-                  {t('clientDetail.reopen')}
-                </Button>
-              )}
+              <CaseFiledAction
+                activeCase={activeCase}
+                isMarkFiledPending={markFiledMutation.isPending}
+                isReopenPending={reopenMutation.isPending}
+                isExtendRetentionPending={extendIdentityRetentionMutation.isPending}
+                canExtendIdentityRetention={scheduledIdentityRetentionCount > 0}
+                onMarkFiled={() => markFiledMutation.mutateAsync()}
+                onReopen={() => reopenMutation.mutateAsync()}
+                onExtendIdentityRetention={(days) => extendIdentityRetentionMutation.mutateAsync(days)}
+              />
 
               {portalUploadUrl && (
                 <a

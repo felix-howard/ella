@@ -54,6 +54,10 @@ import { ActivityRiskLevel } from '@ella/db'
 import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
 import { clientsAgreementsRoute } from './agreements'
 import { clientsAgreementsStaffRoute } from './agreements-staff'
+import {
+  IDENTITY_RETENTION_DELETE_IN_PROGRESS_REASON,
+  IDENTITY_RETENTION_POLICY,
+} from '../../services/identity-doc-retention'
 
 const clientsRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -68,6 +72,34 @@ function activePortalLinkWhere(now: Date) {
       { expiresAt: { gt: now } },
     ],
   }
+}
+
+function summarizeIdentityRetention(
+  images: Array<{ caseId: string; retentionDeleteAt: Date | null }>
+) {
+  const byCaseId = new Map<
+    string,
+    { scheduledIdentityDocs: number; nextIdentityDeletionAt: Date | null; latestIdentityDeletionAt: Date | null }
+  >()
+
+  for (const image of images) {
+    if (!image.retentionDeleteAt) continue
+    const summary = byCaseId.get(image.caseId) ?? {
+      scheduledIdentityDocs: 0,
+      nextIdentityDeletionAt: null,
+      latestIdentityDeletionAt: null,
+    }
+    summary.scheduledIdentityDocs++
+    if (!summary.nextIdentityDeletionAt || image.retentionDeleteAt < summary.nextIdentityDeletionAt) {
+      summary.nextIdentityDeletionAt = image.retentionDeleteAt
+    }
+    if (!summary.latestIdentityDeletionAt || image.retentionDeleteAt > summary.latestIdentityDeletionAt) {
+      summary.latestIdentityDeletionAt = image.retentionDeleteAt
+    }
+    byCaseId.set(image.caseId, summary)
+  }
+
+  return byCaseId
 }
 
 // Sub-routes (paths relative to /clients, e.g. /:clientId/agreements)
@@ -660,6 +692,25 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
     return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
   }
 
+  const retentionSummaries = summarizeIdentityRetention(
+    client.taxCases.length > 0
+      ? await prisma.rawImage.findMany({
+          where: {
+            caseId: { in: client.taxCases.map((tc) => tc.id) },
+            retentionPolicy: IDENTITY_RETENTION_POLICY,
+            retentionDeleteAt: { not: null },
+            retentionDeletedAt: null,
+            isStorageDeleted: false,
+            retentionDeleteReason: { not: IDENTITY_RETENTION_DELETE_IN_PROGRESS_REASON },
+          },
+          select: {
+            caseId: true,
+            retentionDeleteAt: true,
+          },
+        })
+      : []
+  )
+
   // Build portal URL per taxCase from active magic links
   const portalBaseUrl = process.env.PORTAL_URL
 
@@ -675,6 +726,14 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
       ...tc,
       magicLinks: undefined,
       portalUrl,
+      identityRetentionSummary: {
+        scheduledIdentityDocs: retentionSummaries.get(tc.id)?.scheduledIdentityDocs ?? 0,
+        nextIdentityDeletionAt:
+          retentionSummaries.get(tc.id)?.nextIdentityDeletionAt?.toISOString() ?? null,
+        latestIdentityDeletionAt:
+          retentionSummaries.get(tc.id)?.latestIdentityDeletionAt?.toISOString() ?? null,
+      },
+      filedAt: tc.filedAt?.toISOString() ?? null,
       createdAt: tc.createdAt.toISOString(),
       updatedAt: tc.updatedAt.toISOString(),
     }

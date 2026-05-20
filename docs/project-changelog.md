@@ -7,6 +7,76 @@
 
 ## 2026-05-20
 
+### Security: Operational Filed Retention Workflow Rollout
+**Status:** Complete
+
+**Changed:**
+- Completed validation and rollout docs for the operational filed retention workflow.
+- Documented `Mark return filed` as the identity retention trigger; review, verification, checklist completion, data entry, and Files tab usage are not prerequisites.
+- Added production SQL preflight queries for scheduled identity docs, due identity docs, and already storage-deleted retention docs.
+- Sequenced the preflight before API/Inngest enablement and added backup/R2 recovery as a rollout gate.
+- Clarified retention extension semantics: extension sets a minimum future date and never shortens later scheduled dates.
+- Documented late upload/reclassification risk for already-filed cases because those identity docs can become immediately due on old filed cases.
+- Updated rollback notes: reopening a filed case clears pending identity retention only for docs not already storage-deleted.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/cases/__tests__/case-filed-actions.test.ts src/routes/cases/__tests__/case-status-transitions.test.ts src/services/__tests__/identity-doc-retention.test.ts src/jobs/__tests__/delete-expired-identity-docs.test.ts` pass, 32 tests
+- `pnpm -F @ella/workspace test -- case-filed-action.test.tsx` pass, 5 tests
+- `pnpm -F @ella/api test` pass, 2397 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm type-check` pass across 8 packages
+- `pnpm lint` pass with 27 pre-existing warnings and 0 errors
+
+### Workspace/API: Retention Visibility and Extension
+**Status:** Complete
+
+**Changed:**
+- Added filed date and identity retention summary visibility to the client detail header.
+- Added `POST /cases/:id/identity-retention/extend` with 30/60/90 day extension choices for scheduled identity docs.
+- Added guarded extension logic so deleted or in-progress retention rows cannot be resurrected.
+- Added workspace API and UI controls for extending scheduled identity retention from filed cases.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/__tests__/identity-doc-retention.test.ts src/jobs/__tests__/delete-expired-identity-docs.test.ts src/routes/cases/__tests__/case-filed-actions.test.ts` pass
+- `pnpm -F @ella/workspace test -- case-filed-action.test.tsx` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api lint` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+
+### Workspace: Operational Filed Action UX
+**Status:** Complete
+
+**Changed:**
+- Exposed `Mark return filed` in the workspace client/case header for any active unfiled case without requiring review or verification gating.
+- Added a confirmation modal that explains the identity retention deletion schedule and that DB metadata/audit records remain.
+- Added filed-state `Reopen filing` confirmation for cases already marked filed.
+- Wired success toasts to backend retention counts from filed and reopen responses.
+- Renamed the filed action copy to operational language in the workspace locale strings.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- case-filed-action.test.tsx` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+
+### API: Operational Filed Action Semantics
+**Status:** Complete
+
+**Changed:**
+- Made `POST /cases/:id/mark-filed` set `status=FILED`, `isFiled=true`, `isInReview=false`, `filedAt`, and `lastActivityAt` together.
+- Made `POST /cases/:id/reopen` reset filed state to `IN_PROGRESS`, clear pending identity retention, and return cleared count.
+- Used scoped conditional writes for case status mutations to avoid stale authorization/state races.
+- Stopped generic `PATCH /cases/:id` and valid-transition metadata from advertising filed/reopen transitions; canonical endpoints own those semantics.
+- Added workspace API client response types for filed and reopen actions.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/cases/__tests__/case-filed-actions.test.ts src/routes/cases/__tests__/case-status-transitions.test.ts` pass
+- `pnpm -F @ella/api test -- src/services/__tests__/identity-doc-retention.test.ts src/jobs/__tests__/delete-expired-identity-docs.test.ts` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+
+---
+
 ### API/Portal: Empty Upload Guard
 **Status:** Complete
 

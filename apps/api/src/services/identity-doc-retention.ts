@@ -138,7 +138,11 @@ export async function refreshIdentityRetentionForImage(
   }
 
   const filedAt = image.taxCase.filedAt ?? new Date()
-  const retentionDeleteAt = getRetentionDeleteAt(filedAt)
+  const policyDeleteAt = getRetentionDeleteAt(filedAt)
+  const retentionDeleteAt =
+    image.retentionDeleteAt && image.retentionDeleteAt > policyDeleteAt
+      ? image.retentionDeleteAt
+      : policyDeleteAt
 
   await db.rawImage.update({
     where: { id: rawImageId },
@@ -247,4 +251,89 @@ export async function clearScheduledIdentityRetentionForCase(
   })
 
   return { cleared: result.count }
+}
+
+export async function extendScheduledIdentityRetentionForCase(
+  caseId: string,
+  days: 30 | 60 | 90,
+  db: PrismaTx = prisma,
+  now = new Date()
+): Promise<{
+  scheduled: number
+  extended: number
+  extendedUntil: Date
+  nextDeletionAt: Date | null
+  latestDeletionAt: Date | null
+}> {
+  const extendedUntil = getRetentionDeleteAt(now, days)
+  const scheduledImages = await db.rawImage.findMany({
+    where: {
+      caseId,
+      retentionPolicy: IDENTITY_RETENTION_POLICY,
+      retentionDeleteAt: { not: null },
+      retentionDeletedAt: null,
+      isStorageDeleted: false,
+      retentionDeleteReason: { not: IDENTITY_RETENTION_DELETE_IN_PROGRESS_REASON },
+    },
+    select: {
+      id: true,
+      retentionDeleteAt: true,
+    },
+  })
+
+  const imageIdsToExtend = scheduledImages
+    .filter((image) => image.retentionDeleteAt && image.retentionDeleteAt < extendedUntil)
+    .map((image) => image.id)
+
+  let extended = 0
+  if (imageIdsToExtend.length > 0) {
+    const result = await db.rawImage.updateMany({
+      where: {
+        id: { in: imageIdsToExtend },
+        caseId,
+        retentionPolicy: IDENTITY_RETENTION_POLICY,
+        retentionDeleteAt: { lt: extendedUntil },
+        retentionDeletedAt: null,
+        isStorageDeleted: false,
+        retentionDeleteReason: { not: IDENTITY_RETENTION_DELETE_IN_PROGRESS_REASON },
+      },
+      data: {
+        retentionDeleteAt: extendedUntil,
+        retentionDeleteReason: IDENTITY_RETENTION_DELETE_REASON,
+      },
+    })
+    extended = result.count
+  }
+
+  const currentScheduledImages = await db.rawImage.findMany({
+    where: {
+      caseId,
+      retentionPolicy: IDENTITY_RETENTION_POLICY,
+      retentionDeleteAt: { not: null },
+      retentionDeletedAt: null,
+      isStorageDeleted: false,
+      retentionDeleteReason: { not: IDENTITY_RETENTION_DELETE_IN_PROGRESS_REASON },
+    },
+    select: {
+      retentionDeleteAt: true,
+    },
+  })
+
+  const effectiveDeleteDates = currentScheduledImages
+    .map((image) => image.retentionDeleteAt)
+    .filter((date): date is Date => Boolean(date))
+
+  const getBoundaryDate = (mode: 'min' | 'max') => {
+    if (effectiveDeleteDates.length === 0) return null
+    const times = effectiveDeleteDates.map((date) => date.getTime())
+    return new Date(mode === 'min' ? Math.min(...times) : Math.max(...times))
+  }
+
+  return {
+    scheduled: currentScheduledImages.length,
+    extended,
+    extendedUntil,
+    nextDeletionAt: getBoundaryDate('min'),
+    latestDeletionAt: getBoundaryDate('max'),
+  }
 }

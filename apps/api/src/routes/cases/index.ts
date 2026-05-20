@@ -17,6 +17,7 @@ import {
   updateChecklistItemNotesSchema,
   caseIdParamSchema,
   groupDocumentsSchema,
+  extendIdentityRetentionSchema,
 } from './schemas'
 import { inngest } from '../../lib/inngest'
 import { generateChecklist } from '../../services/checklist-generator'
@@ -24,6 +25,7 @@ import { getSignedDownloadUrl, SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS } from '../.
 import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
 import {
   clearScheduledIdentityRetentionForCase,
+  extendScheduledIdentityRetentionForCase,
   scheduleIdentityRetentionForFiledCase,
 } from '../../services/identity-doc-retention'
 import { findOrCreateEngagement } from '../../services/engagement-helpers'
@@ -35,6 +37,13 @@ import { buildNestedClientScope, buildClientScopeFilter } from '../../lib/org-sc
 import { isBizWithGroup } from '../../lib/client-helpers'
 
 const casesRoute = new Hono<{ Variables: AuthVariables }>()
+
+function getGenericPatchTransitions(currentStatus: TaxCaseStatus): TaxCaseStatus[] {
+  return getValidNextStatuses(currentStatus).filter((nextStatus) => {
+    if (nextStatus === currentStatus) return true
+    return nextStatus !== 'FILED' && currentStatus !== 'FILED'
+  })
+}
 
 // GET /cases - List all cases with filters
 casesRoute.get('/', zValidator('query', listCasesQuerySchema), async (c) => {
@@ -226,13 +235,24 @@ casesRoute.patch('/:id', zValidator('json', updateCaseSchema), async (c) => {
 
   if (isStatusChange) {
     if (!isValidStatusTransition(currentCase.status as TaxCaseStatus, status as TaxCaseStatus)) {
-      const validNext = getValidNextStatuses(currentCase.status as TaxCaseStatus).slice(1)
+      const validNext = getGenericPatchTransitions(currentCase.status as TaxCaseStatus).slice(1)
       return c.json(
         {
           error: 'INVALID_TRANSITION',
           message: `Cannot transition from ${currentCase.status} to ${status}`,
           currentStatus: currentCase.status,
           validTransitions: validNext,
+        },
+        400
+      )
+    }
+
+    if (status === 'FILED' || currentCase.status === 'FILED') {
+      return c.json(
+        {
+          error: 'FILED_ACTION_REQUIRED',
+          message: 'Use mark-filed or reopen endpoint for filed case transitions',
+          currentStatus: currentCase.status,
         },
         400
       )
@@ -245,32 +265,58 @@ casesRoute.patch('/:id', zValidator('json', updateCaseSchema), async (c) => {
     // Track completion timestamps
     if (isStatusChange && status === 'ENTRY_COMPLETE') {
       updateData.entryCompletedAt = new Date()
-    } else if (isStatusChange && status === 'FILED') {
-      updateData.filedAt = new Date()
-    } else if (isStatusChange && currentCase.status === 'FILED') {
-      updateData.filedAt = null
     }
   }
 
-  const taxCase = await prisma.$transaction(async (tx) => {
-    const updated = await tx.taxCase.update({
-      where: { id },
+  const patchResult = await prisma.$transaction(async (tx) => {
+    const result = await tx.taxCase.updateMany({
+      where: {
+        id,
+        ...buildNestedClientScope(user),
+        status: currentCase.status,
+      },
       data: updateData,
     })
 
-    if (isStatusChange && status === 'FILED') {
-      await scheduleIdentityRetentionForFiledCase(id, tx)
-    } else if (isStatusChange && currentCase.status === 'FILED') {
-      await clearScheduledIdentityRetentionForCase(id, tx)
+    if (result.count === 0) {
+      const scopedCase = await tx.taxCase.findFirst({
+        where: { id, ...buildNestedClientScope(user) },
+        select: { status: true },
+      })
+
+      return {
+        error: scopedCase ? 'STATUS_CHANGED' : 'NOT_FOUND',
+        currentStatus: scopedCase?.status,
+      } as const
     }
+
+    const updated = await tx.taxCase.findUnique({ where: { id } })
 
     return updated
   })
 
+  if (!patchResult) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  if ('error' in patchResult) {
+    if (patchResult.error === 'NOT_FOUND') {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+    return c.json(
+      {
+        error: 'STATUS_CHANGED',
+        message: 'Case status changed; refresh and retry',
+        currentStatus: patchResult.currentStatus,
+      },
+      409
+    )
+  }
+
   return c.json({
-    ...taxCase,
-    createdAt: taxCase.createdAt.toISOString(),
-    updatedAt: taxCase.updatedAt.toISOString(),
+    ...patchResult,
+    createdAt: patchResult.createdAt.toISOString(),
+    updatedAt: patchResult.updatedAt.toISOString(),
   })
 })
 
@@ -289,7 +335,7 @@ casesRoute.get('/:id/valid-transitions', async (c) => {
   }
 
   const currentStatus = taxCase.status as TaxCaseStatus
-  const validTransitions = getValidNextStatuses(currentStatus)
+  const validTransitions = getGenericPatchTransitions(currentStatus)
 
   return c.json({
     currentStatus,
@@ -880,69 +926,221 @@ casesRoute.post('/:id/mark-filed', zValidator('param', caseIdParamSchema), async
   const { id } = c.req.valid('param')
   const user = c.get('user')
 
-  const taxCase = await prisma.taxCase.findFirst({
-    where: { id, ...buildNestedClientScope(user) },
-    select: { isInReview: true, isFiled: true },
-  })
-
-  if (!taxCase) {
-    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
-  }
-
-  if (taxCase.isFiled) {
-    return c.json({ error: 'ALREADY_FILED', message: 'Case is already filed' }, 400)
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.taxCase.update({
-      where: { id },
+  const now = new Date()
+  const result = await prisma.$transaction(async (tx) => {
+    const updateResult = await tx.taxCase.updateMany({
+      where: {
+        id,
+        ...buildNestedClientScope(user),
+        isFiled: false,
+        status: { not: 'FILED' },
+        filedAt: null,
+      },
       data: {
         isFiled: true,
-        filedAt: new Date(),
-        lastActivityAt: new Date(),
+        isInReview: false,
+        status: 'FILED',
+        filedAt: now,
+        lastActivityAt: now,
       },
     })
 
-    await scheduleIdentityRetentionForFiledCase(id, tx)
+    if (updateResult.count === 0) {
+      const scopedCase = await tx.taxCase.findFirst({
+        where: { id, ...buildNestedClientScope(user) },
+        select: { id: true },
+      })
+
+      return {
+        error: scopedCase ? 'ALREADY_FILED' : 'NOT_FOUND',
+      } as const
+    }
+
+    const updated = await tx.taxCase.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        isFiled: true,
+        filedAt: true,
+      },
+    })
+
+    const retention = await scheduleIdentityRetentionForFiledCase(id, tx)
+    return { updated, scheduledIdentityDocs: retention.scheduled } as const
   })
 
-  return c.json({ success: true })
+  if ('error' in result) {
+    if (result.error === 'NOT_FOUND') {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+    return c.json({ error: 'ALREADY_FILED', message: 'Case is already filed' }, 400)
+  }
+
+  if (!result.updated) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  return c.json({
+    success: true,
+    caseId: result.updated.id,
+    status: result.updated.status,
+    isFiled: result.updated.isFiled,
+    filedAt: result.updated.filedAt?.toISOString() ?? null,
+    scheduledIdentityDocs: result.scheduledIdentityDocs,
+  })
 })
 
-// POST /cases/:id/reopen - Reopen a filed case (goes back to review)
+// POST /cases/:id/reopen - Reopen a filed case
 casesRoute.post('/:id/reopen', zValidator('param', caseIdParamSchema), async (c) => {
   const { id } = c.req.valid('param')
   const user = c.get('user')
 
-  const taxCase = await prisma.taxCase.findFirst({
-    where: { id, ...buildNestedClientScope(user) },
-    select: { isFiled: true },
-  })
-
-  if (!taxCase) {
-    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
-  }
-
-  if (!taxCase.isFiled) {
-    return c.json({ error: 'NOT_FILED', message: 'Case is not filed' }, 400)
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.taxCase.update({
-      where: { id },
+  const now = new Date()
+  const result = await prisma.$transaction(async (tx) => {
+    const updateResult = await tx.taxCase.updateMany({
+      where: {
+        id,
+        ...buildNestedClientScope(user),
+        OR: [{ isFiled: true }, { status: 'FILED' }, { filedAt: { not: null } }],
+      },
       data: {
         isFiled: false,
-        isInReview: true, // Go back to review state
+        isInReview: false,
+        status: 'IN_PROGRESS',
         filedAt: null,
-        lastActivityAt: new Date(),
+        lastActivityAt: now,
       },
     })
 
-    await clearScheduledIdentityRetentionForCase(id, tx)
+    if (updateResult.count === 0) {
+      const scopedCase = await tx.taxCase.findFirst({
+        where: { id, ...buildNestedClientScope(user) },
+        select: { id: true },
+      })
+
+      return {
+        error: scopedCase ? 'NOT_FILED' : 'NOT_FOUND',
+      } as const
+    }
+
+    const updated = await tx.taxCase.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        isFiled: true,
+        filedAt: true,
+      },
+    })
+
+    const retention = await clearScheduledIdentityRetentionForCase(id, tx)
+    return { updated, clearedIdentityDocs: retention.cleared } as const
   })
 
-  return c.json({ success: true })
+  if ('error' in result) {
+    if (result.error === 'NOT_FOUND') {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+    return c.json({ error: 'NOT_FILED', message: 'Case is not filed' }, 400)
+  }
+
+  if (!result.updated) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  return c.json({
+    success: true,
+    caseId: result.updated.id,
+    status: result.updated.status,
+    isFiled: result.updated.isFiled,
+    filedAt: result.updated.filedAt?.toISOString() ?? null,
+    clearedIdentityDocs: result.clearedIdentityDocs,
+  })
 })
+
+// POST /cases/:id/identity-retention/extend - Delay scheduled identity doc deletion
+casesRoute.post(
+  '/:id/identity-retention/extend',
+  zValidator('param', caseIdParamSchema),
+  zValidator('json', extendIdentityRetentionSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const { days } = c.req.valid('json')
+    const user = c.get('user')
+    const staffId = user.staffId
+
+    if (!staffId) {
+      return c.json({ error: 'STAFF_REQUIRED', message: 'Staff ID required' }, 400)
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const taxCase = await tx.taxCase.findFirst({
+        where: { id, ...buildNestedClientScope(user) },
+        select: {
+          id: true,
+          clientId: true,
+          status: true,
+          isFiled: true,
+          filedAt: true,
+          client: { select: { organizationId: true } },
+        },
+      })
+
+      if (!taxCase) return null
+
+      if (!taxCase.isFiled && taxCase.status !== 'FILED' && !taxCase.filedAt) {
+        return { error: 'CASE_NOT_FILED' } as const
+      }
+
+      const retention = await extendScheduledIdentityRetentionForCase(id, days, tx)
+      return { taxCase, retention } as const
+    })
+
+    if (!result) {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+
+    if ('error' in result) {
+      return c.json(
+        {
+          error: result.error,
+          message: 'Only filed cases can extend identity document retention',
+        },
+        400
+      )
+    }
+
+    await logStaffActivity({
+      organizationId: result.taxCase.client.organizationId,
+      clientId: result.taxCase.clientId,
+      caseId: id,
+      actorStaffId: staffId,
+      action: 'IDENTITY_DOCUMENT_RETENTION_EXTENDED',
+      riskLevel: ActivityRiskLevel.MEDIUM,
+      metadata: {
+        days,
+        scheduledIdentityDocs: result.retention.scheduled,
+        extendedIdentityDocs: result.retention.extended,
+        extendedUntil: result.retention.extendedUntil.toISOString(),
+        nextIdentityDeletionAt: result.retention.nextDeletionAt?.toISOString() ?? null,
+        latestIdentityDeletionAt: result.retention.latestDeletionAt?.toISOString() ?? null,
+      },
+      request: getAuditRequestContext(c),
+    })
+
+    return c.json({
+      success: true,
+      caseId: id,
+      days,
+      scheduledIdentityDocs: result.retention.scheduled,
+      extendedIdentityDocs: result.retention.extended,
+      extendedUntil: result.retention.extendedUntil.toISOString(),
+      nextIdentityDeletionAt: result.retention.nextDeletionAt?.toISOString() ?? null,
+      latestIdentityDeletionAt: result.retention.latestDeletionAt?.toISOString() ?? null,
+    })
+  }
+)
 
 // In-memory rate limiter for group-documents endpoint (per caseId)
 // Auto-cleanup after cooldown to prevent memory leak

@@ -171,7 +171,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Public portal file lists and upload responses expose safe labels/status only; original filenames, AI-renamed filenames, R2 keys, and signed URLs stay internal.
 - PORTAL MagicLink generation: 32-character URL-safe random token, `/upload/:token` route, default 60-day expiry from `MAGIC_LINK_EXPIRY_DAYS`, CASE or GROUP scope, and replacement locking. Staff can reuse active links, extend 7/14/30/60 days, revoke, or replace from the Files tab. Other MagicLink types keep their existing token/expiry behavior.
 - Sensitive staff document access: signed URLs default to 900 seconds, workspace cache is shorter than the URL lifetime, and file/media proxy responses use private/no-store cache headers.
-- Identity document retention: identity doc types are scheduled after a case is filed, defaulting to 90 days from `IDENTITY_DOC_RETENTION_DAYS`; the delete job removes the R2 object, preserves metadata, marks storage deleted, and logs audit activity without R2 keys, filenames, OCR text, or signed URLs.
+- Identity document retention: identity doc types become retention-eligible when staff explicitly clicks `Mark return filed`; review, verification, data entry, checklist completion, and Files tab usage are not prerequisites. Late uploads or reclassification on already-filed cases can schedule retention from the original `filedAt`. The default retention window is 90 days from `IDENTITY_DOC_RETENTION_DAYS`; staff can reopen a filed case to clear pending schedules or extend scheduled identity retention 30/60/90 days. The delete job removes only due R2 objects, preserves DB metadata, marks storage deleted, and logs audit activity without R2 keys, filenames, OCR text, or signed URLs.
 - Out of scope: malware/virus scanning and quarantine before CPA preview/download are not implemented yet.
 
 **Portal PDF Viewer (Phase 02-05 Complete):**
@@ -281,7 +281,10 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /engagements/:id` - Update profile
 - `GET /cases/:id` - Case detail with checklist
 - `GET /cases/:id/images` - Case images with `isNew` boolean per image (Phase 2)
-- `PATCH /cases/:id` - Update case status
+- `PATCH /cases/:id` - Update editable case fields and non-filed status transitions. Filed/reopen transitions are rejected here and must use canonical action endpoints.
+- `POST /cases/:id/mark-filed` - Canonical filed action. Sets `status=FILED`, `isFiled=true`, clears review state, stamps `filedAt`, and schedules eligible identity document retention.
+- `POST /cases/:id/reopen` - Reopens a filed case, resets status to `IN_PROGRESS`, and clears pending identity retention for not-yet-deleted docs.
+- `POST /cases/:id/identity-retention/extend` - Extends scheduled identity retention by 30, 60, or 90 days without shortening later schedules.
 - Actions for compliance tracking
 
 **Documents & Classification (14+):**

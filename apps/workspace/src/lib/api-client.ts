@@ -622,13 +622,19 @@ export const api = {
       }),
 
     markFiled: (id: string) =>
-      request<{ success: boolean }>(`/cases/${id}/mark-filed`, {
+      request<CaseFiledActionResponse>(`/cases/${id}/mark-filed`, {
         method: 'POST',
       }),
 
     reopen: (id: string) =>
-      request<{ success: boolean }>(`/cases/${id}/reopen`, {
+      request<CaseReopenActionResponse>(`/cases/${id}/reopen`, {
         method: 'POST',
+      }),
+
+    extendIdentityRetention: (id: string, data: { days: IdentityRetentionExtensionDays }) =>
+      request<IdentityRetentionExtensionResponse>(`/cases/${id}/identity-retention/extend`, {
+        method: 'POST',
+        body: JSON.stringify(data),
       }),
 
     // Trigger batch document grouping (manual)
@@ -2129,6 +2135,9 @@ export interface TaxCaseSummary {
   isInReview?: boolean
   /** Manual flag: case has been filed */
   isFiled?: boolean
+  /** Date/time the return was marked filed */
+  filedAt?: string | null
+  identityRetentionSummary?: IdentityRetentionSummary
   /** Portal URL specific to this tax case/year */
   portalUrl?: string | null
   _count: {
@@ -2145,6 +2154,7 @@ export interface TaxCase {
   taxYear: number
   taxTypes: TaxType[]
   status: TaxCaseStatus
+  filedAt?: string | null
   createdAt: string
   updatedAt: string
   /** Manual flag: case sent for review */
@@ -2170,6 +2180,43 @@ export interface TaxCaseDetail extends TaxCase {
     pendingVerification: number
     blurryCount: number
   }
+}
+
+export interface CaseFiledActionResponse {
+  success: boolean
+  caseId: string
+  status: TaxCaseStatus
+  isFiled: boolean
+  filedAt: string | null
+  scheduledIdentityDocs: number
+}
+
+export interface CaseReopenActionResponse {
+  success: boolean
+  caseId: string
+  status: TaxCaseStatus
+  isFiled: boolean
+  filedAt: string | null
+  clearedIdentityDocs: number
+}
+
+export type IdentityRetentionExtensionDays = 30 | 60 | 90
+
+export interface IdentityRetentionSummary {
+  scheduledIdentityDocs: number
+  nextIdentityDeletionAt: string | null
+  latestIdentityDeletionAt: string | null
+}
+
+export interface IdentityRetentionExtensionResponse {
+  success: boolean
+  caseId: string
+  days: IdentityRetentionExtensionDays
+  scheduledIdentityDocs: number
+  extendedIdentityDocs: number
+  extendedUntil: string
+  nextIdentityDeletionAt: string | null
+  latestIdentityDeletionAt: string | null
 }
 
 // Checklist types

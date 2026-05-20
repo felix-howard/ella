@@ -333,4 +333,46 @@ describe('delete expired identity docs job', () => {
     expect(mockDeleteFile).not.toHaveBeenCalled()
     expect(mockRefreshRetention).toHaveBeenCalledWith('img_1')
   })
+
+  it('does not delete storage when retention is extended after the initial due scan', async () => {
+    mockRawImage.findMany.mockResolvedValueOnce([
+      {
+        id: 'img_1',
+        caseId: 'case_1',
+        r2Key: 'cases/case_1/raw/id-card.jpg',
+        mimeType: 'image/jpeg',
+        status: 'LINKED',
+        classifiedType: 'DRIVER_LICENSE',
+        category: 'IDENTITY',
+        retentionDeleteAt: now,
+        taxCase: {
+          clientId: 'client_1',
+          status: 'FILED',
+          isFiled: true,
+          filedAt: new Date('2026-05-18T12:00:00.000Z'),
+          client: { organizationId: 'org_1' },
+        },
+      },
+    ] as never)
+    mockRawImage.updateMany.mockResolvedValueOnce({ count: 0 } as never)
+    mockRefreshRetention.mockResolvedValueOnce({ scheduled: true, cleared: false })
+
+    await expect(deleteExpiredIdentityDocs(now)).resolves.toEqual({
+      scanned: 1,
+      deleted: 0,
+      failed: 0,
+    })
+
+    expect(mockRawImage.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        id: 'img_1',
+        retentionDeleteAt: { lte: now },
+        retentionDeletedAt: null,
+        isStorageDeleted: false,
+      }),
+      data: { retentionDeleteReason: 'identity_document_retention_delete_in_progress' },
+    })
+    expect(mockDeleteFile).not.toHaveBeenCalled()
+    expect(mockRefreshRetention).toHaveBeenCalledWith('img_1')
+  })
 })

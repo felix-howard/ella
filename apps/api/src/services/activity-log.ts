@@ -3,6 +3,7 @@ import { ActivityActorType, ActivityRiskLevel, Prisma } from '@ella/db'
 import { prisma } from '../lib/db'
 import { getClientIp } from '../middleware/rate-limiter'
 import {
+  ACTIVITY_ACTIONS,
   ACTIVITY_TARGET_TYPES,
   categoryForAction,
   isActivityCategory,
@@ -27,6 +28,7 @@ const LONG_SECRET_VALUE_PATTERN = /^[A-Za-z0-9+/=_-]{32,}$/
 const STORAGE_KEY_VALUE_PATTERN =
   /^(clients|cases|uploads|raw-images|staff-signatures|agreements|draft-returns|portal)\//
 const LONG_TEXT_VALUE_LIMIT = 500
+const DEFAULT_COOLESCED_ACTIVITY_WINDOW_MS = 3 * 60 * 1000
 
 export interface AuditRequestContext {
   ipAddress?: string
@@ -50,12 +52,19 @@ export interface ActivityLogInput {
   actorStaffId?: string | null
   action: string
   riskLevel?: ActivityRiskLevel
+  coalesceKey?: string | null
+  coalesceWindowMs?: number | null
   metadata?: unknown
   request?: AuditRequestContext
 }
 
 interface LogActivityOptions {
   strict?: boolean
+}
+
+interface ActivityCoalesceConfig {
+  key: string
+  windowMs: number
 }
 
 export interface ActivityTimelineItem {
@@ -191,6 +200,12 @@ function trimDisplayValue(value?: string | null): string | undefined {
 }
 
 function buildActivityCreateData(input: ActivityLogInput): Prisma.ActivityLogCreateManyInput {
+  const inputMetadata = getJsonObject(input.metadata)
+  const metadata = {
+    ...inputMetadata,
+    ...(input.coalesceKey ? { coalesceKey: input.coalesceKey } : {}),
+  }
+
   return {
     organizationId: input.organizationId || undefined,
     clientId: input.clientId || undefined,
@@ -206,12 +221,119 @@ function buildActivityCreateData(input: ActivityLogInput): Prisma.ActivityLogCre
     actorStaffId: input.actorStaffId || undefined,
     action: normalizeActivityAction(input.action),
     riskLevel: input.riskLevel || ActivityRiskLevel.LOW,
-    metadata: redactActivityMetadata(input.metadata) ?? Prisma.JsonNull,
+    metadata: redactActivityMetadata(
+      Object.keys(metadata).length > 0 ? metadata : input.metadata
+    ) ?? Prisma.JsonNull,
     ipAddress: input.request?.ipAddress,
     userAgent: input.request?.userAgent,
     route: input.request?.route,
     method: input.request?.method,
   }
+}
+
+function getCoalesceConfig(input: ActivityLogInput): ActivityCoalesceConfig | null {
+  const key = trimDisplayValue(input.coalesceKey)
+  if (!key) return null
+  return {
+    key,
+    windowMs: input.coalesceWindowMs ?? DEFAULT_COOLESCED_ACTIVITY_WINDOW_MS,
+  }
+}
+
+function getJsonObject(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return value as Record<string, unknown>
+}
+
+function getActivityCount(metadata: unknown): number {
+  const count = getJsonObject(metadata).activityCount
+  return typeof count === 'number' && Number.isFinite(count) && count > 0 ? count : 1
+}
+
+function collectMessageIds(...metadataValues: unknown[]): string[] {
+  const ids: string[] = []
+  for (const metadata of metadataValues) {
+    const object = getJsonObject(metadata)
+    if (typeof object.messageId === 'string') ids.push(object.messageId)
+    if (Array.isArray(object.messageIds)) {
+      ids.push(...object.messageIds.filter((id): id is string => typeof id === 'string'))
+    }
+  }
+  return [...new Set(ids)]
+}
+
+function buildCoalescedSummary(input: ActivityLogInput, count: number): string {
+  const metadata = getJsonObject(input.metadata)
+  if (input.action === ACTIVITY_ACTIONS.MESSAGE.SENT) {
+    const channel = metadata.channel === 'SMS' ? 'SMS' : 'portal messages'
+    return count === 1
+      ? trimDisplayValue(input.summary) ?? `Sent ${channel} to client`
+      : `Sent ${count} ${channel === 'SMS' ? 'SMS messages' : channel} to client`
+  }
+  return trimDisplayValue(input.summary) ?? buildFallbackSummary(input)
+}
+
+async function coalesceActivityIfPossible(
+  input: ActivityLogInput,
+  data: Prisma.ActivityLogCreateManyInput,
+  config: ActivityCoalesceConfig
+): Promise<boolean> {
+  const existing = await prisma.activityLog.findFirst({
+    where: {
+      organizationId: data.organizationId,
+      action: data.action,
+      category: data.category as string,
+      actorType: data.actorType,
+      actorStaffId: data.actorStaffId ?? null,
+      clientId: data.clientId ?? null,
+      caseId: data.caseId ?? null,
+      metadata: {
+        path: ['coalesceKey'],
+        equals: config.key,
+      },
+      createdAt: {
+        gte: new Date(Date.now() - config.windowMs),
+      },
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    select: {
+      id: true,
+      metadata: true,
+    },
+  })
+
+  if (!existing) return false
+
+  const activityCount = getActivityCount(existing.metadata) + 1
+  const existingMetadata = getJsonObject(existing.metadata)
+  const nextMetadata = getJsonObject(data.metadata)
+  const messageIds = collectMessageIds(existing.metadata, data.metadata)
+
+  await prisma.activityLog.update({
+    where: { id: existing.id },
+    data: {
+      rawImageId: data.rawImageId,
+      magicLinkId: data.magicLinkId,
+      targetType: data.targetType,
+      targetId: data.targetId,
+      targetLabel: data.targetLabel,
+      summary: buildCoalescedSummary(input, activityCount),
+      metadata: {
+        ...existingMetadata,
+        ...nextMetadata,
+        activityCount,
+        ...(messageIds.length > 0 ? { messageIds } : {}),
+      },
+      riskLevel: data.riskLevel,
+      ipAddress: data.ipAddress,
+      userAgent: data.userAgent,
+      route: data.route,
+      method: data.method,
+      createdAt: new Date(),
+    },
+  })
+
+  return true
 }
 
 export function toActivityTimelineItem(record: ActivityTimelineRecord): ActivityTimelineItem {
@@ -241,8 +363,17 @@ export async function logActivity(
   options: LogActivityOptions = {}
 ): Promise<void> {
   try {
+    const data = buildActivityCreateData(input)
+    const coalesceConfig = getCoalesceConfig(input)
+    if (coalesceConfig && await coalesceActivityIfPossible(input, data, coalesceConfig)) {
+      return
+    }
+
     await prisma.activityLog.create({
-      data: buildActivityCreateData(input),
+      data: {
+        ...data,
+        summary: coalesceConfig ? buildCoalescedSummary(input, 1) : data.summary,
+      },
     })
   } catch (error) {
     console.error('[ActivityLog] Failed to log activity', {

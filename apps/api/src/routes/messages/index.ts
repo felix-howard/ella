@@ -567,6 +567,7 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
       summary: channel === 'SMS' ? 'Sent SMS to client' : 'Sent portal message to client',
       action: ACTIVITY_ACTIONS.MESSAGE.SENT,
       riskLevel: ActivityRiskLevel.LOW,
+      coalesceKey: `message.sent:${channel}:${caseId}:${user.staffId}`,
       metadata: {
         channel,
         messageId: message.id,

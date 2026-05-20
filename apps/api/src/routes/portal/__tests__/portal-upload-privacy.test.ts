@@ -58,9 +58,20 @@ vi.mock('../../../services/activity-tracker', () => ({
   updateLastActivity: vi.fn(),
 }))
 
+vi.mock('../../../services/activity-log', () => ({
+  getAuditRequestContext: vi.fn(() => ({
+    ipAddress: '203.0.113.10',
+    userAgent: 'Vitest',
+    route: '/portal/token_1/upload',
+    method: 'POST',
+  })),
+  logClientPortalActivity: vi.fn(),
+}))
+
 import { Hono } from 'hono'
 import { prisma } from '../../../lib/db'
 import { validateMagicLink } from '../../../services/magic-link'
+import { logClientPortalActivity } from '../../../services/activity-log'
 import { portalRoute } from '../index'
 
 const app = new Hono()
@@ -82,6 +93,7 @@ function validCaseLink() {
   return {
     valid: true,
     data: {
+      magicLinkId: 'link_1',
       scope: 'CASE',
       clientGroupId: null,
       entities: [],
@@ -94,6 +106,7 @@ function validCaseLink() {
           name: 'Huynh Huu Phuoc',
           language: 'EN',
           clientGroupId: null,
+          organizationId: 'org_1',
         },
         checklistItems: [],
         rawImages: [],
@@ -217,5 +230,21 @@ describe('Portal upload privacy', () => {
         createdAt: true,
       },
     })
+    expect(logClientPortalActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: 'org_1',
+        clientId: 'client_1',
+        caseId: 'case_1',
+        rawImageId: 'img_8',
+        magicLinkId: 'link_1',
+        action: 'document.uploaded',
+        category: 'DOCUMENT',
+        summary: 'Uploaded 1 document',
+        metadata: expect.objectContaining({
+          uploadCount: 1,
+          rawImageIds: ['img_8'],
+        }),
+      })
+    )
   })
 })

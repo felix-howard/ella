@@ -7,6 +7,8 @@ vi.mock('../../lib/db', () => ({
     activityLog: {
       create: vi.fn(),
       createMany: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
     },
   },
 }))
@@ -28,6 +30,8 @@ import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '..
 describe('Activity Log', () => {
   const mockCreate = vi.mocked(prisma.activityLog.create)
   const mockCreateMany = vi.mocked(prisma.activityLog.createMany)
+  const mockFindFirst = vi.mocked(prisma.activityLog.findFirst)
+  const mockUpdate = vi.mocked(prisma.activityLog.update)
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -192,6 +196,45 @@ describe('Activity Log', () => {
           messageId: 'msg_1',
           conversationId: 'conv_1',
         },
+      }),
+    })
+  })
+
+  it('coalesces repeated outbound SMS activity within the activity window', async () => {
+    mockFindFirst.mockResolvedValueOnce({
+      id: 'activity_message',
+      metadata: {
+        coalesceKey: 'message.sent:SMS:case_1:staff_1',
+        messageId: 'msg_1',
+        activityCount: 1,
+      },
+    } as never)
+    mockUpdate.mockResolvedValueOnce({ id: 'activity_message' } as never)
+
+    await logStaffActivity({
+      organizationId: 'org_1',
+      clientId: 'client_1',
+      caseId: 'case_1',
+      actorStaffId: 'staff_1',
+      action: ACTIVITY_ACTIONS.MESSAGE.SENT,
+      summary: 'Sent SMS to client',
+      coalesceKey: 'message.sent:SMS:case_1:staff_1',
+      metadata: {
+        channel: 'SMS',
+        messageId: 'msg_2',
+      },
+    })
+
+    expect(mockCreate).not.toHaveBeenCalled()
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'activity_message' },
+      data: expect.objectContaining({
+        summary: 'Sent 2 SMS messages to client',
+        metadata: expect.objectContaining({
+          coalesceKey: 'message.sent:SMS:case_1:staff_1',
+          activityCount: 2,
+          messageIds: ['msg_1', 'msg_2'],
+        }),
       }),
     })
   })

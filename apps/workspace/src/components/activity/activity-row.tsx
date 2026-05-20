@@ -13,7 +13,9 @@ type ActivityRowProps = {
 export function ActivityRow({ item }: ActivityRowProps) {
   const { t, i18n } = useTranslation()
   const { icon: Icon, className } = getActivityIconConfig(item.category)
-  const actorName = item.actor.name ?? t(`activity.actor.${item.actor.type}`)
+  const actorName = item.actor.name
+    ?? (item.actor.type === 'CLIENT_PORTAL' && item.clientId ? item.target.label : null)
+    ?? t(`activity.actor.${item.actor.type}`)
   const title = formatFullDateTime(item.createdAt)
   const content = (
     <div className="flex gap-2 py-2">

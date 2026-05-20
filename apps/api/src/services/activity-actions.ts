@@ -49,6 +49,7 @@ export const ACTIVITY_ACTIONS = {
     STATUS_CHANGED: 'case.status_changed',
   },
   DOCUMENT: {
+    UPLOADED: 'document.uploaded',
     UPDATED: 'document.updated',
     CLASSIFICATION_APPROVED: 'document.classification_approved',
     CLASSIFICATION_REJECTED: 'document.classification_rejected',

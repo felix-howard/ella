@@ -10,7 +10,8 @@ vi.mock('../../../lib/db', () => ({
       delete: vi.fn(),
     },
     documentView: {
-      upsert: vi.fn(),
+      createMany: vi.fn(),
+      findMany: vi.fn(),
     },
   },
 }))
@@ -121,7 +122,7 @@ describe('images activity logging', () => {
   })
 
   it('logs canonical activity fields when marking a document viewed', async () => {
-    vi.mocked(prisma.documentView.upsert).mockResolvedValue({} as never)
+    vi.mocked(prisma.documentView.createMany).mockResolvedValue({ count: 1 } as never)
 
     const res = await createApp().request('/images/img_1/mark-viewed', { method: 'POST' })
 
@@ -140,5 +141,14 @@ describe('images activity logging', () => {
         riskLevel: ActivityRiskLevel.LOW,
       })
     )
+  })
+
+  it('does not log activity when the document view already exists', async () => {
+    vi.mocked(prisma.documentView.createMany).mockResolvedValue({ count: 0 } as never)
+
+    const res = await createApp().request('/images/img_1/mark-viewed', { method: 'POST' })
+
+    expect(res.status).toBe(200)
+    expect(logStaffActivity).not.toHaveBeenCalled()
   })
 })

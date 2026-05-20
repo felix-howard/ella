@@ -2,9 +2,9 @@
  * Schedule C Staff API Routes
  * Authenticated endpoints for CPAs to manage Schedule C expense forms
  */
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { prisma } from '../../lib/db'
-import type { AuthVariables } from '../../middleware/auth'
+import type { AuthUser, AuthVariables } from '../../middleware/auth'
 import {
   createMagicLink,
   createMagicLinkWithDeactivation,
@@ -12,9 +12,11 @@ import {
   extendMagicLinkExpiry,
   getMagicLinkUrl,
 } from '../../services/magic-link'
+import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 import { sendScheduleCFormMessage, getOrgSmsLanguage } from '../../services/sms/message-sender'
 import { calculateGrossReceipts, calculateScheduleCTotals, getGrossReceiptsBreakdown } from '../../services/schedule-c/expense-calculator'
-import type { Prisma } from '@ella/db'
+import { ActivityRiskLevel, type Prisma } from '@ella/db'
 
 // Helper to format Decimal to string with 2 decimal places
 const formatDecimal = (value: Prisma.Decimal | null): string | null =>
@@ -34,6 +36,42 @@ interface ScheduleCMessageTarget {
   clientName: string
   clientPhone: string | null
   businessName: string | null
+}
+
+async function logScheduleCFormSentActivity(
+  c: Context<{ Variables: AuthVariables }>,
+  user: AuthUser,
+  taxCase: ScheduleCCase,
+  messageTarget: ScheduleCMessageTarget,
+  smsResult: { messageId?: string; smsSent: boolean },
+  summary: string
+) {
+  if (!user.staffId) return
+
+  await logStaffActivity({
+    organizationId: user.organizationId ?? taxCase.client.organizationId,
+    clientId: taxCase.client.id,
+    caseId: taxCase.id,
+    actorStaffId: user.staffId,
+    category: ACTIVITY_CATEGORIES.MESSAGE,
+    targetType: smsResult.messageId ? ACTIVITY_TARGET_TYPES.MESSAGE : ACTIVITY_TARGET_TYPES.CASE,
+    targetId: smsResult.messageId ?? taxCase.id,
+    targetLabel: taxCase.client.name,
+    summary,
+    action: ACTIVITY_ACTIONS.MESSAGE.SENT,
+    riskLevel: ActivityRiskLevel.LOW,
+    coalesceKey: `message.sent:SMS:${messageTarget.caseId}:${user.staffId}`,
+    metadata: {
+      channel: 'SMS',
+      formType: 'SCHEDULE_C',
+      templateName: 'schedule_c',
+      messageId: smsResult.messageId,
+      messageCaseId: messageTarget.caseId,
+      businessName: messageTarget.businessName,
+      smsSent: smsResult.smsSent,
+    },
+    request: getAuditRequestContext(c),
+  })
 }
 
 async function resolveScheduleCMessageTarget(
@@ -158,6 +196,15 @@ scheduleCRoute.post('/:caseId/send', async (c) => {
     customMessage,
     messageTarget.businessName,
     user.staffId
+  )
+
+  await logScheduleCFormSentActivity(
+    c,
+    user,
+    taxCase,
+    messageTarget,
+    smsResult,
+    'Sent Schedule C form to client'
   )
 
   return c.json({
@@ -397,6 +444,15 @@ scheduleCRoute.post('/:caseId/resend', async (c) => {
       user.staffId
     )
 
+    await logScheduleCFormSentActivity(
+      c,
+      user,
+      taxCase,
+      messageTarget,
+      smsResult,
+      'Resent Schedule C form to client'
+    )
+
     return c.json({
       success: true,
       expiresAt: newExpiry.toISOString(),
@@ -417,6 +473,15 @@ scheduleCRoute.post('/:caseId/resend', async (c) => {
       undefined,
       messageTarget.businessName,
       user.staffId
+    )
+
+    await logScheduleCFormSentActivity(
+      c,
+      user,
+      taxCase,
+      messageTarget,
+      smsResult,
+      'Resent Schedule C form to client'
     )
 
     return c.json({

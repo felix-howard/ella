@@ -133,6 +133,24 @@ describe('ActivityTimeline', () => {
     expect(markup).not.toContain('High risk')
   })
 
+  it('uses the client target label for client portal activity actor', () => {
+    const markup = renderToStaticMarkup(
+      <ActivityRow
+        item={activity({
+          category: 'DOCUMENT',
+          action: 'document.uploaded',
+          summary: 'Uploaded 3 documents',
+          actor: { type: 'CLIENT_PORTAL', staffId: null, name: null, avatarUrl: null },
+          target: { type: 'CASE', id: 'case_1', label: 'Tuyet Nguyen' },
+        })}
+      />,
+    )
+
+    expect(markup).toContain('Tuyet Nguyen')
+    expect(markup).toContain('Uploaded 3 documents')
+    expect(markup).not.toContain('activity.actor.CLIENT_PORTAL')
+  })
+
   it('uses recent activity query mode', () => {
     const markup = renderToStaticMarkup(<ActivityTimeline scope="recent" />)
 

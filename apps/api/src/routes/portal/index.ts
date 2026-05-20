@@ -438,6 +438,33 @@ portalRoute.post('/:token/upload', async (c) => {
 
   if (createdImages.length > 0) {
     await updateLastActivity(effectiveCaseId)
+    const entity = result.data.entities.find((item) => item.caseId === effectiveCaseId)
+    const clientId = entity?.clientId ?? taxCase?.client.id ?? null
+    const clientName = entity?.name ?? taxCase?.client.name ?? clientGroup?.name ?? 'Client'
+    const organizationId =
+      clientGroup?.organizationId ?? taxCase?.client.organizationId ?? null
+
+    await logClientPortalActivity({
+      organizationId,
+      clientId,
+      caseId: effectiveCaseId,
+      rawImageId: createdImages.length === 1 ? createdImages[0]?.id : null,
+      magicLinkId: result.data.magicLinkId,
+      category: ACTIVITY_CATEGORIES.DOCUMENT,
+      targetType: ACTIVITY_TARGET_TYPES.CASE,
+      targetId: effectiveCaseId,
+      targetLabel: clientName,
+      summary: `Uploaded ${createdImages.length} ${createdImages.length === 1 ? 'document' : 'documents'}`,
+      action: ACTIVITY_ACTIONS.DOCUMENT.UPLOADED,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        uploadCount: createdImages.length,
+        rawImageIds: createdImages.map((img) => img.id),
+        uploadSource,
+        scope,
+      },
+      request: getAuditRequestContext(c),
+    })
   }
 
   if (createdImages.length > 0 && !isGeminiConfigured) {

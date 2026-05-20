@@ -1015,40 +1015,55 @@ imagesRoute.post('/batch-mark-viewed', async (c) => {
     return c.json({ success: true, marked: 0 })
   }
 
+  const existingViews = await prisma.documentView.findMany({
+    where: {
+      staffId,
+      rawImageId: { in: validImageIds },
+    },
+    select: { rawImageId: true },
+  })
+  const existingImageIds = new Set(existingViews.map((view) => view.rawImageId))
+  const newlyViewedImages = validImages.filter((image) => !existingImageIds.has(image.id))
+  const newlyViewedImageIds = newlyViewedImages.map((image) => image.id)
+
   // Batch upsert DocumentView records
   // Using createMany with skipDuplicates for efficiency
-  await prisma.documentView.createMany({
-    data: validImageIds.map((rawImageId) => ({
-      staffId,
-      rawImageId,
-    })),
-    skipDuplicates: true,
-  })
+  if (newlyViewedImageIds.length > 0) {
+    await prisma.documentView.createMany({
+      data: newlyViewedImageIds.map((rawImageId) => ({
+        staffId,
+        rawImageId,
+      })),
+      skipDuplicates: true,
+    })
 
-  void logStaffActivities(
-    validImages.map((image) => ({
-      organizationId: image.taxCase.client.organizationId,
-      clientId: image.taxCase.client.id,
-      caseId: image.caseId,
-      rawImageId: image.id,
-      actorStaffId: staffId,
-      category: ACTIVITY_CATEGORIES.DOCUMENT,
-      targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
-      targetId: image.id,
-      summary: 'Marked document viewed',
-      action: ACTIVITY_ACTIONS.DOCUMENT.MARKED_VIEWED,
-      riskLevel: ActivityRiskLevel.LOW,
-      metadata: {
-        rawImageId: image.id,
-        docType: image.classifiedType,
-        category: image.category,
-        mimeType: image.mimeType,
-        status: image.status,
-        batch: true,
-      },
-      request: getAuditRequestContext(c),
-    }))
-  )
+    const firstImage = newlyViewedImages[0]
+    if (firstImage) {
+      void logStaffActivity({
+        organizationId: firstImage.taxCase.client.organizationId,
+        clientId: firstImage.taxCase.client.id,
+        caseId: firstImage.caseId,
+        rawImageId: newlyViewedImages.length === 1 ? firstImage.id : undefined,
+        actorStaffId: staffId,
+        category: ACTIVITY_CATEGORIES.DOCUMENT,
+        targetType: newlyViewedImages.length === 1
+          ? ACTIVITY_TARGET_TYPES.RAW_IMAGE
+          : ACTIVITY_TARGET_TYPES.CASE,
+        targetId: newlyViewedImages.length === 1 ? firstImage.id : firstImage.caseId,
+        summary: newlyViewedImages.length === 1
+          ? 'Marked document viewed'
+          : `Marked ${newlyViewedImages.length} documents viewed`,
+        action: ACTIVITY_ACTIONS.DOCUMENT.MARKED_VIEWED,
+        riskLevel: ActivityRiskLevel.LOW,
+        metadata: {
+          rawImageIds: newlyViewedImageIds,
+          count: newlyViewedImageIds.length,
+          batch: true,
+        },
+        request: getAuditRequestContext(c),
+      })
+    }
+  }
 
   return c.json({ success: true, marked: validImageIds.length })
 })
@@ -1095,43 +1110,34 @@ imagesRoute.post('/:id/mark-viewed', async (c) => {
   }
 
   // Upsert DocumentView (handles concurrent calls atomically)
-  await prisma.documentView.upsert({
-    where: {
-      staffId_rawImageId: {
-        staffId,
-        rawImageId: id,
-      },
-    },
-    create: {
-      staffId,
-      rawImageId: id,
-    },
-    update: {
-      viewedAt: new Date(),
-    },
+  const createResult = await prisma.documentView.createMany({
+    data: [{ staffId, rawImageId: id }],
+    skipDuplicates: true,
   })
 
-  void logStaffActivity({
-    organizationId: image.taxCase.client.organizationId,
-    clientId: image.taxCase.client.id,
-    caseId: image.caseId,
-    rawImageId: image.id,
-    actorStaffId: staffId,
-    category: ACTIVITY_CATEGORIES.DOCUMENT,
-    targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
-    targetId: image.id,
-    summary: 'Marked document viewed',
-    action: ACTIVITY_ACTIONS.DOCUMENT.MARKED_VIEWED,
-    riskLevel: ActivityRiskLevel.LOW,
-    metadata: {
+  if (createResult.count > 0) {
+    void logStaffActivity({
+      organizationId: image.taxCase.client.organizationId,
+      clientId: image.taxCase.client.id,
+      caseId: image.caseId,
       rawImageId: image.id,
-      docType: image.classifiedType,
-      category: image.category,
-      mimeType: image.mimeType,
-      status: image.status,
-    },
-    request: getAuditRequestContext(c),
-  })
+      actorStaffId: staffId,
+      category: ACTIVITY_CATEGORIES.DOCUMENT,
+      targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
+      targetId: image.id,
+      summary: 'Marked document viewed',
+      action: ACTIVITY_ACTIONS.DOCUMENT.MARKED_VIEWED,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        rawImageId: image.id,
+        docType: image.classifiedType,
+        category: image.category,
+        mimeType: image.mimeType,
+        status: image.status,
+      },
+      request: getAuditRequestContext(c),
+    })
+  }
 
   return c.json({ success: true })
 })

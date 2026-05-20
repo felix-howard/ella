@@ -156,7 +156,8 @@ export function CaseFiledActionConfirmModal({
       onClose={() => {
         if (!isPending) onCancel()
       }}
-      size="sm"
+      size="lg"
+      className="max-w-[640px]"
       closeOnOverlayClick={!isPending}
       closeOnEscape={!isPending}
       showCloseButton={!isPending}
@@ -174,15 +175,17 @@ export function CaseFiledActionConfirmModal({
           {isReopen ? t('clientDetail.reopenConfirmDesc') : t('clientDetail.markFiledConfirmDesc')}
         </ModalDescription>
       </ModalHeader>
-      <ModalBody className="space-y-2">
-        <p className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-          {isReopen ? t('clientDetail.reopenRetentionNote') : t('clientDetail.markFiledRetentionNote')}
-        </p>
-        {!isReopen && (
-          <p className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-            {t('clientDetail.markFiledMetadataNote')}
+      <ModalBody className="py-4">
+        <div className="divide-y divide-border border-y border-border">
+          <p className="py-3 text-sm leading-relaxed text-muted-foreground">
+            {isReopen ? t('clientDetail.reopenRetentionNote') : t('clientDetail.markFiledRetentionNote')}
           </p>
-        )}
+          {!isReopen && (
+            <p className="py-3 text-sm leading-relaxed text-muted-foreground">
+              {t('clientDetail.markFiledMetadataNote')}
+            </p>
+          )}
+        </div>
       </ModalBody>
       <ModalFooter>
         <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>

@@ -23,24 +23,22 @@ export function IdentityRetentionSectionNotice({
   const { t } = useTranslation()
   const [isExtendOpen, setIsExtendOpen] = useState(false)
   const hasScheduledDate = scheduledCount > 0 && Boolean(nextDeletionLabel)
+  const retentionMessage = hasScheduledDate
+    ? t('files.retention.scheduledDate', {
+        count: scheduledCount,
+        date: nextDeletionLabel,
+      })
+    : t('files.retention.noticeBody')
 
   return (
     <div className="flex flex-col gap-3 px-4 py-3 bg-amber-50/70 text-amber-900 dark:bg-amber-950/25 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-2">
         <CalendarClock className="w-4 h-4 mt-0.5 flex-shrink-0" />
-        <div className="min-w-0 space-y-0.5">
-          <p className="text-xs font-medium">{t('files.retention.noticeTitle')}</p>
-          <p className="text-xs text-amber-800/80 dark:text-amber-200/80">
-            {t('files.retention.noticeBody')}
+        <div className="min-w-0">
+          <p className="text-sm font-semibold leading-5">{t('files.retention.noticeTitle')}</p>
+          <p className="text-xs font-medium leading-5 text-amber-800/80 dark:text-amber-200/80">
+            {retentionMessage}
           </p>
-          {hasScheduledDate && (
-            <p className="text-xs font-medium text-amber-900 dark:text-amber-100">
-              {t('files.retention.scheduledDate', {
-                count: scheduledCount,
-                date: nextDeletionLabel,
-              })}
-            </p>
-          )}
         </div>
       </div>
 

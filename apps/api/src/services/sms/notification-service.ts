@@ -3,8 +3,6 @@
  * Automated SMS notifications triggered by system events (blurry docs, missing docs)
  */
 import { prisma } from '../../lib/db'
-import { getMagicLinksForCase } from '../magic-link'
-import { PORTAL_URL } from '../../lib/constants'
 import {
   sendBlurryResendRequest,
   sendMissingDocsReminder,
@@ -14,6 +12,7 @@ import {
 import { generateStaffUploadMessage, generateStaffChatMonitorMessage } from './templates'
 import { sendSms, formatPhoneToE164, isValidPhoneNumber } from './twilio-client'
 import type { Language } from '@ella/db'
+import { getMagicLinkUrl } from '../magic-link'
 
 // Throttle window constants (in milliseconds)
 const BLURRY_THROTTLE_MS = 60 * 60 * 1000 // 1 hour
@@ -25,12 +24,23 @@ const BATCH_CONCURRENCY = 5 // Max concurrent SMS sends in batch
  * Get or create active magic link URL for a case
  */
 async function getActiveMagicLink(caseId: string): Promise<string | null> {
-  const links = await getMagicLinksForCase(caseId)
-  const activeLink = links.find((l) => l.isActive)
-  if (activeLink) {
-    return `${PORTAL_URL}/u/${activeLink.token}`
-  }
-  return null
+  const now = new Date()
+  const activeLink = await prisma.magicLink.findFirst({
+    where: {
+      caseId,
+      type: 'PORTAL',
+      isActive: true,
+      revokedAt: null,
+      replacedById: null,
+      OR: [
+        { expiresAt: null },
+        { expiresAt: { gt: now } },
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+    select: { token: true },
+  })
+  return activeLink ? getMagicLinkUrl(activeLink.token, 'PORTAL') : null
 }
 
 /**
@@ -182,7 +192,7 @@ export async function notifyMissingDocuments(caseId: string): Promise<SendMessag
  * - No reminder sent in last 24 hours
  * - Case has activity (created > 3 days ago to give client time to upload)
  */
-export async function getCasesNeedingReminders(): Promise<
+export async function getCasesNeedingReminders(organizationId?: string): Promise<
   Array<{ caseId: string; clientName: string; missingCount: number }>
 > {
   const gracePeriodDate = new Date(Date.now() - CASE_GRACE_PERIOD_MS)
@@ -192,6 +202,7 @@ export async function getCasesNeedingReminders(): Promise<
     where: {
       status: 'WAITING_DOCS',
       createdAt: { lte: gracePeriodDate },
+      ...(organizationId ? { client: { organizationId } } : {}),
       checklistItems: {
         some: {
           status: 'MISSING',
@@ -234,13 +245,13 @@ export async function getCasesNeedingReminders(): Promise<
  * Batch send missing documents reminders with concurrency control
  * Returns summary of sent/failed notifications
  */
-export async function sendBatchMissingReminders(): Promise<{
+export async function sendBatchMissingReminders(organizationId?: string): Promise<{
   sent: number
   failed: number
   skipped: number
   details: Array<{ caseId: string; result: string }>
 }> {
-  const casesToNotify = await getCasesNeedingReminders()
+  const casesToNotify = await getCasesNeedingReminders(organizationId)
 
   const results = {
     sent: 0,

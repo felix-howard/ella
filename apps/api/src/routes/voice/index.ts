@@ -10,6 +10,10 @@ import { prisma } from '../../lib/db'
 import { inngest } from '../../lib/inngest'
 import type { AuthVariables } from '../../middleware/auth'
 import { presenceRateLimit } from '../../middleware/rate-limiter'
+import { ActivityRiskLevel } from '@ella/db'
+import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
+import { buildClientScopeFilter } from '../../lib/org-scope'
 
 const voiceRoutes = new Hono<{ Variables: AuthVariables }>()
 
@@ -183,7 +187,7 @@ voiceRoutes.get('/caller/:phone', async (c) => {
   try {
     // Find client by phone
     const client = await prisma.client.findFirst({
-      where: { phone, clientType: 'INDIVIDUAL' },
+      where: { phone, clientType: 'INDIVIDUAL', ...buildClientScopeFilter(user) },
       include: {
         taxCases: {
           orderBy: { createdAt: 'desc' },
@@ -255,8 +259,8 @@ voiceRoutes.post('/calls', zValidator('json', initiateCallSchema), async (c) => 
 
   try {
     // Verify case exists
-    const taxCase = await prisma.taxCase.findUnique({
-      where: { id: caseId },
+    const taxCase = await prisma.taxCase.findFirst({
+      where: { id: caseId, client: buildClientScopeFilter(user) },
       include: { client: true },
     })
 
@@ -317,6 +321,27 @@ voiceRoutes.post('/calls', zValidator('json', initiateCallSchema), async (c) => 
       console.error('[Voice Calls] Failed to emit staff chat event:', err)
     })
 
+    await logStaffActivity({
+      organizationId: taxCase.client.organizationId,
+      clientId: taxCase.client.id,
+      caseId,
+      actorStaffId: user.staffId,
+      category: ACTIVITY_CATEGORIES.MESSAGE,
+      targetType: ACTIVITY_TARGET_TYPES.MESSAGE,
+      targetId: message.id,
+      targetLabel: taxCase.client.name,
+      summary: 'Started outbound call',
+      action: ACTIVITY_ACTIONS.MESSAGE.SENT,
+      riskLevel: ActivityRiskLevel.MEDIUM,
+      metadata: {
+        channel: 'CALL',
+        messageId: message.id,
+        conversationId: conversation.id,
+        callStatus: 'initiated',
+      },
+      request: getAuditRequestContext(c),
+    })
+
     return c.json({
       messageId: message.id,
       conversationId: conversation.id,
@@ -364,6 +389,14 @@ voiceRoutes.patch(
         where: {
           id: messageId,
           channel: 'CALL',
+          conversation: { taxCase: { client: buildClientScopeFilter(user) } },
+        },
+        include: {
+          conversation: {
+            include: {
+              taxCase: { include: { client: true } },
+            },
+          },
         },
       })
 
@@ -374,6 +407,26 @@ voiceRoutes.patch(
       const message = await prisma.message.update({
         where: { id: messageId },
         data: { callSid },
+      })
+
+      await logStaffActivity({
+        organizationId: existingMessage.conversation?.taxCase.client.organizationId,
+        clientId: existingMessage.conversation?.taxCase.client.id,
+        caseId: existingMessage.conversation?.taxCase.id,
+        actorStaffId: user.staffId,
+        category: ACTIVITY_CATEGORIES.MESSAGE,
+        targetType: ACTIVITY_TARGET_TYPES.MESSAGE,
+        targetId: message.id,
+        targetLabel: existingMessage.conversation?.taxCase.client.name,
+        summary: 'Updated outbound call status',
+        action: ACTIVITY_ACTIONS.MESSAGE.DELIVERY_UPDATED,
+        riskLevel: ActivityRiskLevel.MEDIUM,
+        metadata: {
+          channel: 'CALL',
+          messageId: message.id,
+          callStatus: 'sid_attached',
+        },
+        request: getAuditRequestContext(c),
       })
 
       return c.json({ success: true, messageId: message.id, callSid })

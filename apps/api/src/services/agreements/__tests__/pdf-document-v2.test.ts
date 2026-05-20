@@ -9,13 +9,23 @@
  *   - v2 'view' mode: firm signed, client pending
  *   - v1 and v2 outputs differ (branching is active)
  */
+import { Text } from '@react-pdf/renderer'
+import React from 'react'
 import { describe, expect, it } from 'vitest'
-import { generateSignedPdf, type GenerateSignedPdfInput, type FirmSnapshot, type ClientSnapshot } from '../pdf-generator'
+import {
+  generateSignedPdf,
+  type GenerateSignedPdfInput,
+  type FirmSnapshot,
+  type ClientSnapshot,
+} from '../pdf-generator'
+import { getTemplate } from '../../../lib/agreements/template-registry'
+import { NdaPdfDocument } from '../pdf-document'
+import { pdfStyles } from '../pdf-styles'
 
 // Minimal valid 1×1 transparent PNG — used as signature placeholder.
 const TRANSPARENT_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
-  'base64',
+  'base64'
 )
 
 const SIGNED_AT = new Date('2026-05-06T12:00:00Z')
@@ -86,6 +96,47 @@ function buildV2Input(overrides: Partial<GenerateSignedPdfInput> = {}): Generate
 
 function isPdf(buf: Buffer): boolean {
   return buf.subarray(0, 5).toString('ascii') === '%PDF-'
+}
+
+function flattenChildren(node: React.ReactNode): React.ReactNode[] {
+  if (node == null || typeof node === 'boolean') return []
+  if (Array.isArray(node)) return node.flatMap(flattenChildren)
+  return [node]
+}
+
+function containsStyle(node: React.ReactNode, style: unknown): boolean {
+  for (const child of flattenChildren(node)) {
+    if (typeof child !== 'object' || child == null) continue
+    const el = child as React.ReactElement<{ style?: unknown; children?: React.ReactNode }>
+    if (el.props?.style === style) return true
+    if (containsStyle(el.props?.children, style)) return true
+  }
+  return false
+}
+
+function renderEngagementDocument(
+  overrides: {
+    subtitle?: string
+    headerBlock?: React.ReactElement
+  } = {}
+) {
+  return NdaPdfDocument({
+    template: getTemplate('engagement-letter-v1'),
+    vars: {
+      leadFullName: 'Jane Doe',
+      orgName: 'Acme Tax LLC',
+      depositAmount: '$300.00',
+      date: '2026-05-06',
+      templateVersion: 'engagement-letter-v1',
+      confidentialityYears: 'five (5)',
+    },
+    signature: BASE_SIGNATURE,
+    mode: 'preview',
+    title: 'Engagement Letter',
+    bodyNodes: [React.createElement(Text, { key: 'body' }, 'Body')],
+    signatureBlock: React.createElement(Text, { key: 'sig' }, 'Signature'),
+    ...overrides,
+  })
 }
 
 describe('v1 regression', () => {
@@ -180,8 +231,31 @@ describe('v2 governing law fallbacks', () => {
         mode: 'preview',
         firmSnapshot: undefined,
         clientSnapshot: undefined,
-      }),
+      })
     )
     expect(isPdf(buf)).toBe(true)
+  })
+})
+
+describe('v2 title/body spacing', () => {
+  it('adds spacer when v2 has no subtitle or generated header block', () => {
+    expect(containsStyle(renderEngagementDocument(), pdfStyles.titleBodySpacer)).toBe(true)
+  })
+
+  it('does not add spacer when subtitle or header already provides separation', () => {
+    expect(
+      containsStyle(
+        renderEngagementDocument({ subtitle: 'Mutual Confidentiality' }),
+        pdfStyles.titleBodySpacer
+      )
+    ).toBe(false)
+    expect(
+      containsStyle(
+        renderEngagementDocument({
+          headerBlock: React.createElement(Text, { key: 'header' }, 'Header'),
+        }),
+        pdfStyles.titleBodySpacer
+      )
+    ).toBe(false)
   })
 })

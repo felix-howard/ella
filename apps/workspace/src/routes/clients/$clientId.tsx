@@ -60,6 +60,7 @@ import {
   ClientOverviewTab,
   BusinessDeleteWithScheduleCModal,
 } from '../../components/clients'
+import { CaseFiledAction } from '../../components/cases/case-filed-action'
 import { useDeleteBusinessWithScheduleC } from '../../hooks/use-delete-business-with-schedule-c'
 import { countScheduleCExpenseLines } from '../../lib/schedule-c-expense-helpers'
 import { FilesTab } from '../../components/files'
@@ -74,6 +75,7 @@ import { useChatUnread } from '../../hooks/use-chat-unread'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, formatPhoneInput, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { api, type TaxCaseStatus, type RawImage, type DigitalDoc, type ClientPreview, type BusinessType } from '../../lib/api-client'
+import type { IdentityRetentionExtensionDays } from '../../lib/api-client'
 import { computeStatus } from '../../lib/computed-status'
 import { isScheduleCEligibleBusiness, BUSINESS_TYPE_LABELS } from '../../lib/business-type-helpers'
 import { IndividualScheduleCActivities } from '../../components/cases/tabs/schedule-c-tab/individual-schedule-c-activities'
@@ -116,7 +118,7 @@ export const Route = createFileRoute('/clients/$clientId')({
 })
 
 function ClientDetailPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { clientId } = Route.useParams()
   const { tab: tabFromSearch } = Route.useSearch()
   const navigate = useNavigate()
@@ -159,6 +161,14 @@ function ClientDetailPage() {
     phone: string
     email: string
   } | null>(null)
+
+  const invalidateRetentionQueries = useCallback((caseId?: string | null) => {
+    queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+    if (caseId) {
+      queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+    }
+    queryClient.invalidateQueries({ queryKey: ['group-images'] })
+  }, [clientId, queryClient])
 
   // Mutation for adding checklist item
   const addChecklistItemMutation = useMutation({
@@ -228,9 +238,13 @@ function ClientDetailPage() {
 
   const markFiledMutation = useMutation({
     mutationFn: () => api.cases.markFiled(activeCaseId!),
-    onSuccess: () => {
-      toast.success(t('clientDetail.markFiledSuccess'))
-      queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+    onSuccess: (data) => {
+      toast.success(
+        data.scheduledIdentityDocs > 0
+          ? t('clientDetail.markFiledSuccessWithCount', { count: data.scheduledIdentityDocs })
+          : t('clientDetail.markFiledSuccessNoDocs')
+      )
+      invalidateRetentionQueries(activeCaseId)
     },
     onError: () => {
       toast.error(t('clientDetail.markFiledError'))
@@ -239,12 +253,32 @@ function ClientDetailPage() {
 
   const reopenMutation = useMutation({
     mutationFn: () => api.cases.reopen(activeCaseId!),
-    onSuccess: () => {
-      toast.success(t('clientDetail.reopenSuccess'))
-      queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+    onSuccess: (data) => {
+      toast.success(
+        data.clearedIdentityDocs > 0
+          ? t('clientDetail.reopenSuccessWithCount', { count: data.clearedIdentityDocs })
+          : t('clientDetail.reopenSuccess')
+      )
+      invalidateRetentionQueries(activeCaseId)
     },
     onError: () => {
       toast.error(t('clientDetail.reopenError'))
+    },
+  })
+
+  const extendIdentityRetentionMutation = useMutation({
+    mutationFn: (days: IdentityRetentionExtensionDays) =>
+      api.cases.extendIdentityRetention(activeCaseId!, { days }),
+    onSuccess: (data) => {
+      toast.success(
+        data.extendedIdentityDocs > 0
+          ? t('clientDetail.extendRetentionSuccessWithCount', { count: data.extendedIdentityDocs })
+          : t('clientDetail.extendRetentionSuccessNoDocs')
+      )
+      invalidateRetentionQueries(activeCaseId)
+    },
+    onError: () => {
+      toast.error(t('clientDetail.extendRetentionError'))
     },
   })
 
@@ -265,15 +299,15 @@ function ClientDetailPage() {
 
   // Send upload link mutation with optimistic update to chatbox
   const sendUploadLinkMutation = useMutation({
-    mutationFn: (customMessage?: string) => api.clients.sendUploadLink(clientId, customMessage),
+    mutationFn: (customMessage?: string) => api.clients.sendUploadLink(clientId, customMessage, activeCaseId),
     onMutate: async (customMessage) => {
       // Close modal immediately for snappy UX
       setIsSendUploadLinkOpen(false)
 
-      if (!activeCaseId) return
+      if (!uploadLinkCaseId) return
 
       // Query key aligned with useChatMessages hook — ['messages', 'case', caseId].
-      const messagesKey = ['messages', 'case', activeCaseId] as const
+      const messagesKey = ['messages', 'case', uploadLinkCaseId] as const
 
       // Cancel outgoing refetches so they don't overwrite optimistic update
       await queryClient.cancelQueries({ queryKey: messagesKey })
@@ -288,7 +322,7 @@ function ClientDetailPage() {
 
       const tempMessage = {
         id: `temp-upload-link-${++tempIdCounterRef.current}`,
-        conversationId: activeCaseId,
+        conversationId: uploadLinkCaseId,
         channel: 'SMS' as const,
         direction: 'OUTBOUND' as const,
         content: previewContent,
@@ -301,19 +335,22 @@ function ClientDetailPage() {
         messages: [...(old?.messages ?? []), tempMessage],
       }))
 
-      return { previous }
+      return { previous, messagesKey }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success(t('clients.uploadLinkSent'))
+      const targetCaseId = data.targetCaseId || uploadLinkCaseId || activeCaseId
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
-      if (activeCaseId) {
-        queryClient.invalidateQueries({ queryKey: ['messages', 'case', activeCaseId] })
+      queryClient.invalidateQueries({ queryKey: ['activity'] })
+      if (targetCaseId) {
+        queryClient.invalidateQueries({ queryKey: ['uploadLinks', targetCaseId] })
+        queryClient.invalidateQueries({ queryKey: ['messages', 'case', targetCaseId] })
       }
     },
     onError: (err: Error, _data, context) => {
       // Rollback optimistic update on error
-      if (context?.previous && activeCaseId) {
-        queryClient.setQueryData(['messages', 'case', activeCaseId], context.previous)
+      if (context?.previous && context.messagesKey) {
+        queryClient.setQueryData(context.messagesKey, context.previous)
       }
       toast.error(err.message || t('clients.uploadLinkFailed'))
     },
@@ -385,6 +422,9 @@ function ClientDetailPage() {
   const ownerIndividual = client?.clientType === 'BUSINESS' && client.clientGroup?.clients
     ? client.clientGroup.clients.find((c) => c.clientType === 'INDIVIDUAL') ?? null
     : null
+  const ownerSelectedCase = ownerIndividual?.taxCases?.find((taxCase) => taxCase.taxYear === selectedCase?.taxYear) ?? null
+  const uploadLinkCaseId = ownerSelectedCase?.id || activeCaseId
+  const messageClientId = ownerSelectedCase ? ownerIndividual?.id || clientId : clientId
 
   // Fetch checklist for the latest case
   const { data: checklistResponse } = useQuery({
@@ -393,12 +433,14 @@ function ClientDetailPage() {
     enabled: !!activeCaseId,
   })
 
-  // Resolve portal URL: prefer individual owner's for business clients
-  const portalUploadUrl = ownerIndividual?.portalUrl || selectedCase?.portalUrl || client?.portalUrl || null
+  // Resolve portal URL for the selected year; business clients use the owner case for that year.
+  const portalUploadUrl = ownerSelectedCase
+    ? ownerSelectedCase.portalUrl ?? null
+    : selectedCase?.portalUrl || client?.portalUrl || null
 
-  // Fetch unread count — use individual owner's caseId when redirecting.
+  // Fetch unread count — use the same case as upload-link SMS when redirecting.
   // Query key owned by useChatUnread: ['unread-count', 'case', caseId].
-  const messageCaseId = ownerIndividual?.latestCaseId || activeCaseId
+  const messageCaseId = uploadLinkCaseId
   const {
     unreadCount,
     isLoading: isUnreadLoading,
@@ -406,7 +448,7 @@ function ClientDetailPage() {
     refetch: refetchUnread,
   } = useChatUnread(
     messageCaseId
-      ? { type: 'case', caseId: messageCaseId, clientId: ownerIndividual?.id || clientId }
+      ? { type: 'case', caseId: messageCaseId, clientId: messageClientId }
       : { type: 'case', caseId: '', clientId: '' },
     !!messageCaseId,
   )
@@ -559,7 +601,18 @@ function ClientDetailPage() {
 
   // Get isInReview and isFiled from activeCase (type-safe via TaxCaseSummary)
   const isInReview = activeCase?.isInReview ?? false
-  const isFiled = activeCase?.isFiled ?? false
+  const isFiled = Boolean(activeCase?.isFiled || activeCase?.status === 'FILED' || activeCase?.filedAt)
+  const filedDateLabel = activeCase?.filedAt
+    ? new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(activeCase.filedAt))
+    : null
+  const scheduledIdentityRetentionCount = activeCase?.identityRetentionSummary?.scheduledIdentityDocs ?? 0
+  const nextIdentityDeletionAt = activeCase?.identityRetentionSummary?.nextIdentityDeletionAt
+    ? new Date(activeCase.identityRetentionSummary.nextIdentityDeletionAt)
+    : null
+  const nextIdentityDeletionLabel = nextIdentityDeletionAt
+    && !Number.isNaN(nextIdentityDeletionAt.getTime())
+    ? new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(nextIdentityDeletionAt)
+    : null
 
   const computedStatus: TaxCaseStatus | null = activeCase
     ? computeStatus({
@@ -778,6 +831,14 @@ function ClientDetailPage() {
                       {UI_TEXT.form.taxYear} {activeCase.taxYear}
                     </span>
                   )}
+                  {isFiled && (
+                    <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                      <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                      {filedDateLabel
+                        ? t('clientDetail.filedOn', { date: filedDateLabel })
+                        : t('clientDetail.filed')}
+                    </span>
+                  )}
                   {client.managedBy && (
                     <span className="flex items-center gap-1">
                       <Users className="w-3.5 h-3.5" aria-hidden="true" />
@@ -803,7 +864,7 @@ function ClientDetailPage() {
             </div>
 
             {/* Right: Actions */}
-            <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+            <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 sm:flex-1 sm:justify-end">
               {activeCase && computedStatus === 'ENTRY_COMPLETE' && !isInReview && (
                 <Button
                   onClick={() => sendToReviewMutation.mutate()}
@@ -818,32 +879,17 @@ function ClientDetailPage() {
                 </Button>
               )}
 
-              {isInReview && !isFiled && (
-                <Button
-                  onClick={() => markFiledMutation.mutate()}
-                  disabled={markFiledMutation.isPending}
-                  size="sm"
-                >
-                  {markFiledMutation.isPending && (
-                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                  )}
-                  {t('clientDetail.markFiled')}
-                </Button>
-              )}
-
-              {isFiled && (
-                <Button
-                  onClick={() => reopenMutation.mutate()}
-                  disabled={reopenMutation.isPending}
-                  size="sm"
-                  variant="outline"
-                >
-                  {reopenMutation.isPending && (
-                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                  )}
-                  {t('clientDetail.reopen')}
-                </Button>
-              )}
+              <CaseFiledAction
+                activeCase={activeCase}
+                isMarkFiledPending={markFiledMutation.isPending}
+                isReopenPending={reopenMutation.isPending}
+                isExtendRetentionPending={extendIdentityRetentionMutation.isPending}
+                canExtendIdentityRetention={scheduledIdentityRetentionCount > 0}
+                showExtendIdentityRetention={false}
+                onMarkFiled={() => markFiledMutation.mutateAsync()}
+                onReopen={() => reopenMutation.mutateAsync()}
+                onExtendIdentityRetention={(days) => extendIdentityRetentionMutation.mutateAsync(days)}
+              />
 
               {portalUploadUrl && (
                 <a
@@ -951,10 +997,21 @@ function ClientDetailPage() {
       {activeTab === 'files' && activeCaseId && (
         <FilesTab
           caseId={activeCaseId}
+          clientId={clientId}
+          uploadLinkCaseId={uploadLinkCaseId}
+          onSendUploadLink={() => setIsSendUploadLinkOpen(true)}
+          isSendingUploadLink={sendUploadLinkMutation.isPending}
           images={rawImages}
           docs={digitalDocs}
           clientGroupId={!isBusiness && client.clientGroupId ? client.clientGroupId : undefined}
           taxYear={selectedEngagement?.taxYear}
+          identityRetentionSummary={{
+            scheduledCount: scheduledIdentityRetentionCount,
+            nextDeletionLabel: nextIdentityDeletionLabel,
+            canExtend: isFiled && scheduledIdentityRetentionCount > 0,
+            isExtendPending: extendIdentityRetentionMutation.isPending,
+            onExtend: (days) => extendIdentityRetentionMutation.mutateAsync(days),
+          }}
         />
       )}
 
@@ -1295,7 +1352,7 @@ function ClientDetailPage() {
             context={{
               type: 'case',
               caseId: messageCaseId,
-              clientId: ownerIndividual?.id || clientId,
+              clientId: messageClientId,
             }}
             headerProps={{
               title: ownerIndividual?.name || client.name,

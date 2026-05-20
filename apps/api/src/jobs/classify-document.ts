@@ -41,6 +41,7 @@ import {
   getActionTitle,
   getActionPriority,
 } from '../services/ai/ai-error-messages'
+import { refreshIdentityRetentionForImage } from '../services/identity-doc-retention'
 import type { DocType, DocCategory } from '@ella/db'
 
 // Confidence thresholds from plan
@@ -1049,6 +1050,10 @@ export const classifyDocumentJob = inngest.createFunction(
         })
       })
     }
+
+    await step.run('refresh-identity-retention', async () => {
+      return refreshIdentityRetentionForImage(rawImageId)
+    })
 
     // NOTE: Multi-page detection moved to manual trigger via POST /cases/:caseId/group-documents
     // Auto-trigger removed to prevent race conditions during bulk uploads

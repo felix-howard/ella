@@ -13,7 +13,7 @@ import {
   QuickActions,
   type DashboardStats,
 } from '../components/dashboard'
-import { UI_TEXT } from '../lib/constants'
+import { ActivityTimeline } from '../components/activity'
 import { api } from '../lib/api-client'
 
 export const Route = createFileRoute('/')({
@@ -57,23 +57,14 @@ function DashboardPage() {
     blurryDocs: blurryDocsCount,
   }
 
-  const { dashboard } = UI_TEXT
-
   return (
     <PageContainer>
       <TodaySummary staffName={userName} />
+      <div className="mb-8">
+        <ActivityTimeline scope="recent" />
+      </div>
       <StatsOverview stats={stats} />
       <QuickActions />
-
-      {/* Recent Activity Section */}
-      <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-primary mb-4">
-          {dashboard.recentActivity}
-        </h2>
-        <div className="text-center py-8 text-muted-foreground">
-          <p>{dashboard.noRecentActivity}</p>
-        </div>
-      </div>
     </PageContainer>
   )
 }

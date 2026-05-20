@@ -25,6 +25,9 @@ export const pdfStyles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
+  titleBodySpacer: {
+    height: 18,
+  },
   /** v1 subtitle: org name + date. v2 subtitle: tagline below title. */
   subtitle: {
     fontSize: 11,

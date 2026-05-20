@@ -6,10 +6,26 @@
 import { Hono } from 'hono'
 import { serve } from 'inngest/hono'
 import { inngest } from '../lib/inngest'
-import { classifyDocumentJob, notifyStaffOnUploadJob, notifyAdminStaffChatJob, detectMultiPageJob, groupDocumentsBatchJob } from '../jobs'
+import {
+  classifyDocumentJob,
+  deleteExpiredIdentityDocsJob,
+  detectMultiPageJob,
+  groupDocumentsBatchJob,
+  notifyAdminStaffChatJob,
+  notifyStaffOnUploadJob,
+} from '../jobs'
 import { config } from '../lib/config'
 
 const inngestRoute = new Hono()
+
+export const registeredInngestFunctions = [
+  classifyDocumentJob,
+  notifyStaffOnUploadJob,
+  notifyAdminStaffChatJob,
+  detectMultiPageJob,
+  groupDocumentsBatchJob,
+  deleteExpiredIdentityDocsJob,
+]
 
 // Security check: Production requires signing key
 if (!config.inngest.isProductionReady) {
@@ -40,7 +56,7 @@ inngestRoute.on(
   },
   serve({
     client: inngest,
-    functions: [classifyDocumentJob, notifyStaffOnUploadJob, notifyAdminStaffChatJob, detectMultiPageJob, groupDocumentsBatchJob],
+    functions: registeredInngestFunctions,
     signingKey: config.inngest.signingKey || undefined,
     serveHost,
     servePath,

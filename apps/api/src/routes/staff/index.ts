@@ -5,13 +5,15 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-import { Prisma } from '@ella/db'
+import { ActivityRiskLevel, Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { resolveAvatarUrl } from '../../services/storage'
 import { UPLOAD_LINK_TEMPLATE_IDS } from '../../services/sms/upload-link-template-resolver'
 import type { AuthVariables } from '../../middleware/auth'
 import { signatureRoute } from './signature'
 import { ndaReadinessRoute } from './nda-readiness'
+import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 
 const staffRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -80,6 +82,19 @@ staffRoute.patch(
       select: { id: true, language: true },
     })
 
+    await logStaffActivity({
+      organizationId: user.organizationId,
+      actorStaffId: user.staffId,
+      category: ACTIVITY_CATEGORIES.SETTINGS,
+      targetType: ACTIVITY_TARGET_TYPES.STAFF,
+      targetId: user.staffId,
+      summary: 'Updated staff language preference',
+      action: ACTIVITY_ACTIONS.SETTINGS.STAFF_UPDATED,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: { changedFields: ['language'] },
+      request: getAuditRequestContext(c),
+    })
+
     return c.json(updated)
   }
 )
@@ -145,6 +160,22 @@ staffRoute.patch(
         select: { id: true, formSlug: true },
       })
 
+      await logStaffActivity({
+        organizationId: user.organizationId,
+        actorStaffId: user.staffId,
+        category: ACTIVITY_CATEGORIES.SETTINGS,
+        targetType: ACTIVITY_TARGET_TYPES.STAFF,
+        targetId: resolvedStaffId,
+        summary: 'Updated staff form link slug',
+        action: ACTIVITY_ACTIONS.SETTINGS.STAFF_UPDATED,
+        riskLevel: ActivityRiskLevel.MEDIUM,
+        metadata: {
+          changedFields: ['formSlug'],
+          editedSelf: resolvedStaffId === user.staffId,
+        },
+        request: getAuditRequestContext(c),
+      })
+
       return c.json(updated)
     } catch (error) {
       if (
@@ -180,6 +211,21 @@ staffRoute.patch(
         ...(defaultUploadLinkTemplateId !== undefined && { defaultUploadLinkTemplateId }),
       },
       select: { id: true, autoSendUploadLink: true, defaultUploadLinkTemplateId: true },
+    })
+
+    await logStaffActivity({
+      organizationId: user.organizationId,
+      actorStaffId: user.staffId,
+      category: ACTIVITY_CATEGORIES.SETTINGS,
+      targetType: ACTIVITY_TARGET_TYPES.STAFF,
+      targetId: user.staffId,
+      summary: 'Updated staff upload link automation settings',
+      action: ACTIVITY_ACTIONS.SETTINGS.STAFF_UPDATED,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        changedFields: getChangedFieldNames({ autoSendUploadLink, defaultUploadLinkTemplateId }),
+      },
+      request: getAuditRequestContext(c),
     })
 
     return c.json(updated)

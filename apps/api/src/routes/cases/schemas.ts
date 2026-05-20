@@ -29,6 +29,10 @@ export const updateCaseSchema = z.object({
   status: taxCaseStatusEnum.optional(),
 })
 
+export const extendIdentityRetentionSchema = z.object({
+  days: z.union([z.literal(30), z.literal(60), z.literal(90)]),
+})
+
 // Query params for listing cases
 export const listCasesQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -91,6 +95,7 @@ export const groupDocumentsSchema = z.object({
 // Type exports
 export type CreateCaseInput = z.infer<typeof createCaseSchema>
 export type UpdateCaseInput = z.infer<typeof updateCaseSchema>
+export type ExtendIdentityRetentionInput = z.infer<typeof extendIdentityRetentionSchema>
 export type ListCasesQuery = z.infer<typeof listCasesQuerySchema>
 export type AddChecklistItemInput = z.infer<typeof addChecklistItemSchema>
 export type SkipChecklistItemInput = z.infer<typeof skipChecklistItemSchema>

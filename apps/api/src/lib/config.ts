@@ -9,9 +9,9 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
 
   // CORS - comma-separated origins in env
-  corsOrigins: (
-    process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:5174'
-  ).split(',').map((o) => o.trim()),
+  corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:5174')
+    .split(',')
+    .map((o) => o.trim()),
 
   // URLs
   portalUrl: process.env.PORTAL_URL || 'http://localhost:5173',
@@ -33,7 +33,19 @@ export const config = {
 
   // Magic link
   magicLink: {
-    expiryDays: parseInt(process.env.MAGIC_LINK_EXPIRY_DAYS || '30', 10),
+    expiryDays: parseInt(process.env.MAGIC_LINK_EXPIRY_DAYS || '60', 10),
+  },
+
+  // Sensitive document retention
+  retention: {
+    identityDocDeleteDays: parseInt(process.env.IDENTITY_DOC_RETENTION_DAYS || '90', 10),
+  },
+
+  // Network/security controls
+  security: {
+    // Keep false unless the API is reachable only through a trusted proxy that
+    // overwrites x-real-ip/x-forwarded-for.
+    trustProxyHeaders: process.env.TRUST_PROXY_HEADERS === 'true',
   },
 
   // Pagination defaults
@@ -48,9 +60,7 @@ export const config = {
     isConfigured: Boolean(process.env.GEMINI_API_KEY),
     model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
     // Fallback models tried in order if primary fails with 404
-    fallbackModels: (
-      process.env.GEMINI_FALLBACK_MODELS || 'gemini-2.5-flash-lite,gemini-2.5-flash'
-    )
+    fallbackModels: (process.env.GEMINI_FALLBACK_MODELS || 'gemini-2.5-flash-lite,gemini-2.5-flash')
       .split(',')
       .map((m) => m.trim())
       .filter(Boolean),
@@ -67,8 +77,8 @@ export const config = {
     phoneNumber: process.env.TWILIO_PHONE_NUMBER || '',
     isConfigured: Boolean(
       process.env.TWILIO_ACCOUNT_SID &&
-        process.env.TWILIO_AUTH_TOKEN &&
-        process.env.TWILIO_PHONE_NUMBER
+      process.env.TWILIO_AUTH_TOKEN &&
+      process.env.TWILIO_PHONE_NUMBER
     ),
     // Voice-specific configuration
     apiKeySid: process.env.TWILIO_API_KEY_SID || '',
@@ -77,10 +87,10 @@ export const config = {
     webhookBaseUrl: process.env.TWILIO_WEBHOOK_BASE_URL || '',
     voiceConfigured: Boolean(
       process.env.TWILIO_ACCOUNT_SID &&
-        process.env.TWILIO_AUTH_TOKEN &&
-        process.env.TWILIO_API_KEY_SID &&
-        process.env.TWILIO_API_KEY_SECRET &&
-        process.env.TWILIO_TWIML_APP_SID
+      process.env.TWILIO_AUTH_TOKEN &&
+      process.env.TWILIO_API_KEY_SID &&
+      process.env.TWILIO_API_KEY_SECRET &&
+      process.env.TWILIO_TWIML_APP_SID
     ),
   },
 
@@ -89,9 +99,7 @@ export const config = {
     publishableKey: process.env.CLERK_PUBLISHABLE_KEY || '',
     secretKey: process.env.CLERK_SECRET_KEY || '',
     webhookSecret: process.env.CLERK_WEBHOOK_SECRET || '',
-    isConfigured: Boolean(
-      process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY
-    ),
+    isConfigured: Boolean(process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY),
   },
 
   // Scheduler Configuration (Phase 3)
@@ -108,9 +116,7 @@ export const config = {
     isConfigured: Boolean(process.env.INNGEST_EVENT_KEY),
     // Production requires signing key to prevent unauthorized job triggers
     isProductionReady:
-      process.env.NODE_ENV === 'production'
-        ? Boolean(process.env.INNGEST_SIGNING_KEY)
-        : true,
+      process.env.NODE_ENV === 'production' ? Boolean(process.env.INNGEST_SIGNING_KEY) : true,
   },
 
   // TaxBandits API Configuration (1099-NEC e-filing)
@@ -121,8 +127,8 @@ export const config = {
     isSandbox: process.env.TAXBANDITS_SANDBOX !== 'false',
     isConfigured: Boolean(
       process.env.TAXBANDITS_CLIENT_ID &&
-        process.env.TAXBANDITS_CLIENT_SECRET &&
-        process.env.TAXBANDITS_USER_TOKEN
+      process.env.TAXBANDITS_CLIENT_SECRET &&
+      process.env.TAXBANDITS_USER_TOKEN
     ),
     awsAccessKey: process.env.TAXBANDITS_AWS_ACCESS_KEY || '',
     awsSecretKey: process.env.TAXBANDITS_AWS_SECRET_KEY || '',
@@ -145,9 +151,7 @@ export const config = {
   supabase: {
     url: process.env.SUPABASE_URL || '',
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
-    isConfigured: Boolean(
-      process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
-    ),
+    isConfigured: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
   },
 
   // Schedule C Configuration

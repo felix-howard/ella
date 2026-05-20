@@ -10,7 +10,14 @@
 import { prisma } from '../../lib/db'
 import { config } from '../../lib/config'
 import { inngest } from '../../lib/inngest'
-import { uploadFile, generateFileKey, getSignedDownloadUrl, getStorageStatus } from '../storage'
+import {
+  uploadFile,
+  generateFileKey,
+  getSignedDownloadUrl,
+  getStorageStatus,
+  getSafeStorageReference,
+  getSafeStorageError,
+} from '../storage'
 import { isGeminiConfigured } from '../ai'
 import type { TwilioIncomingMessage } from './webhook-handler'
 
@@ -93,6 +100,8 @@ export async function processMmsMedia(
       continue
     }
 
+    let r2Key: string | null = null
+
     try {
       // Download media from Twilio URL
       const mediaBuffer = await downloadFromTwilioUrl(mediaUrl, MEDIA_DOWNLOAD_TIMEOUT)
@@ -106,7 +115,7 @@ export async function processMmsMedia(
       const filename = `mms_${Date.now()}_${i}.${extension}`
 
       // Upload to R2
-      const r2Key = generateFileKey(caseId, filename, 'raw')
+      r2Key = generateFileKey(caseId, filename, 'raw')
       const uploadResult = await uploadFile(r2Key, mediaBuffer, mimeType)
 
       if (!uploadResult.url) {
@@ -145,11 +154,19 @@ export async function processMmsMedia(
         })
       }
 
-      console.log(`[MMS] Processed media ${i + 1}/${numMedia}: ${r2Key}`)
+      console.log('[MMS] Processed media', {
+        index: i + 1,
+        total: numMedia,
+        object: getSafeStorageReference(r2Key),
+      })
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-      result.errors.push(`Error processing MediaUrl${i}: ${errorMsg}`)
-      console.error(`[MMS] Error processing media ${i}:`, error)
+      const safeError = getSafeStorageError(error)
+      result.errors.push(`Error processing MediaUrl${i}: ${safeError.message}`)
+      console.error('[MMS] Error processing media', {
+        index: i,
+        object: r2Key ? getSafeStorageReference(r2Key) : undefined,
+        error: safeError,
+      })
     }
   }
 
@@ -159,7 +176,10 @@ export async function processMmsMedia(
       await inngest.send(inngestEvents)
       console.log(`[MMS] Queued ${inngestEvents.length} classification jobs`)
     } catch (error) {
-      console.error('[MMS] Failed to queue classification jobs:', error)
+      console.error('[MMS] Failed to queue classification jobs', {
+        count: inngestEvents.length,
+        error: getSafeStorageError(error),
+      })
     }
   }
 
@@ -184,7 +204,7 @@ export async function processMmsMedia(
   // Log summary
   console.log(`[MMS] Processing complete for case ${caseId}:`)
   console.log(`[MMS]   - Success: ${result.rawImageIds.length}/${numMedia}`)
-  console.log(`[MMS]   - R2 Keys stored: ${result.attachmentR2Keys.length}`)
+  console.log(`[MMS]   - Objects stored: ${result.attachmentR2Keys.length}`)
   console.log(`[MMS]   - URLs generated: ${result.attachmentUrls.length}`)
 
   if (result.errors.length > 0) {
@@ -216,7 +236,7 @@ async function downloadFromTwilioUrl(url: string, timeout: number): Promise<Buff
   }
 
   try {
-    console.log(`[MMS] Downloading from Twilio: ${url.substring(0, 80)}...`)
+    console.log('[MMS] Downloading media from Twilio')
     const response = await fetch(url, {
       signal: controller.signal,
       headers,
@@ -225,7 +245,7 @@ async function downloadFromTwilioUrl(url: string, timeout: number): Promise<Buff
     clearTimeout(timeoutId)
 
     if (!response.ok) {
-      console.error(`[MMS] Twilio URL returned ${response.status} ${response.statusText}: ${url}`)
+      console.error(`[MMS] Twilio media returned ${response.status} ${response.statusText}`)
       // Log response body for debugging
       try {
         const errorText = await response.text()
@@ -243,9 +263,9 @@ async function downloadFromTwilioUrl(url: string, timeout: number): Promise<Buff
   } catch (error) {
     clearTimeout(timeoutId)
     if (error instanceof Error && error.name === 'AbortError') {
-      console.error(`[MMS] Download timeout after ${timeout}ms: ${url}`)
+      console.error(`[MMS] Download timeout after ${timeout}ms`)
     } else {
-      console.error(`[MMS] Download failed: ${url}`, error)
+      console.error('[MMS] Download failed', { error: getSafeStorageError(error) })
     }
     return null
   }
@@ -288,11 +308,13 @@ export async function refreshAttachmentUrls(r2Keys: string[]): Promise<string[]>
       if (url) {
         urls.push(url)
       } else {
-        errors.push(`Failed to refresh URL for key: ${key}`)
+        const object = getSafeStorageReference(key)
+        errors.push(`Failed to refresh URL for ${object.objectType}:${object.keyHash}`)
       }
     } catch (error) {
-      const errMsg = error instanceof Error ? error.message : 'Unknown error'
-      errors.push(`Error refreshing ${key}: ${errMsg}`)
+      const safeError = getSafeStorageError(error)
+      const object = getSafeStorageReference(key)
+      errors.push(`Error refreshing ${object.objectType}:${object.keyHash}: ${safeError.message}`)
     }
   }
 

@@ -7,7 +7,10 @@
  * strips anything that slipped past or was injected post-fetch.
  */
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react'
-import { sanitizeAgreementHtmlClient } from '../../lib/sanitize-agreement-html'
+import {
+  formatAgreementHtmlForReading,
+  sanitizeAgreementHtmlClient,
+} from '../../lib/sanitize-agreement-html'
 
 interface AgreementCustomHtmlViewProps {
   title: string
@@ -47,7 +50,10 @@ export function AgreementCustomHtmlView({
     return () => media.removeListener(update)
   }, [])
 
-  const safeHtml = useMemo(() => sanitizeAgreementHtmlClient(html), [html])
+  const safeHtml = useMemo(
+    () => formatAgreementHtmlForReading(sanitizeAgreementHtmlClient(html)),
+    [html],
+  )
 
   const markReached = useCallback(() => {
     if (reachedRef.current) return
@@ -79,7 +85,7 @@ export function AgreementCustomHtmlView({
   return (
     <div
       ref={scrollRef}
-      className="agreement-custom-html-view min-h-0 overflow-visible overflow-x-hidden rounded-xl border border-border bg-card p-5 text-[0.9375rem] leading-relaxed text-foreground shadow-card [overflow-wrap:anywhere] sm:p-6 lg:h-full lg:min-h-[760px] lg:overflow-y-auto lg:max-h-none lg:p-8"
+      className="agreement-custom-html-view min-h-0 overflow-visible overflow-x-hidden rounded-xl border border-border bg-card p-5 text-foreground shadow-card [overflow-wrap:anywhere] sm:p-6 lg:h-full lg:min-h-[760px] lg:overflow-y-auto lg:max-h-none lg:p-10"
       role="region"
       aria-label={title}
       tabIndex={0}

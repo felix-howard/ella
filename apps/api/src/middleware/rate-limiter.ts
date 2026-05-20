@@ -3,6 +3,9 @@
  * In-memory rate limiting for API endpoints
  */
 import { createMiddleware } from 'hono/factory'
+import type { Context } from 'hono'
+import { isIP } from 'node:net'
+import { config } from '../lib/config'
 
 // Rate limit storage: Map<key, { count: number; resetTime: number }>
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
@@ -14,6 +17,21 @@ export interface RateLimitConfig {
   maxRequests?: number
   /** Key prefix for different rate limit pools */
   keyPrefix?: string
+}
+
+export function getClientIp(c: Context): string {
+  if (config.security.trustProxyHeaders) {
+    const cfIp = c.req.header('cf-connecting-ip')?.trim()
+    if (cfIp && isIP(cfIp)) return cfIp
+
+    const realIp = c.req.header('x-real-ip')?.trim()
+    if (realIp && isIP(realIp)) return realIp
+
+    const forwardedIp = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
+    if (forwardedIp && isIP(forwardedIp)) return forwardedIp
+  }
+
+  return 'unknown'
 }
 
 /**
@@ -41,6 +59,23 @@ export function checkRateLimit(
   return true
 }
 
+export function isRateLimitExceeded(
+  key: string,
+  _windowMs: number = 60000,
+  maxRequests: number = 60
+): boolean {
+  const now = Date.now()
+  const record = rateLimitMap.get(key)
+  if (!record || now > record.resetTime) return false
+  return record.count >= maxRequests
+}
+
+export function getRateLimitRetryAfterSeconds(key: string): number | undefined {
+  const record = rateLimitMap.get(key)
+  if (!record) return undefined
+  return Math.max(1, Math.ceil((record.resetTime - Date.now()) / 1000))
+}
+
 /**
  * Create rate limiter middleware with custom config
  */
@@ -50,7 +85,7 @@ export function rateLimiter(config: RateLimitConfig = {}) {
   return createMiddleware(async (c, next) => {
     // Get client identifier (prefer staff ID for authenticated routes, fallback to IP)
     const user = c.get('user') as { staffId?: string } | undefined
-    const clientIp = c.req.header('x-forwarded-for')?.split(',')[0] || 'unknown'
+    const clientIp = getClientIp(c)
     const key = `${keyPrefix}:${user?.staffId || clientIp}`
 
     if (!checkRateLimit(key, windowMs, maxRequests)) {

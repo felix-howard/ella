@@ -11,13 +11,30 @@ vi.mock('../../../lib/db', () => ({
     client: {
       findFirst: vi.fn(),
     },
+    magicLink: {
+      findFirst: vi.fn(),
+    },
   },
 }))
 
 // Mock services
 vi.mock('../../../services/magic-link', () => ({
   createMagicLink: vi.fn().mockResolvedValue('https://portal.ellatax.com/upload/test-token'),
+  getMagicLinkUrl: vi.fn().mockImplementation((token: string) => `https://portal.ellatax.com/upload/${token}`),
+  createPortalMagicLink: vi.fn().mockResolvedValue({
+    id: 'link_1',
+    token: 'test-token',
+    url: 'https://portal.ellatax.com/upload/test-token',
+    expiresAt: new Date('2026-07-17T00:00:00.000Z'),
+    scope: 'CASE',
+    clientGroupId: null,
+  }),
   upgradeActivePortalLinksToGroup: vi.fn(),
+}))
+
+vi.mock('../../../services/activity-log', () => ({
+  getAuditRequestContext: vi.fn().mockReturnValue({ route: '/clients/test/send-upload-link', method: 'POST' }),
+  logStaffActivity: vi.fn(),
 }))
 
 vi.mock('../../../services/sms', () => ({
@@ -68,7 +85,7 @@ vi.mock('../../../services/crypto', () => ({
 
 import { Hono } from 'hono'
 import { prisma } from '../../../lib/db'
-import { createMagicLink } from '../../../services/magic-link'
+import { createPortalMagicLink } from '../../../services/magic-link'
 import { sendWelcomeMessage, isSmsEnabled } from '../../../services/sms'
 import type { AuthVariables } from '../../../middleware/auth'
 import { clientsRoute } from '../index'
@@ -101,10 +118,22 @@ const CID_IND = 'cabcdefghij1234567890ind0'
 const CID_BIZ = 'cabcdefghij1234567890biz0'
 const CASE_IND = 'cabcdefghij123456case0ind'
 const CASE_BIZ = 'cabcdefghij123456case0biz'
+const CASE_OLD = 'cabcdefghij123456case0old'
 const CID_NOCASE = 'cabcdefghij12345678nocase'
 
 describe('POST /clients/:id/send-upload-link', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(prisma.magicLink.findFirst).mockResolvedValue(null as never)
+    vi.mocked(createPortalMagicLink).mockResolvedValue({
+      id: 'link_1',
+      token: 'test-token',
+      url: 'https://portal.ellatax.com/upload/test-token',
+      expiresAt: new Date('2026-07-17T00:00:00.000Z'),
+      scope: 'CASE',
+      clientGroupId: null,
+    })
+  })
 
   it('sends SMS to individual directly (no redirect needed)', async () => {
     const mockClient = {
@@ -130,12 +159,98 @@ describe('POST /clients/:id/send-upload-link', () => {
     const json = await res.json()
     expect(json.success).toBe(true)
 
-    expect(createMagicLink).toHaveBeenCalledWith(CASE_IND, { clientName: 'Tuyet Nguyen' })
+    expect(createPortalMagicLink).toHaveBeenCalledWith(CASE_IND, {
+      scope: 'CASE',
+      clientGroupId: undefined,
+    })
     expect(sendWelcomeMessage).toHaveBeenCalledWith(
       CASE_IND,
       'Tuyet Nguyen',
       '+14155550101',
       'https://portal.ellatax.com/upload/test-token',
+      2025,
+      'VI',
+      undefined,
+      'staff_1',
+    )
+  })
+
+  it('uses requested targetCaseId instead of the latest case', async () => {
+    const mockClient = {
+      id: CID_IND,
+      name: 'Tuyet Nguyen',
+      phone: '+14155550101',
+      language: 'VI',
+      clientType: 'INDIVIDUAL',
+      clientGroupId: null,
+      taxCases: [
+        { id: CASE_IND, taxYear: 2025 },
+        { id: CASE_OLD, taxYear: 2024 },
+      ],
+    }
+
+    vi.mocked(prisma.client.findFirst).mockResolvedValueOnce(mockClient as never)
+
+    const app = createApp()
+    const res = await app.request(`/clients/${CID_IND}/send-upload-link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetCaseId: CASE_OLD }),
+    })
+
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.targetCaseId).toBe(CASE_OLD)
+    expect(createPortalMagicLink).toHaveBeenCalledWith(CASE_OLD, {
+      scope: 'CASE',
+      clientGroupId: undefined,
+    })
+    expect(sendWelcomeMessage).toHaveBeenCalledWith(
+      CASE_OLD,
+      'Tuyet Nguyen',
+      '+14155550101',
+      'https://portal.ellatax.com/upload/test-token',
+      2024,
+      'VI',
+      undefined,
+      'staff_1',
+    )
+  })
+
+  it('resends SMS with an existing active link without replacing it', async () => {
+    const mockClient = {
+      id: CID_IND,
+      name: 'Tuyet Nguyen',
+      phone: '+14155550101',
+      language: 'VI',
+      clientType: 'INDIVIDUAL',
+      clientGroupId: null,
+      taxCases: [{ id: CASE_IND, taxYear: 2025 }],
+    }
+
+    vi.mocked(prisma.client.findFirst).mockResolvedValueOnce(mockClient as never)
+    vi.mocked(prisma.magicLink.findFirst).mockResolvedValueOnce({
+      id: 'link_existing',
+      token: 'existing-token',
+      expiresAt: new Date('2026-07-17T00:00:00.000Z'),
+      scope: 'CASE',
+      clientGroupId: null,
+    } as never)
+
+    const app = createApp()
+    const res = await app.request(`/clients/${CID_IND}/send-upload-link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+
+    expect(res.status).toBe(200)
+    expect(createPortalMagicLink).not.toHaveBeenCalled()
+    expect(sendWelcomeMessage).toHaveBeenCalledWith(
+      CASE_IND,
+      'Tuyet Nguyen',
+      '+14155550101',
+      'https://portal.ellatax.com/upload/existing-token',
       2025,
       'VI',
       undefined,
@@ -174,8 +289,7 @@ describe('POST /clients/:id/send-upload-link', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(createMagicLink).toHaveBeenCalledWith(CASE_IND, {
-      clientName: 'Tuyet Nguyen',
+    expect(createPortalMagicLink).toHaveBeenCalledWith(CASE_IND, {
       scope: 'GROUP',
       clientGroupId: 'group_1',
     })
@@ -222,8 +336,7 @@ describe('POST /clients/:id/send-upload-link', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(createMagicLink).toHaveBeenCalledWith(CASE_BIZ, {
-      clientName: 'Tuyet Nguyen',
+    expect(createPortalMagicLink).toHaveBeenCalledWith(CASE_BIZ, {
       scope: 'GROUP',
       clientGroupId: 'group_1',
     })
@@ -262,8 +375,7 @@ describe('POST /clients/:id/send-upload-link', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(createMagicLink).toHaveBeenCalledWith(CASE_BIZ, {
-      clientName: 'Landa Nails',
+    expect(createPortalMagicLink).toHaveBeenCalledWith(CASE_BIZ, {
       scope: 'GROUP',
       clientGroupId: 'group_1',
     })
@@ -334,5 +446,42 @@ describe('POST /clients/:id/send-upload-link', () => {
     })
 
     expect(res.status).toBe(500)
+  })
+
+  it('resend-sms only selects unexpired active portal links', async () => {
+    vi.mocked(prisma.client.findFirst).mockResolvedValueOnce({
+      id: CID_IND,
+      name: 'Test',
+      phone: '+10000000000',
+      language: 'EN',
+      taxCases: [],
+    } as never)
+
+    const app = createApp()
+    const res = await app.request(`/clients/${CID_IND}/resend-sms`, {
+      method: 'POST',
+    })
+
+    expect(res.status).toBe(200)
+    expect(prisma.client.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      include: expect.objectContaining({
+        taxCases: expect.objectContaining({
+          include: expect.objectContaining({
+            magicLinks: expect.objectContaining({
+              where: expect.objectContaining({
+                isActive: true,
+                type: 'PORTAL',
+                revokedAt: null,
+                replacedById: null,
+                OR: expect.arrayContaining([
+                  { expiresAt: null },
+                  { expiresAt: expect.objectContaining({ gt: expect.any(Date) }) },
+                ]),
+              }),
+            }),
+          }),
+        }),
+      }),
+    }))
   })
 })

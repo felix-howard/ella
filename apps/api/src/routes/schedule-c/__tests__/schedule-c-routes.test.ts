@@ -50,6 +50,16 @@ vi.mock('../../../services/schedule-c/expense-calculator', () => ({
   getGrossReceiptsBreakdown: vi.fn(),
 }))
 
+vi.mock('../../../services/activity-log', () => ({
+  getAuditRequestContext: vi.fn(() => ({
+    ipAddress: '203.0.113.10',
+    userAgent: 'Vitest',
+    route: '/schedule-c/case-1/send',
+    method: 'POST',
+  })),
+  logStaffActivity: vi.fn(),
+}))
+
 import { Hono } from 'hono'
 import { prisma } from '../../../lib/db'
 import {
@@ -63,6 +73,7 @@ import {
   calculateGrossReceipts,
   calculateScheduleCTotals,
 } from '../../../services/schedule-c/expense-calculator'
+import { logStaffActivity } from '../../../services/activity-log'
 import { scheduleCRoute } from '../index'
 
 // Create test app with mock auth middleware
@@ -88,6 +99,7 @@ const mockCalcTotals = vi.mocked(calculateScheduleCTotals)
 const mockGetScheduleCLink = vi.mocked(getScheduleCMagicLink)
 const mockExtendExpiry = vi.mocked(extendMagicLinkExpiry)
 const mockCreateMagicLink = vi.mocked(createMagicLink)
+const mockLogStaffActivity = vi.mocked(logStaffActivity)
 
 function mockCase(overrides: Record<string, unknown> = {}) {
   return {
@@ -135,6 +147,23 @@ describe('Schedule C Staff Routes', () => {
       expect(json.magicLink).toBe('http://localhost:5173/expense/abc123')
       expect(json.messageSent).toBe(true)
       expect(json.prefilledGrossReceipts).toBe('5000.00')
+      expect(mockLogStaffActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorStaffId: 'staff-1',
+          clientId: undefined,
+          caseId: 'case-1',
+          action: 'message.sent',
+          category: 'MESSAGE',
+          summary: 'Sent Schedule C form to client',
+          coalesceKey: 'message.sent:SMS:case-1:staff-1',
+          metadata: expect.objectContaining({
+            channel: 'SMS',
+            formType: 'SCHEDULE_C',
+            templateName: 'schedule_c',
+            smsSent: true,
+          }),
+        })
+      )
     })
 
     it('returns 404 when case not found', async () => {

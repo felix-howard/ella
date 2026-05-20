@@ -11,10 +11,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, GripVertical, Check, X, Loader2, Eye, Globe, Phone, ArrowRightLeft } from 'lucide-react'
 import { cn } from '@ella/ui'
-import { api, type RawImage, type DigitalDoc, type EntityInfo } from '../../lib/api-client'
+import { api, type RawImage, type DigitalDoc, type EntityInfo, type IdentityRetentionExtensionDays } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
-import { sanitizeText } from '../../lib/formatters'
+import { formatUploadDateTime, sanitizeText } from '../../lib/formatters'
 import { ImageThumbnail } from './image-thumbnail'
 import { FileActionDropdown } from './file-action-dropdown'
 import { useMarkDocumentViewed } from '../../hooks'
@@ -22,6 +22,9 @@ import { getEntityColor } from './entity-filter-bar'
 import type { DocCategoryKey, DocCategoryConfig } from '../../lib/doc-categories'
 import { groupDocuments } from '../../lib/document-grouping'
 import { GroupedFileRow, GroupConnector, PageBadge } from './grouped-file-row'
+import { IdentityRetentionBadge } from './identity-retention-badge'
+import { getIdentityRetentionState, isRetentionStorageDeleted } from './identity-retention'
+import { IdentityRetentionSectionNotice } from './identity-retention-section-notice'
 
 export interface FileCategorySectionProps {
   categoryKey: DocCategoryKey
@@ -40,6 +43,13 @@ export interface FileCategorySectionProps {
   entityMap?: Map<string, { entityClientId: string; entityName: string; entityIndex: number }>
   /** All entities in group (unified mode only, for "Move to..." dropdown) */
   entities?: EntityInfo[]
+  identityRetentionSummary?: {
+    scheduledCount: number
+    nextDeletionLabel: string | null
+    canExtend: boolean
+    isExtendPending: boolean
+    onExtend?: (days: IdentityRetentionExtensionDays) => Promise<unknown> | unknown
+  }
 }
 
 /**
@@ -58,6 +68,7 @@ export function FileCategorySection({
   defaultCollapsed,
   entityMap,
   entities,
+  identityRetentionSummary,
 }: FileCategorySectionProps) {
   const [isExpanded, setIsExpanded] = useState(!defaultCollapsed)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -75,6 +86,11 @@ export function FileCategorySection({
 
   // Group multi-page documents
   const { groups, ungrouped } = useMemo(() => groupDocuments(images), [images])
+  const hasIdentityRetentionCountdown = useMemo(
+    () =>
+      images.some((img) => getIdentityRetentionState(img)?.kind === 'active'),
+    [images]
+  )
 
   // Count verified documents using O(1) map lookup
   const verifiedCount = useMemo(() => images.filter((img) => {
@@ -175,6 +191,16 @@ export function FileCategorySection({
         'border-t border-border/50 divide-y divide-border/50 bg-card',
         !isExpanded && 'hidden'
       )}>
+        {hasIdentityRetentionCountdown && (
+          <IdentityRetentionSectionNotice
+            scheduledCount={identityRetentionSummary?.scheduledCount}
+            nextDeletionLabel={identityRetentionSummary?.nextDeletionLabel}
+            canExtend={Boolean(identityRetentionSummary?.canExtend)}
+            isExtendPending={Boolean(identityRetentionSummary?.isExtendPending)}
+            onExtend={identityRetentionSummary?.onExtend}
+          />
+        )}
+
         {/* Render grouped documents */}
         {groups.map((group) => (
           <GroupedFileRow
@@ -295,7 +321,7 @@ const FileItemRow = memo(function FileItemRow({
   entityInfo,
   entities,
 }: FileItemRowProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
   const markViewed = useMarkDocumentViewed()
   const [isDragging, setIsDragging] = useState(false)
@@ -311,6 +337,8 @@ const FileItemRow = memo(function FileItemRow({
   // File is done processing but has no DigitalDoc (e.g., irrelevant files in "Khác")
   const isProcessedNoDoc = !doc && image.status !== 'UPLOADED' && image.status !== 'PROCESSING'
   const isStillProcessing = !doc && !isProcessedNoDoc
+  const isStorageDeleted = isRetentionStorageDeleted(image)
+  const canOpenFile = Boolean((doc || isProcessedNoDoc) && !isRenaming && !isStorageDeleted)
   const docLabel = DOC_TYPE_LABELS[image.classifiedType ?? ''] ?? image.classifiedType ?? t('classify.unclassified')
 
   // Show displayName if available, fallback to original filename
@@ -461,10 +489,11 @@ const FileItemRow = memo(function FileItemRow({
       <div
         className={cn(
           'flex items-center gap-4 flex-1 min-w-0',
-          (doc || isProcessedNoDoc) && !isRenaming && 'cursor-pointer'
+          canOpenFile && 'cursor-pointer',
+          isStorageDeleted && 'opacity-75'
         )}
         onClick={() => {
-          if (isRenaming) return
+          if (!canOpenFile) return
           // Mark as viewed when opening (fire and forget with optimistic update)
           if (image.isNew) {
             // Optimistic update - remove NEW badge immediately
@@ -485,10 +514,10 @@ const FileItemRow = memo(function FileItemRow({
           if (doc) onVerify(doc)
           else if (isProcessedNoDoc) onViewImage?.(image.id)
         }}
-        role={(doc || isProcessedNoDoc) && !isRenaming ? 'button' : undefined}
-        tabIndex={(doc || isProcessedNoDoc) && !isRenaming ? 0 : undefined}
+        role={canOpenFile ? 'button' : undefined}
+        tabIndex={canOpenFile ? 0 : undefined}
         onKeyDown={(e) => {
-          if (isRenaming) return
+          if (!canOpenFile) return
           if ((e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault()
             // Mark as viewed when opening via keyboard
@@ -511,12 +540,12 @@ const FileItemRow = memo(function FileItemRow({
             else if (isProcessedNoDoc) onViewImage?.(image.id)
           }
         }}
-        aria-label={(doc || isProcessedNoDoc) && !isRenaming ? `Mở ${displayName}` : undefined}
+        aria-label={canOpenFile ? t('files.openFile', { filename: displayName }) : undefined}
       >
         {/* Thumbnail with NEW badge */}
         <div className="relative w-12 h-12 flex-shrink-0">
           <div className="w-full h-full rounded-lg overflow-hidden bg-muted">
-            <ImageThumbnail imageId={image.id} filename={image.filename} />
+            <ImageThumbnail imageId={image.id} filename={image.filename} disabled={isStorageDeleted} />
           </div>
           {/* NEW badge overlay */}
           {image.isNew && (
@@ -584,12 +613,14 @@ const FileItemRow = memo(function FileItemRow({
               <p className="font-medium text-foreground truncate" title={displayName}>
                 {displayName}
               </p>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="truncate">{docLabel}</span>
                 {pageDisplay && <PageBadge display={pageDisplay} />}
                 <FileTypeBadge filename={image.filename} />
                 <UploadSourceBadge uploadedVia={image.uploadedVia} />
+                <UploadTimeBadge createdAt={image.createdAt} locale={i18n.language} label={t('files.uploadedAt')} />
                 {entityInfo && <EntityBadge name={entityInfo.entityName} index={entityInfo.entityIndex} />}
+                <IdentityRetentionBadge image={image} />
               </div>
             </>
           )}
@@ -599,7 +630,7 @@ const FileItemRow = memo(function FileItemRow({
       {/* Status & Action - hide when renaming */}
       {!isRenaming && (
         <div className="flex items-center gap-2 flex-shrink-0">
-          {isVerified && (
+          {isVerified && !isStorageDeleted && (
             <button
               onClick={() => onVerify(doc)}
               aria-label={t('docVerification.verify', { filename: docLabel })}
@@ -609,7 +640,7 @@ const FileItemRow = memo(function FileItemRow({
               <span className="hidden sm:inline">{t('checklistStatus.verified')}</span>
             </button>
           )}
-          {needsVerification && (
+          {needsVerification && !isStorageDeleted && (
             <button
               onClick={() => onVerify(doc)}
               aria-label={t('docVerification.verify', { filename: docLabel })}
@@ -625,7 +656,7 @@ const FileItemRow = memo(function FileItemRow({
               <span className="hidden sm:inline">{t('uploads.statusProcessing')}</span>
             </span>
           )}
-          {isProcessedNoDoc && (
+          {isProcessedNoDoc && !isStorageDeleted && (
             <button
               onClick={() => onViewImage?.(image.id)}
               aria-label={t('checklist.viewFile')}
@@ -718,6 +749,24 @@ function UploadSourceBadge({ uploadedVia }: { uploadedVia?: string }) {
   }
 
   return null
+}
+
+/**
+ * Small timestamp showing when the client uploaded the document.
+ */
+function UploadTimeBadge({ createdAt, locale, label }: { createdAt: string; locale?: string; label: string }) {
+  const formatted = formatUploadDateTime(createdAt, locale)
+
+  return (
+    <time
+      dateTime={createdAt}
+      title={`${label} ${formatted}`}
+      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-medium flex-shrink-0"
+    >
+      <Clock className="w-2.5 h-2.5" />
+      {label} {formatted}
+    </time>
+  )
 }
 
 /**

@@ -9,9 +9,12 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { customAlphabet } from 'nanoid'
+import { ActivityRiskLevel } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { uploadFile, getSignedDownloadUrl, deleteFile } from '../../services/storage'
 import type { AuthVariables } from '../../middleware/auth'
+import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 
 const nanoid = customAlphabet('1234567890abcdefghijklmnopqrstuvwxyz', 12)
 
@@ -115,6 +118,22 @@ signatureRoute.post(
       )
     }
 
+    await logStaffActivity({
+      organizationId: user.organizationId,
+      actorStaffId: user.staffId,
+      category: ACTIVITY_CATEGORIES.PROFILE,
+      targetType: ACTIVITY_TARGET_TYPES.STAFF,
+      targetId: user.staffId,
+      summary: 'Updated staff signature',
+      action: ACTIVITY_ACTIONS.PROFILE.SIGNATURE_UPDATED,
+      riskLevel: ActivityRiskLevel.MEDIUM,
+      metadata: {
+        changedFields: ['signaturePngKey', 'signatureUpdatedAt'],
+        replacedExistingSignature: Boolean(existing?.signaturePngKey),
+      },
+      request: getAuditRequestContext(c),
+    })
+
     return c.json({ signaturePngKey: r2Key, signedUrl })
   }
 )
@@ -145,6 +164,22 @@ signatureRoute.delete('/', async (c) => {
   await prisma.staff.update({
     where: { id: user.staffId },
     data: { signaturePngKey: null, signatureUpdatedAt: null },
+  })
+
+  await logStaffActivity({
+    organizationId: user.organizationId,
+    actorStaffId: user.staffId,
+    category: ACTIVITY_CATEGORIES.PROFILE,
+    targetType: ACTIVITY_TARGET_TYPES.STAFF,
+    targetId: user.staffId,
+    summary: 'Deleted staff signature',
+    action: ACTIVITY_ACTIONS.PROFILE.SIGNATURE_DELETED,
+    riskLevel: ActivityRiskLevel.MEDIUM,
+    metadata: {
+      changedFields: ['signaturePngKey', 'signatureUpdatedAt'],
+      hadSignature: Boolean(staff.signaturePngKey),
+    },
+    request: getAuditRequestContext(c),
   })
 
   return c.json({ success: true })

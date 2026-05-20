@@ -21,12 +21,20 @@ import {
   notifyMissingDocuments,
   sendBatchMissingReminders,
 } from '../../services/sms'
-import { getSignedDownloadUrl, resolveAvatarUrl } from '../../services/storage'
-import type { MessageChannel, MessageDirection } from '@ella/db'
+import {
+  getSafeStorageError,
+  getSafeStorageReference,
+  getSignedDownloadUrl,
+  resolveAvatarUrl,
+  SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS,
+} from '../../services/storage'
+import { ActivityRiskLevel, type MessageChannel, type MessageDirection } from '@ella/db'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import { isBizWithGroup } from '../../lib/client-helpers'
 import { inngest } from '../../lib/inngest'
 import type { AuthVariables } from '../../middleware/auth'
+import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 
 /**
  * Extract R2 keys from signed R2 URLs
@@ -63,6 +71,12 @@ function extractR2KeysFromUrls(urls: string[]): string[] {
 }
 
 const messagesRoute = new Hono<{ Variables: AuthVariables }>()
+
+function getTwilioStatusCategory(status: string | null): string | null {
+  if (!status) return null
+  if (status.startsWith('ERROR:')) return 'failed'
+  return status
+}
 
 // GET /messages/conversations - List all conversations for unified inbox
 messagesRoute.get(
@@ -212,7 +226,7 @@ messagesRoute.get('/media/:messageId/:index', async (c) => {
 
   // Helper: fetch file from R2 by key and return Response
   const fetchFromR2 = async (key: string) => {
-    const signedUrl = await getSignedDownloadUrl(key)
+    const signedUrl = await getSignedDownloadUrl(key, SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS)
     if (!signedUrl) return null
 
     const response = await fetch(signedUrl)
@@ -223,7 +237,9 @@ messagesRoute.get('/media/:messageId/:index', async (c) => {
     return new Response(arrayBuffer, {
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'private, max-age=3600',
+        'Cache-Control': 'private, no-store, max-age=0',
+        Pragma: 'no-cache',
+        Expires: '0',
       },
     })
   }
@@ -247,7 +263,11 @@ messagesRoute.get('/media/:messageId/:index', async (c) => {
       // Try the image at the same index position (MMS attachments are ordered)
       const candidate = smsImages[index]
       if (candidate && candidate.r2Key !== r2Key) {
-        console.log(`[Messages] R2 key renamed: ${r2Key} -> ${candidate.r2Key} (message: ${messageId})`)
+        console.log('[Messages] R2 key renamed', {
+          from: getSafeStorageReference(r2Key),
+          to: getSafeStorageReference(candidate.r2Key),
+          messageId,
+        })
         const renamedResult = await fetchFromR2(candidate.r2Key)
         if (renamedResult) {
           // Auto-repair: update message with current R2 key (fire and forget)
@@ -256,17 +276,29 @@ messagesRoute.get('/media/:messageId/:index', async (c) => {
           prisma.message.update({
             where: { id: messageId },
             data: { attachmentR2Keys: updatedKeys },
-          }).catch(err => console.error(`[Messages] Failed to repair R2 key for message ${messageId}:`, err))
+          }).catch((err) =>
+            console.error('[Messages] Failed to repair R2 key', {
+              messageId,
+              object: getSafeStorageReference(candidate.r2Key),
+              error: getSafeStorageError(err),
+            })
+          )
 
           return renamedResult
         }
       }
     }
 
-    console.error(`[Messages] R2 fetch failed for key ${r2Key} (message: ${messageId})`)
+    console.error('[Messages] R2 fetch failed', {
+      object: getSafeStorageReference(r2Key),
+      messageId,
+    })
     return c.json({ error: 'FETCH_ERROR', message: 'Failed to fetch file from storage' }, 500)
   } catch (error) {
-    console.error(`[Messages] Failed to proxy media for message ${messageId}:`, error)
+    console.error('[Messages] Failed to proxy media', {
+      messageId,
+      error: getSafeStorageError(error),
+    })
     return c.json({ error: 'PROXY_ERROR', message: 'Failed to serve attachment' }, 500)
   }
 })
@@ -522,6 +554,32 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
     })
   }
 
+  if (user.staffId) {
+    await logStaffActivity({
+      organizationId: user.organizationId,
+      clientId: taxCase.client.id,
+      caseId,
+      actorStaffId: user.staffId,
+      category: ACTIVITY_CATEGORIES.MESSAGE,
+      targetType: ACTIVITY_TARGET_TYPES.MESSAGE,
+      targetId: message.id,
+      targetLabel: taxCase.client.name,
+      summary: channel === 'SMS' ? 'Sent SMS to client' : 'Sent portal message to client',
+      action: ACTIVITY_ACTIONS.MESSAGE.SENT,
+      riskLevel: ActivityRiskLevel.LOW,
+      coalesceKey: `message.sent:${channel}:${caseId}:${user.staffId}`,
+      metadata: {
+        channel,
+        messageId: message.id,
+        conversationId: conversation.id,
+        templateName,
+        smsSent,
+        twilioStatusCategory: getTwilioStatusCategory(twilioStatus),
+      },
+      request: getAuditRequestContext(c),
+    })
+  }
+
   return c.json(
     {
       message: {
@@ -549,7 +607,7 @@ messagesRoute.post('/remind/:caseId', async (c) => {
   // Verify case exists and belongs to user's org
   const taxCase = await prisma.taxCase.findFirst({
     where: { id: caseId, client: buildClientScopeFilter(user) },
-    select: { id: true, status: true },
+    select: { id: true, clientId: true, status: true },
   })
 
   if (!taxCase) {
@@ -562,6 +620,28 @@ messagesRoute.post('/remind/:caseId', async (c) => {
 
   const result = await notifyMissingDocuments(caseId)
 
+  if (user.staffId) {
+    await logStaffActivity({
+      organizationId: user.organizationId,
+      clientId: taxCase.clientId,
+      caseId,
+      actorStaffId: user.staffId,
+      category: ACTIVITY_CATEGORIES.MESSAGE,
+      targetType: result.messageId ? ACTIVITY_TARGET_TYPES.MESSAGE : ACTIVITY_TARGET_TYPES.CASE,
+      targetId: result.messageId ?? caseId,
+      summary: 'Sent missing document reminder',
+      action: ACTIVITY_ACTIONS.MESSAGE.REMINDER_SENT,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        channel: 'SMS',
+        messageId: result.messageId,
+        smsSent: result.smsSent,
+        result: result.success ? 'sent' : 'failed',
+      },
+      request: getAuditRequestContext(c),
+    })
+  }
+
   return c.json({
     success: result.success,
     smsSent: result.smsSent,
@@ -573,11 +653,41 @@ messagesRoute.post('/remind/:caseId', async (c) => {
 // POST /messages/remind-batch - Send reminders to all eligible cases
 // Should be called by cron job (e.g., daily at 10am)
 messagesRoute.post('/remind-batch', async (c) => {
+  const user = c.get('user')
+
+  if (user.orgRole !== 'org:admin' && user.role !== 'ADMIN') {
+    return c.json({ error: 'Admin access required' }, 403)
+  }
+
+  if (!user.organizationId) {
+    return c.json({ error: 'No organization' }, 403)
+  }
+
   if (!isSmsEnabled()) {
     return c.json({ error: 'SMS_DISABLED', message: 'SMS is not configured' }, 400)
   }
 
-  const result = await sendBatchMissingReminders()
+  const result = await sendBatchMissingReminders(user.organizationId)
+
+  if (user.staffId) {
+    await logStaffActivity({
+      organizationId: user.organizationId,
+      actorStaffId: user.staffId,
+      category: ACTIVITY_CATEGORIES.MESSAGE,
+      targetType: ACTIVITY_TARGET_TYPES.ORGANIZATION,
+      targetId: user.organizationId,
+      summary: 'Triggered batch missing document reminders',
+      action: ACTIVITY_ACTIONS.MESSAGE.BATCH_REMINDER_SENT,
+      riskLevel: ActivityRiskLevel.MEDIUM,
+      metadata: {
+        channel: 'SMS',
+        sent: result.sent,
+        failed: result.failed,
+        skipped: result.skipped,
+      },
+      request: getAuditRequestContext(c),
+    })
+  }
 
   return c.json({
     success: true,

@@ -285,6 +285,24 @@ export function formatFullDateTime(isoString: string): string {
 }
 
 /**
+ * Format upload timestamp for compact document rows.
+ * Example: "May 18, 2:30 PM" / "18 thg 5, 14:30"
+ */
+export function formatUploadDateTime(isoString: string, locale?: string): string {
+  const date = new Date(isoString)
+  const resolved = locale ?? i18n.language ?? 'en'
+  const isVi = resolved.toLowerCase().startsWith('vi')
+
+  return new Intl.DateTimeFormat(isVi ? 'vi-VN' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: !isVi,
+  }).format(date)
+}
+
+/**
  * Format bytes to human-readable size (e.g., "2.4 MB")
  */
 export function formatBytes(bytes: number, decimals = 1): string {

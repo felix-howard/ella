@@ -4,44 +4,48 @@
  */
 import { prisma } from '../lib/db'
 import { customAlphabet } from 'nanoid'
-import slugify from 'slugify'
 import { PORTAL_URL } from '../lib/constants'
+import { config } from '../lib/config'
 import type { MagicLinkType, MagicLinkScope } from '@ella/db'
 
 // Custom alphabet for URL-safe tokens (no confusing characters)
-const generateToken = customAlphabet(
-  '0123456789abcdefghijklmnopqrstuvwxyz',
-  12
+const generateToken = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 12)
+const generatePortalToken = customAlphabet(
+  '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-',
+  32
 )
-
-// Random suffix for slug tokens (6 chars = 36^6 ≈ 2.1B combos per name)
-const generateSuffix = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 6)
-
-/**
- * Generate a friendly token: "tuyet-nguyen-a7k3mz"
- * Falls back to random token if name is empty/invalid
- */
-function generateSlugToken(clientName: string): string {
-  const slug = slugify(clientName, { lower: true, strict: true })
-  if (!slug) return generateToken()
-  const trimmedSlug = slug.slice(0, 30).replace(/-$/, '')
-  return `${trimmedSlug}-${generateSuffix()}`
-}
 
 /**
  * Resolve token based on link type and optional client name.
- * PORTAL links with a client name get friendly slug tokens; all others get random tokens.
+ * PORTAL links use long random tokens to avoid leaking client names.
  */
-function resolveToken(type: MagicLinkType, clientName?: string): string {
-  return (type === 'PORTAL' && clientName)
-    ? generateSlugToken(clientName)
-    : generateToken()
+function resolveToken(type: MagicLinkType): string {
+  return type === 'PORTAL' ? generatePortalToken() : generateToken()
 }
 
-// All link types now have no expiry (null = never expires)
-// Previously: Schedule C/E had 7-day TTL, now removed for better UX
-// TTL constant kept for extendMagicLinkExpiry (1 year expiry for extended links)
+const DAY_MS = 24 * 60 * 60 * 1000
+export const PORTAL_MAGIC_LINK_EXPIRY_DAYS = config.magicLink.expiryDays
+
+function portalExpiryFromNow(): Date {
+  return new Date(Date.now() + PORTAL_MAGIC_LINK_EXPIRY_DAYS * DAY_MS)
+}
+
+// Schedule C/E links stay on their existing long-extension behavior.
 const MAGIC_LINK_TTL_DAYS = 365
+
+export type MagicLinkStatus = 'ACTIVE' | 'EXPIRED' | 'REVOKED' | 'REPLACED'
+
+export function getMagicLinkStatus(link: {
+  isActive: boolean
+  expiresAt: Date | null
+  revokedAt?: Date | null
+  replacedById?: string | null
+}): MagicLinkStatus {
+  if (link.replacedById) return 'REPLACED'
+  if (link.revokedAt || !link.isActive) return 'REVOKED'
+  if (link.expiresAt && link.expiresAt < new Date()) return 'EXPIRED'
+  return 'ACTIVE'
+}
 
 /**
  * Generate URL based on magic link type
@@ -70,6 +74,73 @@ export interface CreateMagicLinkOptions {
   clientGroupId?: string
 }
 
+export interface CreatedPortalMagicLink {
+  id: string
+  token: string
+  url: string
+  expiresAt: Date | null
+  scope: MagicLinkScope
+  clientGroupId: string | null
+}
+
+export async function createPortalMagicLink(
+  caseId: string,
+  options?: Pick<CreateMagicLinkOptions, 'expiresAt' | 'scope' | 'clientGroupId'>
+): Promise<CreatedPortalMagicLink> {
+  const token = resolveToken('PORTAL')
+  const expiresAt = options?.expiresAt ?? portalExpiryFromNow()
+  const scope: MagicLinkScope = options?.scope ?? 'CASE'
+  if (scope === 'GROUP' && !options?.clientGroupId) {
+    throw new Error('createPortalMagicLink: clientGroupId is required when scope=GROUP')
+  }
+  const clientGroupId = scope === 'GROUP' ? options!.clientGroupId! : null
+  const lockKey =
+    scope === 'GROUP' ? `portal-link:group:${clientGroupId}` : `portal-link:case:${caseId}`
+
+  const link = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`
+
+    const created = await tx.magicLink.create({
+      data: {
+        caseId,
+        token,
+        type: 'PORTAL',
+        expiresAt,
+        isActive: true,
+        scope,
+        clientGroupId,
+      },
+      select: {
+        id: true,
+        token: true,
+        expiresAt: true,
+        scope: true,
+        clientGroupId: true,
+      },
+    })
+
+    await tx.magicLink.updateMany({
+      where: {
+        id: { not: created.id },
+        type: 'PORTAL',
+        isActive: true,
+        ...(scope === 'GROUP' ? { scope: 'GROUP', clientGroupId } : { scope: 'CASE', caseId }),
+      },
+      data: {
+        isActive: false,
+        replacedById: created.id,
+      },
+    })
+
+    return created
+  })
+
+  return {
+    ...link,
+    url: getMagicLinkUrl(link.token, 'PORTAL'),
+  }
+}
+
 /**
  * Create a new magic link for a tax case
  */
@@ -78,9 +149,17 @@ export async function createMagicLink(
   options?: CreateMagicLinkOptions & { clientName?: string }
 ): Promise<string> {
   const type: MagicLinkType = options?.type || 'PORTAL'
-  const token = resolveToken(type, options?.clientName)
+  if (type === 'PORTAL') {
+    const link = await createPortalMagicLink(caseId, {
+      expiresAt: options?.expiresAt,
+      scope: options?.scope,
+      clientGroupId: options?.clientGroupId,
+    })
+    return link.url
+  }
 
-  // All link types never expire (null) unless explicitly provided
+  const token = resolveToken(type)
+
   const expiresAt: Date | null = options?.expiresAt ?? null
 
   const scope: MagicLinkScope = options?.scope ?? 'CASE'
@@ -135,25 +214,14 @@ export async function upgradeActivePortalLinksToGroup(
 export async function createMagicLinkWithDeactivation(
   caseId: string,
   type: MagicLinkType = 'PORTAL',
-  clientName?: string
+  _clientName?: string
 ): Promise<{ url: string; expiresAt: Date | null }> {
-  const token = resolveToken(type, clientName)
+  const token = resolveToken(type)
 
-  // All link types never expire (null)
-  const expiresAt: Date | null = null
+  const expiresAt: Date | null = type === 'PORTAL' ? portalExpiryFromNow() : null
 
-  await prisma.$transaction([
-    // Deactivate all existing links of this type for this case
-    prisma.magicLink.updateMany({
-      where: {
-        caseId,
-        type,
-        isActive: true,
-      },
-      data: { isActive: false },
-    }),
-    // Create new link
-    prisma.magicLink.create({
+  await prisma.$transaction(async (tx) => {
+    const link = await tx.magicLink.create({
       data: {
         caseId,
         token,
@@ -161,8 +229,22 @@ export async function createMagicLinkWithDeactivation(
         expiresAt,
         isActive: true,
       },
-    }),
-  ])
+      select: { id: true },
+    })
+
+    await tx.magicLink.updateMany({
+      where: {
+        id: { not: link.id },
+        caseId,
+        type,
+        isActive: true,
+      },
+      data: {
+        isActive: false,
+        ...(type === 'PORTAL' ? { replacedById: link.id } : {}),
+      },
+    })
+  })
 
   return {
     url: getMagicLinkUrl(token, type),
@@ -187,6 +269,7 @@ export interface MagicLinkValidationResult {
   valid: boolean
   error?: string
   data?: {
+    magicLinkId: string
     scope: MagicLinkScope
     clientGroupId: string | null
     entities: PortalEntityPayload[]
@@ -200,6 +283,7 @@ export interface MagicLinkValidationResult {
         name: string
         language: string
         clientGroupId: string | null
+        organizationId: string | null
       }
       checklistItems: Array<{
         id: string
@@ -285,7 +369,24 @@ export async function resolveGroupEntities(
 /**
  * Validate a magic link token and return associated data
  */
-export async function validateMagicLink(token: string): Promise<MagicLinkValidationResult> {
+interface ValidateMagicLinkOptions {
+  recordUsage?: boolean
+}
+
+export async function recordMagicLinkUsage(linkId: string): Promise<void> {
+  await prisma.magicLink.update({
+    where: { id: linkId },
+    data: {
+      lastUsedAt: new Date(),
+      usageCount: { increment: 1 },
+    },
+  })
+}
+
+export async function validateMagicLink(
+  token: string,
+  options: ValidateMagicLinkOptions = {}
+): Promise<MagicLinkValidationResult> {
   const link = await prisma.magicLink.findUnique({
     where: { token },
     include: {
@@ -310,18 +411,17 @@ export async function validateMagicLink(token: string): Promise<MagicLinkValidat
     return { valid: false, error: 'INVALID_TOKEN' }
   }
 
+  if (link.revokedAt || link.replacedById) {
+    return { valid: false, error: 'INVALID_TOKEN' }
+  }
+
   if (link.expiresAt && link.expiresAt < new Date()) {
     return { valid: false, error: 'EXPIRED_TOKEN' }
   }
 
-  // Update usage stats
-  await prisma.magicLink.update({
-    where: { id: link.id },
-    data: {
-      lastUsedAt: new Date(),
-      usageCount: { increment: 1 },
-    },
-  })
+  if (options.recordUsage !== false) {
+    await recordMagicLinkUsage(link.id)
+  }
 
   if (link.scope === 'GROUP') {
     if (!link.clientGroupId || !link.clientGroup) {
@@ -345,6 +445,7 @@ export async function validateMagicLink(token: string): Promise<MagicLinkValidat
       valid: true,
       data: {
         scope: 'GROUP',
+        magicLinkId: link.id,
         clientGroupId: link.clientGroupId,
         entities,
         clientGroup: {
@@ -379,6 +480,7 @@ export async function validateMagicLink(token: string): Promise<MagicLinkValidat
     valid: true,
     data: {
       scope: 'CASE',
+      magicLinkId: link.id,
       clientGroupId: tc.client.clientGroupId,
       entities: [singleEntity],
       taxCase: {
@@ -390,6 +492,7 @@ export async function validateMagicLink(token: string): Promise<MagicLinkValidat
           name: tc.client.name,
           language: tc.client.language,
           clientGroupId: tc.client.clientGroupId,
+          organizationId: tc.client.organizationId,
         },
         checklistItems: tc.checklistItems.map((item) => ({
           id: item.id,

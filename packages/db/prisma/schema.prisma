@@ -871,6 +871,14 @@ model RawImage {
   // Viewer display settings (persisted rotation for correct document orientation)
   rotation Int @default(0) // 0, 90, 180, 270 degrees clockwise
 
+  // Retention policy for sensitive identity documents.
+  retentionPolicy       String?
+  retentionDeleteAt     DateTime?
+  retentionDeletedAt    DateTime?
+  retentionDeleteReason String?
+  storageDeletedAt      DateTime?
+  isStorageDeleted      Boolean   @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -886,6 +894,10 @@ model RawImage {
   @@index([caseId, documentGroupId]) // Find pages in same group
   @@index([aiMetadata]) // AI metadata queries
   @@index([uploadSource]) // Filter by upload routing source
+  @@index([retentionDeleteAt])
+  @@index([retentionDeletedAt])
+  @@index([category, retentionDeleteAt])
+  @@index([isStorageDeleted])
 }
 
 // Groups duplicate images of the same physical document
@@ -1113,6 +1125,12 @@ model MagicLink {
   expiresAt DateTime?
   isActive  Boolean   @default(true)
 
+  revokedAt    DateTime?
+  revokedById  String?
+  extendedAt   DateTime?
+  extendedById String?
+  replacedById String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1123,6 +1141,8 @@ model MagicLink {
   @@index([caseId, type, isActive]) // Phase 02: Composite index for Schedule C queries
   @@index([draftReturnId]) // Draft return lookup
   @@index([clientGroupId]) // Group-scoped token lookup (Phase 02)
+  @@index([revokedAt])
+  @@index([replacedById])
 }
 
 model Action {
@@ -1301,6 +1321,53 @@ enum DocumentStatus {
   REVOKED // Link manually revoked
   EXPIRED // Link expired
   SUPERSEDED // Replaced by newer version
+}
+
+enum ActivityActorType {
+  STAFF
+  CLIENT_PORTAL
+  SYSTEM
+}
+
+enum ActivityRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model ActivityLog {
+  id             String            @id @default(cuid())
+  organizationId String?
+  clientId       String?
+  caseId         String?
+  rawImageId     String?
+  magicLinkId    String?
+  category       String?
+  targetType     String?
+  targetId       String?
+  targetLabel    String?
+  summary        String?           @db.Text
+  actorType      ActivityActorType
+  actorStaffId   String?
+  action         String
+  riskLevel      ActivityRiskLevel @default(LOW)
+  metadata       Json?
+  ipAddress      String?
+  userAgent      String?           @db.Text
+  route          String?
+  method         String?
+  createdAt      DateTime          @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([clientId, createdAt])
+  @@index([caseId, createdAt])
+  @@index([rawImageId, createdAt])
+  @@index([actorStaffId, createdAt])
+  @@index([magicLinkId, createdAt])
+  @@index([action, createdAt])
+  @@index([organizationId, category, createdAt])
+  @@index([targetType, targetId, createdAt])
+  @@index([actorStaffId, category, createdAt])
 }
 
 // Audit log for tracking field-level changes

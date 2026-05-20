@@ -2,7 +2,7 @@
  * Shared Portal Page Component
  * Used by both /upload/$token and /u/$token (legacy) routes
  */
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -12,6 +12,7 @@ import { portalDataQueryKey, usePortalDataQuery } from '../lib/portal-data-query
 import { WelcomeHeader } from './landing/welcome-header'
 import { SimpleUploader } from './simple-uploader'
 import { EntityPickerPage } from './entity-picker-page'
+import { UploadedFilesList, type UploadedFilesListHandle } from './uploaded-files-list'
 
 interface ErrorState {
   code: string
@@ -22,6 +23,7 @@ export function PortalPage({ token }: { token: string }) {
   const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
   const { data, error, isLoading, refetch } = usePortalDataQuery(token)
+  const listRef = useRef<UploadedFilesListHandle>(null)
 
   useEffect(() => {
     if (!data || localStorage.getItem('ella-language')) return
@@ -39,6 +41,7 @@ export function PortalPage({ token }: { token: string }) {
   // Upload complete handler - refresh data to update missing docs list
   const handleUploadComplete = useCallback(
     (_result: UploadResponse) => {
+      listRef.current?.refetch()
       queryClient.invalidateQueries({ queryKey: portalDataQueryKey(token) })
     },
     [queryClient, token]
@@ -94,6 +97,7 @@ export function PortalPage({ token }: { token: string }) {
   // so backend tags the upload as PORTAL_EXPLICIT (no AI entity routing).
   const soloTargetCaseId =
     data.scope === 'GROUP' && data.entities.length === 1 ? data.entities[0].caseId : undefined
+  const uploadedFilesCaseId = soloTargetCaseId ?? data.taxCase?.id ?? data.entities[0]?.caseId
 
   // Header tax year: prefer taxCase (CASE), then top-level taxYear (GROUP), then first entity (defensive).
   const headerTaxYear = data.taxCase?.taxYear ?? data.taxYear ?? data.entities[0]?.taxYear
@@ -111,6 +115,12 @@ export function PortalPage({ token }: { token: string }) {
           onError={handleUploadError}
         />
       </div>
+
+      {uploadedFilesCaseId && (
+        <div className="px-6 py-4">
+          <UploadedFilesList ref={listRef} token={token} caseId={uploadedFilesCaseId} />
+        </div>
+      )}
 
       <div className="px-6 py-4">
         <div className="rounded-lg border border-border bg-muted/50 p-4">

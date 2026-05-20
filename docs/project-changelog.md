@@ -7,6 +7,18 @@
 
 ## 2026-05-20
 
+### Portal: Solo Upload File List
+**Status:** Complete
+
+**Changed:**
+- Added the uploaded documents list to solo/no-business upload pages.
+- Reused the existing portal-safe per-case upload list and refetches it after successful uploads for consistency with entity upload pages.
+
+**Validation:**
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/portal lint` pass with one pre-existing Fast Refresh warning in `intake-business-form.tsx`
+- `pnpm -F @ella/portal build` pass with existing chunk-size warning
+
 ### Workspace/API: Recent Activity Noise Reduction
 **Status:** Complete
 

@@ -17,6 +17,7 @@ import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '..
 import { sendScheduleCFormMessage, getOrgSmsLanguage } from '../../services/sms/message-sender'
 import { calculateGrossReceipts, calculateScheduleCTotals, getGrossReceiptsBreakdown } from '../../services/schedule-c/expense-calculator'
 import { ActivityRiskLevel, type Prisma } from '@ella/db'
+import { buildClientScopeFilter } from '../../lib/org-scope'
 
 // Helper to format Decimal to string with 2 decimal places
 const formatDecimal = (value: Prisma.Decimal | null): string | null =>
@@ -76,7 +77,7 @@ async function logScheduleCFormSentActivity(
 
 async function resolveScheduleCMessageTarget(
   taxCase: ScheduleCCase,
-  organizationId: string | null | undefined
+  user: AuthUser
 ): Promise<ScheduleCMessageTarget> {
   const fallback = {
     caseId: taxCase.id,
@@ -93,7 +94,7 @@ async function resolveScheduleCMessageTarget(
     where: {
       clientGroupId: taxCase.client.clientGroupId,
       clientType: 'INDIVIDUAL',
-      ...(organizationId ? { organizationId } : {}),
+      ...buildClientScopeFilter(user),
     },
     orderBy: { createdAt: 'desc' },
     select: {
@@ -128,6 +129,7 @@ async function resolveScheduleCMessageTarget(
  */
 scheduleCRoute.post('/:caseId/send', async (c) => {
   const caseId = c.req.param('caseId')
+  const user = c.get('user')
 
   // Parse optional custom message from body
   let customMessage: string | undefined
@@ -139,8 +141,8 @@ scheduleCRoute.post('/:caseId/send', async (c) => {
   }
 
   // Validate taxCase exists and has phone
-  const taxCase = await prisma.taxCase.findUnique({
-    where: { id: caseId },
+  const taxCase = await prisma.taxCase.findFirst({
+    where: { id: caseId, client: buildClientScopeFilter(user) },
     include: {
       client: true,
       scheduleCExpense: true,
@@ -148,19 +150,18 @@ scheduleCRoute.post('/:caseId/send', async (c) => {
   })
 
   if (!taxCase) {
-    return c.json({ error: 'CASE_NOT_FOUND', message: 'Case không tồn tại' }, 404)
+    return c.json({ error: 'CASE_NOT_FOUND', message: 'Case not found' }, 404)
   }
 
   // Check if already locked
   if (taxCase.scheduleCExpense?.status === 'LOCKED') {
-    return c.json({ error: 'ALREADY_LOCKED', message: 'Form đã bị khóa' }, 400)
+    return c.json({ error: 'ALREADY_LOCKED', message: 'Form is already locked' }, 400)
   }
 
-  const user = c.get('user')
-  const messageTarget = await resolveScheduleCMessageTarget(taxCase, user.organizationId)
+  const messageTarget = await resolveScheduleCMessageTarget(taxCase, user)
 
   if (!messageTarget.clientPhone) {
-    return c.json({ error: 'NO_PHONE', message: 'Client không có số điện thoại' }, 400)
+    return c.json({ error: 'NO_PHONE', message: 'Client does not have a phone number' }, 400)
   }
 
   // Calculate prefilled gross receipts from verified 1099-NECs
@@ -223,17 +224,19 @@ scheduleCRoute.post('/:caseId/send', async (c) => {
  */
 scheduleCRoute.get('/:caseId', async (c) => {
   const caseId = c.req.param('caseId')
+  const user = c.get('user')
 
   // Validate taxCase exists
-  const taxCase = await prisma.taxCase.findUnique({
-    where: { id: caseId },
+  const taxCase = await prisma.taxCase.findFirst({
+    where: { id: caseId, client: buildClientScopeFilter(user) },
     include: {
+      client: true,
       scheduleCExpense: true,
     },
   })
 
   if (!taxCase) {
-    return c.json({ error: 'CASE_NOT_FOUND', message: 'Case không tồn tại' }, 404)
+    return c.json({ error: 'CASE_NOT_FOUND', message: 'Case not found' }, 404)
   }
 
   // Get 1099-NEC payer breakdown (single query, reused for total)
@@ -343,20 +346,20 @@ scheduleCRoute.patch('/:caseId/lock', async (c) => {
   const user = c.get('user')
 
   // Get Schedule C expense
-  const expense = await prisma.scheduleCExpense.findUnique({
-    where: { taxCaseId: caseId },
+  const expense = await prisma.scheduleCExpense.findFirst({
+    where: { taxCaseId: caseId, taxCase: { client: buildClientScopeFilter(user) } },
   })
 
   if (!expense) {
-    return c.json({ error: 'NOT_FOUND', message: 'Schedule C không tồn tại' }, 404)
+    return c.json({ error: 'NOT_FOUND', message: 'Schedule C not found' }, 404)
   }
 
   if (expense.status === 'LOCKED') {
-    return c.json({ error: 'ALREADY_LOCKED', message: 'Form đã bị khóa' }, 400)
+    return c.json({ error: 'ALREADY_LOCKED', message: 'Form is already locked' }, 400)
   }
 
   if (expense.status === 'DRAFT') {
-    return c.json({ error: 'NOT_SUBMITTED', message: 'Form chưa được gửi bởi khách hàng' }, 400)
+    return c.json({ error: 'NOT_SUBMITTED', message: 'Form has not been submitted by the client' }, 400)
   }
 
   // Lock expense and deactivate magic link
@@ -394,10 +397,11 @@ scheduleCRoute.patch('/:caseId/lock', async (c) => {
  */
 scheduleCRoute.post('/:caseId/resend', async (c) => {
   const caseId = c.req.param('caseId')
+  const user = c.get('user')
 
   // Validate taxCase exists and has phone
-  const taxCase = await prisma.taxCase.findUnique({
-    where: { id: caseId },
+  const taxCase = await prisma.taxCase.findFirst({
+    where: { id: caseId, client: buildClientScopeFilter(user) },
     include: {
       client: true,
       scheduleCExpense: true,
@@ -405,19 +409,18 @@ scheduleCRoute.post('/:caseId/resend', async (c) => {
   })
 
   if (!taxCase) {
-    return c.json({ error: 'CASE_NOT_FOUND', message: 'Case không tồn tại' }, 404)
+    return c.json({ error: 'CASE_NOT_FOUND', message: 'Case not found' }, 404)
   }
 
   // Check if locked
   if (taxCase.scheduleCExpense?.status === 'LOCKED') {
-    return c.json({ error: 'FORM_LOCKED', message: 'Form đã bị khóa, không thể gửi lại' }, 400)
+    return c.json({ error: 'FORM_LOCKED', message: 'Form is locked and cannot be resent' }, 400)
   }
 
-  const user = c.get('user')
-  const messageTarget = await resolveScheduleCMessageTarget(taxCase, user.organizationId)
+  const messageTarget = await resolveScheduleCMessageTarget(taxCase, user)
 
   if (!messageTarget.clientPhone) {
-    return c.json({ error: 'NO_PHONE', message: 'Client không có số điện thoại' }, 400)
+    return c.json({ error: 'NO_PHONE', message: 'Client does not have a phone number' }, 400)
   }
 
   // Get existing active magic link
@@ -498,17 +501,18 @@ scheduleCRoute.post('/:caseId/resend', async (c) => {
  */
 scheduleCRoute.patch('/:caseId/unlock', async (c) => {
   const caseId = c.req.param('caseId')
+  const user = c.get('user')
 
-  const expense = await prisma.scheduleCExpense.findUnique({
-    where: { taxCaseId: caseId },
+  const expense = await prisma.scheduleCExpense.findFirst({
+    where: { taxCaseId: caseId, taxCase: { client: buildClientScopeFilter(user) } },
   })
 
   if (!expense) {
-    return c.json({ error: 'NOT_FOUND', message: 'Schedule C không tồn tại' }, 404)
+    return c.json({ error: 'NOT_FOUND', message: 'Schedule C not found' }, 404)
   }
 
   if (expense.status !== 'LOCKED') {
-    return c.json({ error: 'NOT_LOCKED', message: 'Form không bị khóa' }, 400)
+    return c.json({ error: 'NOT_LOCKED', message: 'Form is not locked' }, 400)
   }
 
   // Unlock expense

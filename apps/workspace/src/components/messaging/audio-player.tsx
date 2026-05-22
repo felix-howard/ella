@@ -3,6 +3,7 @@
  * Compact design for message thread with lazy loading
  */
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Play, Pause, Loader2, AlertCircle, Volume2 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { api } from '../../lib/api-client'
@@ -21,9 +22,10 @@ function formatTime(seconds: number): string {
 }
 
 export function AudioPlayer({ recordingSid, duration: knownDuration, className }: AudioPlayerProps) {
+  const { t } = useTranslation()
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errorKey, setErrorKey] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(knownDuration || 0)
   const [audioSrc, setAudioSrc] = useState<string | null>(null)
@@ -43,7 +45,7 @@ export function AudioPlayer({ recordingSid, duration: knownDuration, className }
       return true
     } catch (e) {
       console.error('[AudioPlayer] Failed to load audio:', e)
-      setError('Không thể tải bản ghi')
+      setErrorKey('messages.audioLoadError')
       return false
     }
   }, [recordingSid, audioSrc])
@@ -71,7 +73,7 @@ export function AudioPlayer({ recordingSid, duration: knownDuration, className }
         await audioRef.current.play()
       } catch (e) {
         console.error('[AudioPlayer] Play failed:', e)
-        setError('Không thể phát')
+        setErrorKey('messages.audioPlayError')
       }
     }
   }, [isPlaying, loadAudio, audioSrc])
@@ -124,7 +126,7 @@ export function AudioPlayer({ recordingSid, duration: knownDuration, className }
       setCurrentTime(0)
     }
     const handleError = () => {
-      setError('Lỗi phát audio')
+      setErrorKey('messages.audioPlaybackError')
       setIsLoading(false)
     }
     const handleLoadStart = () => setIsLoading(true)
@@ -175,7 +177,7 @@ export function AudioPlayer({ recordingSid, duration: knownDuration, className }
           'bg-primary text-primary-foreground hover:bg-primary/90',
           isLoading && 'opacity-50 cursor-wait'
         )}
-        aria-label={isPlaying ? 'Tạm dừng' : 'Phát'}
+        aria-label={isPlaying ? t('messages.audioPause') : t('messages.audioPlay')}
       >
         {isLoading ? (
           <Loader2 className="w-5 h-5 animate-spin" />
@@ -188,10 +190,10 @@ export function AudioPlayer({ recordingSid, duration: knownDuration, className }
 
       {/* Progress bar and time */}
       <div className="flex-1 min-w-0">
-        {error ? (
+        {errorKey ? (
           <div className="flex items-center gap-2 text-destructive text-sm">
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <span className="truncate">{error}</span>
+            <span className="truncate">{t(errorKey)}</span>
           </div>
         ) : (
           <>
@@ -201,7 +203,7 @@ export function AudioPlayer({ recordingSid, duration: knownDuration, className }
               onClick={handleProgressClick}
               className="h-2 bg-muted rounded-full cursor-pointer overflow-hidden"
               role="slider"
-              aria-label="Tiến trình phát"
+              aria-label={t('messages.audioProgress')}
               aria-valuemin={0}
               aria-valuemax={duration}
               aria-valuenow={currentTime}

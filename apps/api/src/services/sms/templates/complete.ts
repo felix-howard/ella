@@ -30,7 +30,7 @@ Thank you for using our service!`,
 }
 
 export function generateCompleteMessage(params: CompleteTemplateParams): string {
-  const template = TEMPLATES[params.language] || TEMPLATES.VI
+  const template = TEMPLATES[params.language] || TEMPLATES.EN
   return template(params)
 }
 

@@ -259,7 +259,7 @@ export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) 
                       setEditingSectionKey(sectionKey)
                     }}
                     className="p-1.5 rounded hover:bg-muted transition-colors"
-                    aria-label={`Chỉnh sửa ${config?.title}`}
+                    aria-label={t('clientOverview.editSection', { section: config?.title })}
                   >
                     <Pencil className="w-4 h-4 text-muted-foreground hover:text-primary" />
                   </button>
@@ -269,7 +269,9 @@ export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) 
                   type="button"
                   onClick={() => toggleSection(sectionKey)}
                   className="p-1.5 rounded hover:bg-muted transition-colors"
-                  aria-label={isExpanded ? 'Thu gọn' : 'Mở rộng'}
+                  aria-label={
+                    isExpanded ? t('clientOverview.collapseSection') : t('clientOverview.expandSection')
+                  }
                 >
                   <ChevronDown
                     className={cn(
@@ -353,6 +355,8 @@ interface InfoRowProps {
 }
 
 function InfoRow({ label, value, onCopy, copied, editable, onEdit }: InfoRowProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex items-center justify-between py-3 first:pt-4">
       <span className="text-sm text-muted-foreground">{label}</span>
@@ -363,7 +367,7 @@ function InfoRow({ label, value, onCopy, copied, editable, onEdit }: InfoRowProp
           <button
             onClick={onEdit}
             className="p-1 rounded hover:bg-muted transition-colors opacity-50 hover:opacity-100"
-            aria-label={`Chỉnh sửa ${label}`}
+            aria-label={t('clientOverview.editField', { field: label })}
           >
             <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
@@ -372,7 +376,7 @@ function InfoRow({ label, value, onCopy, copied, editable, onEdit }: InfoRowProp
           <button
             onClick={onCopy}
             className="p-1 rounded hover:bg-muted transition-colors"
-            aria-label={`Copy ${label}`}
+            aria-label={t('clientOverview.copyField', { field: label })}
           >
             {copied ? (
               <Check className="w-3.5 h-3.5 text-success" />

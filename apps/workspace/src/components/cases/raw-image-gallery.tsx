@@ -5,6 +5,7 @@
  */
 
 import { useState, memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { Document, Page, pdfjs } from 'react-pdf'
 import {
@@ -44,43 +45,43 @@ interface RawImageGalleryProps {
 
 // Status configuration for UI display
 const IMAGE_STATUS_CONFIG: Record<ImageStatus, {
-  label: string
+  labelKey: string
   icon: typeof CheckCircle
   color: string
   bgColor: string
 }> = {
   UPLOADED: {
-    label: 'Đã tải lên',
+    labelKey: 'rawImage.status.uploaded',
     icon: Clock,
     color: 'text-muted-foreground',
     bgColor: 'bg-muted',
   },
   PROCESSING: {
-    label: 'Đang phân loại',
+    labelKey: 'rawImage.status.processing',
     icon: Loader2,
     color: 'text-primary',
     bgColor: 'bg-primary-light',
   },
   CLASSIFIED: {
-    label: 'Đã phân loại',
+    labelKey: 'rawImage.status.classified',
     icon: CheckCircle,
     color: 'text-primary',
     bgColor: 'bg-primary-light',
   },
   LINKED: {
-    label: 'Đã liên kết',
+    labelKey: 'rawImage.status.linked',
     icon: CheckCircle,
     color: 'text-success',
     bgColor: 'bg-success/10',
   },
   BLURRY: {
-    label: 'Ảnh mờ',
+    labelKey: 'rawImage.status.blurry',
     icon: AlertTriangle,
     color: 'text-warning',
     bgColor: 'bg-warning-light',
   },
   UNCLASSIFIED: {
-    label: 'Chưa phân loại',
+    labelKey: 'rawImage.status.unclassified',
     icon: HelpCircle,
     color: 'text-error',
     bgColor: 'bg-error-light',
@@ -88,6 +89,7 @@ const IMAGE_STATUS_CONFIG: Record<ImageStatus, {
 }
 
 export function RawImageGallery({ images, isLoading, onImageClick, onClassify, onReviewClassification }: RawImageGalleryProps) {
+  const { t } = useTranslation()
   const [viewerOpen, setViewerOpen] = useState(false)
   const [selectedImage, setSelectedImage] = useState<RawImage | null>(null)
 
@@ -117,7 +119,7 @@ export function RawImageGallery({ images, isLoading, onImageClick, onClassify, o
     return (
       <div className="text-center py-12">
         <ImageIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" aria-hidden="true" />
-        <p className="text-sm text-muted-foreground">Chưa có ảnh nào được tải lên</p>
+        <p className="text-sm text-muted-foreground">{t('rawImage.empty')}</p>
       </div>
     )
   }
@@ -134,14 +136,18 @@ export function RawImageGallery({ images, isLoading, onImageClick, onClassify, o
       {/* Status Filter Pills */}
       <div className="flex flex-wrap gap-2">
         <StatusPill
-          label="Tất cả"
+          label={t('common.all')}
           count={images.length}
           isActive
         />
         {Object.entries(statusCounts).map(([status, count]) => (
           <StatusPill
             key={status}
-            label={IMAGE_STATUS_CONFIG[status as ImageStatus]?.label || status}
+            label={
+              IMAGE_STATUS_CONFIG[status as ImageStatus]
+                ? t(IMAGE_STATUS_CONFIG[status as ImageStatus].labelKey)
+                : status
+            }
             count={count}
             color={IMAGE_STATUS_CONFIG[status as ImageStatus]?.color}
           />
@@ -214,6 +220,7 @@ interface ImageCardProps {
  * Only re-renders when image data or callbacks change
  */
 const ImageCard = memo(function ImageCard({ image, onClick, onClassify, onReviewClassification }: ImageCardProps) {
+  const { t } = useTranslation()
   const status = image.status as ImageStatus
   const config = IMAGE_STATUS_CONFIG[status] || IMAGE_STATUS_CONFIG.UPLOADED
   const Icon = config.icon
@@ -246,7 +253,7 @@ const ImageCard = memo(function ImageCard({ image, onClick, onClassify, onReview
           <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
             <div className="flex flex-col items-center gap-2">
               <Loader2 className="w-6 h-6 text-primary animate-spin" />
-              <span className="text-xs text-muted-foreground">Đang phân loại...</span>
+              <span className="text-xs text-muted-foreground">{t('rawImage.classifying')}</span>
             </div>
           </div>
         )}
@@ -290,7 +297,7 @@ const ImageCard = memo(function ImageCard({ image, onClick, onClassify, onReview
         )}
         <div className="flex items-center justify-between mt-2">
           <span className={cn('text-xs', config.color)}>
-            {config.label}
+            {t(config.labelKey)}
           </span>
           {needsClassify && onClassify && (
             <button
@@ -300,7 +307,7 @@ const ImageCard = memo(function ImageCard({ image, onClick, onClassify, onReview
               }}
               className="text-xs text-primary hover:text-primary-dark"
             >
-              Phân loại
+              {t('rawImage.classify')}
             </button>
           )}
           {needsReview && onReviewClassification && (
@@ -311,7 +318,7 @@ const ImageCard = memo(function ImageCard({ image, onClick, onClassify, onReview
               }}
               className="text-xs text-warning hover:text-warning/80"
             >
-              Xác minh
+              {t('rawImage.review')}
             </button>
           )}
         </div>

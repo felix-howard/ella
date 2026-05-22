@@ -52,6 +52,17 @@ vi.mock('../../../services/audit-logger', () => ({
   computeProfileFieldDiff: vi.fn(),
 }))
 
+vi.mock('../../../services/activity-log', () => ({
+  getAuditRequestContext: vi.fn(() => ({
+    ipAddress: '203.0.113.10',
+    userAgent: 'Vitest',
+    route: '/clients/id/managed-by',
+    method: 'PATCH',
+  })),
+  getChangedFieldNames: vi.fn(() => ['managedById']),
+  logStaffActivity: vi.fn(),
+}))
+
 vi.mock('../../../services/engagement-helpers', () => ({
   findOrCreateEngagement: vi.fn(),
 }))

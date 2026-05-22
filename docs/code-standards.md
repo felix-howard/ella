@@ -239,6 +239,24 @@ app.get('/clients/:clientId/contractors', async (c) => {
 - Dark mode support via `dark:` prefix
 - Component variants via `class-variance-authority`
 
+## English-First i18n
+
+**Default language:** English. Vietnamese stays selectable, but runtime fallbacks must prefer English.
+
+**Rules:**
+- Put user-facing frontend text in `apps/*/src/locales/en.json` and `apps/*/src/locales/vi.json`.
+- Add English and Vietnamese keys together; `pnpm i18n:audit` enforces locale key parity.
+- Do not hardcode Vietnamese user-facing literals in runtime UI/API code.
+- Explicit bilingual catalogs are allowed only when the file owns bilingual domain data, such as SMS templates, DB seed `labelVi` data, AI prompt catalogs, or shared label maps.
+- API responses should expose stable codes plus safe English-first messages; frontends translate known codes at the display boundary.
+- Do not expose raw provider/server error text to clients. Map it to a stable sanitized code/message first.
+
+**Validation:**
+```bash
+pnpm i18n:audit
+pnpm type-check
+```
+
 ## Frontend Utilities (@ella/workspace)
 
 **Clipboard Utility (`apps/workspace/src/lib/clipboard.ts`):**
@@ -482,5 +500,5 @@ describe('Feature', () => {
 ---
 
 **Version:** 2.5
-**Last Updated:** 2026-04-02
-**Status:** TaxBandits API Integration complete. TaxBandits API client + 8 endpoints. Schema cleanup done (removed legacy fields, indexed TaxBandits IDs).
+**Last Updated:** 2026-05-22
+**Status:** English-first i18n enforcement documented. TaxBandits API Integration complete. TaxBandits API client + 8 endpoints. Schema cleanup done (removed legacy fields, indexed TaxBandits IDs).

@@ -95,6 +95,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Zustand: UI state (sidebar, toast), session persistence
 - File-based routing: `src/routes/*` (auto-generated tree)
 
+**Localization:**
+- Workspace and portal default to English with Vietnamese selectable by user/client preference.
+- User-facing frontend copy lives in app locale files with enforced English/Vietnamese key parity.
+- Runtime Vietnamese literals are blocked by `pnpm i18n:audit` unless the file is an explicit bilingual catalog.
+- API routes return stable error codes and sanitized English-first messages; frontend clients translate known codes at the display boundary instead of rendering raw server/provider errors.
+- Backend-generated customer communication, including SMS, uses English fallback and sends Vietnamese only when explicitly selected.
+
 **API Client (Phase 10 - Client Type & EIN Masking):**
 - Type-safe endpoint groups (team, clients, cases, messages, etc.)
 - Org context: Bearer JWT includes orgId (workspace)
@@ -2509,5 +2516,5 @@ All avatar/notes UI will need i18n keys in workspace:
 ---
 
 **Version:** 3.0
-**Last Updated:** 2026-04-10
-**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Client-Business Entity Separation Phase 06 (Cleanup & Integration Testing) complete. Supabase Realtime Broadcast integrated for 100-500ms message updates. Phase 12 Client Creation Wizard (multi-path) complete. Phase 13 Client Detail Page (type-based tabs) complete. Phase 02 ShareableDocument (multi-section) API + Phase 04 Workspace UI complete: SharedDocsTab + 10 sub-components, useSharedDocs/useSharedDocSignedUrl hooks, legacy DraftReturn components removed. Draft Return tab renamed to Shared Docs tab across UI and i18n keys.
+**Last Updated:** 2026-05-22
+**Status:** English-first i18n enforcement complete. Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Client-Business Entity Separation Phase 06 (Cleanup & Integration Testing) complete. Supabase Realtime Broadcast integrated for 100-500ms message updates. Phase 12 Client Creation Wizard (multi-path) complete. Phase 13 Client Detail Page (type-based tabs) complete. Phase 02 ShareableDocument (multi-section) API + Phase 04 Workspace UI complete: SharedDocsTab + 10 sub-components, useSharedDocs/useSharedDocSignedUrl hooks, legacy DraftReturn components removed. Draft Return tab renamed to Shared Docs tab across UI and i18n keys.

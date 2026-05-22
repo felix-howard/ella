@@ -91,7 +91,7 @@ function LanguageCard({ currentLanguage, changeLanguage }: { currentLanguage: La
           <div>
             <h3 className="text-sm font-medium text-foreground">{t('settings.language')}</h3>
             <p className="text-xs text-muted-foreground">
-              {currentLanguage === 'VI' ? 'Tiếng Việt' : 'English'}
+              {currentLanguage === 'VI' ? 'Vietnamese' : 'English'}
             </p>
           </div>
         </div>

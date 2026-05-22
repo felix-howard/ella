@@ -2,7 +2,7 @@
  * Expense Form API Client
  * Public endpoints for Schedule C expense collection
  */
-import { ApiError } from '../../../lib/api-client'
+import { ApiError, getApiErrorMessage } from '../../../lib/api-client'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002'
 
@@ -149,17 +149,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const data = await response.json()
 
     if (!response.ok) {
-      throw new ApiError(
-        response.status,
-        data.error || 'UNKNOWN_ERROR',
-        data.message || 'Đã có lỗi xảy ra'
-      )
+      const code = typeof data?.error === 'string' ? data.error : 'UNKNOWN_ERROR'
+      throw new ApiError(response.status, code, getApiErrorMessage(code, response.status))
     }
 
     return data as T
   } catch (error) {
     if (error instanceof ApiError) throw error
-    throw new ApiError(0, 'NETWORK_ERROR', 'Không thể kết nối. Vui lòng thử lại.')
+    throw new ApiError(0, 'NETWORK_ERROR', getApiErrorMessage('NETWORK_ERROR', 0))
   }
 }
 
@@ -169,8 +166,7 @@ export const expenseApi = {
    * Get expense form data via magic link token
    * GET /expense/:token
    */
-  getData: (token: string) =>
-    request<ExpenseFormData>(`/expense/${token}`),
+  getData: (token: string) => request<ExpenseFormData>(`/expense/${token}`),
 
   /**
    * Submit expense form (creates version history)

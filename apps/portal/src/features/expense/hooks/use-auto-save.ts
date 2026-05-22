@@ -4,6 +4,7 @@
  * Includes rate limiting to prevent API abuse
  */
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { expenseApi } from '../lib/expense-api'
 import { toApiInput } from '../lib/form-utils'
 
@@ -39,6 +40,7 @@ export function useAutoSave(
   isDirty: boolean,
   formStatus: string
 ): UseAutoSaveReturn {
+  const { t } = useTranslation()
   const [status, setStatus] = useState<AutoSaveStatus>('idle')
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -73,7 +75,7 @@ export function useAutoSave(
 
     // Check saves per minute
     const oneMinuteAgo = now - 60000
-    saveCountRef.current = saveCountRef.current.filter(ts => ts > oneMinuteAgo)
+    saveCountRef.current = saveCountRef.current.filter((ts) => ts > oneMinuteAgo)
     if (saveCountRef.current.length >= MAX_SAVES_PER_MINUTE) {
       return false
     }
@@ -144,13 +146,13 @@ export function useAutoSave(
 
       // All retries exhausted - show error
       retryCountRef.current = 0
-      const message = err instanceof Error ? err.message : 'Không thể lưu tự động'
+      const message = err instanceof Error ? err.message : t('expense.autoSave.error')
       setError(message)
       setStatus('error')
     } finally {
       isSavingRef.current = false
     }
-  }, [token, formStatus, canSave])
+  }, [token, formStatus, canSave, t])
 
   // Debounced auto-save effect
   useEffect(() => {

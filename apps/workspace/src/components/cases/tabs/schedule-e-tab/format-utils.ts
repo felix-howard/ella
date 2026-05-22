@@ -1,6 +1,7 @@
 /**
  * Format utilities for Schedule E display
  */
+import i18n from '../../../../lib/i18n'
 
 /**
  * Format number as USD currency
@@ -61,24 +62,21 @@ export function formatDateTime(
   }
 }
 
-/**
- * Property type labels for display (Vietnamese + English)
- */
-export const PROPERTY_TYPE_LABELS: Record<number, { en: string; vi: string }> = {
-  1: { en: 'Single Family Residence', vi: 'Nhà riêng lẻ' },
-  2: { en: 'Multi-Family Residence', vi: 'Nhà nhiều căn hộ' },
-  3: { en: 'Vacation/Short-Term Rental', vi: 'Cho thuê ngắn hạn' },
-  4: { en: 'Commercial', vi: 'Thương mại' },
-  5: { en: 'Land', vi: 'Đất trống' },
-  7: { en: 'Self-Rental', vi: 'Tự cho thuê' },
-  8: { en: 'Other', vi: 'Khác' },
+const PROPERTY_TYPE_LABEL_KEYS: Record<number, string> = {
+  1: 'scheduleE.propertyType.1',
+  2: 'scheduleE.propertyType.2',
+  3: 'scheduleE.propertyType.3',
+  4: 'scheduleE.propertyType.4',
+  5: 'scheduleE.propertyType.5',
+  7: 'scheduleE.propertyType.7',
+  8: 'scheduleE.propertyType.8',
 }
 
 /**
  * Get property type label based on type code
  */
 export function getPropertyTypeLabel(type: number, lang: 'vi' | 'en' = 'vi'): string {
-  return PROPERTY_TYPE_LABELS[type]?.[lang] || PROPERTY_TYPE_LABELS[8][lang]
+  return i18n.t(PROPERTY_TYPE_LABEL_KEYS[type] || PROPERTY_TYPE_LABEL_KEYS[8], { lng: lang })
 }
 
 /**

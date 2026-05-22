@@ -31,7 +31,7 @@ Thank you!`,
 }
 
 export function generateWelcomeMessage(params: WelcomeTemplateParams): string {
-  const template = TEMPLATES[params.language] || TEMPLATES.VI
+  const template = TEMPLATES[params.language] || TEMPLATES.EN
   return template(params)
 }
 

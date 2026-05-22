@@ -5,6 +5,7 @@
  */
 
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { HelpCircle } from 'lucide-react'
 import type { FieldType } from '../../lib/api-client'
@@ -182,6 +183,7 @@ function NumberQuestion({
   value,
   onChange,
 }: NumberQuestionProps) {
+  const { t } = useTranslation()
   const clampValue = (val: number) => Math.max(NUMBER_MIN, Math.min(NUMBER_MAX, val))
 
   return (
@@ -206,7 +208,7 @@ function NumberQuestion({
           onClick={() => onChange(clampValue(value - 1))}
           disabled={value <= NUMBER_MIN}
           className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 text-foreground font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label="Giảm"
+          aria-label={t('common.decrease')}
         >
           -
         </button>
@@ -224,7 +226,7 @@ function NumberQuestion({
           onClick={() => onChange(clampValue(value + 1))}
           disabled={value >= NUMBER_MAX}
           className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 text-foreground font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label="Tăng"
+          aria-label={t('common.increase')}
         >
           +
         </button>
@@ -365,6 +367,8 @@ function SelectQuestion({
   options,
   onChange,
 }: SelectQuestionProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="space-y-1.5">
       <label
@@ -383,7 +387,7 @@ function SelectQuestion({
         value={value}
         onChange={onChange}
         options={options}
-        placeholder="Chọn..."
+        placeholder={t('common.selectPlaceholder')}
       />
     </div>
   )

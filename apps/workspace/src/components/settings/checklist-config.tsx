@@ -4,19 +4,21 @@
  */
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Plus, Edit2, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { Card, Button } from '@ella/ui'
 import { cn } from '@ella/ui'
 import { api, type TaxType, type ChecklistTemplate } from '../../lib/api-client'
 import { ChecklistTemplateModal } from './checklist-template-modal'
 
-const TAX_TYPE_LABELS: Record<TaxType, string> = {
-  FORM_1040: '1040 (Cá nhân)',
-  FORM_1120S: '1120-S (S-Corp)',
-  FORM_1065: '1065 (Partnership)',
+const TAX_TYPE_LABEL_KEYS: Record<TaxType, string> = {
+  FORM_1040: 'settingsChecklist.taxType.form1040',
+  FORM_1120S: 'settingsChecklist.taxType.form1120s',
+  FORM_1065: 'settingsChecklist.taxType.form1065',
 }
 
 export function ChecklistConfigTab() {
+  const { t } = useTranslation()
   const [selectedTaxType, setSelectedTaxType] = useState<TaxType>('FORM_1040')
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -77,7 +79,7 @@ export function ChecklistConfigTab() {
     <div className="space-y-6">
       {/* Tax Type Tabs */}
       <div className="flex gap-2 border-b border-border pb-4">
-        {(Object.keys(TAX_TYPE_LABELS) as TaxType[]).map((taxType) => (
+        {(Object.keys(TAX_TYPE_LABEL_KEYS) as TaxType[]).map((taxType) => (
           <button
             key={taxType}
             onClick={() => setSelectedTaxType(taxType)}
@@ -88,7 +90,7 @@ export function ChecklistConfigTab() {
                 : 'bg-muted text-foreground hover:bg-muted/80'
             )}
           >
-            {TAX_TYPE_LABELS[taxType]}
+            {t(TAX_TYPE_LABEL_KEYS[taxType])}
           </button>
         ))}
       </div>
@@ -96,20 +98,20 @@ export function ChecklistConfigTab() {
       {/* Actions Bar */}
       <div className="flex justify-between items-center">
         <p className="text-sm text-muted-foreground">
-          {templates.length} mục trong checklist
+          {t('settingsChecklist.itemCount', { count: templates.length })}
         </p>
         <Button size="sm" className="gap-1.5" onClick={handleAdd}>
           <Plus className="w-4 h-4" />
-          Thêm mục
+          {t('settingsChecklist.addItem')}
         </Button>
       </div>
 
       {/* Templates List */}
       {isLoading ? (
-        <div className="text-center py-8 text-muted-foreground">Đang tải...</div>
+        <div className="text-center py-8 text-muted-foreground">{t('common.loading')}</div>
       ) : templates.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          Chưa có mục nào cho loại tờ khai này
+          {t('settingsChecklist.emptyForTaxType')}
         </div>
       ) : (
         <div className="space-y-4">
@@ -145,26 +147,28 @@ interface CategorySectionProps {
   onEdit: (template: ChecklistTemplate) => void
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  personal: 'Cá nhân / Nhận dạng',
-  prior_year: 'Năm trước / IRS',
-  income: 'Thu nhập',
-  health: 'Bảo hiểm sức khỏe',
-  education: 'Giáo dục',
-  deductions: 'Khấu trừ',
-  credits: 'Tín dụng thuế',
-  business: 'Kinh doanh',
-  rental: 'Cho thuê',
-  foreign: 'Nước ngoài',
-  admin: 'Hành chính',
-  ownership: 'Sở hữu',
-  financials: 'Tài chính',
-  payroll: 'Bảng lương',
-  expenses: 'Chi phí',
-  assets: 'Tài sản',
+const CATEGORY_LABEL_KEYS: Record<string, string> = {
+  personal: 'settingsChecklist.category.personal',
+  prior_year: 'settingsChecklist.category.priorYear',
+  income: 'settingsChecklist.category.income',
+  health: 'settingsChecklist.category.health',
+  education: 'settingsChecklist.category.education',
+  deductions: 'settingsChecklist.category.deductions',
+  credits: 'settingsChecklist.category.credits',
+  business: 'settingsChecklist.category.business',
+  rental: 'settingsChecklist.category.rental',
+  foreign: 'settingsChecklist.category.foreign',
+  admin: 'settingsChecklist.category.admin',
+  ownership: 'settingsChecklist.category.ownership',
+  financials: 'settingsChecklist.category.financials',
+  payroll: 'settingsChecklist.category.payroll',
+  expenses: 'settingsChecklist.category.expenses',
+  assets: 'settingsChecklist.category.assets',
 }
 
 function CategorySection({ category, templates, isExpanded, onToggle, onEdit }: CategorySectionProps) {
+  const { t } = useTranslation()
+
   return (
     <Card className="overflow-hidden">
       <button
@@ -178,7 +182,7 @@ function CategorySection({ category, templates, isExpanded, onToggle, onEdit }: 
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           )}
           <span className="font-medium text-foreground">
-            {CATEGORY_LABELS[category] || category}
+            {CATEGORY_LABEL_KEYS[category] ? t(CATEGORY_LABEL_KEYS[category]) : category}
           </span>
           <span className="text-sm text-muted-foreground">({templates.length})</span>
         </div>
@@ -201,7 +205,12 @@ interface TemplateRowProps {
 }
 
 function TemplateRow({ template, onEdit }: TemplateRowProps) {
+  const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
+  const isVietnamese = i18n.language.startsWith('vi')
+  const templateLabel = isVietnamese
+    ? template.labelVi || template.labelEn
+    : template.labelEn || template.labelVi
 
   const deleteMutation = useMutation({
     mutationFn: () => api.admin.checklistTemplates.delete(template.id),
@@ -214,15 +223,15 @@ function TemplateRow({ template, onEdit }: TemplateRowProps) {
     <div className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
       <div className="flex-1">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-foreground">{template.labelVi}</span>
+          <span className="font-medium text-foreground">{templateLabel}</span>
           {template.isRequired && (
             <span className="px-1.5 py-0.5 text-xs bg-error/10 text-error rounded">
-              Bắt buộc
+              {t('form.required')}
             </span>
           )}
           {template.condition && (
             <span className="px-1.5 py-0.5 text-xs bg-primary/10 text-primary rounded">
-              Có điều kiện
+              {t('settingsChecklist.conditional')}
             </span>
           )}
         </div>
@@ -230,7 +239,7 @@ function TemplateRow({ template, onEdit }: TemplateRowProps) {
           <span className="text-xs text-muted-foreground">{template.docType}</span>
           {template.expectedCount > 1 && (
             <span className="text-xs text-muted-foreground">
-              (Cần {template.expectedCount} tài liệu)
+              {t('settingsChecklist.expectedDocumentCount', { count: template.expectedCount })}
             </span>
           )}
         </div>
@@ -240,18 +249,18 @@ function TemplateRow({ template, onEdit }: TemplateRowProps) {
         <button
           onClick={() => onEdit(template)}
           className="p-1.5 rounded hover:bg-muted transition-colors"
-          title="Chỉnh sửa"
+          title={t('common.edit')}
         >
           <Edit2 className="w-4 h-4 text-muted-foreground" />
         </button>
         <button
           onClick={() => {
-            if (confirm('Bạn có chắc muốn xóa mục này?')) {
+            if (confirm(t('settingsChecklist.deleteConfirm'))) {
               deleteMutation.mutate()
             }
           }}
           className="p-1.5 rounded hover:bg-error/10 transition-colors"
-          title="Xóa"
+          title={t('common.delete')}
           disabled={deleteMutation.isPending}
         >
           <Trash2 className="w-4 h-4 text-error" />

@@ -21,6 +21,7 @@ import type {
 } from './prompts/classify'
 export type { EntityContext } from './prompts/classify'
 import { config } from '../../lib/config'
+import { DOC_TYPE_LABELS_EN } from '../../lib/constants'
 import { getCategoryFromDocType } from '@ella/shared'
 import type { DocCategory } from '@ella/shared'
 
@@ -222,10 +223,13 @@ export function requiresOcrExtraction(docType: SupportedDocType | 'UNKNOWN'): bo
 }
 
 /**
- * Get human-readable label for document type (Vietnamese)
+ * Get human-readable label for document type. Defaults to English.
  */
-export function getDocTypeLabel(docType: SupportedDocType | 'UNKNOWN'): string {
-  const labels: Record<SupportedDocType, string> = {
+export function getDocTypeLabel(
+  docType: SupportedDocType | 'UNKNOWN',
+  language: 'EN' | 'VI' = 'EN'
+): string {
+  const viLabels: Record<SupportedDocType, string> = {
     // Personal / Identity
     SSN_CARD: 'Thẻ SSN',
     DRIVER_LICENSE: 'Bằng Lái / ID',
@@ -462,7 +466,19 @@ export function getDocTypeLabel(docType: SupportedDocType | 'UNKNOWN'): string {
     OTHER: 'Khác',
     UNKNOWN: 'Chưa xác định',
   }
-  return labels[docType] || 'Chưa xác định'
+  if (language === 'VI') {
+    return viLabels[docType] || 'Chưa xác định'
+  }
+
+  return DOC_TYPE_LABELS_EN[docType] || formatDocTypeCode(docType)
+}
+
+function formatDocTypeCode(docType: SupportedDocType | 'UNKNOWN'): string {
+  if (docType === 'UNKNOWN') return 'Unknown'
+  return docType
+    .split('_')
+    .map((part) => (part.length <= 3 ? part : part.charAt(0) + part.slice(1).toLowerCase()))
+    .join(' ')
 }
 
 // Suspicious patterns for prompt injection detection (H3)

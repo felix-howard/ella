@@ -34,7 +34,7 @@ Link expires in 7 days.`,
 }
 
 export function generateScheduleEMessage(params: ScheduleETemplateParams): string {
-  const template = TEMPLATES[params.language] || TEMPLATES.VI
+  const template = TEMPLATES[params.language] || TEMPLATES.EN
   return template(params)
 }
 

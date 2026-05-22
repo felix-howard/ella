@@ -1,6 +1,6 @@
 /**
  * SimpleImageViewerModal - Lightweight fullscreen viewer for files without a DigitalDoc
- * Used for irrelevant files (cat images, logos, etc.) classified as "Khác"
+ * Used for irrelevant files classified as "Other"
  * Shows only the image/PDF viewer with no verification fields
  * Supports AI re-classification for misclassified "Other" documents
  */

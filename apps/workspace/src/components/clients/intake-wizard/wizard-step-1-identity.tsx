@@ -5,6 +5,7 @@
 
 import { cn } from '@ella/ui'
 import { User, Users, Baby } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { CustomSelect } from '../../ui/custom-select'
 import { US_STATES_OPTIONS } from '../../../lib/intake-form-config'
 import { formatSSNInput } from '../../../lib/crypto'
@@ -33,6 +34,7 @@ export function WizardStep1Identity({
   filingStatus,
   errors,
 }: WizardStep1IdentityProps) {
+  const { t } = useTranslation()
   // Show spouse section only for MFJ
   const showSpouseSection = filingStatus === 'MARRIED_FILING_JOINTLY'
   const dependentCount = answers.dependentCount || 0
@@ -60,7 +62,7 @@ export function WizardStep1Identity({
             <User className="w-5 h-5 text-primary" />
           </div>
           <h3 className="text-lg font-semibold text-foreground">
-            Thông tin người khai thuế
+            {t('intakeWizard.identity.taxpayerInfo')}
           </h3>
         </div>
 
@@ -68,7 +70,7 @@ export function WizardStep1Identity({
           {/* SSN */}
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">
-              Số An sinh Xã hội (SSN)
+              {t('intakeWizard.identity.taxpayerSsn')}
             </label>
             <input
               type="text"
@@ -90,7 +92,7 @@ export function WizardStep1Identity({
           {/* DOB */}
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">
-              Ngày sinh
+              {t('intakeWizard.identity.dob')}
             </label>
             <input
               type="date"
@@ -109,13 +111,13 @@ export function WizardStep1Identity({
           {/* Occupation */}
           <div className="space-y-1.5 sm:col-span-2">
             <label className="block text-sm font-medium text-foreground">
-              Nghề nghiệp
+              {t('intakeWizard.identity.occupation')}
             </label>
             <input
               type="text"
               value={answers.taxpayerOccupation || ''}
               onChange={(e) => onChange('taxpayerOccupation', e.target.value.slice(0, MAX_OCCUPATION_LENGTH))}
-              placeholder="VD: Kỹ sư phần mềm"
+              placeholder={t('intakeWizard.identity.taxpayerOccupationPlaceholder')}
               maxLength={MAX_OCCUPATION_LENGTH}
               className={cn(
                 'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
@@ -128,13 +130,13 @@ export function WizardStep1Identity({
           {/* Driver's License Number */}
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">
-              Số bằng lái xe
+              {t('intakeWizard.identity.driverLicenseNumber')}
             </label>
             <input
               type="text"
               value={answers.taxpayerDLNumber || ''}
               onChange={(e) => onChange('taxpayerDLNumber', e.target.value.slice(0, MAX_DL_NUMBER_LENGTH))}
-              placeholder="Số trên bằng lái"
+              placeholder={t('intakeWizard.identity.driverLicensePlaceholder')}
               maxLength={MAX_DL_NUMBER_LENGTH}
               className={cn(
                 'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
@@ -147,20 +149,20 @@ export function WizardStep1Identity({
           {/* DL State */}
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">
-              Tiểu bang cấp bằng lái
+              {t('intakeWizard.identity.driverLicenseState')}
             </label>
             <CustomSelect
               value={answers.taxpayerDLState || ''}
               onChange={(value) => onChange('taxpayerDLState', value)}
               options={US_STATES_OPTIONS}
-              placeholder="Chọn tiểu bang..."
+              placeholder={t('intakeWizard.identity.statePlaceholder')}
             />
           </div>
 
           {/* DL Issue Date */}
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">
-              Ngày cấp bằng lái
+              {t('intakeWizard.identity.driverLicenseIssueDate')}
             </label>
             <input
               type="date"
@@ -177,7 +179,7 @@ export function WizardStep1Identity({
           {/* DL Exp Date */}
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">
-              Ngày hết hạn bằng lái
+              {t('intakeWizard.identity.driverLicenseExpDate')}
             </label>
             <input
               type="date"
@@ -194,8 +196,8 @@ export function WizardStep1Identity({
           {/* IP PIN */}
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">
-              IP PIN (6 số)
-              <span className="ml-1 text-xs text-muted-foreground">(nếu có)</span>
+              {t('intakeWizard.identity.ipPin')}
+              <span className="ml-1 text-xs text-muted-foreground">{t('intakeWizard.common.optionalParen')}</span>
             </label>
             <input
               type="text"
@@ -204,7 +206,7 @@ export function WizardStep1Identity({
                 const digits = e.target.value.replace(/\D/g, '').slice(0, IP_PIN_LENGTH)
                 onChange('taxpayerIPPIN', digits)
               }}
-              placeholder="6 chữ số"
+              placeholder={t('intakeWizard.identity.ipPinPlaceholder')}
               maxLength={IP_PIN_LENGTH}
               className={cn(
                 'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
@@ -224,7 +226,7 @@ export function WizardStep1Identity({
               <Users className="w-5 h-5 text-accent" />
             </div>
             <h3 className="text-lg font-semibold text-foreground">
-              Thông tin vợ/chồng
+              {t('intakeWizard.identity.spouseInfo')}
             </h3>
           </div>
 
@@ -232,7 +234,7 @@ export function WizardStep1Identity({
             {/* Spouse SSN */}
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-foreground">
-                SSN vợ/chồng
+                {t('intakeWizard.identity.spouseSsn')}
               </label>
               <input
                 type="text"
@@ -254,7 +256,7 @@ export function WizardStep1Identity({
             {/* Spouse DOB */}
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-foreground">
-                Ngày sinh vợ/chồng
+                {t('intakeWizard.identity.spouseDob')}
               </label>
               <input
                 type="date"
@@ -273,13 +275,13 @@ export function WizardStep1Identity({
             {/* Spouse Occupation */}
             <div className="space-y-1.5 sm:col-span-2">
               <label className="block text-sm font-medium text-foreground">
-                Nghề nghiệp vợ/chồng
+                {t('intakeWizard.identity.spouseOccupation')}
               </label>
               <input
                 type="text"
                 value={answers.spouseOccupation || ''}
                 onChange={(e) => onChange('spouseOccupation', e.target.value.slice(0, MAX_OCCUPATION_LENGTH))}
-                placeholder="VD: Y tá"
+                placeholder={t('intakeWizard.identity.spouseOccupationPlaceholder')}
                 maxLength={MAX_OCCUPATION_LENGTH}
                 className={cn(
                   'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
@@ -292,13 +294,13 @@ export function WizardStep1Identity({
             {/* Spouse DL Number */}
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-foreground">
-                Số bằng lái vợ/chồng
+                {t('intakeWizard.identity.spouseDriverLicenseNumber')}
               </label>
               <input
                 type="text"
                 value={answers.spouseDLNumber || ''}
                 onChange={(e) => onChange('spouseDLNumber', e.target.value.slice(0, MAX_DL_NUMBER_LENGTH))}
-                placeholder="Số trên bằng lái"
+                placeholder={t('intakeWizard.identity.driverLicensePlaceholder')}
                 maxLength={MAX_DL_NUMBER_LENGTH}
                 className={cn(
                   'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
@@ -311,20 +313,20 @@ export function WizardStep1Identity({
             {/* Spouse DL State */}
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-foreground">
-                Tiểu bang cấp (vợ/chồng)
+                {t('intakeWizard.identity.spouseDriverLicenseState')}
               </label>
               <CustomSelect
                 value={answers.spouseDLState || ''}
                 onChange={(value) => onChange('spouseDLState', value)}
                 options={US_STATES_OPTIONS}
-                placeholder="Chọn tiểu bang..."
+                placeholder={t('intakeWizard.identity.statePlaceholder')}
               />
             </div>
 
             {/* Spouse DL Issue Date */}
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-foreground">
-                Ngày cấp (vợ/chồng)
+                {t('intakeWizard.identity.spouseDriverLicenseIssueDate')}
               </label>
               <input
                 type="date"
@@ -341,7 +343,7 @@ export function WizardStep1Identity({
             {/* Spouse DL Exp Date */}
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-foreground">
-                Ngày hết hạn (vợ/chồng)
+                {t('intakeWizard.identity.spouseDriverLicenseExpDate')}
               </label>
               <input
                 type="date"
@@ -358,8 +360,8 @@ export function WizardStep1Identity({
             {/* Spouse IP PIN */}
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-foreground">
-                IP PIN vợ/chồng
-                <span className="ml-1 text-xs text-muted-foreground">(nếu có)</span>
+                {t('intakeWizard.identity.spouseIpPin')}
+                <span className="ml-1 text-xs text-muted-foreground">{t('intakeWizard.common.optionalParen')}</span>
               </label>
               <input
                 type="text"
@@ -368,7 +370,7 @@ export function WizardStep1Identity({
                   const digits = e.target.value.replace(/\D/g, '').slice(0, IP_PIN_LENGTH)
                   onChange('spouseIPPIN', digits)
                 }}
-                placeholder="6 chữ số"
+                placeholder={t('intakeWizard.identity.ipPinPlaceholder')}
                 maxLength={IP_PIN_LENGTH}
                 className={cn(
                   'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
@@ -388,14 +390,14 @@ export function WizardStep1Identity({
             <Baby className="w-5 h-5 text-warning" />
           </div>
           <h3 className="text-lg font-semibold text-foreground">
-            Người phụ thuộc
+            {t('intakeWizard.identity.dependents')}
           </h3>
         </div>
 
         {/* Dependent Count */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-foreground mb-1.5">
-            Số người phụ thuộc
+            {t('intakeWizard.identity.dependentCount')}
           </label>
           <div className="flex items-center gap-3">
             <button
@@ -432,7 +434,7 @@ export function WizardStep1Identity({
 
         {dependentCount === 0 && (
           <p className="text-sm text-muted-foreground">
-            Không có người phụ thuộc. Tăng số lượng nếu bạn có con hoặc người phụ thuộc khác.
+            {t('intakeWizard.identity.noDependentsHint')}
           </p>
         )}
       </section>

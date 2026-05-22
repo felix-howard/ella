@@ -4,6 +4,7 @@
  * Unlike Schedule C, this tab is always visible (no 1099-NEC detection needed)
  */
 import { AlertCircle, Loader2, RefreshCw } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@ella/ui'
 import { useScheduleE } from '../../../../hooks/use-schedule-e'
 import { ScheduleEEmptyState } from './schedule-e-empty-state'
@@ -16,6 +17,7 @@ interface ScheduleETabProps {
 }
 
 export function ScheduleETab({ caseId, clientName }: ScheduleETabProps) {
+  const { t } = useTranslation()
   const { expense, magicLink, totals, properties, isLoading, error, refetch } = useScheduleE({
     caseId,
     enabled: true,
@@ -36,13 +38,13 @@ export function ScheduleETab({ caseId, clientName }: ScheduleETabProps) {
       <div className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-destructive/30 p-6">
         <div className="flex flex-col items-center text-center py-6">
           <AlertCircle className="w-10 h-10 text-destructive mb-3" />
-          <h3 className="text-base font-medium text-foreground mb-1">Lỗi tải dữ liệu</h3>
+          <h3 className="text-base font-medium text-foreground mb-1">{t('common.loadError')}</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            {error instanceof Error ? error.message : 'Không thể tải dữ liệu Schedule E'}
+            {error instanceof Error ? error.message : t('clientDetail.scheduleEError')}
           </p>
           <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
             <RefreshCw className="w-4 h-4" />
-            Thử lại
+            {t('common.retry')}
           </Button>
         </div>
       </div>

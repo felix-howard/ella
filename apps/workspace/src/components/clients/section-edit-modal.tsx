@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { X, Loader2 } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { api, type ClientDetail, type UpdateProfileInput } from '../../lib/api-client'
@@ -21,6 +22,7 @@ interface SectionEditModalProps {
 }
 
 export function SectionEditModal({ isOpen, onClose, sectionKey, client }: SectionEditModalProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [localAnswers, setLocalAnswers] = useState<Record<string, unknown>>({})
   const [error, setError] = useState<string | null>(null)
@@ -68,19 +70,19 @@ export function SectionEditModal({ isOpen, onClose, sectionKey, client }: Sectio
       }
 
       // Show success message
-      toast.success('Cập nhật thành công')
+      toast.success(t('sectionEdit.updateSuccess'))
 
       // Show additional info if checklist was updated due to cascade cleanup
       if (response.checklistRefreshed && response.cascadeCleanup?.triggeredBy?.length > 0) {
-        toast.info('Checklist đã được cập nhật theo thay đổi')
+        toast.info(t('sectionEdit.checklistUpdated'))
       }
 
       onClose()
     },
     onError: (err) => {
-      const errorMsg = err instanceof Error ? err.message : 'Lỗi không xác định'
+      const errorMsg = err instanceof Error ? err.message : t('common.unknownError')
       setError(errorMsg)
-      toast.error('Lỗi cập nhật: ' + errorMsg)
+      toast.error(t('sectionEdit.updateError', { error: errorMsg }))
     }
   })
 
@@ -147,12 +149,12 @@ export function SectionEditModal({ isOpen, onClose, sectionKey, client }: Sectio
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 id="modal-title" className="text-lg font-semibold text-foreground">
-            Chỉnh sửa: {sectionTitle}
+            {t('sectionEdit.title', { section: sectionTitle })}
           </h2>
           <button
             onClick={handleClose}
             className="p-1 rounded hover:bg-muted transition-colors"
-            aria-label="Đóng"
+            aria-label={t('common.close')}
             disabled={updateMutation.isPending}
           >
             <X className="w-5 h-5 text-muted-foreground" />
@@ -163,7 +165,7 @@ export function SectionEditModal({ isOpen, onClose, sectionKey, client }: Sectio
         <div className="p-4 space-y-3 overflow-y-auto max-h-[calc(90vh-140px)]">
           {sectionFields.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              Không có trường nào trong section này
+              {t('sectionEdit.noFields')}
             </p>
           ) : (
             sectionFields.map(({ key, label, format, options }) => (
@@ -196,7 +198,7 @@ export function SectionEditModal({ isOpen, onClose, sectionKey, client }: Sectio
             onClick={handleClose}
             disabled={updateMutation.isPending}
           >
-            Hủy
+            {t('common.cancel')}
           </Button>
           <Button
             type="button"
@@ -206,10 +208,10 @@ export function SectionEditModal({ isOpen, onClose, sectionKey, client }: Sectio
             {updateMutation.isPending ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {activeCaseId ? 'Đang lưu và cập nhật checklist...' : 'Đang lưu...'}
+                {activeCaseId ? t('sectionEdit.savingWithChecklist') : t('common.saving')}
               </>
             ) : (
-              'Lưu thay đổi'
+              t('sectionEdit.saveChanges')
             )}
           </Button>
         </div>

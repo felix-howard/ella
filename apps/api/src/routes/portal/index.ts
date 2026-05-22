@@ -82,7 +82,7 @@ function rateLimitedResponse(c: Parameters<typeof getClientIp>[0], retryAfterSec
   return c.json(
     {
       error: 'RATE_LIMITED',
-      message: 'Quá nhiều yêu cầu. Vui lòng đợi một chút.',
+      message: 'Too many requests. Please wait a moment.',
     },
     429
   )
@@ -181,7 +181,7 @@ portalRoute.get('/:token', async (c) => {
     if (scope === 'CASE') {
       // CASE-scope link only authorizes its own case
       if (!taxCase || taxCase.id !== queryCaseId) {
-        return c.json({ error: 'INVALID_TARGET_CASE', message: 'Loại tài liệu không hợp lệ' }, 403)
+        return c.json({ error: 'INVALID_TARGET_CASE', message: 'Invalid document target' }, 403)
       }
     } else {
       const scopeCheck = await assertCaseInScope(queryCaseId, {
@@ -210,8 +210,8 @@ portalRoute.get('/:token', async (c) => {
   }
 
   // Resolve client display info from anchor case (CASE) or first entity (GROUP)
-  const displayName = taxCase?.client.name || clientGroup?.name || entities[0]?.name || 'Khách hàng'
-  const displayLanguage = taxCase?.client.language || 'VI'
+  const displayName = taxCase?.client.name || clientGroup?.name || entities[0]?.name || 'Client'
+  const displayLanguage = taxCase?.client.language || 'EN'
   const displayTaxYear = taxCase?.taxYear ?? entities[0]?.taxYear
 
   const basePayload = {
@@ -264,7 +264,7 @@ portalRoute.post('/:token/upload', async (c) => {
     if (!checkPortalRateLimit(invalidKey, PORTAL_INVALID_TOKEN_RATE_LIMIT)) {
       return rateLimitedResponse(c, getRateLimitRetryAfterSeconds(invalidKey))
     }
-    return c.json({ error: 'INVALID_TOKEN', message: 'Link không hợp lệ hoặc đã hết hạn' }, 401)
+    return c.json({ error: 'INVALID_TOKEN', message: 'This link is invalid or expired' }, 401)
   }
 
   if (!checkPortalRateLimit(validKey, PORTAL_UPLOAD_RATE_LIMIT)) {
@@ -287,7 +287,7 @@ portalRoute.post('/:token/upload', async (c) => {
     return c.json(
       {
         error: 'TARGET_CASE_REQUIRED',
-        message: 'Vui lòng chọn loại tài liệu trước khi tải lên',
+        message: 'Please choose a document target before uploading',
       },
       400
     )
@@ -308,21 +308,21 @@ portalRoute.post('/:token/upload', async (c) => {
   // For scope=CASE without targetCaseId, fall back to the link's own caseId
   const effectiveCaseId = targetCaseId || taxCase?.id
   if (!effectiveCaseId) {
-    return c.json({ error: 'TARGET_CASE_REQUIRED', message: 'Không xác định được hồ sơ thuế' }, 400)
+    return c.json({ error: 'TARGET_CASE_REQUIRED', message: 'Could not determine the tax case' }, 400)
   }
 
   // Validate uploaded files (type, size, count)
   const validation = validateUploadedFiles(files)
   if (!validation.valid) {
     const errorMessages: Record<string, string> = {
-      NO_FILES: 'Vui lòng chọn ít nhất một file',
-      TOO_MANY_FILES: 'Quá nhiều file. Tối đa 50 file mỗi lần tải lên',
+      NO_FILES: 'Please choose at least one file',
+      TOO_MANY_FILES: 'Too many files. Upload at most 50 files at a time',
       EMPTY_FILE:
-        'File này không có nội dung. Vui lòng mở file trên thiết bị, tải về nếu đang ở iCloud/Drive, rồi gửi lại',
-      FILE_TOO_LARGE: 'File quá lớn. Tối đa 10MB mỗi file',
-      INVALID_TYPE: 'Loại file không được hỗ trợ. Chỉ chấp nhận ảnh (JPEG, PNG, WebP, HEIC) và PDF',
+        'This file has no content. Please open it on your device, download it if it is in iCloud/Drive, then upload it again',
+      FILE_TOO_LARGE: 'File is too large. Maximum size is 10MB per file',
+      INVALID_TYPE: 'Unsupported file type. Only images (JPEG, PNG, WebP, HEIC) and PDF are accepted',
       INVALID_FILE_CONTENT:
-        'Nội dung file không đúng định dạng. Vui lòng tải lên PDF hoặc ảnh hợp lệ',
+        'File content does not match a supported format. Please upload a valid PDF or image',
     }
     return c.json(
       {
@@ -345,7 +345,7 @@ portalRoute.post('/:token/upload', async (c) => {
     return c.json(
       {
         error: 'INVALID_FILE_CONTENT',
-        message: 'Nội dung file không đúng định dạng. Vui lòng tải lên PDF hoặc ảnh hợp lệ',
+        message: 'File content does not match a supported format. Please upload a valid PDF or image',
       },
       400
     )
@@ -427,8 +427,8 @@ portalRoute.post('/:token/upload', async (c) => {
             caseId: effectiveCaseId,
             type: 'VERIFY_DOCS',
             priority: 'NORMAL',
-            title: 'Tài liệu cần phân loại',
-            description: `${createdImages.length} file được tải lên - cần phân loại thủ công`,
+            title: 'Documents need classification',
+            description: `${createdImages.length} files uploaded - manual classification needed`,
             metadata: { rawImageIds: createdImages.map((img) => img.id) },
           },
         })
@@ -473,8 +473,8 @@ portalRoute.post('/:token/upload', async (c) => {
         caseId: effectiveCaseId,
         type: 'VERIFY_DOCS',
         priority: 'HIGH',
-        title: 'Tài liệu mới từ khách hàng',
-        description: `Khách hàng đã gửi ${createdImages.length} file qua portal - cần phân loại thủ công`,
+        title: 'New documents from client',
+        description: `Client uploaded ${createdImages.length} files through the portal - manual classification needed`,
         metadata: { rawImageIds: createdImages.map((img) => img.id) },
       },
     })
@@ -485,8 +485,8 @@ portalRoute.post('/:token/upload', async (c) => {
     images: createdImages,
     aiProcessing: isGeminiConfigured,
     message: isGeminiConfigured
-      ? `Đã nhận ${createdImages.length} file. Đang xử lý tự động...`
-      : `Đã nhận ${createdImages.length} file. Cảm ơn bạn!`,
+      ? `Received ${createdImages.length} files. Automatic processing has started.`
+      : `Received ${createdImages.length} files. Thank you!`,
   })
 })
 

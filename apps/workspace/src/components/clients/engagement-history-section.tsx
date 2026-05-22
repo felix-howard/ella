@@ -4,6 +4,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Calendar, FileText, Loader2 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { api, type TaxEngagement, type EngagementStatus } from '../../lib/api-client'
@@ -14,14 +15,15 @@ interface EngagementHistorySectionProps {
 }
 
 // Status display config
-const STATUS_CONFIG: Record<EngagementStatus, { label: string; className: string }> = {
-  DRAFT: { label: 'Nháp', className: 'bg-muted text-muted-foreground' },
-  ACTIVE: { label: 'Đang xử lý', className: 'bg-primary-light text-primary' },
-  COMPLETE: { label: 'Hoàn thành', className: 'bg-success-light text-success' },
-  ARCHIVED: { label: 'Lưu trữ', className: 'bg-muted text-muted-foreground' },
+const STATUS_CONFIG: Record<EngagementStatus, { labelKey: string; className: string }> = {
+  DRAFT: { labelKey: 'engagementStatus.draft', className: 'bg-muted text-muted-foreground' },
+  ACTIVE: { labelKey: 'engagementStatus.active', className: 'bg-primary-light text-primary' },
+  COMPLETE: { labelKey: 'engagementStatus.complete', className: 'bg-success-light text-success' },
+  ARCHIVED: { labelKey: 'engagementStatus.archived', className: 'bg-muted text-muted-foreground' },
 }
 
 export function EngagementHistorySection({ clientId, currentTaxYear }: EngagementHistorySectionProps) {
+  const { t } = useTranslation()
   const { data, isLoading, isError } = useQuery({
     queryKey: ['engagements', clientId],
     queryFn: () => api.engagements.list({ clientId, limit: 10 }),
@@ -34,7 +36,7 @@ export function EngagementHistorySection({ clientId, currentTaxYear }: Engagemen
       <div className="bg-card rounded-xl border border-border p-4">
         <div className="flex items-center gap-2 mb-3">
           <Calendar className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-semibold text-primary">Lịch sử khai thuế</h2>
+          <h2 className="text-sm font-semibold text-primary">{t('engagementHistory.title')}</h2>
         </div>
         <div className="flex items-center justify-center py-6">
           <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
@@ -48,10 +50,10 @@ export function EngagementHistorySection({ clientId, currentTaxYear }: Engagemen
       <div className="bg-card rounded-xl border border-border p-4">
         <div className="flex items-center gap-2 mb-3">
           <Calendar className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-semibold text-primary">Lịch sử khai thuế</h2>
+          <h2 className="text-sm font-semibold text-primary">{t('engagementHistory.title')}</h2>
         </div>
         <p className="text-sm text-muted-foreground py-4 text-center">
-          Không thể tải lịch sử khai thuế
+          {t('engagementHistory.loadError')}
         </p>
       </div>
     )
@@ -62,10 +64,10 @@ export function EngagementHistorySection({ clientId, currentTaxYear }: Engagemen
       <div className="bg-card rounded-xl border border-border p-4">
         <div className="flex items-center gap-2 mb-3">
           <Calendar className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-semibold text-primary">Lịch sử khai thuế</h2>
+          <h2 className="text-sm font-semibold text-primary">{t('engagementHistory.title')}</h2>
         </div>
         <p className="text-sm text-muted-foreground py-4 text-center">
-          Chưa có lịch sử khai thuế
+          {t('engagementHistory.empty')}
         </p>
       </div>
     )
@@ -76,13 +78,13 @@ export function EngagementHistorySection({ clientId, currentTaxYear }: Engagemen
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-semibold text-primary">Lịch sử khai thuế</h2>
+          <h2 className="text-sm font-semibold text-primary">{t('engagementHistory.title')}</h2>
           <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-            {engagements.length} năm
+            {t('engagementHistory.yearCount', { count: engagements.length })}
           </span>
         </div>
         <span className="text-xs text-muted-foreground">
-          Dùng dropdown ở header để chuyển năm
+          {t('engagementHistory.switchYearHint')}
         </span>
       </div>
 
@@ -105,6 +107,7 @@ interface EngagementRowProps {
 }
 
 function EngagementRow({ engagement, isCurrent }: EngagementRowProps) {
+  const { t } = useTranslation()
   const statusConfig = STATUS_CONFIG[engagement.status]
   const caseCount = engagement._count?.taxCases ?? 0
 
@@ -122,11 +125,11 @@ function EngagementRow({ engagement, isCurrent }: EngagementRowProps) {
           <span className="font-semibold text-foreground">
             {engagement.taxYear}
             {isCurrent && (
-              <span className="ml-2 text-xs font-normal text-primary">(Hiện tại)</span>
+              <span className="ml-2 text-xs font-normal text-primary">{t('common.current')}</span>
             )}
           </span>
           <span className="text-xs text-muted-foreground">
-            {engagement.filingStatus || 'Chưa có tình trạng'}
+            {engagement.filingStatus || t('engagementHistory.noFilingStatus')}
           </span>
         </div>
       </div>
@@ -135,7 +138,7 @@ function EngagementRow({ engagement, isCurrent }: EngagementRowProps) {
         {/* Case count */}
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <FileText className="w-3.5 h-3.5" />
-          <span>{caseCount} hồ sơ</span>
+          <span>{t('engagementHistory.caseCount', { count: caseCount })}</span>
         </div>
 
         {/* Status badge */}
@@ -145,7 +148,7 @@ function EngagementRow({ engagement, isCurrent }: EngagementRowProps) {
             statusConfig.className
           )}
         >
-          {statusConfig.label}
+          {t(statusConfig.labelKey)}
         </span>
       </div>
     </div>

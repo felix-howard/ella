@@ -7,13 +7,13 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../../lib/db'
 import { inngest } from '../../lib/inngest'
-import { DOC_TYPE_LABELS_VI } from '../../lib/constants'
+import { getDocTypeLabel } from '../../services/ai/document-classifier'
 import { sanitizeReuploadReason } from '../../lib/validation'
 import { sendBlurryResendRequest, isSmsEnabled } from '../../services/sms'
 import { deleteFile } from '../../services/storage'
 import { updateLastActivity } from '../../services/activity-tracker'
 import { ActivityRiskLevel } from '@ella/db'
-import type { DocType, ChecklistItemStatus, RawImageStatus, Language, DocCategory } from '@ella/db'
+import type { DocType, ChecklistItemStatus, RawImageStatus, DocCategory } from '@ella/db'
 import {
   getAuditRequestContext,
   logStaffActivities,
@@ -275,8 +275,8 @@ imagesRoute.patch(
             caseId: rawImage.caseId,
             type: 'BLURRY_DETECTED',
             priority: 'HIGH',
-            title: 'Yêu cầu gửi lại tài liệu',
-            description: `Phân loại bị từ chối: ${docType}`,
+            title: 'Document resend requested',
+            description: `Classification rejected: ${docType}`,
             metadata: {
               rawImageId: id,
               rejectedDocType: docType,
@@ -580,16 +580,16 @@ imagesRoute.post('/:id/request-reupload', zValidator('json', requestReuploadSche
 
     // Create action for follow-up
     const docTypeLabel = image.classifiedType
-      ? DOC_TYPE_LABELS_VI[image.classifiedType] || image.classifiedType
-      : 'tài liệu'
+      ? getDocTypeLabel(image.classifiedType)
+      : 'document'
 
     await tx.action.create({
       data: {
         caseId: image.caseId,
         type: 'BLURRY_DETECTED',
         priority: 'HIGH',
-        title: 'Yêu cầu gửi lại tài liệu',
-        description: `${docTypeLabel}: ${sanitizedReason}. Các trường cần gửi lại: ${fields.join(', ')}`,
+        title: 'Document resend requested',
+        description: `${docTypeLabel}: ${sanitizedReason}. Fields to resend: ${fields.join(', ')}`,
         metadata: {
           rawImageId: id,
           docType: image.classifiedType,
@@ -618,9 +618,10 @@ imagesRoute.post('/:id/request-reupload', zValidator('json', requestReuploadSche
       const portalUrl = process.env.PORTAL_URL || 'http://localhost:5174'
       const fullMagicLink = `${portalUrl}/u/${magicLink.token}/upload`
 
-      // Convert field names to Vietnamese doc type labels for SMS
+      // Match the SMS document label to the client's language.
+      const smsLanguage = client.language === 'VI' ? 'VI' : 'EN'
       const docTypesForSms = result.image.classifiedType
-        ? [DOC_TYPE_LABELS_VI[result.image.classifiedType] || result.image.classifiedType]
+        ? [getDocTypeLabel(result.image.classifiedType, smsLanguage)]
         : fields
 
       const smsResult = await sendBlurryResendRequest(
@@ -629,7 +630,7 @@ imagesRoute.post('/:id/request-reupload', zValidator('json', requestReuploadSche
         client.phone,
         fullMagicLink,
         docTypesForSms,
-        (client.language as Language) || 'VI',
+        smsLanguage,
         user.staffId
       )
 
@@ -1426,8 +1427,8 @@ imagesRoute.post('/:id/move-to-case', zValidator('json', moveToCaseSchema), asyn
         caseId: targetCaseId,
         type: 'VERIFY_DOCS',
         priority: 'NORMAL',
-        title: 'Tài liệu đã chuyển từ entity khác',
-        description: `Chuyển từ case ${previousCaseId} sang case ${targetCaseId}`,
+        title: 'Document moved from another entity',
+        description: `Moved from case ${previousCaseId} to case ${targetCaseId}`,
         metadata: {
           rawImageId: id,
           fromCaseId: previousCaseId,

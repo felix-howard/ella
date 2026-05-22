@@ -19,14 +19,13 @@ import type { Prisma } from '@ella/db'
 
 const rentalRoute = new Hono()
 
-// Error messages in Vietnamese
 const ERROR_MESSAGES: Record<string, string> = {
-  INVALID_TOKEN: 'Link không hợp lệ. Vui lòng liên hệ văn phòng thuế.',
-  INVALID_TOKEN_TYPE: 'Link không dành cho form nhà cho thuê. Vui lòng liên hệ văn phòng thuế.',
-  LINK_DEACTIVATED: 'Link đã bị vô hiệu hóa. Vui lòng liên hệ văn phòng thuế.',
-  EXPIRED_TOKEN: 'Link đã hết hạn. Vui lòng liên hệ văn phòng thuế để được gửi link mới.',
-  FORM_LOCKED: 'Form đã bị khóa bởi CPA. Không thể chỉnh sửa.',
-  VALIDATION_ERROR: 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.',
+  INVALID_TOKEN: 'This link is invalid. Please contact the tax office.',
+  INVALID_TOKEN_TYPE: 'This link is not for the rental form. Please contact the tax office.',
+  LINK_DEACTIVATED: 'This link has been deactivated. Please contact the tax office.',
+  EXPIRED_TOKEN: 'This link has expired. Please contact the tax office for a new link.',
+  FORM_LOCKED: 'This form has been locked by the CPA and can no longer be edited.',
+  VALIDATION_ERROR: 'Invalid data. Please check and try again.',
 }
 
 // Helper to get localized error message
@@ -194,7 +193,7 @@ rentalRoute.post('/:token/submit', async (c) => {
     success: true,
     version: newVersion,
     status: 'SUBMITTED',
-    message: 'Đã lưu thành công! CPA sẽ xem xét thông tin của bạn.',
+    message: 'Saved successfully. Your CPA will review your information.',
   })
 })
 
@@ -251,7 +250,7 @@ rentalRoute.patch('/:token/draft', async (c) => {
 
   return c.json({
     success: true,
-    message: 'Đã tự động lưu.',
+    message: 'Autosaved.',
   })
 })
 

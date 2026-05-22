@@ -37,7 +37,7 @@ import {
 } from '../services/ai/continuation-detection'
 import type { ContinuationMarker } from '../services/ai/prompts/classify'
 import {
-  getVietnameseError,
+  getAIError,
   getActionTitle,
   getActionPriority,
 } from '../services/ai/ai-error-messages'
@@ -194,12 +194,12 @@ export const classifyDocumentJob = inngest.createFunction(
         })
 
         // Create action for CPA visibility
-        const errorInfo = getVietnameseError(error.message)
+        const errorInfo = getAIError(error.message)
         await createAction({
           caseId,
           type: 'AI_FAILED',
           priority: getActionPriority(errorInfo.severity),
-          title: 'AI xử lý thất bại sau nhiều lần thử',
+          title: getActionTitle(errorInfo.type),
           description: errorInfo.message,
           metadata: {
             rawImageId,
@@ -354,7 +354,7 @@ export const classifyDocumentJob = inngest.createFunction(
 
         // Check for service unavailability in error message
         if (!result.success && result.error && isServiceUnavailable(result.error)) {
-          const errorInfo = getVietnameseError(result.error)
+          const errorInfo = getAIError(result.error)
 
           // Put in OTHER category (not unclassified) and create action
           await updateRawImageStatus(rawImageId, 'CLASSIFIED', 0, 'OTHER' as DocType)
@@ -578,9 +578,9 @@ export const classifyDocumentJob = inngest.createFunction(
         // Smart rename failed or low confidence - fall back to existing behavior
         // BUT: still use smart rename filename if available (even at very low confidence)
         // Any descriptive name like "Tax_Penalty_Calculation" beats generic "image.jpg"
-        const errorInfo = getVietnameseError(error || classification.reasoning)
+        const errorInfo = getAIError(error || classification.reasoning)
 
-        // Set to CLASSIFIED with OTHER docType - goes directly to "Khác" category
+        // Set to CLASSIFIED with OTHER docType - goes directly to "Other" category
         await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, 'OTHER' as DocType)
 
         // Use smart rename displayName even at very low confidence
@@ -757,8 +757,8 @@ export const classifyDocumentJob = inngest.createFunction(
         caseId: effectiveCaseId,
         type: 'VERIFY_DOCS',
         priority: 'NORMAL',
-        title: 'Xác minh phân loại',
-        description: `${validDocType}: Độ tin cậy ${Math.round(confidence * 100)}% - cần xác minh`,
+        title: 'Verify classification',
+        description: `${validDocType}: ${Math.round(confidence * 100)}% confidence - verification needed`,
         metadata: { rawImageId, docType: validDocType, confidence },
       })
 

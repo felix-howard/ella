@@ -51,7 +51,6 @@ export function formatPhoneInput(value: string): string {
 /**
  * Get initials from a full name
  * Returns first letter of first name + first letter of last name
- * Example: "Nguyễn Văn An" → "NA"
  */
 export function getInitials(name: string): string {
   const parts = name.split(' ').filter(Boolean)
@@ -62,32 +61,31 @@ export function getInitials(name: string): string {
 
 /**
  * Get relative time with locale support
- * Example: "5 minutes ago" / "5 phút trước"
  */
-export function getRelativeTime(date: Date, locale: 'en' | 'vi' = 'vi'): string {
+export function getRelativeTime(date: Date, locale: 'en' | 'vi' = 'en'): string {
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffMinutes = Math.floor(diffMs / 60000)
   const diffHours = Math.floor(diffMinutes / 60)
   const diffDays = Math.floor(diffHours / 24)
 
-  if (locale === 'en') {
-    if (diffMinutes < 1) return 'Just now'
-    if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+  if (diffMinutes < 1) return i18n.t('relativeTime.justNow', { lng: locale })
+  if (diffMinutes < 60) {
+    return i18n.t('relativeTime.minutesAgo', { lng: locale, count: diffMinutes })
+  }
+  if (diffHours < 24) {
+    return i18n.t('relativeTime.hoursAgo', { lng: locale, count: diffHours })
+  }
+  if (diffDays < 7) {
+    return i18n.t('relativeTime.daysAgo', { lng: locale, count: diffDays })
+  }
 
+  if (locale === 'en') {
     return date.toLocaleDateString('en-US', {
       day: 'numeric',
       month: 'short',
     })
   }
-
-  // Vietnamese (default)
-  if (diffMinutes < 1) return 'Vừa xong'
-  if (diffMinutes < 60) return `${diffMinutes} phút trước`
-  if (diffHours < 24) return `${diffHours} giờ trước`
-  if (diffDays < 7) return `${diffDays} ngày trước`
 
   return date.toLocaleDateString('vi-VN', {
     day: 'numeric',
@@ -199,7 +197,7 @@ export function stripHtmlTags(text: string): string {
 
 /**
  * Format concise relative time: "25 mins", "2 hrs", "3 days", "2 mos"
- * Supports locale for Vietnamese short format
+ * Supports locale-specific short format
  */
 export function formatShortRelativeTime(isoString: string, locale?: string): string {
   const now = new Date()
@@ -215,12 +213,12 @@ export function formatShortRelativeTime(isoString: string, locale?: string): str
   const isVi = resolved.toLowerCase().startsWith('vi')
 
   if (isVi) {
-    if (diffMin < 1) return 'Vừa xong'
-    if (diffMin < 60) return `${diffMin} phút`
-    if (diffHrs < 24) return `${diffHrs} giờ`
-    if (diffDays < 30) return `${diffDays} ngày`
-    if (diffMonths < 12) return `${diffMonths} tháng`
-    return `${diffYears} năm`
+    if (diffMin < 1) return i18n.t('relativeTime.nowShort', { lng: 'vi' })
+    if (diffMin < 60) return i18n.t('relativeTime.minutesShort', { lng: 'vi', count: diffMin })
+    if (diffHrs < 24) return i18n.t('relativeTime.hoursShort', { lng: 'vi', count: diffHrs })
+    if (diffDays < 30) return i18n.t('relativeTime.daysShort', { lng: 'vi', count: diffDays })
+    if (diffMonths < 12) return i18n.t('relativeTime.monthsShort', { lng: 'vi', count: diffMonths })
+    return i18n.t('relativeTime.yearsShort', { lng: 'vi', count: diffYears })
   }
 
   if (diffMin < 1) return 'now'
@@ -233,8 +231,6 @@ export function formatShortRelativeTime(isoString: string, locale?: string): str
 
 /**
  * Smart relative time for list rows: "Just now" / "2h ago" / "Apr 5" / "2026"
- * - <60s   → "Just now" / "Vừa xong"
- * - <24h   → "Xh ago"   / "X giờ"
  * - same year → "Apr 5" / locale short month
  * - prior year → "2026"
  */
@@ -249,9 +245,17 @@ export function formatSmartRelativeTime(isoString: string, locale?: string): str
   const resolved = locale ?? i18n.language ?? 'en'
   const isVi = resolved.toLowerCase().startsWith('vi')
 
-  if (diffSec < 60) return isVi ? 'Vừa xong' : 'Just now'
-  if (diffHrs < 1) return isVi ? `${diffMin} phút` : `${diffMin}m ago`
-  if (diffHrs < 24) return isVi ? `${diffHrs} giờ` : `${diffHrs}h ago`
+  if (diffSec < 60) return i18n.t('relativeTime.justNow', { lng: isVi ? 'vi' : 'en' })
+  if (diffHrs < 1) {
+    return isVi
+      ? i18n.t('relativeTime.minutesShort', { lng: 'vi', count: diffMin })
+      : `${diffMin}m ago`
+  }
+  if (diffHrs < 24) {
+    return isVi
+      ? i18n.t('relativeTime.hoursShort', { lng: 'vi', count: diffHrs })
+      : `${diffHrs}h ago`
+  }
 
   if (date.getFullYear() === now.getFullYear()) {
     return date.toLocaleDateString(isVi ? 'vi-VN' : 'en-US', { day: 'numeric', month: 'short' })
@@ -263,7 +267,7 @@ export function formatSmartRelativeTime(isoString: string, locale?: string): str
  * Format relative time from ISO string with locale support
  */
 export function formatRelativeTime(isoString: string, locale?: string): string {
-  const resolved = locale ?? i18n.language ?? 'vi'
+  const resolved = locale ?? i18n.language ?? 'en'
   const lang = resolved.toLowerCase().startsWith('en') ? 'en' : 'vi'
   return getRelativeTime(new Date(isoString), lang)
 }

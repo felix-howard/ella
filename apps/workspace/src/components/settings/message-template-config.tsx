@@ -7,6 +7,7 @@
  */
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Edit2, FileText, Receipt, Building2, Loader2 } from 'lucide-react'
 import { Card } from '@ella/ui'
 import { cn } from '@ella/ui'
@@ -16,28 +17,28 @@ import { MessageTemplateModal } from './message-template-modal'
 // Fixed template configuration (3 singletons)
 const TEMPLATE_CONFIG: Record<
   MessageTemplateCategory,
-  { label: string; labelEn: string; icon: typeof FileText; color: string; description: string }
+  { labelKey: string; labelEnKey: string; icon: typeof FileText; color: string; descriptionKey: string }
 > = {
   PORTAL_LINK: {
-    label: 'Gửi link tải tài liệu',
-    labelEn: 'Portal Link',
+    labelKey: 'settingsTemplates.portalLink.label',
+    labelEnKey: 'settingsTemplates.portalLink.shortLabel',
     icon: FileText,
     color: 'text-primary',
-    description: 'Tin nhắn tự động gửi khi tạo khách hàng mới, chứa link portal để upload tài liệu',
+    descriptionKey: 'settingsTemplates.portalLink.description',
   },
   SCHEDULE_C: {
-    label: 'Yêu cầu Schedule C',
-    labelEn: 'Schedule C Request',
+    labelKey: 'settingsTemplates.scheduleC.label',
+    labelEnKey: 'settingsTemplates.scheduleC.shortLabel',
     icon: Receipt,
     color: 'text-amber-500',
-    description: 'Tin nhắn yêu cầu khách hàng điền thông tin chi phí kinh doanh (Schedule C)',
+    descriptionKey: 'settingsTemplates.scheduleC.description',
   },
   SCHEDULE_E: {
-    label: 'Yêu cầu Schedule E',
-    labelEn: 'Schedule E Request',
+    labelKey: 'settingsTemplates.scheduleE.label',
+    labelEnKey: 'settingsTemplates.scheduleE.shortLabel',
     icon: Building2,
     color: 'text-blue-500',
-    description: 'Tin nhắn yêu cầu khách hàng điền thông tin bất động sản cho thuê (Schedule E)',
+    descriptionKey: 'settingsTemplates.scheduleE.description',
   },
 }
 
@@ -45,6 +46,7 @@ const TEMPLATE_CONFIG: Record<
 const TEMPLATE_ORDER: MessageTemplateCategory[] = ['PORTAL_LINK', 'SCHEDULE_C', 'SCHEDULE_E']
 
 export function MessageTemplateConfigTab() {
+  const { t } = useTranslation()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<MessageTemplateCategory | null>(null)
 
@@ -82,7 +84,7 @@ export function MessageTemplateConfigTab() {
       {/* Header */}
       <div>
         <p className="text-sm text-muted-foreground">
-          Quản lý 3 mẫu tin nhắn cố định dùng để giao tiếp với khách hàng
+          {t('settingsTemplates.description')}
         </p>
       </div>
 
@@ -115,10 +117,10 @@ export function MessageTemplateConfigTab() {
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-medium text-foreground">{config.label}</h3>
-                        <span className="text-xs text-muted-foreground">({config.labelEn})</span>
+                        <h3 className="font-medium text-foreground">{t(config.labelKey)}</h3>
+                        <span className="text-xs text-muted-foreground">({t(config.labelEnKey)})</span>
                       </div>
-                      <p className="text-sm text-muted-foreground mb-3">{config.description}</p>
+                      <p className="text-sm text-muted-foreground mb-3">{t(config.descriptionKey)}</p>
 
                       {template ? (
                         <div className="bg-muted/50 rounded-lg p-3">
@@ -144,7 +146,7 @@ export function MessageTemplateConfigTab() {
                       ) : (
                         <div className="bg-warning/10 border border-warning/20 rounded-lg p-3">
                           <p className="text-sm text-warning">
-                            Chưa cấu hình mẫu tin nhắn. Nhấn "Chỉnh sửa" để thêm.
+                            {t('settingsTemplates.notConfigured')}
                           </p>
                         </div>
                       )}
@@ -161,7 +163,7 @@ export function MessageTemplateConfigTab() {
                     )}
                   >
                     <Edit2 className="w-4 h-4" />
-                    Chỉnh sửa
+                    {t('common.edit')}
                   </button>
                 </div>
               </Card>

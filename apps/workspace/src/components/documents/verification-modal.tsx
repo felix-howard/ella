@@ -569,10 +569,10 @@ export function VerificationModal({
                 <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center">
                   <ImageOff className="w-8 h-8" />
                 </div>
-                <p className="text-sm font-medium">Không thể tải hình ảnh</p>
+                <p className="text-sm font-medium">{t('verificationModal.imageLoadError')}</p>
                 <Button variant="outline" size="sm" onClick={() => refetchUrl()} className="gap-2">
                   <RefreshCw className="w-4 h-4" />
-                  Thử lại
+                  {t('common.retry')}
                 </Button>
               </div>
             ) : (

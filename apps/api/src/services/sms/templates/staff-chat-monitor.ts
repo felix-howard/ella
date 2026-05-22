@@ -40,7 +40,7 @@ const TEMPLATES = {
 export function generateStaffChatMonitorMessage(
   params: StaffChatMonitorTemplateParams
 ): string {
-  const template = TEMPLATES[params.language] || TEMPLATES.VI
+  const template = TEMPLATES[params.language] || TEMPLATES.EN
   return template(params)
 }
 

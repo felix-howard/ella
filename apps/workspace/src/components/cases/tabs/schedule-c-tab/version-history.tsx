@@ -11,19 +11,17 @@ interface VersionHistoryProps {
   history: VersionHistoryEntry[]
 }
 
-// Map of Vietnamese change strings to i18n keys for legacy DB data
-const VI_CHANGE_MAP: Record<string, string> = {
-  'Tạo mới': 'schedule.change.initialSubmission',
-  'Không có thay đổi': 'schedule.change.noChanges',
-}
+const VI_EXACT_CHANGE_KEYS: [string, string][] = [
+  ['schedule.change.legacy.initialSubmission', 'schedule.change.initialSubmission'],
+  ['schedule.change.legacy.noChanges', 'schedule.change.noChanges'],
+]
 
-// Pattern-based translation for change descriptions
-const VI_PREFIXES: [RegExp, string][] = [
-  [/^Thêm (.+)$/, 'schedule.change.added'],
-  [/^Xóa (.+)$/, 'schedule.change.removed'],
-  [/^Cập nhật (.+)$/, 'schedule.change.updated'],
-  [/^Thêm bất động sản (.+)$/, 'schedule.change.addedProperty'],
-  [/^Xóa bất động sản (.+)$/, 'schedule.change.removedProperty'],
+const VI_PREFIX_KEYS: [string, string][] = [
+  ['schedule.change.legacyPrefix.added', 'schedule.change.added'],
+  ['schedule.change.legacyPrefix.removed', 'schedule.change.removed'],
+  ['schedule.change.legacyPrefix.updated', 'schedule.change.updated'],
+  ['schedule.change.legacyPrefix.addedProperty', 'schedule.change.addedProperty'],
+  ['schedule.change.legacyPrefix.removedProperty', 'schedule.change.removedProperty'],
 ]
 
 const EN_PREFIXES: [RegExp, string][] = [
@@ -39,6 +37,10 @@ const EN_CHANGE_MAP: Record<string, string> = {
   'No changes': 'schedule.change.noChanges',
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 export function VersionHistory({ history }: VersionHistoryProps) {
   const { t, i18n } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(false)
@@ -46,14 +48,19 @@ export function VersionHistory({ history }: VersionHistoryProps) {
   // Translate a single change description
   const translateChange = useCallback((change: string): string => {
     // Check exact matches first (both Vietnamese and English)
-    const exactKey = VI_CHANGE_MAP[change] || EN_CHANGE_MAP[change]
+    const viExactKey = VI_EXACT_CHANGE_KEYS.find(([sourceKey]) => change === t(sourceKey, { lng: 'vi' }))?.[1]
+    const exactKey = viExactKey || EN_CHANGE_MAP[change]
     if (exactKey) return t(exactKey)
 
     // Check bracket prefix pattern: [propId] Updated Field
     const bracketMatch = change.match(/^\[(.+?)\]\s*(.+)$/)
     if (bracketMatch) {
       const [, propId, rest] = bracketMatch
-      const allPrefixes = [...VI_PREFIXES, ...EN_PREFIXES]
+      const viPrefixes = VI_PREFIX_KEYS.map(([sourceKey, targetKey]) => [
+        new RegExp(`^${escapeRegex(t(sourceKey, { lng: 'vi' }))} (.+)$`),
+        targetKey,
+      ] as [RegExp, string])
+      const allPrefixes = [...viPrefixes, ...EN_PREFIXES]
       for (const [regex, key] of allPrefixes) {
         const match = rest.match(regex)
         if (match) return `[${propId}] ${t(key, { field: match[1] })}`
@@ -62,7 +69,11 @@ export function VersionHistory({ history }: VersionHistoryProps) {
     }
 
     // Check pattern-based matches
-    const allPrefixes = [...VI_PREFIXES, ...EN_PREFIXES]
+    const viPrefixes = VI_PREFIX_KEYS.map(([sourceKey, targetKey]) => [
+      new RegExp(`^${escapeRegex(t(sourceKey, { lng: 'vi' }))} (.+)$`),
+      targetKey,
+    ] as [RegExp, string])
+    const allPrefixes = [...viPrefixes, ...EN_PREFIXES]
     for (const [regex, key] of allPrefixes) {
       const match = change.match(regex)
       if (match) return t(key, { field: match[1] })

@@ -6,6 +6,7 @@
  */
 
 import { cn, ProgressBar, type ProgressBarProps } from '@ella/ui'
+import { useTranslation } from 'react-i18next'
 
 export interface ProgressIndicatorProps
   extends Omit<ProgressBarProps, 'value' | 'max' | 'showLabel' | 'label'> {
@@ -31,8 +32,9 @@ export function ProgressIndicator({
   size = 'default',
   ...props
 }: ProgressIndicatorProps) {
+  const { t } = useTranslation()
   const percentage = total > 0 ? Math.round((current / total) * 100) : 0
-  const displayLabel = label || 'Tiến độ'
+  const displayLabel = label || t('progress.label')
 
   return (
     <div
@@ -90,10 +92,12 @@ export function CompactProgressIndicator({
   total,
   className,
   asPercentage = false,
-  ariaLabel = 'Tiến độ',
+  ariaLabel,
 }: CompactProgressIndicatorProps) {
+  const { t } = useTranslation()
   const percentage = total > 0 ? Math.round((current / total) * 100) : 0
   const isComplete = current >= total && total > 0
+  const label = ariaLabel || t('progress.label')
 
   return (
     <div
@@ -102,7 +106,7 @@ export function CompactProgressIndicator({
       aria-valuenow={current}
       aria-valuemin={0}
       aria-valuemax={total}
-      aria-label={ariaLabel}
+      aria-label={label}
     >
       {/* Mini progress bar */}
       <div

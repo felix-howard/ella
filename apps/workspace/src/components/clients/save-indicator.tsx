@@ -4,6 +4,7 @@
  */
 
 import { Loader2, Check, AlertCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 
 interface SaveIndicatorProps {
@@ -26,6 +27,8 @@ export function SaveIndicator({
   position = 'fixed',
   className,
 }: SaveIndicatorProps) {
+  const { t } = useTranslation()
+
   // Show nothing if no activity
   if (!isSaving && !isPending && !error) {
     return null
@@ -36,7 +39,7 @@ export function SaveIndicator({
       {isSaving && (
         <>
           <Loader2 className="w-4 h-4 animate-spin text-primary" />
-          <span className="text-sm text-muted-foreground">Đang lưu...</span>
+          <span className="text-sm text-muted-foreground">{t('common.saving')}</span>
         </>
       )}
       {!isSaving && isPending && (
@@ -44,7 +47,7 @@ export function SaveIndicator({
           <div className="w-4 h-4 rounded-full bg-warning/20 flex items-center justify-center">
             <div className="w-2 h-2 rounded-full bg-warning animate-pulse" />
           </div>
-          <span className="text-sm text-muted-foreground">Chờ lưu...</span>
+          <span className="text-sm text-muted-foreground">{t('clientOverview.pendingSave')}</span>
         </>
       )}
       {error && (
@@ -98,12 +101,14 @@ export function SavedBadge({
   position = 'fixed',
   className,
 }: SavedBadgeProps) {
+  const { t } = useTranslation()
+
   if (!show) return null
 
   const content = (
     <>
       <Check className="w-4 h-4 text-success" />
-      <span className="text-sm text-success">Đã lưu</span>
+      <span className="text-sm text-success">{t('clientOverview.saved')}</span>
     </>
   )
 

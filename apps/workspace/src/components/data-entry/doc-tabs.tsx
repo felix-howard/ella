@@ -4,6 +4,7 @@
  */
 
 import { cn } from '@ella/ui'
+import { useTranslation } from 'react-i18next'
 import { FileText, Check, AlertCircle, Clock } from 'lucide-react'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
 import type { DigitalDoc } from '../../lib/api-client'
@@ -34,11 +35,13 @@ export function DocTabs({
   compact = false,
   copiedFields = {},
 }: DocTabsProps) {
+  const { t } = useTranslation()
+
   if (!docs.length) {
     return (
       <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
         <FileText className="w-4 h-4 mr-2" />
-        Chưa có tài liệu nào được trích xuất
+        {t('dataEntry.noDocuments')}
       </div>
     )
   }
@@ -92,8 +95,8 @@ export function DocTabs({
               </p>
               {!compact && (
                 <p className="text-xs text-muted-foreground">
-                  {totalFields} trường
-                  {copiedCount > 0 && ` • ${copiedCount} đã copy`}
+                  {t('dataEntry.fieldCount', { count: totalFields })}
+                  {copiedCount > 0 && ` • ${t('dataEntry.copiedCount', { count: copiedCount })}`}
                 </p>
               )}
             </div>
@@ -136,11 +139,13 @@ export function DocTabsSidebar({
   copiedFields = {},
   className,
 }: DocTabsSidebarProps) {
+  const { t } = useTranslation()
+
   if (!docs.length) {
     return (
       <div className={cn('p-4 text-center text-sm text-muted-foreground', className)}>
         <FileText className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-        <p>Chưa có tài liệu</p>
+        <p>{t('dataEntry.noDocumentsShort')}</p>
       </div>
     )
   }
@@ -195,7 +200,7 @@ export function DocTabsSidebar({
               </p>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <StatusIcon className={cn('w-3 h-3', config.color)} />
-                <span>{totalFields} trường</span>
+                <span>{t('dataEntry.fieldCount', { count: totalFields })}</span>
                 {copiedCount > 0 && <span>• {copiedCount}/{totalFields}</span>}
               </div>
             </div>

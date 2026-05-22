@@ -955,7 +955,7 @@ twilioWebhookRoute.post('/voice/voicemail-recording', async (c) => {
           data: {
             recordingUrl: `${recordingUrl}.mp3`,
             recordingDuration,
-            content: `Tin nhắn thoại (${formatVoicemailDuration(recordingDuration)})`,
+            content: `Voicemail (${formatVoicemailDuration(recordingDuration)})`,
             callStatus: 'voicemail',
           },
         })
@@ -1007,7 +1007,7 @@ twilioWebhookRoute.post('/voice/voicemail-recording', async (c) => {
           conversationId: conversation!.id,
           channel: 'CALL',
           direction: 'INBOUND',
-          content: `Tin nhắn thoại (${formatVoicemailDuration(recordingDuration)})`,
+          content: `Voicemail (${formatVoicemailDuration(recordingDuration)})`,
           isSystem: false,
           callSid,
           recordingUrl: `${recordingUrl}.mp3`,

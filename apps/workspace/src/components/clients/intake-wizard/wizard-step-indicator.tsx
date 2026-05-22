@@ -4,6 +4,7 @@
  */
 
 import { Check } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 
 interface Step {
@@ -25,6 +26,7 @@ export function WizardStepIndicator({
   visitedSteps,
   onStepClick,
 }: WizardStepIndicatorProps) {
+  const { t } = useTranslation()
   // Handle keyboard navigation between steps
   const handleKeyDown = (e: React.KeyboardEvent, stepId: number) => {
     const isClickable = (id: number) => visitedSteps.has(id) || id === currentStep + 1
@@ -72,7 +74,10 @@ export function WizardStepIndicator({
                     : 'cursor-default'
                 )}
                 aria-current={isActive ? 'step' : undefined}
-                aria-label={`${step.label}${isCompleted ? ' - Hoàn thành' : ''}. Dùng phím mũi tên để di chuyển.`}
+                aria-label={t('intakeWizard.stepIndicator.desktopAria', {
+                  label: step.label,
+                  status: isCompleted ? t('intakeWizard.stepIndicator.completedSuffix') : '',
+                })}
               >
                 {isCompleted ? (
                   <Check className="w-5 h-5" aria-hidden="true" />
@@ -149,7 +154,10 @@ export function WizardStepIndicator({
                     : 'cursor-default'
                 )}
                 aria-current={isActive ? 'step' : undefined}
-                aria-label={`${step.label}${isCompleted ? ' - Hoàn thành' : ''}`}
+                aria-label={t('intakeWizard.stepIndicator.mobileAria', {
+                  label: step.label,
+                  status: isCompleted ? t('intakeWizard.stepIndicator.completedSuffix') : '',
+                })}
               >
                 {isCompleted ? (
                   <Check className="w-4 h-4" aria-hidden="true" />
@@ -181,7 +189,7 @@ export function WizardStepIndicator({
           />
         </div>
         <p className="text-xs text-muted-foreground text-center mt-2">
-          Bước {currentStep + 1} / {steps.length}
+          {t('intakeWizard.stepIndicator.progress', { current: currentStep + 1, total: steps.length })}
         </p>
       </div>
     </div>

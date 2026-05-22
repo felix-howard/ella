@@ -5,6 +5,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import {
   ArrowLeft,
@@ -37,54 +38,55 @@ export const Route = createFileRoute('/cases/$caseId/entry')({
 })
 
 // Field configurations for different doc types (copy order optimized for OltPro)
-const ENTRY_FIELD_CONFIG: Record<string, { key: string; label: string }[]> = {
+const ENTRY_FIELD_CONFIG: Record<string, { key: string; labelKey: string }[]> = {
   W2: [
-    { key: 'employerEin', label: 'EIN công ty' },
-    { key: 'employerName', label: 'Tên công ty' },
-    { key: 'wagesTips', label: 'Box 1: Lương' },
-    { key: 'federalTaxWithheld', label: 'Box 2: Thuế đã khấu' },
-    { key: 'socialSecurityWages', label: 'Box 3: SS Wages' },
-    { key: 'socialSecurityTax', label: 'Box 4: SS Tax' },
-    { key: 'medicareWages', label: 'Box 5: Medicare Wages' },
-    { key: 'medicareTax', label: 'Box 6: Medicare Tax' },
-    { key: 'stateTaxWithheld', label: 'Box 17: State Tax' },
+    { key: 'employerEin', labelKey: 'dataEntry.field.employerEin' },
+    { key: 'employerName', labelKey: 'dataEntry.field.employerName' },
+    { key: 'wagesTips', labelKey: 'dataEntry.field.wagesTips' },
+    { key: 'federalTaxWithheld', labelKey: 'dataEntry.field.federalTaxWithheld' },
+    { key: 'socialSecurityWages', labelKey: 'dataEntry.field.socialSecurityWages' },
+    { key: 'socialSecurityTax', labelKey: 'dataEntry.field.socialSecurityTax' },
+    { key: 'medicareWages', labelKey: 'dataEntry.field.medicareWages' },
+    { key: 'medicareTax', labelKey: 'dataEntry.field.medicareTax' },
+    { key: 'stateTaxWithheld', labelKey: 'dataEntry.field.stateTaxWithheld' },
   ],
   SSN_CARD: [
-    { key: 'ssn', label: 'SSN' },
-    { key: 'name', label: 'Họ tên' },
+    { key: 'ssn', labelKey: 'dataEntry.field.ssn' },
+    { key: 'name', labelKey: 'dataEntry.field.fullName' },
   ],
   DRIVER_LICENSE: [
-    { key: 'name', label: 'Họ tên' },
-    { key: 'dateOfBirth', label: 'Ngày sinh' },
-    { key: 'address', label: 'Địa chỉ' },
-    { key: 'licenseNumber', label: 'Số bằng lái' },
+    { key: 'name', labelKey: 'dataEntry.field.fullName' },
+    { key: 'dateOfBirth', labelKey: 'dataEntry.field.dateOfBirth' },
+    { key: 'address', labelKey: 'dataEntry.field.address' },
+    { key: 'licenseNumber', labelKey: 'dataEntry.field.licenseNumber' },
   ],
   FORM_1099_INT: [
-    { key: 'payerName', label: 'Ngân hàng' },
-    { key: 'payerTin', label: 'TIN ngân hàng' },
-    { key: 'interestIncome', label: 'Box 1: Tiền lãi' },
-    { key: 'federalTaxWithheld', label: 'Box 4: Thuế đã khấu' },
+    { key: 'payerName', labelKey: 'dataEntry.field.bankName' },
+    { key: 'payerTin', labelKey: 'dataEntry.field.bankTin' },
+    { key: 'interestIncome', labelKey: 'dataEntry.field.interestIncome' },
+    { key: 'federalTaxWithheld', labelKey: 'dataEntry.field.federalTaxWithheldBox4' },
   ],
   FORM_1099_NEC: [
-    { key: 'payerName', label: 'Người trả' },
-    { key: 'payerTin', label: 'TIN người trả' },
-    { key: 'nonemployeeCompensation', label: 'Box 1: Thu nhập' },
-    { key: 'federalTaxWithheld', label: 'Box 4: Thuế đã khấu' },
+    { key: 'payerName', labelKey: 'dataEntry.field.payerName' },
+    { key: 'payerTin', labelKey: 'dataEntry.field.payerTin' },
+    { key: 'nonemployeeCompensation', labelKey: 'dataEntry.field.nonemployeeCompensation' },
+    { key: 'federalTaxWithheld', labelKey: 'dataEntry.field.federalTaxWithheldBox4' },
   ],
   FORM_1099_DIV: [
-    { key: 'payerName', label: 'Công ty' },
-    { key: 'ordinaryDividends', label: 'Box 1a: Cổ tức' },
-    { key: 'qualifiedDividends', label: 'Box 1b: Qualified' },
-    { key: 'federalTaxWithheld', label: 'Box 4: Thuế đã khấu' },
+    { key: 'payerName', labelKey: 'dataEntry.field.company' },
+    { key: 'ordinaryDividends', labelKey: 'dataEntry.field.ordinaryDividends' },
+    { key: 'qualifiedDividends', labelKey: 'dataEntry.field.qualifiedDividends' },
+    { key: 'federalTaxWithheld', labelKey: 'dataEntry.field.federalTaxWithheldBox4' },
   ],
   BANK_STATEMENT: [
-    { key: 'bankName', label: 'Ngân hàng' },
-    { key: 'routingNumber', label: 'Routing Number' },
-    { key: 'accountNumber', label: 'Số tài khoản' },
+    { key: 'bankName', labelKey: 'dataEntry.field.bankName' },
+    { key: 'routingNumber', labelKey: 'dataEntry.field.routingNumber' },
+    { key: 'accountNumber', labelKey: 'dataEntry.field.accountNumber' },
   ],
 }
 
 function DataEntryPage() {
+  const { t } = useTranslation()
   const { caseId } = Route.useParams()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -110,7 +112,7 @@ function DataEntryPage() {
     status: 'READY_FOR_ENTRY' as TaxCaseStatus,
     client: {
       id: 'client-1',
-      name: 'Nguyễn Văn An',
+      name: 'John Nguyen',
       phone: '8182223333',
     },
   }), [caseId])
@@ -211,7 +213,7 @@ function DataEntryPage() {
   // Copy field with toast and state tracking
   const handleCopyField = useCallback(async (docId: string, fieldKey: string, value: unknown) => {
     if (value === null || value === undefined || value === '') {
-      toast.info('Trường này không có dữ liệu')
+      toast.info(t('dataEntry.noFieldData'))
       return
     }
 
@@ -223,7 +225,7 @@ function DataEntryPage() {
         return { ...prev, [docId]: docFields }
       })
     }
-  }, [copy])
+  }, [copy, t])
 
   // Copy all fields of current doc
   const handleCopyAll = useCallback(async () => {
@@ -234,13 +236,13 @@ function DataEntryPage() {
       .map((f) => {
         const value = selectedDoc.extractedData[f.key]
         return value !== undefined && value !== null && value !== ''
-          ? `${f.label}: ${value}`
+          ? `${t(f.labelKey)}: ${value}`
           : null
       })
       .filter(Boolean)
 
     if (lines.length === 0) {
-      toast.info('Không có dữ liệu để copy')
+      toast.info(t('common.noCopyData'))
       return
     }
 
@@ -250,9 +252,9 @@ function DataEntryPage() {
     if (success) {
       const allFields = new Set(fieldConfig.map((f) => f.key))
       setCopiedFields((prev) => ({ ...prev, [selectedDoc.id]: allFields }))
-      toast.success(`Đã copy tất cả ${lines.length} trường`)
+      toast.success(t('dataEntry.copiedAllFields', { count: lines.length }))
     }
-  }, [selectedDoc, fieldConfig, copy])
+  }, [selectedDoc, fieldConfig, copy, t])
 
   // Debounce ref for Enter key to prevent rapid copy spam
   const lastCopyTimeRef = useRef(0)
@@ -362,7 +364,7 @@ function DataEntryPage() {
   // Mark entry as complete workflow
   const handleMarkComplete = useCallback(async () => {
     if (!allDocsComplete) {
-      toast.error('Vui lòng copy tất cả trường trước khi hoàn tất')
+      toast.error(t('dataEntry.copyAllBeforeComplete'))
       return
     }
 
@@ -373,15 +375,15 @@ function DataEntryPage() {
       // await api.patch(`/cases/${caseId}`, { status: 'ENTRY_COMPLETE' })
       await new Promise((resolve) => setTimeout(resolve, 500)) // Simulate API call
 
-      toast.success('Đã đánh dấu hoàn tất nhập liệu!')
+      toast.success(t('dataEntry.markCompleteSuccess'))
       navigate({ to: '/clients/$clientId', params: { clientId: taxCase.clientId } })
     } catch (error) {
       console.error('Failed to mark complete:', error)
-      toast.error('Không thể cập nhật trạng thái')
+      toast.error(t('dataEntry.markCompleteFailed'))
     } finally {
       setIsCompleting(false)
     }
-  }, [allDocsComplete, navigate, taxCase.clientId])
+  }, [allDocsComplete, navigate, taxCase.clientId, t])
 
   const statusColors = CASE_STATUS_COLORS[taxCase.status]
 
@@ -400,7 +402,9 @@ function DataEntryPage() {
             </Link>
             <div className="text-center">
               <h1 className="text-sm font-semibold text-foreground">{taxCase.client.name}</h1>
-              <span className="text-xs text-muted-foreground">{completedDocs}/{totalDocs} tài liệu</span>
+              <span className="text-xs text-muted-foreground">
+                {t('dataEntry.documentProgressShort', { completed: completedDocs, total: totalDocs })}
+              </span>
             </div>
             <button
               onClick={handleMarkComplete}
@@ -428,7 +432,7 @@ function DataEntryPage() {
                 className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Quay lại</span>
+                <span>{t('common.back')}</span>
               </Link>
 
               <div className="h-6 w-px bg-border" />
@@ -445,7 +449,7 @@ function DataEntryPage() {
                   </span>
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Năm thuế {taxCase.taxYear} • {formatPhone(taxCase.client.phone)}
+                  {t('dataEntry.taxYearLine', { year: taxCase.taxYear, phone: formatPhone(taxCase.client.phone) })}
                 </p>
               </div>
             </div>
@@ -454,7 +458,7 @@ function DataEntryPage() {
               {/* Progress */}
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">
-                  Đã copy: {completedDocs}/{totalDocs} tài liệu
+                  {t('dataEntry.copiedProgress', { completed: completedDocs, total: totalDocs })}
                 </span>
                 <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
                   <div
@@ -471,7 +475,7 @@ function DataEntryPage() {
                   'p-2 rounded-lg transition-colors',
                   showKeyboardHints ? 'bg-primary-light text-primary' : 'hover:bg-muted text-muted-foreground'
                 )}
-                title="Hiện/ẩn phím tắt"
+                title={t('dataEntry.toggleKeyboardHints')}
               >
                 <Keyboard className="w-4 h-4" />
               </button>
@@ -492,7 +496,7 @@ function DataEntryPage() {
                 ) : (
                   <CheckCircle className="w-4 h-4" />
                 )}
-                <span>Hoàn tất nhập liệu</span>
+                <span>{t('dataEntry.completeEntry')}</span>
               </button>
             </div>
           </div>
@@ -503,9 +507,9 @@ function DataEntryPage() {
       {isMobile && (
         <div className="flex border-b border-border bg-card flex-shrink-0">
           {([
-            { id: 'docs' as const, label: 'Docs', icon: FileText },
-            { id: 'image' as const, label: 'Image', icon: ImageIcon },
-            { id: 'data' as const, label: 'Data', icon: Database },
+            { id: 'docs' as const, labelKey: 'dataEntry.tabDocs', icon: FileText },
+            { id: 'image' as const, labelKey: 'dataEntry.tabImage', icon: ImageIcon },
+            { id: 'data' as const, labelKey: 'dataEntry.tabData', icon: Database },
           ]).map((tab) => (
             <button
               key={tab.id}
@@ -518,7 +522,7 @@ function DataEntryPage() {
               )}
             >
               <tab.icon className="w-4 h-4" />
-              {tab.label}
+              {t(tab.labelKey)}
             </button>
           ))}
         </div>
@@ -530,7 +534,7 @@ function DataEntryPage() {
           {mobileTab === 'docs' && (
             <div className="h-full overflow-y-auto p-4">
               <h2 className="text-sm font-medium text-foreground mb-3">
-                Tài liệu ({digitalDocs.length})
+                {t('dataEntry.documentsTitle', { count: digitalDocs.length })}
               </h2>
               <DocTabsSidebar
                 docs={digitalDocs}
@@ -550,7 +554,7 @@ function DataEntryPage() {
               image={selectedImage}
               expanded={expandedImage}
               onExpandToggle={() => setExpandedImage(!expandedImage)}
-              highlightedField={hoveredFieldLabel || (fieldConfig[focusedFieldIndex]?.label)}
+              highlightedField={hoveredFieldLabel || (fieldConfig[focusedFieldIndex] ? t(fieldConfig[focusedFieldIndex].labelKey) : undefined)}
               className="h-full"
             />
           )}
@@ -572,16 +576,16 @@ function DataEntryPage() {
                         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary-dark transition-colors"
                       >
                         <Copy className="w-3.5 h-3.5" />
-                        <span>Copy all</span>
+                        <span>{t('dataEntry.copyAll')}</span>
                       </button>
                     </div>
                     <div className="flex items-center justify-between">
                       <button onClick={goToPrev} disabled={!canGoPrev} className={cn('flex items-center gap-1 text-sm', canGoPrev ? 'text-primary' : 'text-muted-foreground cursor-not-allowed')}>
-                        <ChevronLeft className="w-4 h-4" /><span>Trước</span>
+                        <ChevronLeft className="w-4 h-4" /><span>{t('common.previous')}</span>
                       </button>
                       <span className="text-sm text-muted-foreground">{currentIndex + 1}/{totalDocs}</span>
                       <button onClick={goToNext} disabled={!canGoNext} className={cn('flex items-center gap-1 text-sm', canGoNext ? 'text-primary' : 'text-muted-foreground cursor-not-allowed')}>
-                        <span>Tiếp</span><ChevronRight className="w-4 h-4" />
+                        <span>{t('common.next')}</span><ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -611,7 +615,7 @@ function DataEntryPage() {
                             }}
                           >
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs text-muted-foreground">{field.label}</p>
+                              <p className="text-xs text-muted-foreground">{t(field.labelKey)}</p>
                               {hasValue ? (
                                 <p className="text-sm font-medium text-foreground truncate">{String(value)}</p>
                               ) : (
@@ -623,7 +627,7 @@ function DataEntryPage() {
                                 'flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium',
                                 isCopied ? 'bg-success/10 text-success' : 'bg-primary text-white'
                               )}>
-                                {isCopied ? '✓' : 'Copy'}
+                                {isCopied ? '✓' : t('common.copy')}
                               </span>
                             )}
                           </div>
@@ -636,7 +640,7 @@ function DataEntryPage() {
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">
                     <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Chọn tài liệu từ tab Docs</p>
+                    <p className="text-sm text-muted-foreground">{t('dataEntry.selectDocumentFromDocs')}</p>
                   </div>
                 </div>
               )}
@@ -650,7 +654,7 @@ function DataEntryPage() {
           <aside className="w-64 flex-shrink-0 border-r border-border bg-card overflow-y-auto">
             <div className="p-4">
               <h2 className="text-sm font-medium text-foreground mb-3">
-                Tài liệu ({digitalDocs.length})
+                {t('dataEntry.documentsTitle', { count: digitalDocs.length })}
               </h2>
               <DocTabsSidebar
                 docs={digitalDocs}
@@ -671,7 +675,7 @@ function DataEntryPage() {
               image={selectedImage}
               expanded={expandedImage}
               onExpandToggle={() => setExpandedImage(!expandedImage)}
-              highlightedField={hoveredFieldLabel || (fieldConfig[focusedFieldIndex]?.label)}
+              highlightedField={hoveredFieldLabel || (fieldConfig[focusedFieldIndex] ? t(fieldConfig[focusedFieldIndex].labelKey) : undefined)}
               className="flex-1"
             />
           </div>
@@ -695,7 +699,7 @@ function DataEntryPage() {
                       title="Ctrl/Cmd + Shift + C"
                     >
                       <Copy className="w-4 h-4" />
-                      <span>Copy tất cả</span>
+                      <span>{t('dataEntry.copyAll')}</span>
                     </button>
                   </div>
 
@@ -710,7 +714,7 @@ function DataEntryPage() {
                       )}
                     >
                       <ChevronLeft className="w-4 h-4" />
-                      <span>Trước</span>
+                      <span>{t('common.previous')}</span>
                     </button>
                     <span className="text-sm text-muted-foreground">
                       {currentIndex + 1} / {totalDocs}
@@ -723,7 +727,7 @@ function DataEntryPage() {
                         canGoNext ? 'text-primary hover:text-primary-dark' : 'text-muted-foreground cursor-not-allowed'
                       )}
                     >
-                      <span>Tiếp</span>
+                      <span>{t('common.next')}</span>
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
@@ -737,7 +741,8 @@ function DataEntryPage() {
                       const isCopied = copiedFields[selectedDoc.id]?.has(field.key)
                       const isFocused = index === focusedFieldIndex
                       const hasValue = value !== null && value !== undefined && value !== ''
-                      const isHovered = hoveredFieldLabel === field.label
+                      const fieldLabel = t(field.labelKey)
+                      const isHovered = hoveredFieldLabel === fieldLabel
 
                       return (
                         <div
@@ -755,11 +760,11 @@ function DataEntryPage() {
                               handleCopyField(selectedDoc.id, field.key, value)
                             }
                           }}
-                          onMouseEnter={() => setHoveredFieldLabel(field.label)}
+                          onMouseEnter={() => setHoveredFieldLabel(fieldLabel)}
                           onMouseLeave={() => setHoveredFieldLabel(null)}
                         >
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm text-muted-foreground">{field.label}</p>
+                            <p className="text-sm text-muted-foreground">{fieldLabel}</p>
                             {hasValue ? (
                               <p className="font-medium text-foreground truncate">{String(value)}</p>
                             ) : (
@@ -780,10 +785,10 @@ function DataEntryPage() {
                               {isCopied ? (
                                 <>
                                   <CheckCircle className="w-3.5 h-3.5" />
-                                  <span>Đã copy</span>
+                                  <span>{t('dataEntry.copied')}</span>
                                 </>
                               ) : (
-                                <span>Copy</span>
+                                <span>{t('common.copy')}</span>
                               )}
                             </button>
                           )}
@@ -797,7 +802,7 @@ function DataEntryPage() {
                 {showKeyboardHints && (
                   <div className="flex-shrink-0 p-3 border-t border-border bg-muted/30">
                     <p className="text-xs text-muted-foreground text-center">
-                      Tab/↑↓: chuyển trường • Enter: copy • ←/→: chuyển doc • Ctrl+Shift+C: copy all
+                      {t('dataEntry.keyboardHints')}
                     </p>
                   </div>
                 )}
@@ -807,7 +812,7 @@ function DataEntryPage() {
                 <div className="text-center">
                   <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">
-                    Chọn tài liệu để bắt đầu nhập liệu
+                    {t('dataEntry.selectDocumentToStart')}
                   </p>
                 </div>
               </div>

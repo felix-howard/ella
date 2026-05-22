@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { cn } from '@ella/ui'
 import {
   FileText,
@@ -142,12 +143,12 @@ function DocRow({
   onDocClick,
   onVerify,
 }: DocRowProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const status = doc.status as DocStatus
   const config = DOC_STATUS_CONFIG[status] || DOC_STATUS_CONFIG.EXTRACTED
   const Icon = config.icon
   const docLabel = DOC_TYPE_LABELS[doc.docType] || doc.docType
-  const updatedDate = new Date(doc.updatedAt).toLocaleDateString('vi-VN', {
+  const updatedDate = new Date(doc.updatedAt).toLocaleDateString(i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -155,7 +156,7 @@ function DocRow({
   const canVerify = status === 'EXTRACTED' || status === 'PARTIAL'
 
   // Extract preview fields from extracted data
-  const previewFields = getPreviewFields(doc.docType, doc.extractedData)
+  const previewFields = getPreviewFields(doc.docType, doc.extractedData, t)
 
   return (
     <div className="group">
@@ -280,46 +281,46 @@ interface PreviewField {
   value: string
 }
 
-function getPreviewFields(docType: string, data: Record<string, unknown>): PreviewField[] {
+function getPreviewFields(docType: string, data: Record<string, unknown>, t: TFunction): PreviewField[] {
   if (!data || Object.keys(data).length === 0) return []
 
   // Define field mappings per document type
   const fieldMappings: Record<string, { key: string; label: string }[]> = {
     W2: [
-      { key: 'employerName', label: 'Công ty' },
-      { key: 'employerEin', label: 'EIN công ty' },
-      { key: 'wagesTips', label: 'Lương (Box 1)' },
-      { key: 'federalTaxWithheld', label: 'Thuế đã khấu (Box 2)' },
+      { key: 'employerName', label: t('digitalDoc.field.employerName') },
+      { key: 'employerEin', label: t('digitalDoc.field.employerEin') },
+      { key: 'wagesTips', label: t('digitalDoc.field.wagesTips') },
+      { key: 'federalTaxWithheld', label: t('digitalDoc.field.federalTaxWithheld') },
       { key: 'socialSecurityWages', label: 'SS Wages (Box 3)' },
       { key: 'medicareWages', label: 'Medicare Wages (Box 5)' },
     ],
     SSN_CARD: [
-      { key: 'name', label: 'Họ tên' },
+      { key: 'name', label: t('digitalDoc.field.fullName') },
       { key: 'ssn', label: 'SSN' },
     ],
     DRIVER_LICENSE: [
-      { key: 'name', label: 'Họ tên' },
-      { key: 'licenseNumber', label: 'Số bằng lái' },
-      { key: 'address', label: 'Địa chỉ' },
-      { key: 'dateOfBirth', label: 'Ngày sinh' },
-      { key: 'expirationDate', label: 'Ngày hết hạn' },
+      { key: 'name', label: t('digitalDoc.field.fullName') },
+      { key: 'licenseNumber', label: t('digitalDoc.field.licenseNumber') },
+      { key: 'address', label: t('digitalDoc.field.address') },
+      { key: 'dateOfBirth', label: t('digitalDoc.field.dateOfBirth') },
+      { key: 'expirationDate', label: t('digitalDoc.field.expirationDate') },
     ],
     FORM_1099_INT: [
-      { key: 'payerName', label: 'Ngân hàng' },
-      { key: 'interestIncome', label: 'Tiền lãi (Box 1)' },
+      { key: 'payerName', label: t('digitalDoc.field.bank') },
+      { key: 'interestIncome', label: t('digitalDoc.field.interestIncome') },
     ],
     FORM_1099_NEC: [
-      { key: 'payerName', label: 'Người trả' },
-      { key: 'nonemployeeCompensation', label: 'Thu nhập (Box 1)' },
+      { key: 'payerName', label: t('digitalDoc.field.payer') },
+      { key: 'nonemployeeCompensation', label: t('digitalDoc.field.nonemployeeCompensation') },
     ],
     FORM_1099_DIV: [
-      { key: 'payerName', label: 'Công ty' },
-      { key: 'ordinaryDividends', label: 'Cổ tức (Box 1a)' },
+      { key: 'payerName', label: t('digitalDoc.field.company') },
+      { key: 'ordinaryDividends', label: t('digitalDoc.field.ordinaryDividends') },
       { key: 'qualifiedDividends', label: 'Qualified (Box 1b)' },
     ],
     BANK_STATEMENT: [
-      { key: 'bankName', label: 'Ngân hàng' },
-      { key: 'accountNumber', label: 'Số tài khoản' },
+      { key: 'bankName', label: t('digitalDoc.field.bank') },
+      { key: 'accountNumber', label: t('digitalDoc.field.accountNumber') },
       { key: 'routingNumber', label: 'Routing' },
     ],
   }

@@ -223,7 +223,7 @@ docsRoute.post('/:id/ocr', async (c) => {
   if (mimeType === 'application/pdf' && imageBuffer.length > MAX_PDF_SIZE) {
     return c.json({
       error: 'PDF_TOO_LARGE',
-      message: 'Tệp PDF quá lớn (tối đa 20MB).',
+      message: 'PDF file is too large. Maximum size is 20MB.',
     }, 413)
   }
 
@@ -270,8 +270,8 @@ docsRoute.post('/:id/ocr', async (c) => {
           caseId: doc.caseId,
           type: 'VERIFY_DOCS',
           priority: 'NORMAL',
-          title: 'Xác minh dữ liệu OCR',
-          description: `${doc.docType}: Dữ liệu cần xác minh (độ tin cậy: ${Math.round(ocrResult.confidence * 100)}%)`,
+          title: 'Verify OCR data',
+          description: `${doc.docType}: Data needs verification (${Math.round(ocrResult.confidence * 100)}% confidence)`,
           metadata: {
             docId: doc.id,
             rawImageId: doc.rawImageId,
@@ -289,18 +289,18 @@ docsRoute.post('/:id/ocr', async (c) => {
     await updateLastActivity(doc.caseId)
   }
 
-  // Determine appropriate success message (Vietnamese for PDF)
+  // Determine appropriate success message
   const isPdf = mimeType === 'application/pdf'
   let message: string
   if (ocrResult.success) {
     message = isPdf
-      ? `Trích xuất PDF thành công (${ocrResult.pageCount || 1} trang). Đang chờ xác minh.`
+      ? `PDF extraction completed (${ocrResult.pageCount || 1} pages). Awaiting verification.`
       : 'OCR extraction completed. Awaiting verification.'
   } else {
-    message = `Trích xuất thất bại: ${ocrResult.error}`
+    message = `Extraction failed: ${ocrResult.error}`
   }
 
-  // Set UTF-8 charset for Vietnamese messages
+  // Set UTF-8 charset for localized messages
   c.header('Content-Type', 'application/json; charset=utf-8')
 
   return c.json({
@@ -392,8 +392,8 @@ docsRoute.post('/:id/verify-action', zValidator('json', verifyActionSchema), asy
           caseId: doc.caseId,
           type: 'BLURRY_DETECTED',
           priority: 'HIGH',
-          title: 'Yêu cầu gửi lại tài liệu',
-          description: notes || 'Tài liệu bị từ chối, cần gửi lại',
+          title: 'Document resend requested',
+          description: notes || 'Document was rejected and needs to be resent',
           metadata: {
             rawImageId: doc.rawImageId,
             docType: doc.docType,

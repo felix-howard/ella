@@ -65,7 +65,7 @@ export function YearSwitcher({
         )}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        aria-label={`Năm thuế: ${selectedYear}`}
+        aria-label={t('yearSwitcher.taxYearAria', { year: selectedYear })}
       >
         <Calendar className="w-4 h-4 text-primary" aria-hidden="true" />
         <span className="font-medium">{selectedYear}</span>
@@ -83,7 +83,7 @@ export function YearSwitcher({
         <div
           className="absolute top-full left-0 mt-1 w-56 bg-card border border-border rounded-lg shadow-lg z-50 py-1"
           role="listbox"
-          aria-label="Chọn năm thuế"
+          aria-label={t('yearSwitcher.selectTaxYear')}
         >
           {/* Year Options */}
           {sortedEngagements.map((engagement) => (

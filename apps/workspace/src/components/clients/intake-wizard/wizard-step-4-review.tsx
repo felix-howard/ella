@@ -14,6 +14,7 @@ import {
   Check,
   AlertCircle,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { CustomSelect } from '../../ui/custom-select'
 import { maskSSN } from '../../../lib/crypto'
 import { RELATIONSHIP_OPTIONS } from '../../../lib/intake-form-config'
@@ -28,19 +29,18 @@ interface WizardStep4ReviewProps {
   errors?: Record<string, string>
 }
 
-// Filing status labels
-const FILING_STATUS_LABELS: Record<string, string> = {
-  SINGLE: 'Độc thân',
-  MARRIED_FILING_JOINTLY: 'Vợ chồng khai chung',
-  MARRIED_FILING_SEPARATELY: 'Vợ chồng khai riêng',
-  HEAD_OF_HOUSEHOLD: 'Chủ hộ',
-  QUALIFYING_WIDOW: 'Góa phụ có con',
+const FILING_STATUS_KEYS: Record<string, string> = {
+  SINGLE: 'filingStatus.single',
+  MARRIED_FILING_JOINTLY: 'filingStatus.marriedFilingJointly',
+  MARRIED_FILING_SEPARATELY: 'filingStatus.marriedFilingSeparately',
+  HEAD_OF_HOUSEHOLD: 'filingStatus.headOfHousehold',
+  QUALIFYING_WIDOW: 'filingStatus.qualifyingWidow',
 }
 
 // Account type options
 const ACCOUNT_TYPE_OPTIONS = [
-  { value: 'CHECKING', label: 'Checking (Tài khoản vãng lai)' },
-  { value: 'SAVINGS', label: 'Savings (Tài khoản tiết kiệm)' },
+  { value: 'CHECKING', labelKey: 'intakeWizard.review.accountType.checking' },
+  { value: 'SAVINGS', labelKey: 'intakeWizard.review.accountType.savings' },
 ]
 
 export function WizardStep4Review({
@@ -50,19 +50,24 @@ export function WizardStep4Review({
   taxYear,
   errors,
 }: WizardStep4ReviewProps) {
+  const { t } = useTranslation()
   const showSpouse = filingStatus === 'MARRIED_FILING_JOINTLY'
   const hasDependents = (answers.dependentCount || 0) > 0
+  const accountTypeOptions = ACCOUNT_TYPE_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }))
 
   // Get selected income items
   const selectedIncome = getSelectedItems(answers, [
     { key: 'hasW2', label: 'W-2' },
     { key: 'has1099NEC', label: '1099-NEC' },
-    { key: 'hasSelfEmployment', label: 'Tự kinh doanh' },
-    { key: 'hasInvestments', label: 'Đầu tư' },
+    { key: 'hasSelfEmployment', label: t('intakeWizard.review.selectedIncome.selfEmployment') },
+    { key: 'hasInvestments', label: t('intakeWizard.review.selectedIncome.investments') },
     { key: 'hasCrypto', label: 'Crypto' },
-    { key: 'hasRetirement', label: 'Hưu trí' },
+    { key: 'hasRetirement', label: t('intakeWizard.review.selectedIncome.retirement') },
     { key: 'hasSocialSecurity', label: 'Social Security' },
-    { key: 'hasRentalProperty', label: 'Cho thuê BĐS' },
+    { key: 'hasRentalProperty', label: t('intakeWizard.review.selectedIncome.rentalProperty') },
     { key: 'hasK1Income', label: 'K-1' },
   ])
 
@@ -70,8 +75,8 @@ export function WizardStep4Review({
   const selectedDeductions = getSelectedItems(answers, [
     { key: 'hasMortgage', label: 'Mortgage' },
     { key: 'hasPropertyTax', label: 'Property Tax' },
-    { key: 'hasMedicalExpenses', label: 'Chi phí y tế' },
-    { key: 'hasCharitableDonations', label: 'Từ thiện' },
+    { key: 'hasMedicalExpenses', label: t('intakeWizard.review.selectedDeductions.medicalExpenses') },
+    { key: 'hasCharitableDonations', label: t('intakeWizard.review.selectedDeductions.charitableDonations') },
     { key: 'hasStudentLoanInterest', label: 'Student Loan' },
     { key: 'hasEducatorExpenses', label: 'Educator Expenses' },
     { key: 'hasHSA', label: 'HSA' },
@@ -80,9 +85,9 @@ export function WizardStep4Review({
   return (
     <div className="space-y-6">
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-foreground">Xem lại & Hoàn tất</h3>
+        <h3 className="text-lg font-semibold text-foreground">{t('intakeWizard.review.title')}</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Kiểm tra thông tin và nhập thông tin ngân hàng để nhận refund
+          {t('intakeWizard.review.subtitle')}
         </p>
       </div>
 
@@ -93,7 +98,7 @@ export function WizardStep4Review({
             <CreditCard className="w-5 h-5 text-primary" />
           </div>
           <h4 className="text-base font-semibold text-foreground">
-            Thông tin ngân hàng (nhận refund)
+            {t('intakeWizard.review.bankInfo')}
           </h4>
         </div>
 
@@ -101,13 +106,13 @@ export function WizardStep4Review({
           {/* Account Type */}
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">
-              Loại tài khoản
+              {t('intakeWizard.review.accountTypeLabel')}
             </label>
             <CustomSelect
               value={answers.refundAccountType || ''}
               onChange={(value) => onChange('refundAccountType', value)}
-              options={ACCOUNT_TYPE_OPTIONS}
-              placeholder="Chọn loại tài khoản..."
+              options={accountTypeOptions}
+              placeholder={t('intakeWizard.review.accountTypePlaceholder')}
             />
           </div>
 
@@ -126,7 +131,7 @@ export function WizardStep4Review({
                 const digits = e.target.value.replace(/\D/g, '').slice(0, ROUTING_NUMBER_LENGTH)
                 onChange('refundRoutingNumber', digits)
               }}
-              placeholder="9 chữ số"
+              placeholder={t('intakeWizard.review.routingPlaceholder')}
               maxLength={ROUTING_NUMBER_LENGTH}
               className={cn(
                 'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
@@ -140,7 +145,7 @@ export function WizardStep4Review({
             {answers.refundRoutingNumber && !errors?.refundRoutingNumber && (
               <p className="text-xs text-warning flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />
-                Vui lòng xác nhận routing number với ngân hàng của bạn
+                {t('intakeWizard.review.confirmRouting')}
               </p>
             )}
           </div>
@@ -148,7 +153,7 @@ export function WizardStep4Review({
           {/* Account Number */}
           <div className="space-y-1.5 sm:col-span-2">
             <label className="block text-sm font-medium text-foreground">
-              Số tài khoản
+              {t('intakeWizard.review.accountNumber')}
               {answers.refundAccountType && (
                 <span className="text-error ml-1">*</span>
               )}
@@ -160,7 +165,7 @@ export function WizardStep4Review({
                 const digits = e.target.value.replace(/\D/g, '').slice(0, MAX_ACCOUNT_NUMBER_LENGTH)
                 onChange('refundBankAccount', digits)
               }}
-              placeholder="Số tài khoản ngân hàng"
+              placeholder={t('intakeWizard.review.accountNumberPlaceholder')}
               maxLength={MAX_ACCOUNT_NUMBER_LENGTH}
               className={cn(
                 'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
@@ -177,7 +182,7 @@ export function WizardStep4Review({
         {!answers.refundAccountType && (
           <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
             <AlertCircle className="w-3.5 h-3.5" />
-            Để trống nếu muốn nhận check qua đường bưu điện
+            {t('intakeWizard.review.mailCheckHint')}
           </p>
         )}
       </section>
@@ -186,40 +191,40 @@ export function WizardStep4Review({
       <section>
         <h4 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
           <FileText className="w-5 h-5 text-primary" />
-          Tóm tắt thông tin
+          {t('intakeWizard.review.summaryTitle')}
         </h4>
 
         <div className="space-y-4">
           {/* Tax Info Card */}
           <SummaryCard
-            title="Thông tin chung"
+            title={t('intakeWizard.review.generalInfo')}
             icon={FileText}
             items={[
-              { label: 'Năm thuế', value: String(taxYear) },
-              { label: 'Tình trạng', value: FILING_STATUS_LABELS[filingStatus] || filingStatus },
+              { label: t('intakeWizard.review.taxYear'), value: String(taxYear) },
+              { label: t('intakeWizard.review.filingStatus'), value: t(FILING_STATUS_KEYS[filingStatus] || filingStatus) },
             ]}
           />
 
           {/* Taxpayer Card */}
           <SummaryCard
-            title="Người khai thuế"
+            title={t('intakeWizard.review.taxpayer')}
             icon={User}
             items={[
-              { label: 'SSN', value: answers.taxpayerSSN ? maskSSN(answers.taxpayerSSN) : 'Chưa nhập' },
-              { label: 'Ngày sinh', value: answers.taxpayerDOB || 'Chưa nhập' },
-              { label: 'Nghề nghiệp', value: answers.taxpayerOccupation || 'Chưa nhập' },
+              { label: 'SSN', value: answers.taxpayerSSN ? maskSSN(answers.taxpayerSSN) : t('intakeWizard.review.notEntered') },
+              { label: t('intakeWizard.identity.dob'), value: answers.taxpayerDOB || t('intakeWizard.review.notEntered') },
+              { label: t('intakeWizard.identity.occupation'), value: answers.taxpayerOccupation || t('intakeWizard.review.notEntered') },
             ]}
           />
 
           {/* Spouse Card (conditional) */}
           {showSpouse && (
             <SummaryCard
-              title="Vợ/Chồng"
+              title={t('intakeWizard.review.spouse')}
               icon={Users}
               items={[
-                { label: 'SSN', value: answers.spouseSSN ? maskSSN(answers.spouseSSN) : 'Chưa nhập' },
-                { label: 'Ngày sinh', value: answers.spouseDOB || 'Chưa nhập' },
-                { label: 'Nghề nghiệp', value: answers.spouseOccupation || 'Chưa nhập' },
+                { label: 'SSN', value: answers.spouseSSN ? maskSSN(answers.spouseSSN) : t('intakeWizard.review.notEntered') },
+                { label: t('intakeWizard.identity.dob'), value: answers.spouseDOB || t('intakeWizard.review.notEntered') },
+                { label: t('intakeWizard.identity.occupation'), value: answers.spouseOccupation || t('intakeWizard.review.notEntered') },
               ]}
             />
           )}
@@ -227,7 +232,7 @@ export function WizardStep4Review({
           {/* Dependents Card (conditional) */}
           {hasDependents && (
             <SummaryCard
-              title={`Người phụ thuộc (${answers.dependentCount})`}
+              title={t('intakeWizard.review.dependentsTitle', { count: answers.dependentCount })}
               icon={Users}
               items={
                 answers.dependents?.map((dep, i) => ({
@@ -240,7 +245,7 @@ export function WizardStep4Review({
 
           {/* Income Card */}
           <SummaryCard
-            title="Thu nhập"
+            title={t('intakeWizard.review.income')}
             icon={Briefcase}
             items={
               selectedIncome.length > 0
@@ -249,14 +254,14 @@ export function WizardStep4Review({
                     value: item,
                     isTag: true,
                   }))
-                : [{ label: '', value: 'Không có thu nhập nào được chọn', isEmpty: true }]
+                : [{ label: '', value: t('intakeWizard.review.noIncomeSelected'), isEmpty: true }]
             }
             horizontal
           />
 
           {/* Deductions Card */}
           <SummaryCard
-            title="Khấu trừ"
+            title={t('intakeWizard.review.deductions')}
             icon={Receipt}
             items={
               selectedDeductions.length > 0
@@ -265,7 +270,7 @@ export function WizardStep4Review({
                     value: item,
                     isTag: true,
                   }))
-                : [{ label: '', value: 'Không có khấu trừ nào được chọn', isEmpty: true }]
+                : [{ label: '', value: t('intakeWizard.review.noDeductionsSelected'), isEmpty: true }]
             }
             horizontal
           />
@@ -275,12 +280,12 @@ export function WizardStep4Review({
       {/* Notes Section */}
       <section>
         <label className="block text-sm font-medium text-foreground mb-1.5">
-          Ghi chú thêm (tùy chọn)
+          {t('intakeWizard.review.followUpNotes')}
         </label>
         <textarea
           value={answers.followUpNotes || ''}
           onChange={(e) => onChange('followUpNotes', e.target.value.slice(0, MAX_NOTES_LENGTH))}
-          placeholder="Thông tin bổ sung hoặc câu hỏi cho CPA..."
+          placeholder={t('intakeWizard.review.followUpNotesPlaceholder')}
           rows={3}
           maxLength={MAX_NOTES_LENGTH}
           className={cn(
@@ -291,7 +296,7 @@ export function WizardStep4Review({
         />
         {(answers.followUpNotes?.length ?? 0) > MAX_NOTES_LENGTH * 0.9 && (
           <p className="text-xs text-muted-foreground mt-1">
-            {answers.followUpNotes?.length ?? 0}/{MAX_NOTES_LENGTH} ký tự
+            {t('intakeWizard.review.characterCount', { count: answers.followUpNotes?.length ?? 0, max: MAX_NOTES_LENGTH })}
           </p>
         )}
       </section>

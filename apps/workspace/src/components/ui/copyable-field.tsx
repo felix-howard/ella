@@ -5,6 +5,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { Copy, Check } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
@@ -35,6 +36,7 @@ export function CopyableField({
   disabled = false,
   className,
 }: CopyableFieldProps) {
+  const { t } = useTranslation()
   const [justCopied, setJustCopied] = useState(false)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -67,9 +69,9 @@ export function CopyableField({
       }, 2000)
     } catch (err) {
       console.error('Failed to copy to clipboard:', err)
-      toast.error('Không thể sao chép. Vui lòng thử lại.')
+      toast.error(t('common.copyFailedTryAgain'))
     }
-  }, [disabled, value, fieldKey, onCopy])
+  }, [disabled, value, fieldKey, onCopy, t])
 
   // Show check if just copied or marked as copied this session
   const showCheck = justCopied || isCopied
@@ -95,7 +97,7 @@ export function CopyableField({
         'text-sm font-semibold',
         value ? 'text-foreground' : 'text-muted-foreground/50 italic'
       )}>
-        {value || 'Trống'}
+        {value || t('common.empty')}
       </span>
 
       {/* Copy button - close to value */}
@@ -113,8 +115,8 @@ export function CopyableField({
               : 'text-muted-foreground hover:text-foreground',
             disabled && 'opacity-50 cursor-not-allowed'
           )}
-          aria-label={showCheck ? 'Đã sao chép' : 'Sao chép'}
-          title={showCheck ? 'Đã sao chép' : 'Nhấn để sao chép'}
+          aria-label={showCheck ? t('common.copySuccess') : t('common.copy')}
+          title={showCheck ? t('common.copySuccess') : t('digitalDoc.copyField', { field: label })}
         >
           {showCheck ? (
             <Check className="h-3.5 w-3.5" />

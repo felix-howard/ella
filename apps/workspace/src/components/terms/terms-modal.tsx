@@ -39,7 +39,6 @@ export function TermsModal({ staffName, onAccepted }: TermsModalProps) {
       const signedAt = new Date()
       const pdfDoc = (
         <TermsPDFDocument
-          language={language}
           signatureDataUrl={signatureDataUrl}
           staffName={staffName}
           signedAt={signedAt}
@@ -92,7 +91,7 @@ export function TermsModal({ staffName, onAccepted }: TermsModalProps) {
             className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-border rounded-md hover:bg-primary hover:text-primary-foreground transition-colors"
           >
             <Globe className="w-4 h-4" />
-            {language === 'EN' ? 'Tiếng Việt' : 'English'}
+            {language === 'EN' ? t('terms.switchToVietnamese') : t('terms.switchToEnglish')}
           </button>
         </div>
 

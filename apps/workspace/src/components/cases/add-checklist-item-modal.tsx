@@ -4,6 +4,7 @@
  */
 
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Modal,
   ModalHeader,
@@ -33,6 +34,7 @@ export function AddChecklistItemModal({
   existingDocTypes,
   isSubmitting = false,
 }: AddChecklistItemModalProps) {
+  const { t } = useTranslation()
   const [docType, setDocType] = useState<string>('')
   const [reason, setReason] = useState('')
   const [expectedCount, setExpectedCount] = useState(1)
@@ -68,9 +70,9 @@ export function AddChecklistItemModal({
     <Modal open={isOpen} onClose={handleClose}>
       <form onSubmit={handleSubmit}>
         <ModalHeader>
-          <ModalTitle>Thêm mục vào checklist</ModalTitle>
+          <ModalTitle>{t('addChecklistItem.title')}</ModalTitle>
           <ModalDescription>
-            Thêm tài liệu cần thu thập từ khách hàng
+            {t('addChecklistItem.description')}
           </ModalDescription>
         </ModalHeader>
 
@@ -78,7 +80,7 @@ export function AddChecklistItemModal({
           {/* Doc type select - custom dropdown */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Loại tài liệu <span className="text-error">*</span>
+              {t('addChecklistItem.docType')} <span className="text-error">*</span>
             </label>
             <div className="relative">
               <button
@@ -93,7 +95,7 @@ export function AddChecklistItemModal({
                 )}
               >
                 <span className={docType ? 'text-foreground' : 'text-muted-foreground'}>
-                  {docType ? DOC_TYPE_LABELS[docType] || docType : 'Chọn loại tài liệu'}
+                  {docType ? DOC_TYPE_LABELS[docType] || docType : t('addChecklistItem.selectDocType')}
                 </span>
                 <ChevronDown
                   className={cn(
@@ -127,7 +129,7 @@ export function AddChecklistItemModal({
             </div>
             {availableDocTypes.length === 0 && (
               <p className="text-xs text-muted-foreground mt-1">
-                Tất cả loại tài liệu đã có trong checklist
+                {t('addChecklistItem.allTypesExist')}
               </p>
             )}
           </div>
@@ -135,7 +137,7 @@ export function AddChecklistItemModal({
           {/* Expected count */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Số lượng cần thu
+              {t('addChecklistItem.expectedCount')}
             </label>
             <Input
               type="number"
@@ -145,24 +147,24 @@ export function AddChecklistItemModal({
               onChange={(e) => setExpectedCount(parseInt(e.target.value) || 1)}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Dùng cho tài liệu cần nhiều bản (VD: 12 bank statements)
+              {t('addChecklistItem.expectedCountHelp')}
             </p>
           </div>
 
           {/* Reason */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Lý do thêm
+              {t('addChecklistItem.reason')}
             </label>
             <textarea
               className="flex w-full rounded-md border border-border bg-card px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 resize-none"
               rows={2}
-              placeholder="VD: Khách hàng có nhắc đến thu nhập freelance"
+              placeholder={t('addChecklistItem.reasonPlaceholder')}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Ghi chú lý do để dễ theo dõi sau này
+              {t('addChecklistItem.reasonHelp')}
             </p>
           </div>
         </ModalBody>
@@ -174,13 +176,13 @@ export function AddChecklistItemModal({
             onClick={handleClose}
             disabled={isSubmitting}
           >
-            Hủy
+            {t('common.cancel')}
           </Button>
           <Button
             type="submit"
             disabled={!docType || isSubmitting || availableDocTypes.length === 0}
           >
-            {isSubmitting ? 'Đang thêm...' : 'Thêm'}
+            {isSubmitting ? t('addChecklistItem.adding') : t('common.add')}
           </Button>
         </ModalFooter>
       </form>

@@ -201,7 +201,10 @@ export function UploadsTab({
             key={f}
             onClick={() => setFilter(f)}
             aria-pressed={filter === f}
-            aria-label={`${FILTER_LABELS[f]}: ${filterCounts[f]} ảnh`}
+            aria-label={t('uploads.filterCountAria', {
+              label: FILTER_LABELS[f],
+              count: filterCounts[f],
+            })}
             className={cn(
               'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors',
               filter === f

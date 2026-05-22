@@ -161,7 +161,7 @@ ${clientNouns}
 export function generateNoStaffTwiml(_voicemailOptions?: TwimlVoicemailOptions): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="Google.vi-VN-Wavenet-A" language="vi-VN">Xin chào, hiện không có nhân viên trực. Xin vui lòng gọi lại sau. Cảm ơn bạn.</Say>
+  <Say voice="Polly.Joanna" language="en-US">Hello, no staff members are currently available. Please call back later. Thank you.</Say>
   <Hangup />
 </Response>`
 }
@@ -173,7 +173,7 @@ export function generateNoStaffTwiml(_voicemailOptions?: TwimlVoicemailOptions):
 export function generateVoicemailTwiml(_options?: TwimlVoicemailOptions): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="Google.vi-VN-Wavenet-A" language="vi-VN">Nhân viên của chúng tôi hiện không thể nhận cuộc gọi. Xin vui lòng gọi lại sau. Cảm ơn bạn.</Say>
+  <Say voice="Polly.Joanna" language="en-US">Our staff cannot take your call right now. Please call back later. Thank you.</Say>
   <Hangup />
 </Response>`
 }
@@ -185,7 +185,7 @@ export function generateVoicemailTwiml(_options?: TwimlVoicemailOptions): string
 export function generateVoicemailCompleteTwiml(): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="Google.vi-VN-Wavenet-A" language="vi-VN">Cảm ơn bạn đã để lại tin nhắn. Chúng tôi sẽ liên hệ lại sớm nhất. Tạm biệt.</Say>
+  <Say voice="Polly.Joanna" language="en-US">Thank you for leaving a message. We will contact you as soon as possible. Goodbye.</Say>
   <Hangup />
 </Response>`
 }

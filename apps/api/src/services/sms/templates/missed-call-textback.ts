@@ -18,7 +18,7 @@ const TEMPLATES = {
 export function generateMissedCallTextbackMessage(
   params: MissedCallTextbackParams
 ): string {
-  const template = TEMPLATES[params.language] || TEMPLATES.VI
+  const template = TEMPLATES[params.language] || TEMPLATES.EN
   return template()
 }
 

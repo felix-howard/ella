@@ -4,6 +4,7 @@
  * Prevents entire app from crashing on component errors
  */
 import { Component, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { Button } from '@ella/ui'
 
@@ -53,37 +54,27 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
 // Default error fallback UI
 function ErrorFallback({ onReset }: { onReset: () => void }) {
+  const { t } = useTranslation()
+
   return (
-    <div
-      className="flex-1 flex items-center justify-center p-6"
-      role="alert"
-      aria-live="assertive"
-    >
+    <div className="flex-1 flex items-center justify-center p-6" role="alert" aria-live="assertive">
       <div className="text-center max-w-sm">
         <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mx-auto mb-4">
           <AlertTriangle className="w-8 h-8 text-error" aria-hidden="true" />
         </div>
 
-        <h2 className="text-xl font-semibold text-foreground mb-2">
-          Đã xảy ra lỗi
-        </h2>
+        <h2 className="text-xl font-semibold text-foreground mb-2">{t('error.boundary.title')}</h2>
 
-        <p className="text-muted-foreground mb-6">
-          Có lỗi xảy ra. Vui lòng thử lại hoặc tải lại trang.
-        </p>
+        <p className="text-muted-foreground mb-6">{t('error.boundary.message')}</p>
 
         <div className="space-y-3">
           <Button onClick={onReset} className="w-full gap-2">
             <RefreshCw className="w-4 h-4" aria-hidden="true" />
-            Thử lại
+            {t('error.boundary.retry')}
           </Button>
 
-          <Button
-            variant="ghost"
-            onClick={() => window.location.reload()}
-            className="w-full"
-          >
-            Tải lại trang
+          <Button variant="ghost" onClick={() => window.location.reload()} className="w-full">
+            {t('error.boundary.reload')}
           </Button>
         </div>
       </div>

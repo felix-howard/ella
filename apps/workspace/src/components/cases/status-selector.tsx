@@ -125,7 +125,7 @@ export function StatusSelector({
                   />
                   <span>{CASE_STATUS_LABELS[status]}</span>
                   {isSelected && (
-                    <span className="ml-auto text-xs text-muted-foreground">(Hiện tại)</span>
+                    <span className="ml-auto text-xs text-muted-foreground">{t('common.current')}</span>
                   )}
                 </button>
               )

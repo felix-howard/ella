@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { UserCheck, Copy, Eye, Loader2 } from 'lucide-react'
 import { Modal, ModalHeader, ModalTitle, ModalDescription, Button } from '@ella/ui'
 import { api, type EngagementCopyPreview } from '../../lib/api-client'
@@ -20,11 +21,11 @@ interface ReturningClientSectionProps {
 }
 
 // Status display config
-const STATUS_LABELS: Record<string, string> = {
-  DRAFT: 'Nháp',
-  ACTIVE: 'Đang xử lý',
-  COMPLETE: 'Hoàn thành',
-  ARCHIVED: 'Lưu trữ',
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  DRAFT: 'engagementStatus.draft',
+  ACTIVE: 'engagementStatus.active',
+  COMPLETE: 'engagementStatus.complete',
+  ARCHIVED: 'engagementStatus.archived',
 }
 
 export function ReturningClientSection({
@@ -32,6 +33,7 @@ export function ReturningClientSection({
   selectedTaxYear,
   onCopyFromPrevious,
 }: ReturningClientSectionProps) {
+  const { t } = useTranslation()
   const [copyFromPrevious, setCopyFromPrevious] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null)
@@ -53,7 +55,7 @@ export function ReturningClientSection({
       <div className="p-4 bg-primary-light rounded-lg border border-primary/30">
         <div className="flex items-center gap-2 text-primary">
           <Loader2 className="w-4 h-4 animate-spin" />
-          <span className="text-sm">Đang kiểm tra lịch sử...</span>
+          <span className="text-sm">{t('returningClient.checkingHistory')}</span>
         </div>
       </div>
     )
@@ -65,11 +67,10 @@ export function ReturningClientSection({
       <div className="p-4 bg-warning-light rounded-lg border border-warning/30">
         <div className="flex items-center gap-2 text-warning-dark">
           <UserCheck className="w-5 h-5" />
-          <span className="font-medium">Khách hàng đã có hồ sơ năm {selectedTaxYear}</span>
+          <span className="font-medium">{t('returningClient.existingYearTitle', { year: selectedTaxYear })}</span>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
-          {client.name} đã có engagement cho năm thuế {selectedTaxYear}.
-          Vui lòng chọn năm khác hoặc mở hồ sơ hiện có.
+          {t('returningClient.existingYearDescription', { name: client.name, year: selectedTaxYear })}
         </p>
       </div>
     )
@@ -90,20 +91,20 @@ export function ReturningClientSection({
     <div className="p-4 bg-primary-light rounded-lg border border-primary/30">
       <div className="flex items-center gap-2 text-primary mb-3">
         <UserCheck className="w-5 h-5" />
-        <span className="font-medium">Khách hàng cũ</span>
+        <span className="font-medium">{t('returningClient.title')}</span>
       </div>
 
       <p className="text-sm text-muted-foreground mb-4">
-        <strong>{client.name}</strong> đã sử dụng dịch vụ trước đó.
+        <strong>{client.name}</strong> {t('returningClient.previousClientDescription')}
         {engagements.length > 0 && (
-          <span> Có {engagements.length} năm thuế trong hệ thống.</span>
+          <span> {t('returningClient.taxYearsInSystem', { count: engagements.length })}</span>
         )}
       </p>
 
       {/* Previous engagements list */}
       {engagements.length > 0 && (
         <div className="mb-4">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Lịch sử khai thuế:</p>
+          <p className="text-xs font-medium text-muted-foreground mb-2">{t('returningClient.taxHistory')}</p>
           <div className="space-y-1">
             {engagements.slice(0, 3).map((eng) => (
               <div
@@ -112,13 +113,13 @@ export function ReturningClientSection({
               >
                 <span className="font-medium">{eng.taxYear}</span>
                 <span className="text-muted-foreground">
-                  {eng.filingStatus || 'Chưa có thông tin'} • {STATUS_LABELS[eng.status] || eng.status}
+                  {eng.filingStatus || t('returningClient.noFilingInfo')} • {STATUS_LABEL_KEYS[eng.status] ? t(STATUS_LABEL_KEYS[eng.status]) : eng.status}
                 </span>
               </div>
             ))}
             {engagements.length > 3 && (
               <p className="text-xs text-muted-foreground text-center py-1">
-                +{engagements.length - 3} năm khác
+                {t('returningClient.moreYears', { count: engagements.length - 3 })}
               </p>
             )}
           </div>
@@ -138,10 +139,10 @@ export function ReturningClientSection({
             <div className="flex-1">
               <span className="text-sm font-medium text-foreground flex items-center gap-2">
                 <Copy className="w-4 h-4" />
-                Sao chép thông tin từ năm {latestEngagement.taxYear}
+                {t('returningClient.copyFromYear', { year: latestEngagement.taxYear })}
               </span>
               <p className="text-xs text-muted-foreground mt-1">
-                Tự động điền thông tin thu nhập, khấu trừ từ năm trước
+                {t('returningClient.copyDescription')}
               </p>
             </div>
           </label>
@@ -153,7 +154,7 @@ export function ReturningClientSection({
               className="mt-3 flex items-center gap-1.5 text-sm text-primary hover:underline"
             >
               <Eye className="w-4 h-4" />
-              Xem trước thông tin sẽ được sao chép
+              {t('returningClient.previewCopy')}
             </button>
           )}
         </div>
@@ -177,6 +178,7 @@ interface CopyPreviewModalProps {
 }
 
 function CopyPreviewModal({ engagementId, onClose }: CopyPreviewModalProps) {
+  const { t } = useTranslation()
   const { data, isLoading } = useQuery({
     queryKey: ['engagement-copy-preview', engagementId],
     queryFn: () => api.engagements.copyPreview(engagementId),
@@ -187,9 +189,9 @@ function CopyPreviewModal({ engagementId, onClose }: CopyPreviewModalProps) {
   return (
     <Modal open onClose={onClose}>
       <ModalHeader>
-        <ModalTitle>Xem trước thông tin sao chép</ModalTitle>
+        <ModalTitle>{t('returningClient.previewTitle')}</ModalTitle>
         <ModalDescription>
-          Các thông tin sau sẽ được sao chép sang năm thuế mới
+          {t('returningClient.previewDescription')}
         </ModalDescription>
       </ModalHeader>
 
@@ -202,14 +204,14 @@ function CopyPreviewModal({ engagementId, onClose }: CopyPreviewModalProps) {
           <PreviewContent preview={preview} />
         ) : (
           <p className="text-sm text-muted-foreground text-center py-4">
-            Không có dữ liệu để hiển thị
+            {t('common.noData')}
           </p>
         )}
       </div>
 
       <div className="p-4 border-t border-border">
         <Button onClick={onClose} className="w-full">
-          Đóng
+          {t('common.close')}
         </Button>
       </div>
     </Modal>
@@ -217,20 +219,21 @@ function CopyPreviewModal({ engagementId, onClose }: CopyPreviewModalProps) {
 }
 
 function PreviewContent({ preview }: { preview: EngagementCopyPreview }) {
+  const { t } = useTranslation()
   const fields = [
-    { key: 'filingStatus', label: 'Tình trạng hôn nhân', value: preview.filingStatus },
-    { key: 'hasW2', label: 'Có W2', value: preview.hasW2 ? 'Có' : 'Không' },
-    { key: 'hasSelfEmployment', label: 'Tự kinh doanh', value: preview.hasSelfEmployment ? 'Có' : 'Không' },
-    { key: 'hasRentalProperty', label: 'Bất động sản cho thuê', value: preview.hasRentalProperty ? 'Có' : 'Không' },
-    { key: 'hasInvestments', label: 'Có đầu tư', value: preview.hasInvestments ? 'Có' : 'Không' },
-    { key: 'hasKidsUnder17', label: 'Con dưới 17', value: preview.hasKidsUnder17 ? 'Có' : 'Không' },
-    { key: 'numKidsUnder17', label: 'Số con dưới 17', value: preview.numKidsUnder17?.toString() ?? '0' },
-  ].filter((f) => f.value !== null && f.value !== undefined && f.value !== '0' && f.value !== 'Không')
+    { key: 'filingStatus', label: t('returningClient.preview.filingStatus'), value: preview.filingStatus },
+    { key: 'hasW2', label: t('returningClient.preview.hasW2'), value: preview.hasW2 ? t('common.yes') : t('common.no') },
+    { key: 'hasSelfEmployment', label: t('returningClient.preview.hasSelfEmployment'), value: preview.hasSelfEmployment ? t('common.yes') : t('common.no') },
+    { key: 'hasRentalProperty', label: t('returningClient.preview.hasRentalProperty'), value: preview.hasRentalProperty ? t('common.yes') : t('common.no') },
+    { key: 'hasInvestments', label: t('returningClient.preview.hasInvestments'), value: preview.hasInvestments ? t('common.yes') : t('common.no') },
+    { key: 'hasKidsUnder17', label: t('returningClient.preview.hasKidsUnder17'), value: preview.hasKidsUnder17 ? t('common.yes') : t('common.no') },
+    { key: 'numKidsUnder17', label: t('returningClient.preview.numKidsUnder17'), value: preview.numKidsUnder17?.toString() ?? '0' },
+  ].filter((f) => f.value !== null && f.value !== undefined && f.value !== '0' && f.value !== t('common.no'))
 
   if (fields.length === 0) {
     return (
       <p className="text-sm text-muted-foreground text-center py-4">
-        Không có thông tin để sao chép
+        {t('returningClient.noCopyInfo')}
       </p>
     )
   }

@@ -1,7 +1,7 @@
 /**
  * ReUploadRequestModal - Modal for requesting client to re-upload documents
  * Allows CPA to select reason, unreadable fields, customize message
- * Features: auto-generated Vietnamese SMS, SMS/note toggle
+ * Features: auto-generated SMS, SMS/note toggle
  */
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
@@ -79,7 +79,7 @@ export function ReUploadRequestModal({
   const generatedMessage = useMemo(() => {
     const docTypeLabel = image.classifiedType
       ? DOC_TYPE_LABELS[image.classifiedType] || image.classifiedType
-      : 'tài liệu'
+      : t('reupload.document')
 
     // Get reason text
     const reasonObj = REUPLOAD_REASONS.find((r) => r.id === reason)
@@ -91,7 +91,7 @@ export function ReUploadRequestModal({
     const fieldLabels = selectedFields.map((f) => getFieldLabel(f))
     const fieldList = fieldLabels.length > 0
       ? fieldLabels.join(', ')
-      : 'các trường cần thiết'
+      : t('reupload.requiredFields')
 
     return t('reupload.messageTemplate', {
       docType: docTypeLabel,

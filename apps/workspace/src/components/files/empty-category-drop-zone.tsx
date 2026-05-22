@@ -4,6 +4,7 @@
  */
 
 import { useState, type DragEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { DOC_CATEGORIES, type DocCategoryKey } from '../../lib/doc-categories'
 
@@ -20,6 +21,7 @@ export function EmptyCategoryDropZone({
   categoryKey,
   onFileDrop,
 }: EmptyCategoryDropZoneProps) {
+  const { t } = useTranslation()
   const [isDragOver, setIsDragOver] = useState(false)
   const config = DOC_CATEGORIES[categoryKey]
   const Icon = config.icon
@@ -71,7 +73,7 @@ export function EmptyCategoryDropZone({
         </span>
         {isDragOver && (
           <span className="ml-auto text-xs text-primary font-medium">
-            Thả vào đây
+            {t('files.dropHere')}
           </span>
         )}
       </div>

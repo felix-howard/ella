@@ -3,6 +3,7 @@
  * Simplified HTTP client for magic link portal access
  * Public endpoints only - no auth required
  */
+import i18n from './i18n'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002'
 
@@ -17,42 +18,68 @@ export class ApiError extends Error {
   }
 }
 
-// Error messages for different status codes
-const ERROR_MESSAGES: Record<number, { code: string; vi: string; en: string }> = {
+const ERROR_CODES: Record<number, { code: string; key: string }> = {
   429: {
     code: 'RATE_LIMITED',
-    vi: 'Quá nhiều yêu cầu. Vui lòng đợi một chút.',
-    en: 'Too many requests. Please wait.',
+    key: 'api.error.rateLimited',
   },
   500: {
     code: 'SERVER_ERROR',
-    vi: 'Lỗi máy chủ. Vui lòng thử lại.',
-    en: 'Server error. Please try again.',
+    key: 'api.error.serverError',
   },
   503: {
     code: 'UNAVAILABLE',
-    vi: 'Dịch vụ tạm thời không khả dụng.',
-    en: 'Service temporarily unavailable.',
+    key: 'api.error.unavailable',
   },
 }
 
-function getPortalLanguage(): 'vi' | 'en' {
-  if (typeof localStorage !== 'undefined') {
-    const saved = localStorage.getItem('ella-language')
-    if (saved?.startsWith('en')) return 'en'
-    if (saved?.startsWith('vi')) return 'vi'
-  }
-
-  if (typeof navigator !== 'undefined' && navigator.language.startsWith('en')) {
-    return 'en'
-  }
-
-  return 'vi'
+const API_ERROR_KEYS: Record<string, string> = {
+  INVALID_TOKEN: 'api.error.invalidToken',
+  INVALID_TOKEN_TYPE: 'api.error.invalidTokenType',
+  LINK_DEACTIVATED: 'api.error.linkDeactivated',
+  EXPIRED_TOKEN: 'api.error.expiredToken',
+  FORM_LOCKED: 'api.error.formLocked',
+  VALIDATION_ERROR: 'api.error.validation',
+  INVALID_TARGET_CASE: 'api.error.invalidTargetCase',
+  TARGET_CASE_REQUIRED: 'api.error.targetCaseRequired',
+  NO_FILES: 'api.error.noFiles',
+  TOO_MANY_FILES: 'api.error.tooManyFiles',
+  EMPTY_FILE: 'api.error.emptyFile',
+  FILE_TOO_LARGE: 'api.error.fileTooLarge',
+  INVALID_TYPE: 'api.error.invalidFileType',
+  INVALID_FILE_CONTENT: 'api.error.invalidFileContent',
+  UPLOAD_ERROR: 'api.error.uploadError',
+  NETWORK_ERROR: 'api.error.networkError',
+  UNKNOWN_ERROR: 'api.error.unknown',
 }
 
-function getErrorMessage(status: number): string | null {
-  const errInfo = ERROR_MESSAGES[status]
-  return errInfo ? errInfo[getPortalLanguage()] : null
+function getTranslatedError(key: string): string {
+  return i18n.t(key)
+}
+
+function getStatusErrorMessage(status: number): string | null {
+  const errInfo = ERROR_CODES[status]
+  return errInfo ? getTranslatedError(errInfo.key) : null
+}
+
+export function getApiErrorMessage(
+  code: string | undefined,
+  status: number,
+  fallbackKey = 'api.error.unknown'
+): string {
+  const key = code ? API_ERROR_KEYS[code] : undefined
+  return key
+    ? getTranslatedError(key)
+    : getStatusErrorMessage(status) || getTranslatedError(fallbackKey)
+}
+
+function getErrorCode(data: unknown, fallbackCode: string): string {
+  if (data && typeof data === 'object' && 'error' in data) {
+    const error = (data as { error?: unknown }).error
+    if (typeof error === 'string' && error) return error
+  }
+
+  return fallbackCode
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -69,33 +96,30 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
     // Handle rate limiting specifically
     if (response.status === 429) {
-      const errInfo = ERROR_MESSAGES[429]
-      throw new ApiError(429, errInfo.code, getErrorMessage(429) || errInfo.vi)
+      const errInfo = ERROR_CODES[429]
+      throw new ApiError(429, errInfo.code, getApiErrorMessage(errInfo.code, 429))
     }
 
     const data = await response.json()
 
     if (!response.ok) {
       // Check for known error status codes
-      const errInfo = ERROR_MESSAGES[response.status]
+      const errInfo = ERROR_CODES[response.status]
       if (errInfo) {
         throw new ApiError(
           response.status,
           errInfo.code,
-          getErrorMessage(response.status) || errInfo.vi
+          getApiErrorMessage(errInfo.code, response.status)
         )
       }
-      throw new ApiError(
-        response.status,
-        data.error || 'UNKNOWN_ERROR',
-        data.message || 'Đã có lỗi xảy ra'
-      )
+      const code = getErrorCode(data, 'UNKNOWN_ERROR')
+      throw new ApiError(response.status, code, getApiErrorMessage(code, response.status))
     }
 
     return data as T
   } catch (error) {
     if (error instanceof ApiError) throw error
-    throw new ApiError(0, 'NETWORK_ERROR', 'Không thể kết nối. Vui lòng thử lại.')
+    throw new ApiError(0, 'NETWORK_ERROR', getApiErrorMessage('NETWORK_ERROR', 0))
   }
 }
 
@@ -297,27 +321,32 @@ export const portalApi = {
             reject(new ApiError(xhr.status, 'PARSE_ERROR', 'Invalid response'))
           }
         } else if (xhr.status === 429) {
-          const errInfo = ERROR_MESSAGES[429]
-          reject(new ApiError(429, errInfo.code, getErrorMessage(429) || errInfo.vi))
+          const errInfo = ERROR_CODES[429]
+          reject(new ApiError(429, errInfo.code, getApiErrorMessage(errInfo.code, 429)))
         } else {
-          const errInfo = ERROR_MESSAGES[xhr.status]
+          const errInfo = ERROR_CODES[xhr.status]
           if (errInfo) {
             reject(
-              new ApiError(xhr.status, errInfo.code, getErrorMessage(xhr.status) || errInfo.vi)
+              new ApiError(xhr.status, errInfo.code, getApiErrorMessage(errInfo.code, xhr.status))
             )
           } else {
             try {
               const data = JSON.parse(xhr.responseText)
+              const code = getErrorCode(data, 'UPLOAD_ERROR')
               reject(
                 new ApiError(
                   xhr.status,
-                  data.error || 'UPLOAD_ERROR',
-                  data.message || 'Không thể tải lên. Vui lòng thử lại.'
+                  code,
+                  getApiErrorMessage(code, xhr.status, 'api.error.uploadError')
                 )
               )
             } catch {
               reject(
-                new ApiError(xhr.status, 'UPLOAD_ERROR', 'Không thể tải lên. Vui lòng thử lại.')
+                new ApiError(
+                  xhr.status,
+                  'UPLOAD_ERROR',
+                  getTranslatedError('api.error.uploadError')
+                )
               )
             }
           }
@@ -325,7 +354,7 @@ export const portalApi = {
       }
 
       xhr.onerror = () => {
-        reject(new ApiError(0, 'NETWORK_ERROR', 'Không thể kết nối. Vui lòng thử lại.'))
+        reject(new ApiError(0, 'NETWORK_ERROR', getTranslatedError('api.error.networkError')))
       }
 
       xhr.open('POST', `${API_BASE_URL}/portal/${token}/upload`)
@@ -346,26 +375,27 @@ export const portalApi = {
 
     // Handle rate limiting for uploads
     if (response.status === 429) {
-      const errInfo = ERROR_MESSAGES[429]
-      throw new ApiError(429, errInfo.code, getErrorMessage(429) || errInfo.vi)
+      const errInfo = ERROR_CODES[429]
+      throw new ApiError(429, errInfo.code, getApiErrorMessage(errInfo.code, 429))
     }
 
     const data = await response.json()
 
     if (!response.ok) {
       // Check for known error status codes
-      const errInfo = ERROR_MESSAGES[response.status]
+      const errInfo = ERROR_CODES[response.status]
       if (errInfo) {
         throw new ApiError(
           response.status,
           errInfo.code,
-          getErrorMessage(response.status) || errInfo.vi
+          getApiErrorMessage(errInfo.code, response.status)
         )
       }
+      const code = getErrorCode(data, 'UPLOAD_ERROR')
       throw new ApiError(
         response.status,
-        data.error || 'UPLOAD_ERROR',
-        data.message || 'Không thể tải lên. Vui lòng thử lại.'
+        code,
+        getApiErrorMessage(code, response.status, 'api.error.uploadError')
       )
     }
 

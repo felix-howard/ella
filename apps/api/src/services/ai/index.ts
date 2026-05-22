@@ -115,8 +115,9 @@ export {
   type DuplicateDetectionResult,
 } from './duplicate-detector'
 
-// AI Error Messages - Vietnamese localization
+// AI Error Messages
 export {
+  getAIError,
   getVietnameseError,
   getActionTitle,
   getActionPriority,

@@ -3,6 +3,7 @@
  * Copies raw number (no $ sign) for easy paste into tax software
  */
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Copy, Check } from 'lucide-react'
 import { cn } from '@ella/ui'
 
@@ -15,6 +16,7 @@ interface CopyableValueProps {
 }
 
 export function CopyableValue({ formatted, rawValue, className }: CopyableValueProps) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
 
   const handleCopy = useCallback(async () => {
@@ -50,7 +52,7 @@ export function CopyableValue({ formatted, rawValue, className }: CopyableValueP
         type="button"
         onClick={handleCopy}
         className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted-foreground/10"
-        title="Copy giá trị"
+        title={t('common.copyValue')}
         aria-label={`Copy ${formatted}`}
       >
         {copied ? (

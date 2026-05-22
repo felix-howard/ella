@@ -4,21 +4,22 @@
  */
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { X, Plus, Trash2 } from 'lucide-react'
 import { Button, Input } from '@ella/ui'
 import { api, type DocTypeLibraryItem, type CreateDocTypeLibraryInput } from '../../lib/api-client'
 
 const CATEGORY_OPTIONS = [
-  { value: 'personal', label: 'Cá nhân' },
-  { value: 'income', label: 'Thu nhập' },
-  { value: 'health', label: 'Sức khỏe' },
-  { value: 'education', label: 'Giáo dục' },
-  { value: 'deductions', label: 'Khấu trừ' },
-  { value: 'business', label: 'Kinh doanh' },
-  { value: 'prior_year', label: 'Năm trước' },
-  { value: 'crypto', label: 'Crypto' },
-  { value: 'foreign', label: 'Nước ngoài' },
-  { value: 'other', label: 'Khác' },
+  { value: 'personal', labelKey: 'settingsDocLibrary.category.personal' },
+  { value: 'income', labelKey: 'settingsDocLibrary.category.income' },
+  { value: 'health', labelKey: 'settingsDocLibrary.category.health' },
+  { value: 'education', labelKey: 'settingsDocLibrary.category.education' },
+  { value: 'deductions', labelKey: 'settingsDocLibrary.category.deductions' },
+  { value: 'business', labelKey: 'settingsDocLibrary.category.business' },
+  { value: 'prior_year', labelKey: 'settingsDocLibrary.category.priorYear' },
+  { value: 'crypto', labelKey: 'settingsDocLibrary.category.crypto' },
+  { value: 'foreign', labelKey: 'settingsDocLibrary.category.foreign' },
+  { value: 'other', labelKey: 'settingsDocLibrary.category.other' },
 ]
 
 interface DocTypeModalProps {
@@ -28,6 +29,7 @@ interface DocTypeModalProps {
 }
 
 export function DocTypeModal({ isOpen, onClose, docType }: DocTypeModalProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const isEditing = !!docType
 
@@ -138,7 +140,7 @@ export function DocTypeModal({ isOpen, onClose, docType }: DocTypeModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold text-foreground">
-            {isEditing ? 'Chỉnh sửa loại tài liệu' : 'Thêm loại tài liệu'}
+            {isEditing ? t('settingsDocLibrary.modal.editTitle') : t('settingsDocLibrary.modal.addTitle')}
           </h2>
           <button onClick={onClose} className="p-1 rounded hover:bg-muted transition-colors">
             <X className="w-5 h-5 text-muted-foreground" />
@@ -149,11 +151,11 @@ export function DocTypeModal({ isOpen, onClose, docType }: DocTypeModalProps) {
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {/* Code */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Mã (code)</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsDocLibrary.code')}</label>
             <Input
               value={formData.code}
               onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-              placeholder="VD: W2, FORM_1099_INT"
+              placeholder={t('settingsDocLibrary.codePlaceholder')}
               disabled={isEditing}
               required
             />
@@ -161,47 +163,47 @@ export function DocTypeModal({ isOpen, onClose, docType }: DocTypeModalProps) {
 
           {/* Label Vi */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Tên tiếng Việt</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsDocLibrary.labelVi')}</label>
             <Input
               value={formData.labelVi}
               onChange={(e) => setFormData({ ...formData, labelVi: e.target.value })}
-              placeholder="VD: Phiếu lương W2"
+              placeholder={t('settingsDocLibrary.labelViPlaceholder')}
               required
             />
           </div>
 
           {/* Label En */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Tên tiếng Anh</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsDocLibrary.labelEn')}</label>
             <Input
               value={formData.labelEn}
               onChange={(e) => setFormData({ ...formData, labelEn: e.target.value })}
-              placeholder="VD: W2 Wage Statement"
+              placeholder={t('settingsDocLibrary.labelEnPlaceholder')}
             />
           </div>
 
           {/* Category */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Danh mục</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsDocLibrary.category')}</label>
             <select
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground"
             >
               {CATEGORY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
               ))}
             </select>
           </div>
 
           {/* Aliases */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Tên thay thế (aliases)</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsDocLibrary.aliases')}</label>
             <div className="flex gap-2">
               <Input
                 value={newAlias}
                 onChange={(e) => setNewAlias(e.target.value)}
-                placeholder="VD: w-2, wage form"
+                placeholder={t('settingsDocLibrary.aliasPlaceholder')}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
@@ -232,12 +234,12 @@ export function DocTypeModal({ isOpen, onClose, docType }: DocTypeModalProps) {
 
           {/* Keywords */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Từ khóa (keywords)</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsDocLibrary.keywords')}</label>
             <div className="flex gap-2">
               <Input
                 value={newKeyword}
                 onChange={(e) => setNewKeyword(e.target.value)}
-                placeholder="VD: wages, income, employer"
+                placeholder={t('settingsDocLibrary.keywordPlaceholder')}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
@@ -268,7 +270,7 @@ export function DocTypeModal({ isOpen, onClose, docType }: DocTypeModalProps) {
 
           {/* Sort Order */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Thứ tự sắp xếp</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsDocLibrary.sortOrder')}</label>
             <Input
               type="number"
               value={formData.sortOrder}
@@ -286,17 +288,17 @@ export function DocTypeModal({ isOpen, onClose, docType }: DocTypeModalProps) {
               className="w-4 h-4 rounded border-border"
             />
             <label htmlFor="isActive" className="text-sm font-medium text-foreground">
-              Kích hoạt
+              {t('settingsDocLibrary.active')}
             </label>
           </div>
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-4 border-t border-border">
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
-              Hủy
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending ? 'Đang lưu...' : isEditing ? 'Cập nhật' : 'Thêm mới'}
+              {isPending ? t('common.saving') : isEditing ? t('common.update') : t('common.add')}
             </Button>
           </div>
         </form>

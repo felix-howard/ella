@@ -5,27 +5,27 @@
 
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { HelpCircle, Loader2 } from 'lucide-react'
 import { api, type TaxType, type IntakeQuestion } from '../../lib/api-client'
 import { CustomSelect } from '../ui/custom-select'
 
-// Section labels for Vietnamese display
-const SECTION_LABELS: Record<string, string> = {
-  tax_info: 'Thông tin thuế',
-  identity: 'Nhận dạng',
-  income: 'Thu nhập',
-  dependents: 'Người phụ thuộc',
-  health: 'Bảo hiểm sức khỏe',
-  deductions: 'Khấu trừ',
-  credits: 'Tín dụng thuế',
-  business: 'Kinh doanh',
-  foreign: 'Nước ngoài',
-  entity_info: 'Thông tin doanh nghiệp',
-  ownership: 'Sở hữu',
-  expenses: 'Chi phí',
-  assets: 'Tài sản',
-  state: 'Tiểu bang',
+const SECTION_LABEL_KEYS: Record<string, string> = {
+  tax_info: 'section.taxInfo',
+  identity: 'section.identity',
+  income: 'section.income',
+  dependents: 'section.dependents',
+  health: 'section.health',
+  deductions: 'section.deductions',
+  credits: 'section.credits',
+  business: 'section.business',
+  foreign: 'section.foreign',
+  entity_info: 'section.entityInfo',
+  ownership: 'section.ownership',
+  expenses: 'section.expenses',
+  assets: 'section.assets',
+  state: 'section.state',
 }
 
 interface DynamicIntakeFormProps {
@@ -36,6 +36,7 @@ interface DynamicIntakeFormProps {
 }
 
 export function DynamicIntakeForm({ taxTypes, answers, onChange, errors }: DynamicIntakeFormProps) {
+  const { t, i18n } = useTranslation()
   // Fetch questions based on selected tax types
   const { data, isLoading, isError } = useQuery({
     queryKey: ['intake-questions', taxTypes],
@@ -81,7 +82,7 @@ export function DynamicIntakeForm({ taxTypes, answers, onChange, errors }: Dynam
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 text-primary animate-spin" />
-        <span className="ml-2 text-muted-foreground">Đang tải câu hỏi...</span>
+        <span className="ml-2 text-muted-foreground">{t('clientIntake.loadingQuestions')}</span>
       </div>
     )
   }
@@ -89,7 +90,7 @@ export function DynamicIntakeForm({ taxTypes, answers, onChange, errors }: Dynam
   if (isError || questions.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        Không có câu hỏi nào cho loại tờ khai đã chọn
+        {t('clientIntake.noQuestionsForTaxType')}
       </div>
     )
   }
@@ -102,7 +103,10 @@ export function DynamicIntakeForm({ taxTypes, answers, onChange, errors }: Dynam
         if (visibleQuestions.length === 0) return null
 
         return (
-          <FormSection key={section} title={SECTION_LABELS[section] || section}>
+          <FormSection
+            key={section}
+            title={SECTION_LABEL_KEYS[section] ? t(SECTION_LABEL_KEYS[section]) : section}
+          >
             <div className="space-y-3">
               {visibleQuestions.map((question) => (
                 <DynamicQuestion
@@ -111,6 +115,7 @@ export function DynamicIntakeForm({ taxTypes, answers, onChange, errors }: Dynam
                   value={answers[question.questionKey]}
                   onChange={(value) => onChange(question.questionKey, value)}
                   error={errors?.[question.questionKey]}
+                  language={i18n.language}
                 />
               ))}
             </div>
@@ -127,28 +132,32 @@ interface DynamicQuestionProps {
   value: unknown
   onChange: (value: unknown) => void
   error?: string
+  language: string
 }
 
-function DynamicQuestion({ question, value, onChange, error }: DynamicQuestionProps) {
+function DynamicQuestion({ question, value, onChange, error, language }: DynamicQuestionProps) {
+  const label = getLocalizedQuestionText(question.labelEn, question.labelVi, question.questionKey, language)
+  const hint = getLocalizedQuestionText('', question.hintVi || '', '', language) || undefined
+
   switch (question.fieldType) {
     case 'BOOLEAN':
       return (
         <ToggleQuestion
-          label={question.labelVi}
+          label={label}
           checked={value as boolean ?? false}
           onChange={onChange}
-          hint={question.hintVi || undefined}
+          hint={hint}
         />
       )
 
     case 'SELECT':
       return (
         <SelectQuestion
-          label={question.labelVi}
+          label={label}
           value={value as string ?? ''}
           onChange={onChange}
-          options={parseOptions(question.options)}
-          hint={question.hintVi || undefined}
+          options={parseOptions(question.options, language)}
+          hint={hint}
           error={error}
         />
       )
@@ -156,10 +165,10 @@ function DynamicQuestion({ question, value, onChange, error }: DynamicQuestionPr
     case 'NUMBER':
       return (
         <NumberQuestion
-          label={question.labelVi}
+          label={label}
           value={value as number ?? 0}
           onChange={onChange}
-          hint={question.hintVi || undefined}
+          hint={hint}
           error={error}
         />
       )
@@ -167,10 +176,10 @@ function DynamicQuestion({ question, value, onChange, error }: DynamicQuestionPr
     case 'TEXT':
       return (
         <TextQuestion
-          label={question.labelVi}
+          label={label}
           value={value as string ?? ''}
           onChange={onChange}
-          hint={question.hintVi || undefined}
+          hint={hint}
           error={error}
         />
       )
@@ -182,7 +191,7 @@ function DynamicQuestion({ question, value, onChange, error }: DynamicQuestionPr
 
 // Parse options from JSON string
 // Handles both formats: { label } and { labelVi, labelEn }
-function parseOptions(optionsJson: string | null): { value: string; label: string }[] {
+function parseOptions(optionsJson: string | null, language: string): { value: string; label: string }[] {
   if (!optionsJson) return []
   try {
     const parsed = JSON.parse(optionsJson) as Array<{
@@ -193,11 +202,23 @@ function parseOptions(optionsJson: string | null): { value: string; label: strin
     }>
     return parsed.map((opt) => ({
       value: String(opt.value),
-      label: opt.label || opt.labelVi || opt.labelEn || String(opt.value),
+      label: language.toLowerCase().startsWith('vi')
+        ? opt.labelVi || opt.label || opt.labelEn || String(opt.value)
+        : opt.labelEn || opt.label || opt.labelVi || String(opt.value),
     }))
   } catch {
     return []
   }
+}
+
+function getLocalizedQuestionText(
+  english: string | null | undefined,
+  vietnamese: string | null | undefined,
+  fallback: string,
+  language: string
+): string {
+  if (language.toLowerCase().startsWith('vi')) return vietnamese || english || fallback
+  return english || vietnamese || fallback
 }
 
 // Form Section component
@@ -271,6 +292,7 @@ interface SelectQuestionProps {
 }
 
 function SelectQuestion({ label, value, onChange, options, hint, error }: SelectQuestionProps) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-1.5">
       <label className="block text-sm font-medium text-foreground">{label}</label>
@@ -284,7 +306,7 @@ function SelectQuestion({ label, value, onChange, options, hint, error }: Select
         value={value}
         onChange={onChange}
         options={options}
-        placeholder="Chọn..."
+        placeholder={t('common.selectPlaceholder')}
         error={!!error}
       />
       {error && <p className="text-sm text-error">{error}</p>}

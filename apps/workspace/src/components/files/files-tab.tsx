@@ -260,8 +260,8 @@ export function FilesTab({
   const showLoading = parentLoading || (!parentImages && !isUnifiedMode && imagesLoading) || (isUnifiedMode && (groupImagesLoading || groupDocsLoading))
 
   // Group images by DB category field (not computed from docType)
-  // "Chờ phân loại" only shows docs still being processed (UPLOADED/PROCESSING)
-  // AI-failed docs now go directly to "Khác" (OTHER) category
+  // Processing only shows docs still being processed (UPLOADED/PROCESSING).
+  // AI-failed docs now go directly to the OTHER category.
   const { processing, categorized } = useMemo(() => {
     const processing: RawImage[] = []
     const byCategory: Record<DocCategoryKey, RawImage[]> = {

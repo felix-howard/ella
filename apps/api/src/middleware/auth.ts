@@ -28,7 +28,7 @@ export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(asy
   const auth = getAuth(c)
 
   if (!auth?.userId) {
-    throw new HTTPException(401, { message: 'Yêu cầu xác thực' })
+    throw new HTTPException(401, { message: 'Authentication required' })
   }
 
   // Look up staff by Clerk ID. Webhooks are the primary sync path, but the
@@ -54,11 +54,11 @@ export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(asy
   // If not found, webhook may be pending
   if (!staff) {
     console.warn(`[Auth] Staff not found for clerkId: ${auth.userId}`)
-    throw new HTTPException(401, { message: 'Tài khoản chưa sẵn sàng. Vui lòng thử lại.' })
+    throw new HTTPException(401, { message: 'Account is not ready. Please try again.' })
   }
 
   if (!staff.isActive) {
-    throw new HTTPException(403, { message: 'Tài khoản đã bị vô hiệu hóa' })
+    throw new HTTPException(403, { message: 'Account has been disabled' })
   }
 
   // Extract org context from JWT (for validation)
@@ -118,11 +118,11 @@ export function requireRole(...allowedRoles: string[]) {
     const user = c.get('user')
 
     if (!user) {
-      throw new HTTPException(401, { message: 'Chưa xác thực' })
+      throw new HTTPException(401, { message: 'Not authenticated' })
     }
 
     if (!allowedRoles.includes(user.role)) {
-      throw new HTTPException(403, { message: 'Không đủ quyền truy cập' })
+      throw new HTTPException(403, { message: 'Insufficient access' })
     }
 
     await next()
@@ -150,9 +150,9 @@ export const cpaOrAdmin = requireRole('ADMIN', 'CPA')
  */
 export const requireOrg = createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
   const user = c.get('user')
-  if (!user) throw new HTTPException(401, { message: 'Chưa xác thực' })
+  if (!user) throw new HTTPException(401, { message: 'Not authenticated' })
   if (!user.organizationId) {
-    throw new HTTPException(403, { message: 'Vui lòng chọn tổ chức' })
+    throw new HTTPException(403, { message: 'Please select an organization' })
   }
   await next()
 })
@@ -164,9 +164,9 @@ export const requireOrg = createMiddleware<{ Variables: AuthVariables }>(async (
  */
 export const requireOrgAdmin = createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
   const user = c.get('user')
-  if (!user) throw new HTTPException(401, { message: 'Chưa xác thực' })
+  if (!user) throw new HTTPException(401, { message: 'Not authenticated' })
   if (user.orgRole !== 'org:admin' && user.role !== 'ADMIN') {
-    throw new HTTPException(403, { message: 'Chỉ admin mới có quyền' })
+    throw new HTTPException(403, { message: 'Admin access required' })
   }
   await next()
 })

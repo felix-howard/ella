@@ -6,105 +6,142 @@
 
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { HelpCircle, Loader2 } from 'lucide-react'
 import { api, type TaxType, type IntakeQuestion as IntakeQuestionType } from '../../lib/api-client'
 import { IntakeSection } from './intake-section'
 import { IntakeQuestion } from './intake-question'
 import { IntakeProgress } from './intake-progress'
 
-// Section configuration with Vietnamese labels and descriptions
+// Section configuration with English-first labels and descriptions
 const SECTION_CONFIG: Record<
   string,
-  { title: string; description: string; defaultOpen: boolean }
+  { titleKey: string; title: string; descriptionKey: string; description: string; defaultOpen: boolean }
 > = {
   client_status: {
-    title: 'Thông tin khách hàng',
-    description: 'Trạng thái và lịch sử',
+    titleKey: 'section.clientStatus',
+    title: 'Client Information',
+    descriptionKey: 'multiSectionIntake.description.clientStatus',
+    description: 'Status and history',
     defaultOpen: true,
   },
   identity: {
-    title: 'Nhận dạng',
-    description: 'Thông tin cá nhân',
+    titleKey: 'section.identity',
+    title: 'Identity',
+    descriptionKey: 'multiSectionIntake.description.identity',
+    description: 'Personal information',
     defaultOpen: false,
   },
   prior_year: {
-    title: 'Năm trước & Extension',
-    description: 'Estimated tax, extension, AGI năm trước',
+    titleKey: 'section.priorYear',
+    title: 'Prior Year & Extension',
+    descriptionKey: 'multiSectionIntake.description.priorYear',
+    description: 'Estimated tax, extension, prior-year AGI',
     defaultOpen: false,
   },
   life_changes: {
-    title: 'Thay đổi trong năm',
-    description: 'Sự kiện quan trọng ảnh hưởng đến thuế',
+    titleKey: 'section.lifeChanges',
+    title: 'Life Changes',
+    descriptionKey: 'multiSectionIntake.description.lifeChanges',
+    description: 'Major events that affect tax filing',
     defaultOpen: false,
   },
   income: {
-    title: 'Nguồn thu nhập',
-    description: 'W2, 1099, đầu tư, v.v.',
+    titleKey: 'section.income',
+    title: 'Income Sources',
+    descriptionKey: 'multiSectionIntake.description.income',
+    description: 'W-2, 1099, investments, and more',
     defaultOpen: true,
   },
   dependents: {
-    title: 'Người phụ thuộc',
-    description: 'Con cái và người phụ thuộc khác',
+    titleKey: 'section.dependents',
+    title: 'Dependents',
+    descriptionKey: 'multiSectionIntake.description.dependents',
+    description: 'Children and other dependents',
     defaultOpen: false,
   },
   health: {
-    title: 'Bảo hiểm sức khỏe',
+    titleKey: 'section.health',
+    title: 'Health Insurance',
+    descriptionKey: 'multiSectionIntake.description.health',
     description: 'Marketplace, HSA',
     defaultOpen: false,
   },
   deductions: {
-    title: 'Khấu trừ',
-    description: 'Mortgage, từ thiện, y tế, v.v.',
+    titleKey: 'section.deductions',
+    title: 'Deductions',
+    descriptionKey: 'multiSectionIntake.description.deductions',
+    description: 'Mortgage, charity, medical, and more',
     defaultOpen: false,
   },
   credits: {
-    title: 'Tín dụng thuế',
-    description: 'Năng lượng, xe điện, nhận con nuôi',
+    titleKey: 'section.credits',
+    title: 'Tax Credits',
+    descriptionKey: 'multiSectionIntake.description.credits',
+    description: 'Energy, EV, adoption, and other credits',
     defaultOpen: false,
   },
   foreign: {
-    title: 'Thu nhập nước ngoài',
-    description: 'Tài khoản, FBAR, FEIE',
+    titleKey: 'section.foreign',
+    title: 'Foreign Income',
+    descriptionKey: 'multiSectionIntake.description.foreign',
+    description: 'Accounts, FBAR, FEIE',
     defaultOpen: false,
   },
   business: {
-    title: 'Thông tin doanh nghiệp',
-    description: 'Cho kinh doanh cá nhân',
+    titleKey: 'section.business',
+    title: 'Business Information',
+    descriptionKey: 'multiSectionIntake.description.business',
+    description: 'For self-employment',
     defaultOpen: false,
   },
   filing: {
-    title: 'Giao nhận tờ khai',
+    titleKey: 'section.filing',
+    title: 'Filing & Delivery',
+    descriptionKey: 'multiSectionIntake.description.filing',
     description: 'Delivery preference, notes',
     defaultOpen: false,
   },
   entity_info: {
-    title: 'Thông tin pháp nhân',
-    description: 'S-Corp hoặc Partnership',
+    titleKey: 'section.entityInfo',
+    title: 'Entity Information',
+    descriptionKey: 'multiSectionIntake.description.entityInfo',
+    description: 'S-Corp or Partnership',
     defaultOpen: false,
   },
   ownership: {
-    title: 'Cấu trúc sở hữu',
-    description: 'Chủ sở hữu và thay đổi',
+    titleKey: 'section.ownership',
+    title: 'Ownership Structure',
+    descriptionKey: 'multiSectionIntake.description.ownership',
+    description: 'Owners and changes',
     defaultOpen: false,
   },
   expenses: {
-    title: 'Chi phí kinh doanh',
-    description: 'Nhân viên, contractors, officer compensation',
+    titleKey: 'section.expenses',
+    title: 'Business Expenses',
+    descriptionKey: 'multiSectionIntake.description.expenses',
+    description: 'Employees, contractors, officer compensation',
     defaultOpen: false,
   },
   assets: {
-    title: 'Tài sản',
-    description: 'Mua bán, khấu hao',
+    titleKey: 'section.assets',
+    title: 'Assets',
+    descriptionKey: 'multiSectionIntake.description.assets',
+    description: 'Purchases, disposals, depreciation',
     defaultOpen: false,
   },
   state: {
-    title: 'Thuế tiểu bang',
-    description: 'Hoạt động đa tiểu bang',
+    titleKey: 'section.state',
+    title: 'State Tax',
+    descriptionKey: 'multiSectionIntake.description.state',
+    description: 'Multi-state activity',
     defaultOpen: false,
   },
   tax_info: {
-    title: 'Thông tin thuế',
-    description: 'Năm thuế và tình trạng',
+    titleKey: 'section.taxInfo',
+    title: 'Tax Information',
+    descriptionKey: 'multiSectionIntake.description.taxInfo',
+    description: 'Tax year and status',
     defaultOpen: true,
   },
 }
@@ -158,6 +195,8 @@ export function MultiSectionIntakeForm({
   answers,
   onChange,
 }: MultiSectionIntakeFormProps) {
+  const { t, i18n } = useTranslation()
+  const language = i18n.language
   // Fetch questions based on selected tax types
   const { data, isLoading, isError } = useQuery({
     queryKey: ['intake-questions', taxTypes],
@@ -239,7 +278,7 @@ export function MultiSectionIntakeForm({
       }>
       return parsed.map((opt) => ({
         value: String(opt.value),
-        label: opt.label || opt.labelVi || opt.labelEn || String(opt.value),
+        label: getLocalizedText(opt.labelEn || opt.label, opt.labelVi || opt.label, language) || String(opt.value),
       }))
     } catch (error) {
       console.warn('[IntakeForm] Failed to parse options JSON:', optionsJson, error)
@@ -299,7 +338,7 @@ export function MultiSectionIntakeForm({
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 text-primary animate-spin" />
-        <span className="ml-2 text-muted-foreground">Đang tải câu hỏi...</span>
+        <span className="ml-2 text-muted-foreground">{t('clientIntake.loadingQuestions')}</span>
       </div>
     )
   }
@@ -308,8 +347,8 @@ export function MultiSectionIntakeForm({
     return (
       <div className="text-center py-8 text-muted-foreground">
         <HelpCircle className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
-        <p>Không có câu hỏi nào cho loại tờ khai đã chọn</p>
-        <p className="text-sm mt-1">Vui lòng chọn ít nhất một loại tờ khai</p>
+        <p>{t('clientIntake.noQuestionsForTaxType')}</p>
+        <p className="text-sm mt-1">{t('multiSectionIntake.selectAtLeastOneTaxType')}</p>
       </div>
     )
   }
@@ -327,23 +366,25 @@ export function MultiSectionIntakeForm({
 
         const config = SECTION_CONFIG[section] || {
           title: section,
+          titleKey: '',
           description: '',
+          descriptionKey: '',
           defaultOpen: false,
         }
 
         return (
           <IntakeSection
             key={section}
-            title={config.title}
-            description={config.description}
+            title={config.titleKey ? t(config.titleKey) : config.title}
+            description={config.descriptionKey ? t(config.descriptionKey) : config.description}
             defaultOpen={getSectionDefaultOpen(section)}
           >
             {sectionQuestions.map((q) => (
               <IntakeQuestion
                 key={q.questionKey}
                 questionKey={q.questionKey}
-                label={q.labelVi}
-                hint={q.hintVi}
+                label={getLocalizedText(q.labelEn, q.labelVi, language)}
+                hint={getLocalizedText(q.hintEn, q.hintVi, language)}
                 fieldType={q.fieldType}
                 options={parseOptions(q.options)}
                 value={answers[q.questionKey]}
@@ -357,4 +398,13 @@ export function MultiSectionIntakeForm({
       })}
     </div>
   )
+}
+
+function getLocalizedText(
+  english: string | null | undefined,
+  vietnamese: string | null | undefined,
+  language: string
+): string {
+  if (language.toLowerCase().startsWith('vi')) return vietnamese || english || ''
+  return english || vietnamese || ''
 }

@@ -5,6 +5,7 @@
 
 import { useState, useCallback } from 'react'
 import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { WizardStepIndicator } from './wizard-step-indicator'
 import { WizardStep1Identity } from './wizard-step-1-identity'
@@ -36,12 +37,11 @@ function isValidAccountNumber(account: string): boolean {
   return digits.length >= MIN_ACCOUNT_NUMBER_LENGTH && digits.length <= MAX_ACCOUNT_NUMBER_LENGTH
 }
 
-// Wizard step labels in Vietnamese
 const WIZARD_STEPS = [
-  { id: 0, label: 'Thông tin cá nhân', shortLabel: 'Cá nhân' },
-  { id: 1, label: 'Thu nhập', shortLabel: 'Thu nhập' },
-  { id: 2, label: 'Khấu trừ', shortLabel: 'Khấu trừ' },
-  { id: 3, label: 'Xem lại & Gửi', shortLabel: 'Xem lại' },
+  { id: 0, labelKey: 'intakeWizard.steps.identity', shortLabelKey: 'intakeWizard.steps.identityShort' },
+  { id: 1, labelKey: 'intakeWizard.steps.income', shortLabelKey: 'intakeWizard.steps.incomeShort' },
+  { id: 2, labelKey: 'intakeWizard.steps.deductions', shortLabelKey: 'intakeWizard.steps.deductionsShort' },
+  { id: 3, labelKey: 'intakeWizard.steps.review', shortLabelKey: 'intakeWizard.steps.reviewShort' },
 ] as const
 
 // Dependent data structure
@@ -127,6 +127,7 @@ export function WizardContainer({
   onCancel,
   isSubmitting = false,
 }: WizardContainerProps) {
+  const { t } = useTranslation()
   const [currentStep, setCurrentStep] = useState(0)
   const [answers, setAnswers] = useState<IntakeAnswers>(() => ({
     dependents: [],
@@ -190,7 +191,7 @@ export function WizardContainer({
       const depCount = answers.dependentCount || 0
       if (depCount > 0) {
         if (!answers.dependents || answers.dependents.length < depCount) {
-          newErrors.dependents = `Vui lòng nhập thông tin cho ${depCount} người phụ thuộc`
+          newErrors.dependents = t('intakeWizard.validation.dependentsRequired', { count: depCount })
         } else {
           // Validate each dependent's required fields
           for (let i = 0; i < depCount; i++) {
@@ -198,31 +199,31 @@ export function WizardContainer({
             if (!dep) continue
 
             if (!dep.firstName?.trim()) {
-              newErrors[`dependent_${i}_firstName`] = `Người phụ thuộc #${i + 1}: Thiếu tên`
+              newErrors[`dependent_${i}_firstName`] = t('intakeWizard.validation.dependentMissingFirstName', { index: i + 1 })
             }
             if (!dep.lastName?.trim()) {
-              newErrors[`dependent_${i}_lastName`] = `Người phụ thuộc #${i + 1}: Thiếu họ`
+              newErrors[`dependent_${i}_lastName`] = t('intakeWizard.validation.dependentMissingLastName', { index: i + 1 })
             }
             if (!dep.ssn) {
-              newErrors[`dependent_${i}_ssn`] = `Người phụ thuộc #${i + 1}: Thiếu SSN`
+              newErrors[`dependent_${i}_ssn`] = t('intakeWizard.validation.dependentMissingSsn', { index: i + 1 })
             } else {
               const ssnError = getSSNValidationError(dep.ssn)
               if (ssnError) {
-                newErrors[`dependent_${i}_ssn`] = `Người phụ thuộc #${i + 1}: ${ssnError}`
+                newErrors[`dependent_${i}_ssn`] = t('intakeWizard.validation.dependentSsnInvalid', { index: i + 1, error: ssnError })
               }
             }
             if (!dep.dob) {
-              newErrors[`dependent_${i}_dob`] = `Người phụ thuộc #${i + 1}: Thiếu ngày sinh`
+              newErrors[`dependent_${i}_dob`] = t('intakeWizard.validation.dependentMissingDob', { index: i + 1 })
             }
             if (!dep.relationship) {
-              newErrors[`dependent_${i}_relationship`] = `Người phụ thuộc #${i + 1}: Thiếu quan hệ`
+              newErrors[`dependent_${i}_relationship`] = t('intakeWizard.validation.dependentMissingRelationship', { index: i + 1 })
             }
           }
 
           // Consolidate dependent errors into single message
           const depErrors = Object.keys(newErrors).filter(k => k.startsWith('dependent_'))
           if (depErrors.length > 0) {
-            newErrors.dependents = `Có ${depErrors.length} lỗi trong thông tin người phụ thuộc`
+            newErrors.dependents = t('intakeWizard.validation.dependentErrorCount', { count: depErrors.length })
           }
         }
       }
@@ -230,16 +231,16 @@ export function WizardContainer({
       // H3 fix: Check for duplicate SSNs across taxpayer, spouse, and dependents
       const allSSNs: { ssn: string; label: string }[] = []
       if (answers.taxpayerSSN) {
-        allSSNs.push({ ssn: answers.taxpayerSSN.replace(/\D/g, ''), label: 'Người khai thuế' })
+        allSSNs.push({ ssn: answers.taxpayerSSN.replace(/\D/g, ''), label: t('intakeWizard.validation.taxpayer') })
       }
       if (filingStatus === 'MARRIED_FILING_JOINTLY' && answers.spouseSSN) {
-        allSSNs.push({ ssn: answers.spouseSSN.replace(/\D/g, ''), label: 'Vợ/Chồng' })
+        allSSNs.push({ ssn: answers.spouseSSN.replace(/\D/g, ''), label: t('intakeWizard.validation.spouse') })
       }
       const dependentTotal = answers.dependentCount || 0
       for (let i = 0; i < dependentTotal; i++) {
         const dep = answers.dependents?.[i]
         if (dep?.ssn) {
-          allSSNs.push({ ssn: dep.ssn.replace(/\D/g, ''), label: `Người phụ thuộc #${i + 1}` })
+          allSSNs.push({ ssn: dep.ssn.replace(/\D/g, ''), label: t('intakeWizard.validation.dependentLabel', { index: i + 1 }) })
         }
       }
 
@@ -248,7 +249,7 @@ export function WizardContainer({
       for (const { ssn, label } of allSSNs) {
         if (ssn.length === 9) {
           if (seen.has(ssn)) {
-            newErrors.duplicateSSN = `SSN trùng lặp: ${label} và ${seen.get(ssn)} có cùng SSN`
+            newErrors.duplicateSSN = t('intakeWizard.validation.duplicateSsn', { label, otherLabel: seen.get(ssn) })
             break
           }
           seen.set(ssn, label)
@@ -260,22 +261,22 @@ export function WizardContainer({
       // Review step - bank info required if direct deposit selected
       if (answers.refundAccountType) {
         if (!answers.refundBankAccount) {
-          newErrors.refundBankAccount = 'Vui lòng nhập số tài khoản'
+          newErrors.refundBankAccount = t('intakeWizard.validation.bankAccountRequired')
         } else if (!isValidAccountNumber(answers.refundBankAccount)) {
-          newErrors.refundBankAccount = 'Số tài khoản phải có 4-17 chữ số'
+          newErrors.refundBankAccount = t('intakeWizard.validation.bankAccountInvalid')
         }
 
         if (!answers.refundRoutingNumber) {
-          newErrors.refundRoutingNumber = 'Vui lòng nhập routing number'
+          newErrors.refundRoutingNumber = t('intakeWizard.validation.routingRequired')
         } else if (!isValidRoutingNumber(answers.refundRoutingNumber)) {
-          newErrors.refundRoutingNumber = 'Routing number không hợp lệ (9 chữ số, checksum sai)'
+          newErrors.refundRoutingNumber = t('intakeWizard.validation.routingInvalid')
         }
       }
     }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
-  }, [answers, filingStatus])
+  }, [answers, filingStatus, t])
 
   // Navigation handlers
   const handleNext = () => {
@@ -361,7 +362,11 @@ export function WizardContainer({
     <div className="space-y-6">
       {/* Step Indicator */}
       <WizardStepIndicator
-        steps={WIZARD_STEPS}
+        steps={WIZARD_STEPS.map((step) => ({
+          id: step.id,
+          label: t(step.labelKey),
+          shortLabel: t(step.shortLabelKey),
+        }))}
         currentStep={currentStep}
         visitedSteps={visitedSteps}
         onStepClick={handleStepClick}
@@ -383,7 +388,7 @@ export function WizardContainer({
           )}
         >
           <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-          {currentStep === 0 ? 'Hủy' : 'Quay lại'}
+          {currentStep === 0 ? t('intakeWizard.actions.cancel') : t('intakeWizard.actions.back')}
         </button>
 
         {isLastStep ? (
@@ -400,12 +405,12 @@ export function WizardContainer({
             {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                Đang tạo...
+                {t('intakeWizard.actions.creating')}
               </>
             ) : (
               <>
                 <Check className="w-4 h-4" aria-hidden="true" />
-                Hoàn tất
+                {t('intakeWizard.actions.finish')}
               </>
             )}
           </button>
@@ -418,7 +423,7 @@ export function WizardContainer({
               'bg-primary text-white hover:bg-primary-dark transition-colors'
             )}
           >
-            Tiếp tục
+            {t('intakeWizard.actions.next')}
             <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </button>
         )}

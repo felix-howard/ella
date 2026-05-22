@@ -85,7 +85,11 @@ export function NdaReadonlyCard({ nda, entity, showViewPdf = false, framed = tru
       </div>
 
       {(() => {
-        const expiry = getExpiryStatus(nda, i18n.language)
+        const expiry = getExpiryStatus(nda, i18n.language, new Date(), {
+          expiredToday: t('nda.expiry.expiredToday'),
+          expiredDaysAgo: (count) => t('nda.expiry.expiredDaysAgo', { count }),
+          expiresInDays: (count) => t('nda.expiry.expiresInDays', { count }),
+        })
         return (
           <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-3">
             <div className="flex items-center gap-2 min-w-0">

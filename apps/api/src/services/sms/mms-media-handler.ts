@@ -191,8 +191,8 @@ export async function processMmsMedia(
           caseId,
           type: 'VERIFY_DOCS',
           priority: 'HIGH',
-          title: 'Tài liệu mới từ SMS',
-          description: `Khách hàng đã gửi ${result.rawImageIds.length} file qua MMS - cần phân loại thủ công`,
+          title: 'New documents from SMS',
+          description: `Client sent ${result.rawImageIds.length} files by MMS - manual classification needed`,
           metadata: { rawImageIds: result.rawImageIds },
         },
       })

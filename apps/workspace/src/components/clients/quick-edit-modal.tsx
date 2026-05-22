@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { X, Loader2 } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { api, type UpdateClientInput } from '../../lib/api-client'
@@ -15,11 +16,27 @@ import { toast } from '../../stores/toast-store'
 export type QuickEditField = 'firstName' | 'lastName' | 'phone' | 'email'
 
 // Field configuration for labels and input types
-const FIELD_CONFIG: Record<QuickEditField, { label: string; type: string; placeholder: string }> = {
-  firstName: { label: 'First Name', type: 'text', placeholder: 'Enter first name...' },
-  lastName: { label: 'Last Name', type: 'text', placeholder: 'Enter last name...' },
-  phone: { label: 'Phone', type: 'tel', placeholder: '+1XXXXXXXXXX' },
-  email: { label: 'Email', type: 'email', placeholder: 'email@example.com' },
+const FIELD_CONFIG: Record<QuickEditField, { labelKey: string; type: string; placeholderKey: string }> = {
+  firstName: {
+    labelKey: 'clientField.firstName',
+    type: 'text',
+    placeholderKey: 'quickEdit.placeholder.firstName',
+  },
+  lastName: {
+    labelKey: 'clientField.lastName',
+    type: 'text',
+    placeholderKey: 'quickEdit.placeholder.lastName',
+  },
+  phone: {
+    labelKey: 'clientField.phone',
+    type: 'tel',
+    placeholderKey: 'quickEdit.placeholder.phone',
+  },
+  email: {
+    labelKey: 'clientField.email',
+    type: 'email',
+    placeholderKey: 'quickEdit.placeholder.email',
+  },
 }
 
 interface QuickEditModalProps {
@@ -46,12 +63,14 @@ function QuickEditModalContent({
   currentValue,
   clientId,
 }: Omit<QuickEditModalProps, 'isOpen'>) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [value, setValue] = useState(currentValue || '')
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const config = FIELD_CONFIG[field]
+  const fieldLabel = t(config.labelKey)
 
   // Focus input on mount
   useEffect(() => {
@@ -64,11 +83,11 @@ function QuickEditModalContent({
     mutationFn: (data: UpdateClientInput) => api.clients.update(clientId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
-      toast.success(`${config.label} cập nhật thành công`)
+      toast.success(t('quickEdit.updateSuccess', { field: fieldLabel }))
       onClose()
     },
     onError: (err) => {
-      const errorMsg = err instanceof Error ? err.message : 'Lỗi không xác định'
+      const errorMsg = err instanceof Error ? err.message : t('common.unknownError')
       setError(errorMsg)
     },
   })
@@ -80,11 +99,11 @@ function QuickEditModalContent({
     switch (field) {
       case 'firstName':
         if (trimmedValue.length < 1) {
-          setError('First name is required')
+          setError(t('quickEdit.firstNameRequired'))
           return false
         }
         if (trimmedValue.length > 50) {
-          setError('First name must be at most 50 characters')
+          setError(t('quickEdit.firstNameTooLong'))
           return false
         }
         break
@@ -92,7 +111,7 @@ function QuickEditModalContent({
       case 'lastName':
         // lastName is optional, just validate length
         if (trimmedValue.length > 50) {
-          setError('Last name must be at most 50 characters')
+          setError(t('quickEdit.lastNameTooLong'))
           return false
         }
         break
@@ -101,7 +120,7 @@ function QuickEditModalContent({
         // E.164 format for US numbers only: +1 followed by 10 digits
         // Business requirement: System designed for US-based tax services
         if (!/^\+1\d{10}$/.test(trimmedValue)) {
-          setError('Số điện thoại phải có định dạng +1XXXXXXXXXX (ví dụ: +14155551234)')
+          setError(t('quickEdit.phoneFormatError'))
           return false
         }
         break
@@ -112,11 +131,11 @@ function QuickEditModalContent({
         if (trimmedValue) {
           const emailPattern = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/
           if (!emailPattern.test(trimmedValue)) {
-            setError('Email không hợp lệ (ví dụ: user@example.com)')
+            setError(t('quickEdit.emailInvalid'))
             return false
           }
           if (trimmedValue.length > 254) {
-            setError('Email không được quá 254 ký tự')
+            setError(t('quickEdit.emailTooLong'))
             return false
           }
         }
@@ -126,7 +145,7 @@ function QuickEditModalContent({
 
     setError(null)
     return true
-  }, [field, value])
+  }, [field, value, t])
 
   // Handle save
   const handleSave = useCallback(() => {
@@ -197,12 +216,12 @@ function QuickEditModalContent({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 id="quick-edit-title" className="text-base font-semibold text-foreground">
-            Chỉnh sửa {config.label.toLowerCase()}
+            {t('quickEdit.title', { field: fieldLabel.toLowerCase() })}
           </h2>
           <button
             onClick={onClose}
             className="p-1 rounded hover:bg-muted transition-colors"
-            aria-label="Đóng"
+            aria-label={t('common.close')}
             disabled={updateMutation.isPending}
           >
             <X className="w-4 h-4 text-muted-foreground" />
@@ -212,7 +231,7 @@ function QuickEditModalContent({
         {/* Body */}
         <div className="p-4">
           <label className="block text-sm text-muted-foreground mb-2">
-            {config.label}
+            {fieldLabel}
           </label>
           <input
             ref={inputRef}
@@ -223,7 +242,7 @@ function QuickEditModalContent({
               setError(null)
             }}
             onKeyDown={handleKeyDown}
-            placeholder={config.placeholder}
+            placeholder={t(config.placeholderKey)}
             disabled={updateMutation.isPending}
             className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground
                        focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
@@ -239,7 +258,7 @@ function QuickEditModalContent({
           {/* Hint for phone format */}
           {field === 'phone' && !error && (
             <p className="mt-2 text-xs text-muted-foreground">
-              Định dạng: +1 và 10 số (ví dụ: +14155551234)
+              {t('quickEdit.phoneFormatHint')}
             </p>
           )}
         </div>
@@ -253,7 +272,7 @@ function QuickEditModalContent({
             onClick={onClose}
             disabled={updateMutation.isPending}
           >
-            Hủy
+            {t('common.cancel')}
           </Button>
           <Button
             type="button"
@@ -264,10 +283,10 @@ function QuickEditModalContent({
             {updateMutation.isPending ? (
               <>
                 <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
-                Đang lưu...
+                {t('common.saving')}
               </>
             ) : (
-              'Lưu'
+              t('common.save')
             )}
           </Button>
         </div>

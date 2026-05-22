@@ -5,6 +5,7 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import {
   Check,
@@ -52,6 +53,7 @@ export function ChecklistGrid({
   onImageDrop,
   enableDragDrop = false,
 }: ChecklistGridProps) {
+  const { t } = useTranslation()
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null)
 
   if (isLoading) {
@@ -62,7 +64,7 @@ export function ChecklistGrid({
     return (
       <div className="text-center py-12">
         <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" aria-hidden="true" />
-        <p className="text-sm text-muted-foreground">{UI_TEXT.noData}</p>
+        <p className="text-sm text-muted-foreground">{t('common.noData', { defaultValue: UI_TEXT.noData })}</p>
       </div>
     )
   }
@@ -137,10 +139,15 @@ function ChecklistCard({
   onDragLeave,
   onDrop,
 }: ChecklistCardProps) {
+  const { t, i18n } = useTranslation()
   const status = item.status as ChecklistItemStatus
   const colors = CHECKLIST_STATUS_COLORS[status] || { bg: 'bg-muted', text: 'text-muted-foreground' }
   const Icon = STATUS_ICONS[status] || FileText
-  const docLabel = DOC_TYPE_LABELS[item.template?.docType] || item.template?.labelVi || 'Tài liệu'
+  const isVietnamese = i18n.language.startsWith('vi')
+  const templateLabel = isVietnamese
+    ? item.template?.labelVi || item.template?.labelEn
+    : item.template?.labelEn || item.template?.labelVi
+  const docLabel = DOC_TYPE_LABELS[item.template?.docType] || templateLabel || t('checklist.document')
   const canVerify = status === 'HAS_DIGITAL' || status === 'HAS_RAW'
   const hasImages = (item.rawImages?.length || 0) > 0
 
@@ -191,7 +198,7 @@ function ChecklistCard({
       {/* Linked items count (shown when no thumbnails) */}
       {!hasImages && (item.digitalDocs?.length) ? (
         <p className="text-xs text-muted-foreground">
-          {item.digitalDocs.length} tài liệu
+          {t('checklist.fileCount', { count: item.digitalDocs.length })}
         </p>
       ) : null}
 
@@ -200,7 +207,7 @@ function ChecklistCard({
         <div className="absolute inset-0 flex items-center justify-center bg-primary/10 rounded-xl pointer-events-none">
           <div className="flex items-center gap-2 text-primary font-medium text-sm">
             <Plus className="w-4 h-4" />
-            Thả ảnh vào đây
+            {t('checklistGrid.dropImagesHere')}
           </div>
         </div>
       )}
@@ -217,7 +224,7 @@ function ChecklistCard({
             'bg-primary text-white opacity-0 group-hover:opacity-100',
             'transition-opacity hover:bg-primary-dark'
           )}
-          aria-label="Xác minh tài liệu"
+          aria-label={t('checklistGrid.verifyDocument')}
         >
           <Eye className="w-3.5 h-3.5" />
         </button>
@@ -324,6 +331,7 @@ interface ChecklistSummaryProps {
 }
 
 function ChecklistSummary({ items }: ChecklistSummaryProps) {
+  const { t } = useTranslation()
   const summary = {
     total: items.length,
     verified: items.filter((i) => i.status === 'VERIFIED').length,
@@ -369,25 +377,25 @@ function ChecklistSummary({ items }: ChecklistSummaryProps) {
       {/* Stats */}
       <div className="flex flex-wrap gap-4">
         <SummaryItem
-          label="Đã xác minh"
+          label={t('checklistGrid.summary.verified')}
           count={summary.verified}
           color="text-success"
           bgColor="bg-success/10"
         />
         <SummaryItem
-          label="Đã trích xuất"
+          label={t('checklistGrid.summary.extracted')}
           count={summary.hasDigital}
           color="text-primary"
           bgColor="bg-primary-light"
         />
         <SummaryItem
-          label="Đã nhận ảnh"
+          label={t('checklistGrid.summary.imageReceived')}
           count={summary.hasRaw}
           color="text-warning"
           bgColor="bg-warning-light"
         />
         <SummaryItem
-          label="Còn thiếu"
+          label={t('checklistGrid.summary.missing')}
           count={summary.missing}
           color="text-error"
           bgColor="bg-error-light"

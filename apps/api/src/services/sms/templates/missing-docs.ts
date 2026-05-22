@@ -45,7 +45,7 @@ Thank you!`
 export function generateMissingDocsMessage(
   params: MissingDocsTemplateParams
 ): string {
-  const template = TEMPLATES[params.language] || TEMPLATES.VI
+  const template = TEMPLATES[params.language] || TEMPLATES.EN
   return template(params)
 }
 

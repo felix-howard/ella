@@ -5,7 +5,8 @@
 
 import { cn } from '@ella/ui'
 import { ChevronDown, Home, Heart, GraduationCap, HandHeart } from 'lucide-react'
-import { useCategoryToggle, createItemToggleHandler } from './use-category-toggle'
+import { useTranslation } from 'react-i18next'
+import { useCategoryToggle } from './use-category-toggle'
 import type { IntakeAnswers } from './wizard-container'
 
 interface WizardStep3DeductionsProps {
@@ -17,7 +18,7 @@ interface WizardStep3DeductionsProps {
 // Deduction category config
 interface DeductionCategory {
   id: string
-  label: string
+  labelKey: string
   icon: React.ElementType
   iconBg: string
   iconColor: string
@@ -26,14 +27,14 @@ interface DeductionCategory {
 
 interface DeductionItem {
   key: string
-  label: string
-  hint?: string
+  labelKey: string
+  hintKey?: string
   detailFields?: DetailField[]
 }
 
 interface DetailField {
   key: string
-  label: string
+  labelKey: string
   type: 'number' | 'text' | 'currency'
   placeholder?: string
 }
@@ -42,101 +43,101 @@ interface DetailField {
 const DEDUCTION_CATEGORIES: DeductionCategory[] = [
   {
     id: 'home',
-    label: 'Nhà ở',
+    labelKey: 'intakeWizard.deductions.categories.home',
     icon: Home,
     iconBg: 'bg-blue-500/10',
     iconColor: 'text-blue-600',
     items: [
       {
         key: 'hasMortgage',
-        label: 'Có vay mua nhà (Mortgage)',
-        hint: '1098 - Lãi vay mua nhà có thể khấu trừ',
+        labelKey: 'intakeWizard.deductions.items.hasMortgage.label',
+        hintKey: 'intakeWizard.deductions.items.hasMortgage.hint',
       },
       {
         key: 'hasPropertyTax',
-        label: 'Có trả Property Tax',
-        hint: 'Thuế bất động sản hàng năm',
+        labelKey: 'intakeWizard.deductions.items.hasPropertyTax.label',
+        hintKey: 'intakeWizard.deductions.items.hasPropertyTax.hint',
       },
       {
         key: 'hasHomeOffice',
-        label: 'Có Home Office',
-        hint: 'Phòng làm việc tại nhà (cho self-employed)',
+        labelKey: 'intakeWizard.deductions.items.hasHomeOffice.label',
+        hintKey: 'intakeWizard.deductions.items.hasHomeOffice.hint',
         detailFields: [
-          { key: 'homeOfficeSqFt', label: 'Diện tích (sqft)', type: 'number', placeholder: '150' },
+          { key: 'homeOfficeSqFt', labelKey: 'intakeWizard.deductions.fields.homeOfficeSqFt', type: 'number', placeholder: '150' },
         ],
       },
     ],
   },
   {
     id: 'medical',
-    label: 'Y tế & Sức khỏe',
+    labelKey: 'intakeWizard.deductions.categories.medical',
     icon: Heart,
     iconBg: 'bg-rose-500/10',
     iconColor: 'text-rose-600',
     items: [
       {
         key: 'hasMedicalExpenses',
-        label: 'Có chi phí y tế lớn',
-        hint: 'Chỉ khấu trừ được phần vượt 7.5% AGI',
+        labelKey: 'intakeWizard.deductions.items.hasMedicalExpenses.label',
+        hintKey: 'intakeWizard.deductions.items.hasMedicalExpenses.hint',
         detailFields: [
-          { key: 'medicalMileage', label: 'Số dặm đi khám', type: 'number', placeholder: '0' },
+          { key: 'medicalMileage', labelKey: 'intakeWizard.deductions.fields.medicalMileage', type: 'number', placeholder: '0' },
         ],
       },
       {
         key: 'hasHSA',
-        label: 'Có HSA (Health Savings Account)',
-        hint: 'Tài khoản tiết kiệm sức khỏe',
+        labelKey: 'intakeWizard.deductions.items.hasHSA.label',
+        hintKey: 'intakeWizard.deductions.items.hasHSA.hint',
       },
       {
         key: 'hasMarketplaceCoverage',
-        label: 'Có bảo hiểm qua Marketplace',
-        hint: '1095-A - Affordable Care Act',
+        labelKey: 'intakeWizard.deductions.items.hasMarketplaceCoverage.label',
+        hintKey: 'intakeWizard.deductions.items.hasMarketplaceCoverage.hint',
       },
     ],
   },
   {
     id: 'education',
-    label: 'Giáo dục',
+    labelKey: 'intakeWizard.deductions.categories.education',
     icon: GraduationCap,
     iconBg: 'bg-purple-500/10',
     iconColor: 'text-purple-600',
     items: [
       {
         key: 'hasStudentLoanInterest',
-        label: 'Có trả lãi Student Loan',
-        hint: '1098-E - Tối đa $2,500 khấu trừ',
+        labelKey: 'intakeWizard.deductions.items.hasStudentLoanInterest.label',
+        hintKey: 'intakeWizard.deductions.items.hasStudentLoanInterest.hint',
       },
       {
         key: 'hasEducatorExpenses',
-        label: 'Là giáo viên có chi phí lớp học',
-        hint: 'Tối đa $300 cho giáo viên K-12',
+        labelKey: 'intakeWizard.deductions.items.hasEducatorExpenses.label',
+        hintKey: 'intakeWizard.deductions.items.hasEducatorExpenses.hint',
       },
       {
         key: 'hasTuitionExpenses',
-        label: 'Có trả học phí (Tuition)',
-        hint: '1098-T - Học phí đại học/cao đẳng',
+        labelKey: 'intakeWizard.deductions.items.hasTuitionExpenses.label',
+        hintKey: 'intakeWizard.deductions.items.hasTuitionExpenses.hint',
       },
     ],
   },
   {
     id: 'charity',
-    label: 'Từ thiện',
+    labelKey: 'intakeWizard.deductions.categories.charity',
     icon: HandHeart,
     iconBg: 'bg-emerald-500/10',
     iconColor: 'text-emerald-600',
     items: [
       {
         key: 'hasCharitableDonations',
-        label: 'Có đóng góp từ thiện',
-        hint: 'Tiền mặt hoặc hiện vật cho tổ chức 501(c)(3)',
+        labelKey: 'intakeWizard.deductions.items.hasCharitableDonations.label',
+        hintKey: 'intakeWizard.deductions.items.hasCharitableDonations.hint',
         detailFields: [
-          { key: 'noncashDonationValue', label: 'Giá trị hiện vật ($)', type: 'currency', placeholder: '0' },
+          { key: 'noncashDonationValue', labelKey: 'intakeWizard.deductions.fields.noncashDonationValue', type: 'currency', placeholder: '0' },
         ],
       },
       {
         key: 'hasCasualtyLoss',
-        label: 'Có thiệt hại do thiên tai',
-        hint: 'Chỉ áp dụng cho vùng thiên tai được tuyên bố',
+        labelKey: 'intakeWizard.deductions.items.hasCasualtyLoss.label',
+        hintKey: 'intakeWizard.deductions.items.hasCasualtyLoss.hint',
       },
     ],
   },
@@ -147,27 +148,33 @@ export function WizardStep3Deductions({
   onChange,
   errors: _errors,
 }: WizardStep3DeductionsProps) {
+  const { t } = useTranslation()
   // Use shared category toggle hook
   const { isExpanded, toggleCategory } = useCategoryToggle(['home'])
 
-  // Use shared item toggle handler
-  const handleItemToggle = createItemToggleHandler(answers, onChange)
+  const handleItemToggle = (item: DeductionItem) => {
+    const currentValue = answers[item.key] === true
+    onChange(item.key, !currentValue)
+
+    if (currentValue && item.detailFields) {
+      item.detailFields.forEach((field) => onChange(field.key, undefined))
+    }
+  }
 
   return (
     <div className="space-y-4">
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-foreground">Khấu trừ</h3>
+        <h3 className="text-lg font-semibold text-foreground">{t('intakeWizard.deductions.title')}</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Chọn các khoản chi phí có thể khấu trừ thuế
+          {t('intakeWizard.deductions.subtitle')}
         </p>
       </div>
 
       {/* Standard vs Itemized Info */}
       <div className="p-4 bg-muted/50 rounded-lg border border-border mb-4">
         <p className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">Lưu ý:</span> IRS cho phép chọn giữa
-          Standard Deduction ($14,600 cá nhân / $29,200 vợ chồng năm 2024) hoặc Itemized Deductions.
-          Chúng tôi sẽ tính toán phương án có lợi nhất cho bạn.
+          <span className="font-medium text-foreground">{t('intakeWizard.common.note')}</span>{' '}
+          {t('intakeWizard.deductions.standardVsItemizedNote')}
         </p>
       </div>
 
@@ -197,10 +204,10 @@ export function WizardStep3Deductions({
                 <div className={cn('p-2 rounded-lg', category.iconBg)}>
                   <Icon className={cn('w-5 h-5', category.iconColor)} />
                 </div>
-                <span className="font-medium text-foreground">{category.label}</span>
+                <span className="font-medium text-foreground">{t(category.labelKey)}</span>
                 {hasActiveItems && (
                   <span className="px-2 py-0.5 text-xs font-medium bg-primary text-white rounded-full">
-                    Có
+                    {t('intakeWizard.common.yes')}
                   </span>
                 )}
               </div>
@@ -217,6 +224,8 @@ export function WizardStep3Deductions({
               <div className="px-4 pb-4 space-y-2">
                 {category.items.map((item) => {
                   const isChecked = answers[item.key] === true
+                  const label = t(item.labelKey)
+                  const hint = item.hintKey ? t(item.hintKey) : undefined
 
                   return (
                     <div key={item.key}>
@@ -231,7 +240,7 @@ export function WizardStep3Deductions({
                         )}
                         role="checkbox"
                         aria-checked={isChecked}
-                        aria-label={`${item.label}${item.hint ? `. ${item.hint}` : ''}`}
+                        aria-label={`${label}${hint ? `. ${hint}` : ''}`}
                         tabIndex={0}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
@@ -274,11 +283,11 @@ export function WizardStep3Deductions({
                               isChecked ? 'text-foreground' : 'text-foreground/80'
                             )}
                           >
-                            {item.label}
+                            {label}
                           </span>
-                          {item.hint && (
+                          {hint && (
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              {item.hint}
+                              {hint}
                             </p>
                           )}
                         </div>
@@ -293,6 +302,7 @@ export function WizardStep3Deductions({
                               field={field}
                               value={answers[field.key] as number | string | undefined}
                               onChange={(value) => onChange(field.key, value)}
+                              label={t(field.labelKey)}
                             />
                           ))}
                         </div>
@@ -314,13 +324,14 @@ interface DetailFieldInputProps {
   field: DetailField
   value: number | string | undefined
   onChange: (value: number | string) => void
+  label: string
 }
 
-function DetailFieldInput({ field, value, onChange }: DetailFieldInputProps) {
+function DetailFieldInput({ field, value, onChange, label }: DetailFieldInputProps) {
   if (field.type === 'number') {
     return (
       <div className="flex items-center gap-2">
-        <label className="text-sm text-muted-foreground w-36">{field.label}:</label>
+        <label className="text-sm text-muted-foreground w-36">{label}:</label>
         <input
           type="number"
           min={0}
@@ -343,7 +354,7 @@ function DetailFieldInput({ field, value, onChange }: DetailFieldInputProps) {
   if (field.type === 'currency') {
     return (
       <div className="flex items-center gap-2">
-        <label className="text-sm text-muted-foreground w-36">{field.label}:</label>
+        <label className="text-sm text-muted-foreground w-36">{label}:</label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
             $
@@ -370,7 +381,7 @@ function DetailFieldInput({ field, value, onChange }: DetailFieldInputProps) {
 
   return (
     <div className="flex items-center gap-2">
-      <label className="text-sm text-muted-foreground w-36">{field.label}:</label>
+      <label className="text-sm text-muted-foreground w-36">{label}:</label>
       <input
         type="text"
         value={(value as string) ?? ''}

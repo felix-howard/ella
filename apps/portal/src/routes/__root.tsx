@@ -17,6 +17,7 @@ function LanguageToggle() {
 
   const toggleLanguage = () => {
     const newLang = isVi ? 'en' : 'vi'
+    localStorage.setItem('ella-language', newLang)
     i18n.changeLanguage(newLang)
   }
 

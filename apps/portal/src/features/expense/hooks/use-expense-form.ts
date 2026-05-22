@@ -4,6 +4,7 @@
  * CPA-approved: 5 fields + customExpenses dynamic list
  */
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { expenseApi, type ExpenseFormData } from '../lib/expense-api'
 import { toApiInput } from '../lib/form-utils'
 
@@ -46,8 +47,14 @@ function initializeFormData(data: ExpenseFormData | null): Record<string, unknow
   const expense = data.expense
 
   // Parse existing customExpenses or create default example row
-  let customExpenses: Array<{ name: string; amount: number | null }> = [{ name: 'Equipment', amount: null }]
-  if (expense.customExpenses && Array.isArray(expense.customExpenses) && expense.customExpenses.length > 0) {
+  let customExpenses: Array<{ name: string; amount: number | null }> = [
+    { name: 'Equipment', amount: null },
+  ]
+  if (
+    expense.customExpenses &&
+    Array.isArray(expense.customExpenses) &&
+    expense.customExpenses.length > 0
+  ) {
     customExpenses = expense.customExpenses
   }
 
@@ -63,14 +70,31 @@ function initializeFormData(data: ExpenseFormData | null): Record<string, unknow
 }
 
 // Validate form data before submission
-function validateFormData(data: Record<string, unknown>): { valid: boolean; errors: string[] } {
+type Translate = (key: string, options?: Record<string, unknown>) => string
+
+const EXPENSE_FIELD_LABEL_KEYS: Record<string, string> = {
+  travel: 'expense.travelExpense',
+  meals: 'expense.mealsExpense',
+  supplies: 'expense.suppliesExpense',
+  carExpense: 'expense.actualCarExpense',
+}
+
+function getFieldLabel(field: string, t: Translate): string {
+  const key = EXPENSE_FIELD_LABEL_KEYS[field]
+  return key ? t(key) : field
+}
+
+function validateFormData(
+  data: Record<string, unknown>,
+  t: Translate
+): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
   // Validate currency fields are not negative
   for (const field of ['travel', 'meals', 'supplies', 'carExpense']) {
     const value = data[field]
     if (typeof value === 'number' && value < 0) {
-      errors.push(`${field}: không được âm`)
+      errors.push(t('expense.validation.negative', { field: getFieldLabel(field, t) }))
     }
   }
 
@@ -80,10 +104,10 @@ function validateFormData(data: Record<string, unknown>): { valid: boolean; erro
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
       if (item.name && (item.amount === null || item.amount === undefined)) {
-        errors.push(`Chi phí khác "${item.name}": cần nhập số tiền`)
+        errors.push(t('expense.validation.otherNameRequired', { name: item.name }))
       }
       if (item.amount !== null && item.amount !== undefined && !item.name) {
-        errors.push(`Chi phí khác dòng ${i + 1}: cần nhập tên chi phí`)
+        errors.push(t('expense.validation.otherAmountRequired', { index: i + 1 }))
       }
     }
   }
@@ -95,6 +119,7 @@ export function useExpenseForm(
   token: string,
   initialData: ExpenseFormData | null
 ): UseExpenseFormReturn {
+  const { t } = useTranslation()
   const [formData, setFormData] = useState<Record<string, unknown>>(() =>
     initializeFormData(initialData)
   )
@@ -104,7 +129,7 @@ export function useExpenseForm(
 
   // Update single field
   const updateField = useCallback((field: string, value: unknown) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData((prev) => ({ ...prev, [field]: value }))
     setIsDirty(true)
     setStatus('idle')
     setErrorMessage(null)
@@ -112,7 +137,7 @@ export function useExpenseForm(
 
   // Update multiple fields at once
   const updateMultipleFields = useCallback((fields: Record<string, unknown>) => {
-    setFormData(prev => ({ ...prev, ...fields }))
+    setFormData((prev) => ({ ...prev, ...fields }))
     setIsDirty(true)
     setStatus('idle')
     setErrorMessage(null)
@@ -126,7 +151,7 @@ export function useExpenseForm(
 
   // Submit form
   const submit = useCallback(async (): Promise<boolean> => {
-    const { valid, errors } = validateFormData(formData)
+    const { valid, errors } = validateFormData(formData, t)
     if (!valid) {
       setErrorMessage(errors.join('. '))
       setStatus('error')
@@ -143,12 +168,12 @@ export function useExpenseForm(
       setIsDirty(false)
       return true
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể gửi form. Vui lòng thử lại.'
+      const message = error instanceof Error ? error.message : t('expense.validation.cannotSubmit')
       setErrorMessage(message)
       setStatus('error')
       return false
     }
-  }, [token, formData])
+  }, [token, formData, t])
 
   return {
     formData,

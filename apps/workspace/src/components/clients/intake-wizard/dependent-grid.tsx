@@ -4,6 +4,7 @@
  */
 
 import { Plus, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { CustomSelect } from '../../ui/custom-select'
 import { RELATIONSHIP_OPTIONS } from '../../../lib/intake-form-config'
@@ -65,6 +66,7 @@ export function DependentGrid({
   onChange,
   errors,
 }: DependentGridProps) {
+  const { t } = useTranslation()
   // Ensure we have the right number of dependent slots
   const currentDependents = [...dependents]
   while (currentDependents.length < dependentCount) {
@@ -99,7 +101,10 @@ export function DependentGrid({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium text-foreground">
-          Thông tin người phụ thuộc ({currentDependents.length}/{dependentCount})
+          {t('intakeWizard.dependents.infoProgress', {
+            current: currentDependents.length,
+            total: dependentCount,
+          })}
         </h4>
         {currentDependents.length < dependentCount && (
           <button
@@ -108,7 +113,7 @@ export function DependentGrid({
             className="flex items-center gap-1 text-sm text-primary hover:text-primary-dark transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Thêm
+            {t('intakeWizard.actions.add')}
           </button>
         )}
       </div>
@@ -117,7 +122,7 @@ export function DependentGrid({
         <p className="text-sm text-error">{errors.dependents}</p>
       )}
 
-      <div className="space-y-4" role="list" aria-label="Danh sách người phụ thuộc">
+      <div className="space-y-4" role="list" aria-label={t('intakeWizard.dependents.listAria')}>
         {currentDependents.slice(0, dependentCount).map((dependent, index) => (
           <DependentRow
             key={dependent.id}
@@ -154,6 +159,7 @@ function DependentRow({
   isComplete,
   errors,
 }: DependentRowProps) {
+  const { t } = useTranslation()
   // Get field-specific error
   const getFieldError = (field: string) => errors?.[`dependent_${index}_${field}`]
 
@@ -166,18 +172,18 @@ function DependentRow({
           : 'bg-muted/30 border-border'
       )}
       role="listitem"
-      aria-label={`Người phụ thuộc ${index + 1}`}
+      aria-label={t('intakeWizard.dependents.rowAria', { index: index + 1 })}
     >
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-muted-foreground">
-          Người phụ thuộc #{index + 1}
+          {t('intakeWizard.dependents.rowTitle', { index: index + 1 })}
         </span>
         {showRemove && (
           <button
             type="button"
             onClick={onRemove}
             className="p-1.5 text-muted-foreground hover:text-error hover:bg-error-light rounded-lg transition-colors"
-            aria-label="Xóa người phụ thuộc"
+            aria-label={t('intakeWizard.dependents.removeAria')}
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -191,14 +197,14 @@ function DependentRow({
             htmlFor={`dep-${index}-firstName`}
             className="block text-xs font-medium text-muted-foreground"
           >
-            Tên <span className="text-error">*</span>
+            {t('intakeWizard.dependents.firstName')} <span className="text-error">*</span>
           </label>
           <input
             id={`dep-${index}-firstName`}
             type="text"
             value={dependent.firstName}
             onChange={(e) => onFieldChange('firstName', e.target.value.slice(0, MAX_FIRST_NAME_LENGTH))}
-            placeholder="Tên"
+            placeholder={t('intakeWizard.dependents.firstName')}
             maxLength={MAX_FIRST_NAME_LENGTH}
             aria-invalid={!!getFieldError('firstName')}
             aria-describedby={getFieldError('firstName') ? `dep-${index}-firstName-error` : undefined}
@@ -214,14 +220,14 @@ function DependentRow({
             htmlFor={`dep-${index}-lastName`}
             className="block text-xs font-medium text-muted-foreground"
           >
-            Họ <span className="text-error">*</span>
+            {t('intakeWizard.dependents.lastName')} <span className="text-error">*</span>
           </label>
           <input
             id={`dep-${index}-lastName`}
             type="text"
             value={dependent.lastName}
             onChange={(e) => onFieldChange('lastName', e.target.value.slice(0, MAX_LAST_NAME_LENGTH))}
-            placeholder="Họ"
+            placeholder={t('intakeWizard.dependents.lastName')}
             maxLength={MAX_LAST_NAME_LENGTH}
             aria-invalid={!!getFieldError('lastName')}
             className={cn(
@@ -268,7 +274,7 @@ function DependentRow({
             htmlFor={`dep-${index}-dob`}
             className="block text-xs font-medium text-muted-foreground"
           >
-            Ngày sinh <span className="text-error">*</span>
+            {t('intakeWizard.identity.dob')} <span className="text-error">*</span>
           </label>
           <input
             id={`dep-${index}-dob`}
@@ -291,13 +297,13 @@ function DependentRow({
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <label className="block text-xs font-medium text-muted-foreground">
-            Quan hệ <span className="text-error">*</span>
+            {t('intakeWizard.dependents.relationship')} <span className="text-error">*</span>
           </label>
           <CustomSelect
             value={dependent.relationship}
             onChange={(value) => onFieldChange('relationship', value)}
             options={RELATIONSHIP_OPTIONS}
-            placeholder="Chọn quan hệ..."
+            placeholder={t('intakeWizard.dependents.relationshipPlaceholder')}
             error={!!getFieldError('relationship')}
           />
         </div>
@@ -306,7 +312,7 @@ function DependentRow({
             htmlFor={`dep-${index}-months`}
             className="block text-xs font-medium text-muted-foreground"
           >
-            Số tháng sống chung <span className="text-error">*</span>
+            {t('intakeWizard.dependents.monthsLivedInHome')} <span className="text-error">*</span>
           </label>
           <input
             id={`dep-${index}-months`}

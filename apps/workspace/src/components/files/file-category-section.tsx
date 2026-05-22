@@ -70,6 +70,7 @@ export function FileCategorySection({
   entities,
   identityRetentionSummary,
 }: FileCategorySectionProps) {
+  const { t } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(!defaultCollapsed)
   const [isDragOver, setIsDragOver] = useState(false)
   const Icon = config.icon
@@ -159,7 +160,11 @@ export function FileCategorySection({
         onClick={() => setIsExpanded(!isExpanded)}
         onKeyDown={handleKeyDown}
         aria-expanded={isExpanded}
-        aria-label={`${config.label} - ${verifiedCount} of ${images.length} verified`}
+        aria-label={t('files.categoryVerifiedAria', {
+          category: config.label,
+          verified: verifiedCount,
+          total: images.length,
+        })}
         className={cn(
           'w-full flex items-center gap-3 p-4',
           'hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-inset transition-all',
@@ -181,7 +186,7 @@ export function FileCategorySection({
         </span>
         {isDragOver && (
           <span className="ml-auto text-xs text-primary font-medium">
-            Thả vào đây
+            {t('files.dropHere')}
           </span>
         )}
       </button>
@@ -334,7 +339,7 @@ const FileItemRow = memo(function FileItemRow({
 
   const isVerified = doc?.status === 'VERIFIED'
   const needsVerification = doc && doc.status !== 'VERIFIED'
-  // File is done processing but has no DigitalDoc (e.g., irrelevant files in "Khác")
+  // File is done processing but has no DigitalDoc.
   const isProcessedNoDoc = !doc && image.status !== 'UPLOADED' && image.status !== 'PROCESSING'
   const isStillProcessing = !doc && !isProcessedNoDoc
   const isStorageDeleted = isRetentionStorageDeleted(image)
@@ -399,14 +404,14 @@ const FileItemRow = memo(function FileItemRow({
     mutationFn: (targetClientId: string) => api.images.reassignEntity(image.id, targetClientId),
     onSuccess: (_data, targetClientId) => {
       const targetEntity = entities?.find(e => e.clientId === targetClientId)
-      toast.success(`Moved to ${targetEntity?.name ?? 'entity'}`)
+      toast.success(t('files.movedToEntity', { entity: targetEntity?.name ?? 'entity' }))
       // Invalidate group images query to refresh unified view
       queryClient.invalidateQueries({ queryKey: ['group-images'] })
       queryClient.invalidateQueries({ queryKey: ['images'] })
       setShowMoveMenu(false)
     },
     onError: () => {
-      toast.error('Failed to move document')
+      toast.error(t('files.moveToEntityError'))
     },
   })
 
@@ -584,13 +589,13 @@ const FileItemRow = memo(function FileItemRow({
                   'focus:outline-none focus:ring-2 focus:ring-primary/30',
                   'disabled:opacity-50'
                 )}
-                placeholder="Nhập tên tệp..."
+                placeholder={t('files.renamePlaceholder')}
               />
               <button
                 onClick={handleSaveRename}
                 disabled={renameMutation.isPending}
                 className="p-1.5 rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50 flex-shrink-0"
-                title="Lưu"
+                title={t('common.save')}
               >
                 {renameMutation.isPending ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -602,7 +607,7 @@ const FileItemRow = memo(function FileItemRow({
                 onClick={handleCancelRename}
                 disabled={renameMutation.isPending}
                 className="p-1.5 rounded border border-border hover:bg-muted disabled:opacity-50 flex-shrink-0"
-                title="Hủy"
+                title={t('common.cancel')}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -675,14 +680,14 @@ const FileItemRow = memo(function FileItemRow({
                 onClick={(e) => { e.stopPropagation(); setShowMoveMenu(!showMoveMenu) }}
                 disabled={reassignEntityMutation.isPending}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1 transition-colors disabled:opacity-50"
-                title="Move to another entity"
+                title={t('files.moveToAnotherEntity')}
               >
                 {reassignEntityMutation.isPending ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
                   <ArrowRightLeft className="w-3.5 h-3.5" />
                 )}
-                <span className="hidden sm:inline">Move</span>
+                <span className="hidden sm:inline">{t('files.move')}</span>
               </button>
               {showMoveMenu && (
                 <MoveToEntityMenu
@@ -800,6 +805,7 @@ function MoveToEntityMenu({
   onClose: () => void
   triggerRef: React.RefObject<HTMLButtonElement | null>
 }) {
+  const { t } = useTranslation()
   const menuRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState({ top: 0, left: 0 })
 
@@ -862,7 +868,7 @@ function MoveToEntityMenu({
       className="w-48 bg-card border border-border rounded-lg shadow-lg overflow-hidden"
     >
       <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wide border-b border-border">
-        Move to...
+        {t('files.moveTo')}
       </div>
       {otherEntities.map((entity) => {
         const entityIdx = entities.findIndex(e => e.clientId === entity.clientId)

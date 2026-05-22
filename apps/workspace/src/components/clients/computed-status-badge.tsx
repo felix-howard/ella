@@ -5,6 +5,7 @@
  */
 
 import { cn } from '@ella/ui'
+import { useTranslation } from 'react-i18next'
 import { CASE_STATUS_LABELS, CASE_STATUS_COLORS } from '../../lib/constants'
 import type { TaxCaseStatus } from '../../lib/api-client'
 
@@ -14,9 +15,11 @@ interface ComputedStatusBadgeProps {
 }
 
 export function ComputedStatusBadge({ status, size = 'md' }: ComputedStatusBadgeProps) {
+  const { t } = useTranslation()
+
   if (!status) {
     return (
-      <span className="text-xs text-muted-foreground">Chưa có hồ sơ</span>
+      <span className="text-xs text-muted-foreground">{t('clients.noCase')}</span>
     )
   }
 

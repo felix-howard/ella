@@ -22,14 +22,13 @@ const formatDecimal = (value: Prisma.Decimal | null): string | null =>
 
 const expenseRoute = new Hono()
 
-// Error messages in Vietnamese
 const ERROR_MESSAGES = {
-  INVALID_TOKEN: 'Link không hợp lệ. Vui lòng liên hệ văn phòng thuế.',
-  INVALID_TOKEN_TYPE: 'Link không dành cho form chi phí. Vui lòng liên hệ văn phòng thuế.',
-  LINK_DEACTIVATED: 'Link đã bị vô hiệu hóa. Vui lòng liên hệ văn phòng thuế.',
-  EXPIRED_TOKEN: 'Link đã hết hạn. Vui lòng liên hệ văn phòng thuế để được gửi link mới.',
-  FORM_LOCKED: 'Form đã bị khóa bởi CPA. Không thể chỉnh sửa.',
-  VALIDATION_ERROR: 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.',
+  INVALID_TOKEN: 'This link is invalid. Please contact the tax office.',
+  INVALID_TOKEN_TYPE: 'This link is not for the expense form. Please contact the tax office.',
+  LINK_DEACTIVATED: 'This link has been deactivated. Please contact the tax office.',
+  EXPIRED_TOKEN: 'This link has expired. Please contact the tax office for a new link.',
+  FORM_LOCKED: 'This form has been locked by the CPA and can no longer be edited.',
+  VALIDATION_ERROR: 'Invalid data. Please check and try again.',
 }
 
 /**
@@ -288,7 +287,7 @@ expenseRoute.post('/:token', async (c) => {
     success: true,
     version: newVersion,
     status: 'SUBMITTED',
-    message: 'Đã lưu thành công! CPA sẽ xem xét thông tin của bạn.',
+    message: 'Saved successfully. Your CPA will review your information.',
   })
 })
 
@@ -390,7 +389,7 @@ expenseRoute.patch('/:token/draft', async (c) => {
 
   return c.json({
     success: true,
-    message: 'Đã tự động lưu.',
+    message: 'Autosaved.',
   })
 })
 

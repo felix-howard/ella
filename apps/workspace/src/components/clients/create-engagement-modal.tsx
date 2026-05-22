@@ -5,6 +5,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Calendar, Copy, Loader2 } from 'lucide-react'
 import { Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button, cn } from '@ella/ui'
 import { api, type TaxEngagement } from '../../lib/api-client'
@@ -29,6 +30,7 @@ export function CreateEngagementModal({
   existingEngagements,
   onSuccess,
 }: CreateEngagementModalProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   // Memoize available years to prevent re-computation on every render
@@ -63,14 +65,14 @@ export function CreateEngagementModal({
         copyFromEngagementId: sourceEngagement?.id,
       }),
     onSuccess: (response) => {
-      toast.success(`Đã tạo engagement năm ${selectedYear}`)
+      toast.success(t('createEngagement.success', { year: selectedYear }))
       queryClient.invalidateQueries({ queryKey: ['engagements', clientId] })
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
       onSuccess(selectedYear, response.data.id)
       onClose()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Lỗi khi tạo engagement')
+      toast.error(error instanceof Error ? error.message : t('createEngagement.error'))
     },
   })
 
@@ -84,10 +86,10 @@ export function CreateEngagementModal({
       <ModalHeader>
         <ModalTitle className="flex items-center gap-2">
           <Calendar className="w-5 h-5 text-primary" />
-          Thêm năm thuế mới
+          {t('createEngagement.title')}
         </ModalTitle>
         <ModalDescription>
-          Tạo engagement mới cho khách hàng này
+          {t('createEngagement.description')}
         </ModalDescription>
       </ModalHeader>
 
@@ -95,11 +97,11 @@ export function CreateEngagementModal({
         {/* Year Selection */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">
-            Chọn năm thuế
+            {t('createEngagement.selectTaxYear')}
           </label>
           {availableYears.length === 0 ? (
             <p className="text-sm text-muted-foreground py-2">
-              Đã có engagement cho tất cả các năm khả dụng
+              {t('createEngagement.allYearsExist')}
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
@@ -127,7 +129,7 @@ export function CreateEngagementModal({
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground flex items-center gap-2">
               <Copy className="w-4 h-4 text-muted-foreground" />
-              Sao chép từ năm trước (không bắt buộc)
+              {t('createEngagement.copyFromPrevious')}
             </label>
             <div className="flex flex-wrap gap-2">
               <button
@@ -140,7 +142,7 @@ export function CreateEngagementModal({
                     : 'bg-muted hover:bg-muted/80 text-foreground'
                 )}
               >
-                Không sao chép
+                {t('createEngagement.doNotCopy')}
               </button>
               {existingEngagements
                 .sort((a, b) => b.taxYear - a.taxYear)
@@ -162,7 +164,7 @@ export function CreateEngagementModal({
             </div>
             {copyFromYear && (
               <p className="text-xs text-muted-foreground mt-1">
-                Sẽ sao chép thông tin profile từ năm {copyFromYear}
+                {t('createEngagement.copyNotice', { year: copyFromYear })}
               </p>
             )}
           </div>
@@ -171,7 +173,7 @@ export function CreateEngagementModal({
 
       <ModalFooter>
         <Button variant="outline" onClick={handleClose} disabled={createMutation.isPending}>
-          Hủy
+          {t('common.cancel')}
         </Button>
         <Button
           onClick={handleSubmit}
@@ -180,7 +182,7 @@ export function CreateEngagementModal({
           {createMutation.isPending && (
             <Loader2 className="w-4 h-4 animate-spin mr-2" />
           )}
-          Tạo engagement
+          {t('createEngagement.create')}
         </Button>
       </ModalFooter>
     </Modal>

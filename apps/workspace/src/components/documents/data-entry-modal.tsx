@@ -157,14 +157,14 @@ export function DataEntryModal({
             </div>
             {doc.entryCompleted && (
               <Badge variant="success" className="text-xs ml-2">
-                Đã hoàn tất
+                {t('dataEntry.completed')}
               </Badge>
             )}
           </div>
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-muted/80 transition-colors"
-            aria-label="Đóng"
+            aria-label={t('common.close')}
           >
             <X className="w-5 h-5 text-muted-foreground" />
           </button>
@@ -177,7 +177,7 @@ export function DataEntryModal({
               <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle className="w-8 h-8" />
               </div>
-              <p className="text-lg font-medium">Không có dữ liệu được trích xuất</p>
+              <p className="text-lg font-medium">{t('dataEntry.noExtractedData')}</p>
             </div>
           ) : (
             <div className="space-y-3">

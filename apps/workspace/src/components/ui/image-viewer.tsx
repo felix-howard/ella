@@ -6,6 +6,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect, lazy, Suspense } from 'react'
+import { useTranslation } from 'react-i18next'
 import { TransformWrapper, TransformComponent, useControls } from 'react-zoom-pan-pinch'
 import { cn } from '@ella/ui'
 import {
@@ -66,18 +67,20 @@ function PdfControls({
   onReset: () => void
   onRotate: () => void
 }) {
+  const { t } = useTranslation()
+
   return (
     <div
       className="absolute top-2 right-2 z-10 flex gap-1 bg-black/70 rounded-full px-2 py-1"
       role="toolbar"
-      aria-label="Điều khiển xem PDF"
+      aria-label={t('viewer.controlsPdf')}
     >
       <button
         onClick={onZoomOut}
         disabled={zoom <= MIN_ZOOM}
         className="p-1.5 rounded-full hover:bg-white/20 transition-colors disabled:opacity-50"
-        aria-label="Thu nhỏ"
-        title="Thu nhỏ (-)"
+        aria-label={t('viewer.zoomOut')}
+        title={t('viewer.zoomOutTitle')}
       >
         <ZoomOut className="h-4 w-4 text-white" />
       </button>
@@ -91,8 +94,8 @@ function PdfControls({
         onClick={onZoomIn}
         disabled={zoom >= MAX_ZOOM}
         className="p-1.5 rounded-full hover:bg-white/20 transition-colors disabled:opacity-50"
-        aria-label="Phóng to"
-        title="Phóng to (+)"
+        aria-label={t('viewer.zoomIn')}
+        title={t('viewer.zoomInTitle')}
       >
         <ZoomIn className="h-4 w-4 text-white" />
       </button>
@@ -100,16 +103,16 @@ function PdfControls({
       <button
         onClick={onReset}
         className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
-        aria-label="Đặt lại"
-        title="Đặt lại (0)"
+        aria-label={t('viewer.reset')}
+        title={t('viewer.resetTitle')}
       >
         <Maximize2 className="h-4 w-4 text-white" />
       </button>
       <button
         onClick={onRotate}
         className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
-        aria-label="Xoay"
-        title="Xoay (R)"
+        aria-label={t('viewer.rotate')}
+        title={t('viewer.rotateTitle')}
       >
         <RotateCw className="h-4 w-4 text-white" />
       </button>
@@ -125,19 +128,20 @@ function ImageControls({
   zoom: number
   onRotate: () => void
 }) {
+  const { t } = useTranslation()
   const { zoomIn, zoomOut, resetTransform } = useControls()
 
   return (
     <div
       className="absolute top-2 right-2 z-10 flex gap-1 bg-black/70 rounded-full px-2 py-1"
       role="toolbar"
-      aria-label="Điều khiển xem ảnh"
+      aria-label={t('viewer.controlsImage')}
     >
       <button
         onClick={() => zoomOut(ZOOM_STEP)}
         className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
-        aria-label="Thu nhỏ"
-        title="Thu nhỏ (-)"
+        aria-label={t('viewer.zoomOut')}
+        title={t('viewer.zoomOutTitle')}
       >
         <ZoomOut className="h-4 w-4 text-white" />
       </button>
@@ -150,8 +154,8 @@ function ImageControls({
       <button
         onClick={() => zoomIn(ZOOM_STEP)}
         className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
-        aria-label="Phóng to"
-        title="Phóng to (+)"
+        aria-label={t('viewer.zoomIn')}
+        title={t('viewer.zoomInTitle')}
       >
         <ZoomIn className="h-4 w-4 text-white" />
       </button>
@@ -159,16 +163,16 @@ function ImageControls({
       <button
         onClick={() => resetTransform()}
         className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
-        aria-label="Đặt lại"
-        title="Đặt lại (0)"
+        aria-label={t('viewer.reset')}
+        title={t('viewer.resetTitle')}
       >
         <Maximize2 className="h-4 w-4 text-white" />
       </button>
       <button
         onClick={onRotate}
         className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
-        aria-label="Xoay"
-        title="Xoay (R)"
+        aria-label={t('viewer.rotate')}
+        title={t('viewer.rotateTitle')}
       >
         <RotateCw className="h-4 w-4 text-white" />
       </button>
@@ -184,6 +188,7 @@ export function ImageViewer({
   initialRotation = 0,
   onRotationChange,
 }: ImageViewerProps) {
+  const { t } = useTranslation()
   // Platform detection (hooks must be at top level)
   const isMobile = useIsMobile()
   const isIOS = isIOSSafari()
@@ -230,8 +235,8 @@ export function ImageViewer({
   }, [])
 
   const handlePdfLoadError = useCallback(() => {
-    setError('Không thể tải file PDF')
-  }, [])
+    setError(t('viewer.pdfLoadFileError'))
+  }, [t])
 
   const handlePrevPage = useCallback(() => {
     setCurrentPage((p) => Math.max(1, p - 1))
@@ -300,9 +305,9 @@ export function ImageViewer({
           className
         )}
         role="img"
-        aria-label="Không có hình ảnh"
+        aria-label={t('viewer.noImage')}
       >
-        <p className="text-muted-foreground text-sm">Không có hình ảnh</p>
+        <p className="text-muted-foreground text-sm">{t('viewer.noImage')}</p>
       </div>
     )
   }
@@ -378,13 +383,13 @@ export function ImageViewer({
           <div
             className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/70 rounded-full px-3 py-1.5 z-10"
             role="navigation"
-            aria-label="Điều hướng trang PDF"
+            aria-label={t('viewer.pageNavigationPdf')}
           >
             <button
               onClick={handlePrevPage}
               disabled={currentPage <= 1}
               className="p-1 rounded-full hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="Trang trước"
+              aria-label={t('viewer.previousPage')}
             >
               <ChevronLeft className="h-4 w-4 text-white" />
             </button>
@@ -398,7 +403,7 @@ export function ImageViewer({
               onClick={handleNextPage}
               disabled={currentPage >= numPages}
               className="p-1 rounded-full hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="Trang sau"
+              aria-label={t('viewer.nextPage')}
             >
               <ChevronRight className="h-4 w-4 text-white" />
             </button>
@@ -439,13 +444,13 @@ export function ImageViewer({
           ) : (
             <img
               src={imageUrl}
-              alt="Document preview"
+              alt={t('viewer.documentPreview')}
               className="max-w-full max-h-full object-contain select-none"
               style={{
                 transform: rotation ? `rotate(${rotation}deg)` : undefined,
               }}
               draggable={false}
-              onError={() => setError('Không thể tải hình ảnh')}
+              onError={() => setError(t('viewer.imageLoadError'))}
             />
           )}
         </TransformComponent>

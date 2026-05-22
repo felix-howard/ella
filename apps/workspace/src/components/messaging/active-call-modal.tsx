@@ -193,7 +193,7 @@ export function ActiveCallModal({
           {showTimer && (
             <p
               className="text-3xl font-mono font-bold text-foreground"
-              aria-label={`Thời gian gọi: ${formatDuration(duration)}`}
+              aria-label={t('messages.callDurationAria', { duration: formatDuration(duration) })}
             >
               {formatDuration(duration)}
             </p>

@@ -101,8 +101,8 @@ export async function processImage(
         caseId,
         type: 'AI_FAILED',
         priority: 'HIGH',
-        title: 'AI phân loại thất bại',
-        description: `Không thể phân loại tài liệu: ${classResult.error}`,
+        title: 'AI classification failed',
+        description: `Could not classify document: ${classResult.error}`,
         metadata: { rawImageId },
       })
       actionsCreated.push(actionId)
@@ -134,7 +134,7 @@ export async function processImage(
         caseId,
         type: 'BLURRY_DETECTED',
         priority: 'HIGH',
-        title: 'Ảnh bị mờ - cần chụp lại',
+        title: 'Blurry image - retake needed',
         description: getResendMessage(blurResult),
         metadata: { rawImageId, docType, blurScore: blurResult.blurScore },
       })
@@ -198,8 +198,8 @@ export async function processImage(
           caseId,
           type: 'VERIFY_DOCS',
           priority: 'NORMAL',
-          title: 'Xác minh dữ liệu OCR',
-          description: `${docType}: Dữ liệu cần xác minh (độ tin cậy: ${Math.round(ocrResult.confidence * 100)}%)`,
+          title: 'Verify OCR data',
+          description: `${docType}: Data needs verification (${Math.round(ocrResult.confidence * 100)}% confidence)`,
           metadata: { rawImageId, digitalDocId, docType, confidence: ocrResult.confidence },
         })
         actionsCreated.push(actionId)
@@ -234,7 +234,7 @@ export async function processImage(
       caseId,
       type: 'AI_FAILED',
       priority: 'HIGH',
-      title: 'Lỗi xử lý AI',
+      title: 'AI processing error',
       description: errorMessage,
       metadata: { rawImageId },
     })

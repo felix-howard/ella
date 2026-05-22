@@ -319,20 +319,20 @@ export async function processIncomingMessage(
     // Unknown caller - highlight it's a NEW number
     actionTitle = mediaCount > 0
       ? content
-        ? `Số mới nhắn: ${escapedContent.substring(0, 35)}${escapedContent.length > 35 ? '...' : ''} + ${mediaCount} ảnh`
-        : `Số mới gửi ${mediaCount} ảnh`
-      : `Số mới nhắn: ${escapedContent.substring(0, 45)}${escapedContent.length > 45 ? '...' : ''}`
-    actionDescription = `Tin nhắn từ số mới: ${safePhone}${mediaCount > 0 ? ` (${mediaCount} file đính kèm)` : ''}`
+        ? `New number texted: ${escapedContent.substring(0, 35)}${escapedContent.length > 35 ? '...' : ''} + ${mediaCount} images`
+        : `New number sent ${mediaCount} images`
+      : `New number texted: ${escapedContent.substring(0, 45)}${escapedContent.length > 45 ? '...' : ''}`
+    actionDescription = `Message from new number: ${safePhone}${mediaCount > 0 ? ` (${mediaCount} attachments)` : ''}`
   } else {
     // Known client - existing behavior
     actionTitle = mediaCount > 0
       ? content
-        ? `Khách hàng gửi: ${escapedContent.substring(0, 40)}${escapedContent.length > 40 ? '...' : ''} + ${mediaCount} ảnh`
-        : `Khách hàng gửi ${mediaCount} ảnh`
-      : `Khách hàng trả lời: ${escapedContent.substring(0, 50)}${escapedContent.length > 50 ? '...' : ''}`
+        ? `Client sent: ${escapedContent.substring(0, 40)}${escapedContent.length > 40 ? '...' : ''} + ${mediaCount} images`
+        : `Client sent ${mediaCount} images`
+      : `Client replied: ${escapedContent.substring(0, 50)}${escapedContent.length > 50 ? '...' : ''}`
     actionDescription = mediaCount > 0
-      ? `MMS từ ${safePhone} với ${mediaCount} file đính kèm`
-      : `Tin nhắn mới từ ${safePhone}`
+      ? `MMS from ${safePhone} with ${mediaCount} attachments`
+      : `New message from ${safePhone}`
   }
 
   const action = await prisma.action.create({

@@ -5,6 +5,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Document, Page, pdfjs } from 'react-pdf'
 import { cn } from '@ella/ui'
 import {
@@ -61,6 +62,7 @@ export function FileViewerModal({
   isLoading = false,
   error = null,
 }: FileViewerModalProps) {
+  const { t } = useTranslation()
   const [zoom, setZoom] = useState(1)
   const [rotation, setRotation] = useState(0)
   const [numPages, setNumPages] = useState<number | null>(null)
@@ -153,7 +155,7 @@ export function FileViewerModal({
 
   const handlePdfLoadError = (error: Error) => {
     console.error('PDF load error:', error)
-    setPdfError('Không thể tải file PDF')
+    setPdfError(t('viewer.pdfLoadFileError'))
   }
 
   const handleDownload = () => {
@@ -182,7 +184,7 @@ export function FileViewerModal({
       className="fixed inset-0 z-50 bg-black/90 flex flex-col"
       role="dialog"
       aria-modal="true"
-      aria-label={`Xem file: ${filename}`}
+      aria-label={t('files.viewFileAria', { filename })}
       tabIndex={-1}
       onClick={handleBackdropClick}
     >
@@ -203,8 +205,8 @@ export function FileViewerModal({
             <button
               onClick={handleDownload}
               className="p-2 rounded-full hover:bg-white/10 transition-colors"
-              aria-label="Tải xuống"
-              title="Tải xuống"
+              aria-label={t('common.download')}
+              title={t('common.download')}
             >
               <Download className="w-5 h-5 text-white" />
             </button>
@@ -214,7 +216,7 @@ export function FileViewerModal({
           <button
             onClick={onClose}
             className="p-2 rounded-full hover:bg-white/10 transition-colors"
-            aria-label="Đóng"
+            aria-label={t('common.close')}
           >
             <X className="w-6 h-6 text-white" />
           </button>
@@ -232,20 +234,20 @@ export function FileViewerModal({
         {isLoading ? (
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="w-12 h-12 text-white animate-spin" />
-            <p className="text-white/70">Đang tải file...</p>
+            <p className="text-white/70">{t('files.loadingFile')}</p>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center gap-4 text-center max-w-md">
             <AlertCircle className="w-12 h-12 text-red-400" />
-            <p className="text-white font-medium">Không thể tải file</p>
+            <p className="text-white font-medium">{t('common.cannotLoadFile')}</p>
             <p className="text-white/70 text-sm">{error}</p>
           </div>
         ) : !url ? (
           <div className="flex flex-col items-center gap-4 text-center">
             <AlertCircle className="w-12 h-12 text-yellow-400" />
-            <p className="text-white font-medium">File không khả dụng</p>
+            <p className="text-white font-medium">{t('files.fileUnavailable')}</p>
             <p className="text-white/70 text-sm">
-              Không có URL để hiển thị file này
+              {t('files.noPreviewUrl')}
             </p>
           </div>
         ) : fileType === 'pdf' ? (
@@ -294,9 +296,9 @@ export function FileViewerModal({
         ) : (
           <div className="flex flex-col items-center gap-4 text-center">
             <FileText className="w-12 h-12 text-white/50" />
-            <p className="text-white font-medium">Định dạng không được hỗ trợ</p>
+            <p className="text-white font-medium">{t('files.unsupportedFormat')}</p>
             <p className="text-white/70 text-sm">
-              Không thể xem trước file này. Bạn có thể tải xuống để xem.
+              {t('files.unsupportedFormatDesc')}
             </p>
             {url && (
               <button
@@ -304,7 +306,7 @@ export function FileViewerModal({
                 className="mt-2 px-4 py-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
-                Tải xuống
+                {t('common.download')}
               </button>
             )}
           </div>
@@ -318,8 +320,8 @@ export function FileViewerModal({
           <button
             onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
             className="p-1.5 rounded-full hover:bg-white/10 transition-colors"
-            aria-label="Thu nhỏ"
-            title="Thu nhỏ (-)"
+            aria-label={t('viewer.zoomOut')}
+            title={t('viewer.zoomOutTitle')}
           >
             <ZoomOut className="w-4 h-4 text-white" />
           </button>
@@ -329,8 +331,8 @@ export function FileViewerModal({
           <button
             onClick={() => setZoom((z) => Math.min(3, z + 0.25))}
             className="p-1.5 rounded-full hover:bg-white/10 transition-colors"
-            aria-label="Phóng to"
-            title="Phóng to (+)"
+            aria-label={t('viewer.zoomIn')}
+            title={t('viewer.zoomInTitle')}
           >
             <ZoomIn className="w-4 h-4 text-white" />
           </button>
@@ -340,8 +342,8 @@ export function FileViewerModal({
         <button
           onClick={() => setRotation((r) => (r + 90) % 360)}
           className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-          aria-label="Xoay"
-          title="Xoay (R)"
+          aria-label={t('viewer.rotate')}
+          title={t('viewer.rotateTitle')}
         >
           <RotateCw className="w-4 h-4 text-white" />
         </button>
@@ -353,8 +355,8 @@ export function FileViewerModal({
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage <= 1}
               className="p-1.5 rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="Trang trước"
-              title="Trang trước (←)"
+              aria-label={t('viewer.previousPage')}
+              title={t('viewer.previousPageTitle')}
             >
               <ChevronLeft className="w-4 h-4 text-white" />
             </button>
@@ -365,8 +367,8 @@ export function FileViewerModal({
               onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))}
               disabled={currentPage >= numPages}
               className="p-1.5 rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="Trang sau"
-              title="Trang sau (→)"
+              aria-label={t('viewer.nextPage')}
+              title={t('viewer.nextPageTitle')}
             >
               <ChevronRight className="w-4 h-4 text-white" />
             </button>
@@ -377,8 +379,8 @@ export function FileViewerModal({
       {/* Keyboard hints */}
       <div className="text-center py-2 bg-black/30" onClick={e => e.stopPropagation()}>
         <p className="text-white/50 text-xs">
-          ESC: đóng • Click ngoài để đóng • +/-: zoom • R: xoay
-          {fileType === 'pdf' && numPages && numPages > 1 && ' • ←/→: chuyển trang'}
+          {t('viewer.keyboardHint')}
+          {fileType === 'pdf' && numPages && numPages > 1 && t('viewer.keyboardHintPdfPages')}
         </p>
       </div>
     </div>

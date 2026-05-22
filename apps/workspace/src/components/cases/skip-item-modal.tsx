@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Modal,
   ModalHeader,
@@ -29,6 +30,7 @@ export function SkipItemModal({
   itemLabel,
   isSubmitting = false,
 }: SkipItemModalProps) {
+  const { t } = useTranslation()
   const [reason, setReason] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -46,11 +48,11 @@ export function SkipItemModal({
     <Modal open={isOpen} onClose={handleClose}>
       <form onSubmit={handleSubmit}>
         <ModalHeader>
-          <ModalTitle>Bỏ qua mục</ModalTitle>
+          <ModalTitle>{t('skipItem.title')}</ModalTitle>
           <ModalDescription>
             {itemLabel
-              ? `Đánh dấu "${itemLabel}" là không cần thiết`
-              : 'Đánh dấu mục này là không cần thiết'}
+              ? t('skipItem.descriptionWithLabel', { label: itemLabel })
+              : t('skipItem.description')}
           </ModalDescription>
         </ModalHeader>
 
@@ -60,13 +62,13 @@ export function SkipItemModal({
               htmlFor="skip-reason"
               className="block text-sm font-medium text-foreground mb-1.5"
             >
-              Lý do bỏ qua <span className="text-error">*</span>
+              {t('skipItem.reason')} <span className="text-error">*</span>
             </label>
             <textarea
               id="skip-reason"
               className="flex w-full rounded-md border border-border bg-card px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 resize-none"
               rows={3}
-              placeholder="VD: Khách hàng không có loại thu nhập này"
+              placeholder={t('skipItem.reasonPlaceholder')}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               maxLength={500}
@@ -75,7 +77,7 @@ export function SkipItemModal({
               aria-describedby="skip-reason-hint"
             />
             <p id="skip-reason-hint" className="text-xs text-muted-foreground mt-1">
-              Ghi lý do để dễ tra cứu sau này (tối đa 500 ký tự)
+              {t('skipItem.reasonHelp')}
             </p>
           </div>
         </ModalBody>
@@ -87,14 +89,14 @@ export function SkipItemModal({
             onClick={handleClose}
             disabled={isSubmitting}
           >
-            Hủy
+            {t('common.cancel')}
           </Button>
           <Button
             type="submit"
             variant="destructive"
             disabled={!reason.trim() || isSubmitting}
           >
-            {isSubmitting ? 'Đang xử lý...' : 'Bỏ qua'}
+            {isSubmitting ? t('skipItem.processing') : t('checklist.skip')}
           </Button>
         </ModalFooter>
       </form>

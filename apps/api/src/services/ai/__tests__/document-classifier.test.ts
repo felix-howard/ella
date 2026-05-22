@@ -255,14 +255,21 @@ describe('requiresOcrExtraction', () => {
 })
 
 describe('getDocTypeLabel', () => {
-  it('returns Vietnamese labels for doc types', () => {
-    expect(getDocTypeLabel('W2')).toBe('W2 (Thu nhập từ công việc)')
-    expect(getDocTypeLabel('SSN_CARD')).toBe('Thẻ SSN')
-    expect(getDocTypeLabel('DRIVER_LICENSE')).toBe('Bằng Lái / ID')
+  it('returns English labels by default', () => {
+    expect(getDocTypeLabel('W2')).toBe('W-2 employment income')
+    expect(getDocTypeLabel('SSN_CARD')).toBe('SSN card')
+    expect(getDocTypeLabel('DRIVER_LICENSE')).toBe('Driver license / ID')
+  })
+
+  it('returns Vietnamese labels when requested', () => {
+    expect(getDocTypeLabel('W2', 'VI')).toBe('W2 (Thu nhập từ công việc)')
+    expect(getDocTypeLabel('SSN_CARD', 'VI')).toBe('Thẻ SSN')
+    expect(getDocTypeLabel('DRIVER_LICENSE', 'VI')).toBe('Bằng Lái / ID')
   })
 
   it('returns default for UNKNOWN', () => {
-    expect(getDocTypeLabel('UNKNOWN')).toBe('Chưa xác định')
+    expect(getDocTypeLabel('UNKNOWN')).toBe('Unknown')
+    expect(getDocTypeLabel('UNKNOWN', 'VI')).toBe('Chưa xác định')
   })
 })
 

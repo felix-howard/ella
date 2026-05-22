@@ -1,3 +1,6 @@
+import en from '../../locales/en.json'
+import vi from '../../locales/vi.json'
+
 export type ClientSmsLanguage = 'VI' | 'EN'
 
 export type ClientSmsTemplateId = 'official-channel' | 'tax-documents'
@@ -5,16 +8,33 @@ export type ClientSmsTemplateId = 'official-channel' | 'tax-documents'
 export type ClientSmsTemplate = {
   id: ClientSmsTemplateId
   labelKey: string
+  messageKey: string
   messages: Record<ClientSmsLanguage, string>
 }
 
-export const OFFICIAL_CHANNEL_SMS_TEMPLATE_EN = `Hi {{client_name}}, this is Ella Tax Services LLC'S official communication channel. Please use the secure link below to upload your documents: {{portal_link}}`
+const TEMPLATE_MESSAGE_KEYS: Record<ClientSmsTemplateId, string> = {
+  'official-channel': 'clientSmsTemplates.officialChannel.message',
+  'tax-documents': 'clientSmsTemplates.taxDocuments.message',
+}
 
-export const OFFICIAL_CHANNEL_SMS_TEMPLATE_VI = `Hi {{client_name}}, đây là kênh liên lạc chính thức của Ella Tax Services LLC. Vui lòng sử dụng link bảo mật sau để tải lên các tài liệu của bạn: {{portal_link}}`
+const SMS_TEMPLATE_LOCALES = {
+  EN: en,
+  VI: vi,
+}
 
-export const DEFAULT_SMS_TEMPLATE_VI = `Xin chào {{client_name}}, để chuẩn bị hồ sơ thuế năm {{tax_year}}, vui lòng gửi 1040 của khai thuế năm trước, copy of ID, social, thu nhập W2/1099, bảo hiểm 1095A và các tài liệu cần thiết qua link: {{portal_link}}`
+function getSmsTemplateMessage(templateId: ClientSmsTemplateId, language: ClientSmsLanguage): string {
+  const key = TEMPLATE_MESSAGE_KEYS[templateId]
+  const value = SMS_TEMPLATE_LOCALES[language][key as keyof typeof en]
+  return typeof value === 'string' ? value : ''
+}
 
-export const DEFAULT_SMS_TEMPLATE_EN = `Hello {{client_name}}, to prepare your {{tax_year}} tax documents, please send your prior year 1040 tax return, copy of ID, social security card, W2/1099 income forms, 1095A insurance form, and other required documents via the link: {{portal_link}}`
+export const OFFICIAL_CHANNEL_SMS_TEMPLATE_EN = getSmsTemplateMessage('official-channel', 'EN')
+
+export const OFFICIAL_CHANNEL_SMS_TEMPLATE_VI = getSmsTemplateMessage('official-channel', 'VI')
+
+export const DEFAULT_SMS_TEMPLATE_VI = getSmsTemplateMessage('tax-documents', 'VI')
+
+export const DEFAULT_SMS_TEMPLATE_EN = getSmsTemplateMessage('tax-documents', 'EN')
 
 export const DEFAULT_CLIENT_SMS_TEMPLATE_ID: ClientSmsTemplateId = 'official-channel'
 
@@ -22,6 +42,7 @@ export const CLIENT_SMS_TEMPLATES: ClientSmsTemplate[] = [
   {
     id: 'official-channel',
     labelKey: 'confirmStep.templateOfficialChannel',
+    messageKey: TEMPLATE_MESSAGE_KEYS['official-channel'],
     messages: {
       EN: OFFICIAL_CHANNEL_SMS_TEMPLATE_EN,
       VI: OFFICIAL_CHANNEL_SMS_TEMPLATE_VI,
@@ -30,6 +51,7 @@ export const CLIENT_SMS_TEMPLATES: ClientSmsTemplate[] = [
   {
     id: 'tax-documents',
     labelKey: 'confirmStep.templateTaxDocuments',
+    messageKey: TEMPLATE_MESSAGE_KEYS['tax-documents'],
     messages: {
       EN: DEFAULT_SMS_TEMPLATE_EN,
       VI: DEFAULT_SMS_TEMPLATE_VI,

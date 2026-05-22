@@ -4,6 +4,7 @@
  */
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Plus, Edit2, Trash2, ChevronDown, ChevronRight, ToggleLeft, ToggleRight } from 'lucide-react'
 import { Card, Button } from '@ella/ui'
 import { cn } from '@ella/ui'
@@ -16,34 +17,35 @@ const TAX_TYPE_LABELS: Record<TaxType, string> = {
   FORM_1065: '1065',
 }
 
-const FIELD_TYPE_LABELS: Record<FieldType, string> = {
-  BOOLEAN: 'Có/Không',
-  SELECT: 'Chọn',
-  NUMBER: 'Số',
-  NUMBER_INPUT: 'Số (nhập)',
-  CURRENCY: 'Tiền tệ',
-  TEXT: 'Văn bản',
+const FIELD_TYPE_LABEL_KEYS: Record<FieldType, string> = {
+  BOOLEAN: 'fieldType.boolean',
+  SELECT: 'fieldType.select',
+  NUMBER: 'fieldType.number',
+  NUMBER_INPUT: 'fieldType.numberInput',
+  CURRENCY: 'fieldType.currency',
+  TEXT: 'fieldType.text',
 }
 
-const SECTION_LABELS: Record<string, string> = {
-  tax_info: 'Thông tin thuế',
-  identity: 'Nhận dạng',
-  life_changes: 'Thay đổi cuộc sống',
-  income: 'Thu nhập',
-  dependents: 'Người phụ thuộc',
-  health: 'Bảo hiểm sức khỏe',
-  deductions: 'Khấu trừ',
-  credits: 'Tín dụng thuế',
-  foreign: 'Nước ngoài',
-  business: 'Kinh doanh',
-  entity_info: 'Thông tin doanh nghiệp',
-  ownership: 'Sở hữu',
-  expenses: 'Chi phí',
-  assets: 'Tài sản',
-  state: 'Tiểu bang',
+const SECTION_LABEL_KEYS: Record<string, string> = {
+  tax_info: 'section.taxInfo',
+  identity: 'section.identity',
+  life_changes: 'section.lifeChanges',
+  income: 'section.income',
+  dependents: 'section.dependents',
+  health: 'section.health',
+  deductions: 'section.deductions',
+  credits: 'section.credits',
+  foreign: 'section.foreign',
+  business: 'section.business',
+  entity_info: 'section.entityInfo',
+  ownership: 'section.ownership',
+  expenses: 'section.expenses',
+  assets: 'section.assets',
+  state: 'section.state',
 }
 
 export function IntakeQuestionsConfigTab() {
+  const { t } = useTranslation()
   const [filterTaxType, setFilterTaxType] = useState<TaxType | 'all'>('all')
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -116,7 +118,7 @@ export function IntakeQuestionsConfigTab() {
               : 'bg-muted text-foreground hover:bg-muted/80'
           )}
         >
-          Tất cả
+          {t('common.all')}
         </button>
         {(Object.keys(TAX_TYPE_LABELS) as TaxType[]).map((taxType) => (
           <button
@@ -136,19 +138,19 @@ export function IntakeQuestionsConfigTab() {
 
       {/* Actions Bar */}
       <div className="flex justify-between items-center">
-        <p className="text-sm text-muted-foreground">{questions.length} câu hỏi</p>
+        <p className="text-sm text-muted-foreground">{t('settingsIntakeQuestions.count', { count: questions.length })}</p>
         <Button size="sm" className="gap-1.5" onClick={handleAdd}>
           <Plus className="w-4 h-4" />
-          Thêm câu hỏi
+          {t('settingsIntakeQuestions.addQuestion')}
         </Button>
       </div>
 
       {/* Questions List */}
       {isLoading ? (
-        <div className="text-center py-8 text-muted-foreground">Đang tải...</div>
+        <div className="text-center py-8 text-muted-foreground">{t('common.loading')}</div>
       ) : questions.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          Không có câu hỏi nào
+          {t('settingsIntakeQuestions.empty')}
         </div>
       ) : (
         <div className="space-y-4">
@@ -184,6 +186,7 @@ interface SectionGroupProps {
 }
 
 function SectionGroup({ section, questions, isExpanded, onToggle, onEdit }: SectionGroupProps) {
+  const { t } = useTranslation()
   return (
     <Card className="overflow-hidden">
       <button
@@ -197,7 +200,7 @@ function SectionGroup({ section, questions, isExpanded, onToggle, onEdit }: Sect
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           )}
           <span className="font-medium text-foreground">
-            {SECTION_LABELS[section] || section}
+            {SECTION_LABEL_KEYS[section] ? t(SECTION_LABEL_KEYS[section]) : section}
           </span>
           <span className="text-sm text-muted-foreground">({questions.length})</span>
         </div>
@@ -220,6 +223,7 @@ interface QuestionRowProps {
 }
 
 function QuestionRow({ question, onEdit }: QuestionRowProps) {
+  const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
 
   const toggleMutation = useMutation({
@@ -244,19 +248,19 @@ function QuestionRow({ question, onEdit }: QuestionRowProps) {
           <span
             className={cn('font-medium', question.isActive ? 'text-foreground' : 'text-muted-foreground')}
           >
-            {question.labelVi}
+            {getLocalizedQuestionLabel(question, i18n.language)}
           </span>
           <span className="px-1.5 py-0.5 text-xs bg-muted text-muted-foreground rounded">
-            {FIELD_TYPE_LABELS[question.fieldType]}
+            {t(FIELD_TYPE_LABEL_KEYS[question.fieldType])}
           </span>
           {question.condition && (
             <span className="px-1.5 py-0.5 text-xs bg-primary/10 text-primary rounded">
-              Có điều kiện
+              {t('settingsIntakeQuestions.conditional')}
             </span>
           )}
           {!question.isActive && (
             <span className="px-1.5 py-0.5 text-xs bg-muted text-muted-foreground rounded">
-              Tắt
+              {t('settingsIntakeQuestions.inactive')}
             </span>
           )}
         </div>
@@ -273,7 +277,7 @@ function QuestionRow({ question, onEdit }: QuestionRowProps) {
         <button
           onClick={() => toggleMutation.mutate()}
           className="p-1.5 rounded hover:bg-muted transition-colors"
-          title={question.isActive ? 'Tắt câu hỏi' : 'Bật câu hỏi'}
+          title={t(question.isActive ? 'settingsIntakeQuestions.disableQuestion' : 'settingsIntakeQuestions.enableQuestion')}
           disabled={toggleMutation.isPending}
         >
           {question.isActive ? (
@@ -285,18 +289,18 @@ function QuestionRow({ question, onEdit }: QuestionRowProps) {
         <button
           onClick={() => onEdit(question)}
           className="p-1.5 rounded hover:bg-muted transition-colors"
-          title="Chỉnh sửa"
+          title={t('common.edit')}
         >
           <Edit2 className="w-4 h-4 text-muted-foreground" />
         </button>
         <button
           onClick={() => {
-            if (confirm('Bạn có chắc muốn xóa câu hỏi này?')) {
+            if (confirm(t('settingsIntakeQuestions.deleteConfirm'))) {
               deleteMutation.mutate()
             }
           }}
           className="p-1.5 rounded hover:bg-error/10 transition-colors"
-          title="Xóa"
+          title={t('common.delete')}
           disabled={deleteMutation.isPending}
         >
           <Trash2 className="w-4 h-4 text-error" />
@@ -304,4 +308,11 @@ function QuestionRow({ question, onEdit }: QuestionRowProps) {
       </div>
     </div>
   )
+}
+
+function getLocalizedQuestionLabel(question: IntakeQuestion, language: string): string {
+  if (language.toLowerCase().startsWith('vi')) {
+    return question.labelVi || question.labelEn || question.questionKey
+  }
+  return question.labelEn || question.labelVi || question.questionKey
 }

@@ -18,9 +18,21 @@ export interface ExpiryStatus {
   daysRemaining: number | null
 }
 
+export interface ExpiryStatusLabels {
+  expiredToday: string
+  expiredDaysAgo: (days: number) => string
+  expiresInDays: (days: number) => string
+}
+
 /** Threshold in days for the amber "expiring soon" tone. */
 const SOON_THRESHOLD_DAYS = 2
 const MS_PER_DAY = 86_400_000
+
+const DEFAULT_EXPIRY_LABELS: ExpiryStatusLabels = {
+  expiredToday: 'Expired today',
+  expiredDaysAgo: (days) => `Expired ${days} day${days === 1 ? '' : 's'} ago`,
+  expiresInDays: (days) => `Expires in ${days} day${days === 1 ? '' : 's'}`,
+}
 
 function diffDays(future: Date, now: Date): number {
   return Math.ceil((future.getTime() - now.getTime()) / MS_PER_DAY)
@@ -46,6 +58,7 @@ export function getExpiryStatus(
   nda: Agreement,
   locale: string,
   now: Date = new Date(),
+  labels: ExpiryStatusLabels = DEFAULT_EXPIRY_LABELS,
 ): ExpiryStatus {
   if (
     nda.status === 'SIGNED' ||
@@ -58,24 +71,17 @@ export function getExpiryStatus(
 
   const expiresAt = new Date(nda.expiresAt)
   const days = diffDays(expiresAt, now)
-  const isVi = locale.toLowerCase().startsWith('vi')
   const fullDate = formatAbsolute(expiresAt, locale)
 
   if (days <= 0) {
     const past = Math.abs(days)
-    const label = isVi
-      ? past === 0
-        ? 'Đã hết hạn'
-        : `Hết hạn ${past} ngày trước`
-      : past === 0
-        ? 'Expired today'
-        : `Expired ${past} day${past === 1 ? '' : 's'} ago`
+    const label = past === 0
+      ? labels.expiredToday
+      : labels.expiredDaysAgo(past)
     return { kind: 'expired', label, fullDate, daysRemaining: days }
   }
 
-  const label = isVi
-    ? `Hết hạn sau ${days} ngày`
-    : `Expires in ${days} day${days === 1 ? '' : 's'}`
+  const label = labels.expiresInDays(days)
   const kind: ExpiryKind = days <= SOON_THRESHOLD_DAYS ? 'soon' : 'safe'
   return { kind, label, fullDate, daysRemaining: days }
 }

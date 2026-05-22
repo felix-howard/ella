@@ -5,6 +5,7 @@
  */
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { X, Plus, Trash2, Info, FileText, Receipt, Building2 } from 'lucide-react'
 import { Button, Input, cn } from '@ella/ui'
 import {
@@ -17,20 +18,20 @@ import {
 // Template config for display
 const TEMPLATE_CONFIG: Record<
   MessageTemplateCategory,
-  { label: string; icon: typeof FileText; color: string }
+  { labelKey: string; icon: typeof FileText; color: string }
 > = {
-  PORTAL_LINK: { label: 'Gửi link tải tài liệu', icon: FileText, color: 'text-primary' },
-  SCHEDULE_C: { label: 'Yêu cầu Schedule C', icon: Receipt, color: 'text-amber-500' },
-  SCHEDULE_E: { label: 'Yêu cầu Schedule E', icon: Building2, color: 'text-blue-500' },
+  PORTAL_LINK: { labelKey: 'settingsTemplates.portalLink.label', icon: FileText, color: 'text-primary' },
+  SCHEDULE_C: { labelKey: 'settingsTemplates.scheduleC.label', icon: Receipt, color: 'text-amber-500' },
+  SCHEDULE_E: { labelKey: 'settingsTemplates.scheduleE.label', icon: Building2, color: 'text-blue-500' },
 }
 
 // Common placeholders with descriptions
 const COMMON_PLACEHOLDERS = [
-  { name: 'clientName', desc: 'Tên khách hàng' },
-  { name: 'portalUrl', desc: 'Link gửi tài liệu' },
-  { name: 'taxYear', desc: 'Năm thuế (VD: 2025)' },
-  { name: 'docType', desc: 'Loại tài liệu' },
-  { name: 'expenseUrl', desc: 'Link form chi phí (Schedule C/E)' },
+  { name: 'clientName', descKey: 'settingsTemplates.placeholder.clientName' },
+  { name: 'portalUrl', descKey: 'settingsTemplates.placeholder.portalUrl' },
+  { name: 'taxYear', descKey: 'settingsTemplates.placeholder.taxYear' },
+  { name: 'docType', descKey: 'settingsTemplates.placeholder.docType' },
+  { name: 'expenseUrl', descKey: 'settingsTemplates.placeholder.expenseUrl' },
 ]
 
 interface MessageTemplateModalProps {
@@ -46,6 +47,7 @@ export function MessageTemplateModal({
   template,
   category,
 }: MessageTemplateModalProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const isEditing = !!template
 
@@ -72,9 +74,9 @@ export function MessageTemplateModal({
       })
     } else {
       // Default content based on category
-      const defaultContent = getDefaultContent(category)
+      const defaultContent = getDefaultContent(category, t)
       setFormData({
-        title: getDefaultTitle(category),
+        title: getDefaultTitle(category, t),
         content: defaultContent.content,
         placeholders: defaultContent.placeholders,
         sortOrder: 0,
@@ -83,7 +85,7 @@ export function MessageTemplateModal({
     }
     setNewPlaceholder('')
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [template, isOpen, category])
+  }, [template, isOpen, category, t])
 
   const createMutation = useMutation({
     mutationFn: (data: CreateMessageTemplateInput) => api.admin.messageTemplates.create(data),
@@ -167,9 +169,9 @@ export function MessageTemplateModal({
             </div>
             <div>
               <h2 className="text-lg font-semibold text-foreground">
-                {isEditing ? 'Chỉnh sửa' : 'Cấu hình'} mẫu tin nhắn
+                {t(isEditing ? 'settingsTemplates.modal.editTitle' : 'settingsTemplates.modal.configureTitle')}
               </h2>
-              <p className="text-sm text-muted-foreground">{config.label}</p>
+              <p className="text-sm text-muted-foreground">{t(config.labelKey)}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-muted transition-colors">
@@ -181,35 +183,35 @@ export function MessageTemplateModal({
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {/* Title */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Tiêu đề</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsTemplates.modal.titleLabel')}</label>
             <Input
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="VD: Gửi link tải tài liệu"
+              placeholder={t('settingsTemplates.modal.titlePlaceholder')}
               required
             />
           </div>
 
           {/* Content */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Nội dung</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsTemplates.modal.contentLabel')}</label>
             <textarea
               value={formData.content}
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              placeholder="Nội dung tin nhắn. Dùng {clientName} để chèn tên khách hàng..."
+              placeholder={t('settingsTemplates.modal.contentPlaceholder')}
               className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground min-h-[150px] resize-y"
               required
             />
             {/* Quick insert placeholders */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-muted-foreground">Chèn nhanh:</span>
+              <span className="text-xs text-muted-foreground">{t('settingsTemplates.modal.quickInsert')}</span>
               {COMMON_PLACEHOLDERS.map((p) => (
                 <button
                   key={p.name}
                   type="button"
                   onClick={() => insertPlaceholder(p.name)}
                   className="px-2 py-0.5 text-xs bg-primary/10 text-primary rounded hover:bg-primary/20 transition-colors"
-                  title={p.desc}
+                  title={t(p.descKey)}
                 >
                   {'{' + p.name + '}'}
                 </button>
@@ -222,7 +224,7 @@ export function MessageTemplateModal({
             <div className="flex items-start gap-2">
               <Info className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
               <div className="text-xs text-muted-foreground">
-                <p className="font-medium text-foreground mb-1">Placeholders đang sử dụng:</p>
+                <p className="font-medium text-foreground mb-1">{t('settingsTemplates.modal.placeholdersInUse')}</p>
                 {formData.placeholders && formData.placeholders.length > 0 ? (
                   <div className="flex flex-wrap gap-1">
                     {formData.placeholders.map((placeholder) => (
@@ -238,7 +240,7 @@ export function MessageTemplateModal({
                     ))}
                   </div>
                 ) : (
-                  <span>Chưa có placeholder nào</span>
+                  <span>{t('settingsTemplates.modal.noPlaceholders')}</span>
                 )}
               </div>
             </div>
@@ -246,12 +248,12 @@ export function MessageTemplateModal({
 
           {/* Custom placeholder */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Thêm placeholder tùy chỉnh</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsTemplates.modal.customPlaceholder')}</label>
             <div className="flex gap-2">
               <Input
                 value={newPlaceholder}
                 onChange={(e) => setNewPlaceholder(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
-                placeholder="VD: taxYear"
+                placeholder={t('settingsTemplates.modal.customPlaceholderExample')}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
@@ -268,10 +270,10 @@ export function MessageTemplateModal({
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-4 border-t border-border">
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
-              Hủy
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending ? 'Đang lưu...' : isEditing ? 'Cập nhật' : 'Lưu'}
+              {isPending ? t('common.saving') : isEditing ? t('common.update') : t('common.save')}
             </Button>
           </div>
         </form>
@@ -281,55 +283,37 @@ export function MessageTemplateModal({
 }
 
 // Helper functions for default content
-function getDefaultTitle(category: MessageTemplateCategory | null): string {
+function getDefaultTitle(category: MessageTemplateCategory | null, t: (key: string) => string): string {
   switch (category) {
     case 'PORTAL_LINK':
-      return 'Gửi link tải tài liệu thuế'
+      return t('settingsTemplates.defaults.portalLink.title')
     case 'SCHEDULE_C':
-      return 'Yêu cầu thông tin Schedule C'
+      return t('settingsTemplates.defaults.scheduleC.title')
     case 'SCHEDULE_E':
-      return 'Yêu cầu thông tin Schedule E'
+      return t('settingsTemplates.defaults.scheduleE.title')
     default:
       return ''
   }
 }
 
-function getDefaultContent(category: MessageTemplateCategory | null): {
+function getDefaultContent(category: MessageTemplateCategory | null, t: (key: string) => string): {
   content: string
   placeholders: string[]
 } {
   switch (category) {
     case 'PORTAL_LINK':
       return {
-        content: `Chào {clientName},
-
-Cảm ơn bạn đã liên hệ với Ella Tax. Vui lòng nhấn vào link bên dưới để tải lên tài liệu thuế của bạn:
-
-{portalUrl}
-
-Nếu có thắc mắc, hãy liên hệ với chúng tôi.`,
+        content: t('settingsTemplates.defaults.portalLink.content'),
         placeholders: ['clientName', 'portalUrl'],
       }
     case 'SCHEDULE_C':
       return {
-        content: `Chào {clientName},
-
-Chúng tôi cần thông tin chi phí kinh doanh (Schedule C) của bạn cho năm thuế {taxYear}. Vui lòng nhấn vào link bên dưới để điền thông tin:
-
-{expenseUrl}
-
-Nếu có thắc mắc, hãy liên hệ với chúng tôi.`,
+        content: t('settingsTemplates.defaults.scheduleC.content'),
         placeholders: ['clientName', 'taxYear', 'expenseUrl'],
       }
     case 'SCHEDULE_E':
       return {
-        content: `Chào {clientName},
-
-Chúng tôi cần thông tin bất động sản cho thuê (Schedule E) của bạn cho năm thuế {taxYear}. Vui lòng nhấn vào link bên dưới để điền thông tin:
-
-{expenseUrl}
-
-Nếu có thắc mắc, hãy liên hệ với chúng tôi.`,
+        content: t('settingsTemplates.defaults.scheduleE.content'),
         placeholders: ['clientName', 'taxYear', 'expenseUrl'],
       }
     default:

@@ -1,7 +1,109 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-20 ICT
+> **Last Updated:** 2026-05-22 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-05-22
+
+### Repo: English-First i18n Enforcement
+**Status:** Complete
+
+**Changed:**
+- Finished remaining workspace hardcode cleanup for agreement expiry, data entry, document verification, uploads, reupload prompts, terms language switching, and explicit Schedule C/E SMS template catalogs.
+- Hardened `pnpm i18n:audit` so active Vietnamese hardcode findings and disallowed Vietnamese fallback patterns fail the command.
+- Documented the English-first plus Vietnamese-selectable convention in code standards and architecture docs.
+
+**Validation:**
+- `pnpm i18n:audit` pass, 0 active findings, 0 disallowed fallback findings
+
+---
+
+### API: Phase 05 Backend English-First i18n and SMS Defaults
+**Status:** Complete
+
+**Changed:**
+- Converted backend user-facing runtime copy to English-first for portal uploads, public expense/rental forms, staff Schedule C/E routes, auth errors, OCR/action messages, voicemail text, and SMS webhook actions.
+- Added backend bilingual label helpers and kept Vietnamese catalog data explicitly allowlisted.
+- Changed SMS template, organization language, and upload-link template fallbacks to English while preserving explicit Vietnamese sends.
+- Preserved portal legacy `labelVi`/`statusVi`/`reasonVi` fields while adding English-first labels and statuses.
+- Scoped Schedule C/E staff routes by authenticated user client access before read/write, SMS, link, lock, and unlock side effects.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/shared type-check` pass
+- `pnpm --filter @ella/api test -- src/services/sms src/services/ai/__tests__/document-classifier.test.ts` pass, 9 files / 86 tests
+- `pnpm i18n:audit` pass; remaining active findings are workspace-only for Phase 06
+
+---
+
+### Workspace: Intake, Cases, and Settings i18n Migration
+**Status:** Complete
+
+**Changed:**
+- Migrated workspace intake wizard, intake forms, case/data-entry UI, and settings modals to locale keys.
+- Added active-language handling for DB-backed intake labels/options using English/Vietnamese label fields.
+- Moved remaining client SMS defaults, repeater labels, Schedule E property labels, and legacy Schedule C change matching into locale-driven paths.
+- Replaced Vietnamese demo data and stale hardcoded UI labels/placeholders in Phase 04 scope.
+
+**Validation:**
+- `pnpm -F @ella/workspace lint` pass with 9 existing warnings outside Phase 04 files.
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test` pass, 16 files / 56 tests
+- `pnpm i18n:check` pass, workspace 2655 keys and portal 482 keys
+- Scoped Phase 04 Vietnamese and escaped Unicode scans pass
+
+---
+
+## 2026-05-21
+
+### Workspace: English-First Shared Labels Migration
+**Status:** Complete
+
+**Changed:**
+- Migrated shared workspace copy for low-risk UI surfaces to locale keys instead of hardcoded strings.
+- Added `common`, `viewer`, `files`, `dataEntry`, `messages`, `fieldEdit`, `progress`, and `relativeTime` locale keys.
+- Defaulted relative-time helpers to English while still honoring explicit Vietnamese locale usage.
+- Kept audio player error states translation-driven without tearing down active playback on language switch.
+- Fixed field-count pluralization for workspace labels.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:audit` locale parity pass
+- Scoped Phase 03 hardcode scan pass
+
+---
+
+### Portal: English-First Runtime i18n Migration
+**Status:** Complete
+
+**Changed:**
+- Removed legacy portal `UI_TEXT` Vietnamese runtime dependency.
+- Routed portal, expense, and rental API display errors through stable error codes and locale keys instead of raw server messages.
+- Localized portal error boundaries, expense/rental autosave and submit fallbacks, expense validation labels, and missing-document labels.
+- Added portal English/Vietnamese locale keys for API errors and document type labels.
+
+**Validation:**
+- `pnpm -F @ella/portal type-check` pass
+- Targeted portal ESLint pass
+- `pnpm i18n:audit | rg '^apps/portal/src'` clean
+
+---
+
+### Portal/API: English-First i18n Fallback Cleanup
+**Status:** Complete
+
+**Changed:**
+- Switched portal i18n fallback/default behavior to English-first while preserving explicit `localStorage` overrides and API client language sync.
+- Made portal API client network/status fallback errors English-first.
+- Fixed workspace locale key parity.
+- Added repo-level i18n audit/check/scan scripts plus `scripts/i18n-audit.mjs` for locale parity and Vietnamese hardcode inventory.
+
+**Validation:**
+- `pnpm i18n:audit` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
 
 ---
 

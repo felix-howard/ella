@@ -64,7 +64,11 @@ function AgreementExtendModalContent({
     inputRef.current?.focus()
   }, [])
 
-  const expiry = getExpiryStatus(nda, i18n.language)
+  const expiry = getExpiryStatus(nda, i18n.language, new Date(), {
+    expiredToday: t('nda.expiry.expiredToday'),
+    expiredDaysAgo: (count) => t('nda.expiry.expiredDaysAgo', { count }),
+    expiresInDays: (count) => t('nda.expiry.expiresInDays', { count }),
+  })
   const valid =
     Number.isInteger(days) && days >= EXPIRY_DAYS_MIN && days <= EXPIRY_DAYS_MAX
   const canApply = valid && !mutation.isPending

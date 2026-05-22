@@ -4,26 +4,28 @@
  */
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Plus, Edit2, Trash2, Search, ToggleLeft, ToggleRight } from 'lucide-react'
 import { Card, Button, Input } from '@ella/ui'
 import { cn } from '@ella/ui'
 import { api, type DocTypeLibraryItem } from '../../lib/api-client'
 import { DocTypeModal } from './doc-type-modal'
 
-const CATEGORY_LABELS: Record<string, string> = {
-  personal: 'Cá nhân',
-  income: 'Thu nhập',
-  health: 'Sức khỏe',
-  education: 'Giáo dục',
-  deductions: 'Khấu trừ',
-  business: 'Kinh doanh',
-  prior_year: 'Năm trước',
-  crypto: 'Crypto',
-  foreign: 'Nước ngoài',
-  other: 'Khác',
+const CATEGORY_LABEL_KEYS: Record<string, string> = {
+  personal: 'settingsDocLibrary.category.personal',
+  income: 'settingsDocLibrary.category.income',
+  health: 'settingsDocLibrary.category.health',
+  education: 'settingsDocLibrary.category.education',
+  deductions: 'settingsDocLibrary.category.deductions',
+  business: 'settingsDocLibrary.category.business',
+  prior_year: 'settingsDocLibrary.category.priorYear',
+  crypto: 'settingsDocLibrary.category.crypto',
+  foreign: 'settingsDocLibrary.category.foreign',
+  other: 'settingsDocLibrary.category.other',
 }
 
 export function DocLibraryConfigTab() {
+  const { t } = useTranslation()
   const [searchTerm, setSearchTerm] = useState('')
   const [filterCategory, setFilterCategory] = useState<string | 'all'>('all')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -67,7 +69,7 @@ export function DocLibraryConfigTab() {
           <Input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Tìm kiếm theo code, tên, alias..."
+            placeholder={t('settingsDocLibrary.searchPlaceholder')}
             className="pl-10"
           />
         </div>
@@ -76,10 +78,10 @@ export function DocLibraryConfigTab() {
           onChange={(e) => setFilterCategory(e.target.value)}
           className="px-3 py-2 rounded-lg border border-border bg-card text-foreground"
         >
-          <option value="all">Tất cả danh mục</option>
+          <option value="all">{t('settingsDocLibrary.allCategories')}</option>
           {categories.map((cat) => (
             <option key={cat} value={cat}>
-              {CATEGORY_LABELS[cat] || cat}
+              {CATEGORY_LABEL_KEYS[cat] ? t(CATEGORY_LABEL_KEYS[cat]) : cat}
             </option>
           ))}
         </select>
@@ -87,19 +89,19 @@ export function DocLibraryConfigTab() {
 
       {/* Actions Bar */}
       <div className="flex justify-between items-center">
-        <p className="text-sm text-muted-foreground">{docTypes.length} loại tài liệu</p>
+        <p className="text-sm text-muted-foreground">{t('settingsDocLibrary.typeCount', { count: docTypes.length })}</p>
         <Button size="sm" className="gap-1.5" onClick={handleAdd}>
           <Plus className="w-4 h-4" />
-          Thêm loại mới
+          {t('settingsDocLibrary.addType')}
         </Button>
       </div>
 
       {/* Doc Types List */}
       {isLoading ? (
-        <div className="text-center py-8 text-muted-foreground">Đang tải...</div>
+        <div className="text-center py-8 text-muted-foreground">{t('common.loading')}</div>
       ) : docTypes.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          Không tìm thấy loại tài liệu nào
+          {t('settingsDocLibrary.empty')}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -125,7 +127,13 @@ interface DocTypeCardProps {
 }
 
 function DocTypeCard({ docType, onEdit }: DocTypeCardProps) {
+  const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
+  const isVietnamese = i18n.language.startsWith('vi')
+  const primaryLabel = isVietnamese
+    ? docType.labelVi || docType.labelEn
+    : docType.labelEn || docType.labelVi
+  const secondaryLabel = isVietnamese ? docType.labelEn : null
 
   const toggleMutation = useMutation({
     mutationFn: () =>
@@ -152,21 +160,23 @@ function DocTypeCard({ docType, onEdit }: DocTypeCardProps) {
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-foreground">{docType.labelVi}</span>
+            <span className="font-medium text-foreground">{primaryLabel}</span>
             {!docType.isActive && (
               <span className="px-1.5 py-0.5 text-xs bg-muted text-muted-foreground rounded">
-                Tắt
+                {t('settingsDocLibrary.inactive')}
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">{docType.labelEn}</p>
+          {secondaryLabel && (
+            <p className="text-xs text-muted-foreground mt-0.5">{secondaryLabel}</p>
+          )}
         </div>
 
         <div className="flex items-center gap-1">
           <button
             onClick={() => toggleMutation.mutate()}
             className="p-1 rounded hover:bg-muted transition-colors"
-            title={docType.isActive ? 'Tắt' : 'Bật'}
+            title={docType.isActive ? t('settingsDocLibrary.disable') : t('settingsDocLibrary.enable')}
             disabled={toggleMutation.isPending}
           >
             {docType.isActive ? (
@@ -178,18 +188,18 @@ function DocTypeCard({ docType, onEdit }: DocTypeCardProps) {
           <button
             onClick={() => onEdit(docType)}
             className="p-1 rounded hover:bg-muted transition-colors"
-            title="Chỉnh sửa"
+            title={t('common.edit')}
           >
             <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
           <button
             onClick={() => {
-              if (confirm('Bạn có chắc muốn xóa loại tài liệu này?')) {
+              if (confirm(t('settingsDocLibrary.deleteConfirm'))) {
                 deleteMutation.mutate()
               }
             }}
             className="p-1 rounded hover:bg-error/10 transition-colors"
-            title="Xóa"
+            title={t('common.delete')}
             disabled={deleteMutation.isPending}
           >
             <Trash2 className="w-3.5 h-3.5 text-error" />
@@ -203,7 +213,7 @@ function DocTypeCard({ docType, onEdit }: DocTypeCardProps) {
             {docType.code}
           </span>
           <span className="px-1.5 py-0.5 text-xs bg-primary/10 text-primary rounded">
-            {CATEGORY_LABELS[docType.category] || docType.category}
+            {CATEGORY_LABEL_KEYS[docType.category] ? t(CATEGORY_LABEL_KEYS[docType.category]) : docType.category}
           </span>
         </div>
 

@@ -5,6 +5,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import {
   ZoomIn,
@@ -36,6 +37,7 @@ export function OriginalImageViewer({
   highlightedField,
   className,
 }: OriginalImageViewerProps) {
+  const { t } = useTranslation()
   // Track the current image ID for resetting view state
   const prevImageIdRef = useRef<string | undefined>(undefined)
 
@@ -161,7 +163,7 @@ export function OriginalImageViewer({
         )}
       >
         <ImageIcon className="w-12 h-12 text-muted-foreground mb-2" />
-        <p className="text-sm text-muted-foreground">Chọn tài liệu để xem ảnh gốc</p>
+        <p className="text-sm text-muted-foreground">{t('dataEntry.selectDocumentForOriginal')}</p>
       </div>
     )
   }
@@ -192,8 +194,8 @@ export function OriginalImageViewer({
           <button
             onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
             className="p-1.5 rounded hover:bg-muted transition-colors"
-            aria-label="Thu nhỏ"
-            title="Thu nhỏ (-)"
+            aria-label={t('viewer.zoomOut')}
+            title={t('viewer.zoomOutTitle')}
           >
             <ZoomOut className="w-4 h-4 text-muted-foreground" />
           </button>
@@ -203,8 +205,8 @@ export function OriginalImageViewer({
           <button
             onClick={() => setZoom((z) => Math.min(4, z + 0.25))}
             className="p-1.5 rounded hover:bg-muted transition-colors"
-            aria-label="Phóng to"
-            title="Phóng to (+)"
+            aria-label={t('viewer.zoomIn')}
+            title={t('viewer.zoomInTitle')}
           >
             <ZoomIn className="w-4 h-4 text-muted-foreground" />
           </button>
@@ -215,16 +217,16 @@ export function OriginalImageViewer({
           <button
             onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
             className="p-1.5 rounded hover:bg-muted transition-colors"
-            aria-label="Xoay trái"
-            title="Xoay trái"
+            aria-label={t('docVerification.rotateLeft')}
+            title={t('docVerification.rotateLeft')}
           >
             <RotateCcw className="w-4 h-4 text-muted-foreground" />
           </button>
           <button
             onClick={() => setRotation((r) => (r + 90) % 360)}
             className="p-1.5 rounded hover:bg-muted transition-colors"
-            aria-label="Xoay phải"
-            title="Xoay phải (R)"
+            aria-label={t('docVerification.rotateRight')}
+            title={t('viewer.rotateTitle')}
           >
             <RotateCw className="w-4 h-4 text-muted-foreground" />
           </button>
@@ -248,8 +250,8 @@ export function OriginalImageViewer({
               <button
                 onClick={onExpandToggle}
                 className="p-1.5 rounded hover:bg-muted transition-colors"
-                aria-label={expanded ? 'Thu nhỏ' : 'Mở rộng'}
-                title={expanded ? 'Thu nhỏ (F)' : 'Mở rộng (F)'}
+                aria-label={expanded ? t('viewer.shrink') : t('viewer.expand')}
+                title={expanded ? t('viewer.shrinkTitle') : t('viewer.expandTitle')}
               >
                 {expanded ? (
                   <Minimize2 className="w-4 h-4 text-muted-foreground" />
@@ -265,7 +267,7 @@ export function OriginalImageViewer({
             <button
               onClick={onExpandToggle}
               className="p-1.5 rounded hover:bg-muted transition-colors ml-2"
-              aria-label="Đóng"
+              aria-label={t('viewer.close')}
             >
               <X className="w-4 h-4 text-muted-foreground" />
             </button>
@@ -316,7 +318,7 @@ export function OriginalImageViewer({
       {/* Footer with keyboard hints */}
       <div className="px-4 py-2 border-t border-border bg-muted/30">
         <p className="text-xs text-muted-foreground text-center">
-          Kéo: di chuyển • Ctrl+cuộn: zoom • Double-click: reset • +/-: zoom • R: xoay • 0: reset • F: mở rộng
+          {t('dataEntry.viewerHint')}
         </p>
       </div>
     </div>

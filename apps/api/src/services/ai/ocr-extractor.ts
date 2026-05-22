@@ -385,26 +385,26 @@ function calculateConfidence(data: Record<string, unknown>, docType: string): nu
 }
 
 /**
- * Get OCR extraction status message in Vietnamese
+ * Get OCR extraction status message.
  */
 export function getExtractionStatusMessage(result: OcrExtractionResult): string {
   if (!result.success) {
-    return `Lỗi trích xuất: ${result.error}`
+    return `Extraction error: ${result.error}`
   }
 
   if (!result.isValid) {
-    return 'Dữ liệu trích xuất không hợp lệ, cần xác minh thủ công'
+    return 'Extracted data is invalid and needs manual verification'
   }
 
   if (result.confidence >= 0.85) {
-    return 'Trích xuất thành công với độ tin cậy cao'
+    return 'Extraction completed with high confidence'
   }
 
   if (result.confidence >= 0.7) {
-    return 'Trích xuất thành công, một số trường có thể cần xác minh'
+    return 'Extraction completed. Some fields may need verification'
   }
 
-  return 'Trích xuất một phần, cần xác minh nhiều trường'
+  return 'Partial extraction completed. Multiple fields need verification'
 }
 
 /**

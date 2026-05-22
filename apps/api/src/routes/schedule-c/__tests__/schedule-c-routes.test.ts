@@ -14,11 +14,13 @@ const Decimal = Prisma.Decimal
 vi.mock('../../../lib/db', () => ({
   prisma: {
     client: { findFirst: vi.fn() },
-    taxCase: { findUnique: vi.fn() },
+    taxCase: { findUnique: vi.fn(), findFirst: vi.fn() },
     scheduleCExpense: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       upsert: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     magicLink: {
       findFirst: vi.fn(),
@@ -84,9 +86,9 @@ app.use('*', async (c, next) => {
 })
 app.route('/schedule-c', scheduleCRoute)
 
-const mockFindUnique = vi.mocked(prisma.taxCase.findUnique)
+const mockFindFirst = vi.mocked(prisma.taxCase.findFirst)
 const mockClientFindFirst = vi.mocked(prisma.client.findFirst)
-const mockExpenseFindUnique = vi.mocked(prisma.scheduleCExpense.findUnique)
+const mockExpenseFindFirst = vi.mocked(prisma.scheduleCExpense.findFirst)
 const mockExpenseUpsert = vi.mocked(prisma.scheduleCExpense.upsert)
 const mockExpenseUpdate = vi.mocked(prisma.scheduleCExpense.update)
 const mockMagicLinkFindFirst = vi.mocked(prisma.magicLink.findFirst)
@@ -130,7 +132,7 @@ describe('Schedule C Staff Routes', () => {
   describe('POST /schedule-c/:caseId/send', () => {
     it('sends SMS and creates Schedule C (happy path)', async () => {
       const expiresAt = new Date('2026-02-04')
-      mockFindUnique.mockResolvedValueOnce(mockCase() as any)
+      mockFindFirst.mockResolvedValueOnce(mockCase() as any)
       mockCalcGrossReceipts.mockResolvedValueOnce(new Decimal('5000'))
       mockExpenseUpsert.mockResolvedValueOnce({ id: 'exp-1' } as any)
       mockCreateMagicLinkWithDeactivation.mockResolvedValueOnce({
@@ -167,7 +169,7 @@ describe('Schedule C Staff Routes', () => {
     })
 
     it('returns 404 when case not found', async () => {
-      mockFindUnique.mockResolvedValueOnce(null)
+      mockFindFirst.mockResolvedValueOnce(null)
 
       const res = await app.request('/schedule-c/bad-id/send', { method: 'POST' })
       const json = await res.json()
@@ -177,7 +179,7 @@ describe('Schedule C Staff Routes', () => {
     })
 
     it('returns 400 when client has no phone', async () => {
-      mockFindUnique.mockResolvedValueOnce(
+      mockFindFirst.mockResolvedValueOnce(
         mockCase({ client: { name: 'No Phone', phone: null, language: 'vi' } }) as any
       )
 
@@ -189,7 +191,7 @@ describe('Schedule C Staff Routes', () => {
     })
 
     it('returns 400 when Schedule C is locked', async () => {
-      mockFindUnique.mockResolvedValueOnce(
+      mockFindFirst.mockResolvedValueOnce(
         mockCase({ scheduleCExpense: { status: 'LOCKED' } }) as any
       )
 
@@ -201,7 +203,7 @@ describe('Schedule C Staff Routes', () => {
     })
 
     it('sends with zero grossReceipts when no 1099-NECs', async () => {
-      mockFindUnique.mockResolvedValueOnce(mockCase() as any)
+      mockFindFirst.mockResolvedValueOnce(mockCase() as any)
       mockCalcGrossReceipts.mockResolvedValueOnce(new Decimal('0'))
       mockExpenseUpsert.mockResolvedValueOnce({ id: 'exp-1' } as any)
       mockCreateMagicLinkWithDeactivation.mockResolvedValueOnce({
@@ -219,7 +221,7 @@ describe('Schedule C Staff Routes', () => {
 
     it('records business Schedule C SMS in the linked individual owner conversation', async () => {
       const expiresAt = new Date('2026-02-04')
-      mockFindUnique.mockResolvedValueOnce(
+      mockFindFirst.mockResolvedValueOnce(
         mockCase({
           client: {
             name: 'Amber Nails',
@@ -298,7 +300,7 @@ describe('Schedule C Staff Routes', () => {
         vehicleDateInService: null,
       }
 
-      mockFindUnique.mockResolvedValueOnce(
+      mockFindFirst.mockResolvedValueOnce(
         mockCase({ scheduleCExpense: expense }) as any
       )
       mockCalcGrossReceipts.mockResolvedValueOnce(new Decimal('5000'))
@@ -334,7 +336,7 @@ describe('Schedule C Staff Routes', () => {
     })
 
     it('returns null expense when no Schedule C', async () => {
-      mockFindUnique.mockResolvedValueOnce(mockCase() as any)
+      mockFindFirst.mockResolvedValueOnce(mockCase() as any)
       mockMagicLinkFindFirst.mockResolvedValueOnce(null)
 
       const res = await app.request('/schedule-c/case-1')
@@ -347,7 +349,7 @@ describe('Schedule C Staff Routes', () => {
     })
 
     it('returns 404 when case not found', async () => {
-      mockFindUnique.mockResolvedValueOnce(null)
+      mockFindFirst.mockResolvedValueOnce(null)
 
       const res = await app.request('/schedule-c/bad-id')
       const json = await res.json()
@@ -359,7 +361,7 @@ describe('Schedule C Staff Routes', () => {
 
   describe('PATCH /schedule-c/:caseId/lock', () => {
     it('locks submitted expense and deactivates links', async () => {
-      mockExpenseFindUnique.mockResolvedValueOnce({
+      mockExpenseFindFirst.mockResolvedValueOnce({
         id: 'exp-1',
         status: 'SUBMITTED',
       } as any)
@@ -375,7 +377,7 @@ describe('Schedule C Staff Routes', () => {
     })
 
     it('returns 404 when no expense exists', async () => {
-      mockExpenseFindUnique.mockResolvedValueOnce(null)
+      mockExpenseFindFirst.mockResolvedValueOnce(null)
 
       const res = await app.request('/schedule-c/case-1/lock', { method: 'PATCH' })
       const json = await res.json()
@@ -385,7 +387,7 @@ describe('Schedule C Staff Routes', () => {
     })
 
     it('returns 400 when already locked (idempotent check)', async () => {
-      mockExpenseFindUnique.mockResolvedValueOnce({
+      mockExpenseFindFirst.mockResolvedValueOnce({
         id: 'exp-1',
         status: 'LOCKED',
       } as any)
@@ -398,7 +400,7 @@ describe('Schedule C Staff Routes', () => {
     })
 
     it('returns 400 when expense is still DRAFT', async () => {
-      mockExpenseFindUnique.mockResolvedValueOnce({
+      mockExpenseFindFirst.mockResolvedValueOnce({
         id: 'exp-1',
         status: 'DRAFT',
       } as any)
@@ -413,7 +415,7 @@ describe('Schedule C Staff Routes', () => {
 
   describe('PATCH /schedule-c/:caseId/unlock', () => {
     it('unlocks locked expense', async () => {
-      mockExpenseFindUnique.mockResolvedValueOnce({
+      mockExpenseFindFirst.mockResolvedValueOnce({
         id: 'exp-1',
         status: 'LOCKED',
       } as any)
@@ -428,7 +430,7 @@ describe('Schedule C Staff Routes', () => {
     })
 
     it('returns 404 when no expense exists', async () => {
-      mockExpenseFindUnique.mockResolvedValueOnce(null)
+      mockExpenseFindFirst.mockResolvedValueOnce(null)
 
       const res = await app.request('/schedule-c/case-1/unlock', { method: 'PATCH' })
       const json = await res.json()
@@ -438,7 +440,7 @@ describe('Schedule C Staff Routes', () => {
     })
 
     it('returns 400 when not locked', async () => {
-      mockExpenseFindUnique.mockResolvedValueOnce({
+      mockExpenseFindFirst.mockResolvedValueOnce({
         id: 'exp-1',
         status: 'SUBMITTED',
       } as any)
@@ -454,7 +456,7 @@ describe('Schedule C Staff Routes', () => {
   describe('POST /schedule-c/:caseId/resend', () => {
     it('extends existing link TTL and resends SMS', async () => {
       const newExpiry = new Date('2026-02-10')
-      mockFindUnique.mockResolvedValueOnce(mockCase() as any)
+      mockFindFirst.mockResolvedValueOnce(mockCase() as any)
       mockGetScheduleCLink.mockResolvedValueOnce({
         id: 'link-1',
         token: 'abc123',
@@ -474,7 +476,7 @@ describe('Schedule C Staff Routes', () => {
 
     it('records business Schedule C resend in the linked individual owner conversation', async () => {
       const newExpiry = new Date('2026-02-10')
-      mockFindUnique.mockResolvedValueOnce(
+      mockFindFirst.mockResolvedValueOnce(
         mockCase({
           client: {
             name: 'Amber Nails',
@@ -515,7 +517,7 @@ describe('Schedule C Staff Routes', () => {
     })
 
     it('creates new link when none exists', async () => {
-      mockFindUnique.mockResolvedValueOnce(mockCase() as any)
+      mockFindFirst.mockResolvedValueOnce(mockCase() as any)
       mockGetScheduleCLink
         .mockResolvedValueOnce(null)  // First call: no existing link
       mockCreateMagicLink.mockResolvedValueOnce('http://test/expense/new-token')
@@ -535,14 +537,14 @@ describe('Schedule C Staff Routes', () => {
     })
 
     it('returns 404 when case not found', async () => {
-      mockFindUnique.mockResolvedValueOnce(null)
+      mockFindFirst.mockResolvedValueOnce(null)
 
       const res = await app.request('/schedule-c/case-1/resend', { method: 'POST' })
       expect(res.status).toBe(404)
     })
 
     it('returns 400 when no phone', async () => {
-      mockFindUnique.mockResolvedValueOnce(
+      mockFindFirst.mockResolvedValueOnce(
         mockCase({ client: { name: 'X', phone: null, language: 'vi' } }) as any
       )
 
@@ -554,7 +556,7 @@ describe('Schedule C Staff Routes', () => {
     })
 
     it('returns 400 when form is locked', async () => {
-      mockFindUnique.mockResolvedValueOnce(
+      mockFindFirst.mockResolvedValueOnce(
         mockCase({ scheduleCExpense: { status: 'LOCKED' } }) as any
       )
 

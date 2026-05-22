@@ -40,7 +40,7 @@ export function FieldEditForm({
 
   const handleSave = () => {
     // Validate based on type
-    const validationResult = validateValue(localValue, type)
+    const validationResult = validateValue(localValue, type, t)
     if (!validationResult.valid) {
       setError(validationResult.error)
       return
@@ -99,7 +99,7 @@ export function FieldEditForm({
               type === 'number' ? 'pl-9 pr-3 py-2' : 'px-3 py-2',
               error ? 'border-error' : 'border-border'
             )}
-            placeholder={getPlaceholder(type)}
+            placeholder={getPlaceholder(type, t)}
           />
         </div>
         <button
@@ -192,16 +192,17 @@ function getTypeIcon(type: 'text' | 'number' | 'date') {
 /**
  * Get placeholder text based on type
  */
-function getPlaceholder(type: 'text' | 'number' | 'date'): string {
-  // Note: These are used in non-component function, so we can't use t() here
-  // The component will need to pass translated placeholders if needed in the future
+function getPlaceholder(
+  type: 'text' | 'number' | 'date',
+  t: (key: string) => string
+): string {
   switch (type) {
     case 'number':
-      return 'Nhập số...'
+      return t('fieldEdit.placeholderNumber')
     case 'date':
-      return 'Chọn ngày...'
+      return t('fieldEdit.placeholderDate')
     default:
-      return 'Nhập giá trị...'
+      return t('fieldEdit.placeholderText')
   }
 }
 
@@ -210,10 +211,9 @@ function getPlaceholder(type: 'text' | 'number' | 'date'): string {
  */
 function validateValue(
   value: string,
-  type: 'text' | 'number' | 'date'
+  type: 'text' | 'number' | 'date',
+  t: (key: string) => string
 ): { valid: boolean; error: string | null } {
-  // Note: These are used in non-component function, so we can't use t() here
-  // The component will need to handle translations if needed in the future
   if (!value.trim()) {
     return { valid: true, error: null } // Allow empty values
   }
@@ -223,17 +223,17 @@ function validateValue(
     const cleanedValue = value.replace(/[$,]/g, '')
     const num = parseFloat(cleanedValue)
     if (isNaN(num)) {
-      return { valid: false, error: 'Vui lòng nhập số hợp lệ' }
+      return { valid: false, error: t('fieldEdit.invalidNumber') }
     }
     if (num < 0) {
-      return { valid: false, error: 'Số không được âm' }
+      return { valid: false, error: t('fieldEdit.negativeNumber') }
     }
   }
 
   if (type === 'date') {
     const date = new Date(value)
     if (isNaN(date.getTime())) {
-      return { valid: false, error: 'Vui lòng nhập ngày hợp lệ' }
+      return { valid: false, error: t('fieldEdit.invalidDate') }
     }
   }
 
@@ -275,6 +275,7 @@ export function FieldCopyRow({
   onEdit: _onEdit,
   compact,
 }: FieldCopyRowProps) {
+  const { t } = useTranslation()
   const displayValue = value !== null && value !== undefined && value !== ''
     ? String(value)
     : null
@@ -316,16 +317,13 @@ export function FieldCopyRow({
           {copied ? (
             <>
               <Check className="w-3.5 h-3.5" />
-              <span>Đã copy</span>
+              <span>{t('common.copySuccess')}</span>
             </>
           ) : (
-            <span>Copy</span>
+            <span>{t('common.copy')}</span>
           )}
         </button>
       )}
     </div>
   )
 }
-
-// Note: "Đã copy" in line 313 is kept as-is since this is in FieldCopyRow component
-// which is not actively used in the codebase. Will migrate if needed.

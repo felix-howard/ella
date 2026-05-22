@@ -4,33 +4,34 @@
  */
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { Button, Input } from '@ella/ui'
 import { api, type TaxType, type ChecklistTemplate, type CreateChecklistTemplateInput } from '../../lib/api-client'
 
-const TAX_TYPE_OPTIONS: { value: TaxType; label: string }[] = [
-  { value: 'FORM_1040', label: '1040 (Cá nhân)' },
-  { value: 'FORM_1120S', label: '1120-S (S-Corp)' },
-  { value: 'FORM_1065', label: '1065 (Partnership)' },
+const TAX_TYPE_OPTIONS: { value: TaxType; labelKey: string }[] = [
+  { value: 'FORM_1040', labelKey: 'settingsChecklist.taxType.form1040' },
+  { value: 'FORM_1120S', labelKey: 'settingsChecklist.taxType.form1120s' },
+  { value: 'FORM_1065', labelKey: 'settingsChecklist.taxType.form1065' },
 ]
 
 const CATEGORY_OPTIONS = [
-  { value: 'personal', label: 'Cá nhân / Nhận dạng' },
-  { value: 'prior_year', label: 'Năm trước / IRS' },
-  { value: 'income', label: 'Thu nhập' },
-  { value: 'health', label: 'Bảo hiểm sức khỏe' },
-  { value: 'education', label: 'Giáo dục' },
-  { value: 'deductions', label: 'Khấu trừ' },
-  { value: 'credits', label: 'Tín dụng thuế' },
-  { value: 'business', label: 'Kinh doanh' },
-  { value: 'rental', label: 'Cho thuê' },
-  { value: 'foreign', label: 'Nước ngoài' },
-  { value: 'admin', label: 'Hành chính' },
-  { value: 'ownership', label: 'Sở hữu' },
-  { value: 'financials', label: 'Tài chính' },
-  { value: 'payroll', label: 'Bảng lương' },
-  { value: 'expenses', label: 'Chi phí' },
-  { value: 'assets', label: 'Tài sản' },
+  { value: 'personal', labelKey: 'settingsChecklist.category.personal' },
+  { value: 'prior_year', labelKey: 'settingsChecklist.category.priorYear' },
+  { value: 'income', labelKey: 'settingsChecklist.category.income' },
+  { value: 'health', labelKey: 'settingsChecklist.category.health' },
+  { value: 'education', labelKey: 'settingsChecklist.category.education' },
+  { value: 'deductions', labelKey: 'settingsChecklist.category.deductions' },
+  { value: 'credits', labelKey: 'settingsChecklist.category.credits' },
+  { value: 'business', labelKey: 'settingsChecklist.category.business' },
+  { value: 'rental', labelKey: 'settingsChecklist.category.rental' },
+  { value: 'foreign', labelKey: 'settingsChecklist.category.foreign' },
+  { value: 'admin', labelKey: 'settingsChecklist.category.admin' },
+  { value: 'ownership', labelKey: 'settingsChecklist.category.ownership' },
+  { value: 'financials', labelKey: 'settingsChecklist.category.financials' },
+  { value: 'payroll', labelKey: 'settingsChecklist.category.payroll' },
+  { value: 'expenses', labelKey: 'settingsChecklist.category.expenses' },
+  { value: 'assets', labelKey: 'settingsChecklist.category.assets' },
 ]
 
 interface ChecklistTemplateModalProps {
@@ -41,6 +42,7 @@ interface ChecklistTemplateModalProps {
 }
 
 export function ChecklistTemplateModal({ isOpen, onClose, template, defaultTaxType }: ChecklistTemplateModalProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const isEditing = !!template
 
@@ -128,7 +130,7 @@ export function ChecklistTemplateModal({ isOpen, onClose, template, defaultTaxTy
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold text-foreground">
-            {isEditing ? 'Chỉnh sửa mục checklist' : 'Thêm mục checklist'}
+            {isEditing ? t('settingsChecklist.modal.editTitle') : t('settingsChecklist.modal.addTitle')}
           </h2>
           <button onClick={onClose} className="p-1 rounded hover:bg-muted transition-colors">
             <X className="w-5 h-5 text-muted-foreground" />
@@ -139,7 +141,7 @@ export function ChecklistTemplateModal({ isOpen, onClose, template, defaultTaxTy
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {/* Tax Type */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Loại tờ khai</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsChecklist.taxType')}</label>
             <select
               value={formData.taxType}
               onChange={(e) => setFormData({ ...formData, taxType: e.target.value as TaxType })}
@@ -147,18 +149,18 @@ export function ChecklistTemplateModal({ isOpen, onClose, template, defaultTaxTy
               className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground disabled:opacity-50"
             >
               {TAX_TYPE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
               ))}
             </select>
           </div>
 
           {/* Doc Type */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Mã tài liệu (docType)</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsChecklist.docTypeCode')}</label>
             <Input
               value={formData.docType}
               onChange={(e) => setFormData({ ...formData, docType: e.target.value })}
-              placeholder="VD: W2, FORM_1099_INT"
+              placeholder={t('settingsChecklist.docTypeCodePlaceholder')}
               disabled={isEditing}
               required
             />
@@ -166,42 +168,42 @@ export function ChecklistTemplateModal({ isOpen, onClose, template, defaultTaxTy
 
           {/* Label Vi */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Tên tiếng Việt</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsChecklist.labelVi')}</label>
             <Input
               value={formData.labelVi}
               onChange={(e) => setFormData({ ...formData, labelVi: e.target.value })}
-              placeholder="VD: Phiếu lương W2"
+              placeholder={t('settingsChecklist.labelViPlaceholder')}
               required
             />
           </div>
 
           {/* Label En */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Tên tiếng Anh</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsChecklist.labelEn')}</label>
             <Input
               value={formData.labelEn}
               onChange={(e) => setFormData({ ...formData, labelEn: e.target.value })}
-              placeholder="VD: W2 Wage Statement"
+              placeholder={t('settingsChecklist.labelEnPlaceholder')}
             />
           </div>
 
           {/* Category */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Danh mục</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsChecklist.category')}</label>
             <select
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground"
             >
               {CATEGORY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
               ))}
             </select>
           </div>
 
           {/* Expected Count */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Số lượng cần</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsChecklist.expectedCount')}</label>
             <Input
               type="number"
               min={1}
@@ -220,38 +222,38 @@ export function ChecklistTemplateModal({ isOpen, onClose, template, defaultTaxTy
               className="w-4 h-4 rounded border-border"
             />
             <label htmlFor="isRequired" className="text-sm font-medium text-foreground">
-              Bắt buộc
+              {t('form.required')}
             </label>
           </div>
 
           {/* Condition */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Điều kiện hiển thị (JSON)</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsChecklist.conditionJson')}</label>
             <Input
               value={formData.condition}
               onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
-              placeholder='VD: {"hasW2": true}'
+              placeholder={t('settingsChecklist.conditionJsonPlaceholder')}
             />
-            <p className="text-xs text-muted-foreground">Để trống nếu luôn hiển thị</p>
+            <p className="text-xs text-muted-foreground">{t('settingsChecklist.conditionHelp')}</p>
           </div>
 
           {/* Hint */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Gợi ý cho khách hàng</label>
+            <label className="text-sm font-medium text-foreground">{t('settingsChecklist.clientHint')}</label>
             <Input
               value={formData.hintVi}
               onChange={(e) => setFormData({ ...formData, hintVi: e.target.value })}
-              placeholder="VD: Từ công ty bạn làm việc"
+              placeholder={t('settingsChecklist.clientHintPlaceholder')}
             />
           </div>
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-4 border-t border-border">
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
-              Hủy
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending ? 'Đang lưu...' : isEditing ? 'Cập nhật' : 'Thêm mới'}
+              {isPending ? t('common.saving') : isEditing ? t('common.update') : t('common.add')}
             </Button>
           </div>
         </form>

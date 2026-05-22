@@ -5,6 +5,7 @@
  */
 
 import { cn, ProgressBar } from '@ella/ui'
+import { useTranslation } from 'react-i18next'
 import type { ChecklistItem } from '../../lib/api-client'
 
 export interface ChecklistProgressProps {
@@ -14,6 +15,7 @@ export interface ChecklistProgressProps {
 }
 
 export function ChecklistProgress({ items, className, showDetails = true }: ChecklistProgressProps) {
+  const { t } = useTranslation()
   // Exclude NOT_REQUIRED items from total count
   const activeItems = items.filter(i => i.status !== 'NOT_REQUIRED')
   const total = activeItems.length
@@ -27,15 +29,15 @@ export function ChecklistProgress({ items, className, showDetails = true }: Chec
     <div className={cn('space-y-2', className)}>
       <div className="flex justify-between items-center text-sm">
         <span className="font-medium text-foreground">
-          Tiến độ: {received}/{total} tài liệu đã nhận
+          {t('checklistProgress.received', { received, total })}
         </span>
         <span className="text-muted-foreground">{percentage}%</span>
       </div>
       <ProgressBar value={received} max={total} size="default" />
       {showDetails && (
         <div className="flex gap-4 text-xs text-muted-foreground">
-          <span>{verified} đã xác minh</span>
-          <span>{total - received} còn thiếu</span>
+          <span>{t('checklistProgress.verified', { count: verified })}</span>
+          <span>{t('checklistProgress.missing', { count: total - received })}</span>
         </div>
       )}
     </div>

@@ -145,7 +145,7 @@ describe('getExtractionStatusMessage', () => {
     }
 
     const message = getExtractionStatusMessage(result)
-    expect(message).toContain('Lỗi')
+    expect(message).toContain('Extraction error')
     expect(message).toContain('API error')
   })
 
@@ -160,7 +160,7 @@ describe('getExtractionStatusMessage', () => {
     }
 
     const message = getExtractionStatusMessage(result)
-    expect(message).toContain('không hợp lệ')
+    expect(message).toContain('invalid')
   })
 
   it('returns high confidence message', () => {
@@ -174,7 +174,7 @@ describe('getExtractionStatusMessage', () => {
     }
 
     const message = getExtractionStatusMessage(result)
-    expect(message).toContain('độ tin cậy cao')
+    expect(message).toContain('high confidence')
   })
 
   it('returns medium confidence message', () => {
@@ -188,7 +188,7 @@ describe('getExtractionStatusMessage', () => {
     }
 
     const message = getExtractionStatusMessage(result)
-    expect(message).toContain('cần xác minh')
+    expect(message).toContain('need verification')
   })
 })
 

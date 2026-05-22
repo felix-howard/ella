@@ -1,7 +1,7 @@
 /**
  * UnclassifiedSection - Collapsible list display of processing documents
  * Shows at top of Files Tab when docs are still being processed by AI
- * AI-failed docs now go directly to "Khác" category instead of here
+ * AI-failed docs now go directly to the "Other" category instead of here
  */
 
 import { useState, memo, type KeyboardEvent } from 'react'

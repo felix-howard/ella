@@ -90,8 +90,8 @@ async function runDailyReminders() {
             caseId: firstCaseId,
             type: 'REMINDER_DUE',
             priority: 'LOW',
-            title: 'Nhắc nhở hàng ngày đã gửi',
-            description: `Đã gửi ${results.sent} nhắc nhở, ${results.failed} thất bại, ${results.skipped} bỏ qua`,
+            title: 'Daily reminders sent',
+            description: `${results.sent} sent, ${results.failed} failed, ${results.skipped} skipped`,
             isCompleted: true,
             completedAt: new Date(),
             metadata: {

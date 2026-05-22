@@ -30,5 +30,5 @@ export function resolveUploadLinkTemplateMessage(
   language: SmsLanguage
 ): string {
   const templateId = resolveUploadLinkTemplateId(value)
-  return UPLOAD_LINK_TEMPLATES[templateId][language] ?? UPLOAD_LINK_TEMPLATES[DEFAULT_UPLOAD_LINK_TEMPLATE_ID].VI
+  return UPLOAD_LINK_TEMPLATES[templateId][language] ?? UPLOAD_LINK_TEMPLATES[DEFAULT_UPLOAD_LINK_TEMPLATE_ID].EN
 }

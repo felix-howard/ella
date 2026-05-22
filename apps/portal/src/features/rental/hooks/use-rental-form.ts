@@ -4,10 +4,8 @@
  * Handles property count, wizard navigation, validation, and submission
  */
 import { useState, useCallback, useMemo, useRef } from 'react'
-import type {
-  ScheduleEProperty,
-  ScheduleEPropertyId,
-} from '@ella/shared'
+import { useTranslation } from 'react-i18next'
+import type { ScheduleEProperty, ScheduleEPropertyId } from '@ella/shared'
 import { createEmptyProperty } from '@ella/shared'
 import { rentalApi } from '../lib/rental-api'
 import type { RentalFormData } from '../lib/rental-api'
@@ -66,10 +64,8 @@ function calculateTotalSteps(propertyCount: number): number {
   return 1 + propertyCount * 2 + 1
 }
 
-export function useRentalForm(
-  token: string,
-  initialData: RentalFormData
-): UseRentalFormReturn {
+export function useRentalForm(token: string, initialData: RentalFormData): UseRentalFormReturn {
+  const { t } = useTranslation()
   const { expense } = initialData
 
   // Initialize property count from existing data or default to 1
@@ -172,23 +168,32 @@ export function useRentalForm(
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
-  const goToStep = useCallback((step: number) => {
-    if (step >= 0 && step < totalSteps) {
-      setCurrentStep(step)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }, [totalSteps])
+  const goToStep = useCallback(
+    (step: number) => {
+      if (step >= 0 && step < totalSteps) {
+        setCurrentStep(step)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    },
+    [totalSteps]
+  )
 
   // Step type helpers
-  const isDetailsStep = useCallback((step: number): boolean => {
-    if (step === 0 || step === totalSteps - 1) return false
-    return (step - 1) % 2 === 0
-  }, [totalSteps])
+  const isDetailsStep = useCallback(
+    (step: number): boolean => {
+      if (step === 0 || step === totalSteps - 1) return false
+      return (step - 1) % 2 === 0
+    },
+    [totalSteps]
+  )
 
-  const isExpensesStep = useCallback((step: number): boolean => {
-    if (step === 0 || step === totalSteps - 1) return false
-    return (step - 1) % 2 === 1
-  }, [totalSteps])
+  const isExpensesStep = useCallback(
+    (step: number): boolean => {
+      if (step === 0 || step === totalSteps - 1) return false
+      return (step - 1) % 2 === 1
+    },
+    [totalSteps]
+  )
 
   // Get property index for current step
   const getCurrentPropertyIndex = useCallback((): number | null => {
@@ -197,16 +202,19 @@ export function useRentalForm(
   }, [currentStep, totalSteps])
 
   // Get property for a given step
-  const getPropertyForStep = useCallback((step: number): ScheduleEProperty | null => {
-    if (step === 0 || step === totalSteps - 1) return null
-    const index = Math.floor((step - 1) / 2)
-    return properties[index] || null
-  }, [properties, totalSteps])
+  const getPropertyForStep = useCallback(
+    (step: number): ScheduleEProperty | null => {
+      if (step === 0 || step === totalSteps - 1) return null
+      const index = Math.floor((step - 1) / 2)
+      return properties[index] || null
+    },
+    [properties, totalSteps]
+  )
 
   // Submit form
   const submit = useCallback(async (): Promise<boolean> => {
     if (isLocked) {
-      setErrorMessage('Form đã bị khóa. Không thể chỉnh sửa.')
+      setErrorMessage(t('rental.validation.formLocked'))
       return false
     }
 
@@ -222,10 +230,10 @@ export function useRentalForm(
       return true
     } catch (err) {
       setStatus('error')
-      setErrorMessage(err instanceof Error ? err.message : 'Không thể gửi form. Vui lòng thử lại.')
+      setErrorMessage(err instanceof Error ? err.message : t('rental.validation.cannotSubmit'))
       return false
     }
-  }, [token, isLocked])
+  }, [token, isLocked, t])
 
   // Reset error
   const resetError = useCallback(() => {

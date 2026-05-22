@@ -4,6 +4,7 @@
  */
 
 import { cn } from '@ella/ui'
+import { useTranslation } from 'react-i18next'
 import { HelpCircle } from 'lucide-react'
 import type { TaxType } from '../../lib/api-client'
 import { CustomSelect } from '../ui/custom-select'
@@ -39,18 +40,18 @@ interface IntakeQuestionsFormProps {
 
 // Filing status options
 const FILING_STATUS_OPTIONS = [
-  { value: 'SINGLE', label: 'Độc thân' },
-  { value: 'MARRIED_FILING_JOINTLY', label: 'Vợ chồng khai chung' },
-  { value: 'MARRIED_FILING_SEPARATELY', label: 'Vợ chồng khai riêng' },
-  { value: 'HEAD_OF_HOUSEHOLD', label: 'Chủ hộ' },
-  { value: 'QUALIFYING_WIDOW', label: 'Góa phụ có con' },
+  { value: 'SINGLE', labelKey: 'filingStatus.single' },
+  { value: 'MARRIED_FILING_JOINTLY', labelKey: 'filingStatus.marriedJointly' },
+  { value: 'MARRIED_FILING_SEPARATELY', labelKey: 'filingStatus.marriedSeparately' },
+  { value: 'HEAD_OF_HOUSEHOLD', labelKey: 'filingStatus.headOfHousehold' },
+  { value: 'QUALIFYING_WIDOW', labelKey: 'filingStatus.qualifyingWidow' },
 ]
 
 // Tax type options
-const TAX_TYPE_OPTIONS: { value: TaxType; label: string; description: string }[] = [
-  { value: 'FORM_1040', label: '1040 (Cá nhân)', description: 'Tờ khai thuế cá nhân' },
-  { value: 'FORM_1120S', label: '1120S (S-Corp)', description: 'Tờ khai thuế S-Corporation' },
-  { value: 'FORM_1065', label: '1065 (Partnership)', description: 'Tờ khai thuế hợp danh' },
+const TAX_TYPE_OPTIONS: { value: TaxType; labelKey: string; descriptionKey: string }[] = [
+  { value: 'FORM_1040', labelKey: 'legacyIntake.taxType.form1040', descriptionKey: 'legacyIntake.taxType.form1040Desc' },
+  { value: 'FORM_1120S', labelKey: 'legacyIntake.taxType.form1120S', descriptionKey: 'legacyIntake.taxType.form1120SDesc' },
+  { value: 'FORM_1065', labelKey: 'legacyIntake.taxType.form1065', descriptionKey: 'legacyIntake.taxType.form1065Desc' },
 ]
 
 // Available tax years (current year - 1 is the latest filing year)
@@ -58,6 +59,7 @@ const currentYear = new Date().getFullYear() - 1
 const TAX_YEARS = [currentYear, currentYear - 1, currentYear - 2]
 
 export function IntakeQuestionsForm({ data, onChange, errors }: IntakeQuestionsFormProps) {
+  const { t } = useTranslation()
   const handleChange = <K extends keyof IntakeFormData>(field: K, value: IntakeFormData[K]) => {
     onChange({ [field]: value })
   }
@@ -79,10 +81,10 @@ export function IntakeQuestionsForm({ data, onChange, errors }: IntakeQuestionsF
   return (
     <div className="space-y-8">
       {/* Section: Tax Information */}
-      <FormSection title="Thông tin thuế">
+      <FormSection title={t('section.taxInfo')}>
         {/* Tax Year */}
         <FormRow>
-          <FormLabel required>Năm thuế</FormLabel>
+          <FormLabel required>{t('legacyIntake.taxYear')}</FormLabel>
           <div className="flex gap-2">
             {TAX_YEARS.map((year) => (
               <button
@@ -105,7 +107,7 @@ export function IntakeQuestionsForm({ data, onChange, errors }: IntakeQuestionsF
 
         {/* Tax Types */}
         <FormRow>
-          <FormLabel required>Loại tờ khai</FormLabel>
+          <FormLabel required>{t('legacyIntake.taxReturnType')}</FormLabel>
           <div className="grid gap-2 sm:grid-cols-3">
             {TAX_TYPE_OPTIONS.map((option) => (
               <button
@@ -119,8 +121,8 @@ export function IntakeQuestionsForm({ data, onChange, errors }: IntakeQuestionsF
                     : 'border-border hover:border-primary/50'
                 )}
               >
-                <span className="font-medium text-foreground text-sm">{option.label}</span>
-                <p className="text-xs text-muted-foreground mt-0.5">{option.description}</p>
+                <span className="font-medium text-foreground text-sm">{t(option.labelKey)}</span>
+                <p className="text-xs text-muted-foreground mt-0.5">{t(option.descriptionKey)}</p>
               </button>
             ))}
           </div>
@@ -129,12 +131,12 @@ export function IntakeQuestionsForm({ data, onChange, errors }: IntakeQuestionsF
 
         {/* Filing Status */}
         <FormRow>
-          <FormLabel required>Tình trạng hôn nhân</FormLabel>
+          <FormLabel required>{t('legacyIntake.filingStatus')}</FormLabel>
           <CustomSelect
             value={data.filingStatus || ''}
             onChange={(value) => handleChange('filingStatus', value)}
-            options={FILING_STATUS_OPTIONS}
-            placeholder="Chọn tình trạng..."
+            options={FILING_STATUS_OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
+            placeholder={t('legacyIntake.selectStatus')}
             error={!!errors?.filingStatus}
           />
           {errors?.filingStatus && <FormError>{errors.filingStatus}</FormError>}
@@ -142,32 +144,32 @@ export function IntakeQuestionsForm({ data, onChange, errors }: IntakeQuestionsF
       </FormSection>
 
       {/* Section: Income Sources */}
-      <FormSection title="Nguồn thu nhập">
+      <FormSection title={t('section.income')}>
         <div className="space-y-3">
           <ToggleQuestion
-            label="Có W2 (thu nhập từ công việc)?"
+            label={t('legacyIntake.hasW2')}
             checked={data.hasW2}
             onChange={(v) => handleChange('hasW2', v)}
           />
           <ToggleQuestion
-            label="Có tài khoản ngân hàng tại Mỹ?"
+            label={t('legacyIntake.hasBankAccount')}
             checked={data.hasBankAccount}
             onChange={(v) => handleChange('hasBankAccount', v)}
-            hint="Để nhận tiền hoàn thuế bằng Direct Deposit"
+            hint={t('legacyIntake.bankAccountHint')}
           />
           <ToggleQuestion
-            label="Có đầu tư (cổ phiếu, crypto, bất động sản)?"
+            label={t('legacyIntake.hasInvestments')}
             checked={data.hasInvestments}
             onChange={(v) => handleChange('hasInvestments', v)}
           />
           <ToggleQuestion
-            label="Có hoạt động tự kinh doanh?"
+            label={t('legacyIntake.hasSelfEmployment')}
             checked={data.hasSelfEmployment}
             onChange={(v) => handleChange('hasSelfEmployment', v)}
-            hint="Freelance, 1099-NEC, hoặc kinh doanh cá nhân"
+            hint={t('legacyIntake.selfEmploymentHint')}
           />
           <ToggleQuestion
-            label="Có thu nhập từ cho thuê nhà?"
+            label={t('legacyIntake.hasRentalProperty')}
             checked={data.hasRentalProperty}
             onChange={(v) => handleChange('hasRentalProperty', v)}
           />
@@ -175,10 +177,10 @@ export function IntakeQuestionsForm({ data, onChange, errors }: IntakeQuestionsF
       </FormSection>
 
       {/* Section: Dependents - Conditional */}
-      <FormSection title="Người phụ thuộc">
+      <FormSection title={t('section.dependents')}>
         <div className="space-y-3">
           <ToggleQuestion
-            label="Có con dưới 17 tuổi?"
+            label={t('legacyIntake.hasKidsUnder17')}
             checked={data.hasKidsUnder17}
             onChange={(v) => {
               handleChange('hasKidsUnder17', v)
@@ -186,20 +188,20 @@ export function IntakeQuestionsForm({ data, onChange, errors }: IntakeQuestionsF
                 onChange({ numKidsUnder17: 0, paysDaycare: false })
               }
             }}
-            hint="Có thể được Child Tax Credit ($2,000/con)"
+            hint={t('legacyIntake.childTaxCreditHint')}
           />
 
           {/* Conditional: Number of kids */}
           {data.hasKidsUnder17 && (
             <div className="ml-6 pl-4 border-l-2 border-primary-light space-y-3">
               <FormRow>
-                <FormLabel>Số con dưới 17 tuổi</FormLabel>
+                <FormLabel>{t('legacyIntake.numKidsUnder17')}</FormLabel>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => handleChange('numKidsUnder17', Math.max(1, (data.numKidsUnder17 || 1) - 1))}
                     className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 text-foreground font-medium"
-                    aria-label="Giảm"
+                    aria-label={t('common.decrease')}
                   >
                     -
                   </button>
@@ -210,7 +212,7 @@ export function IntakeQuestionsForm({ data, onChange, errors }: IntakeQuestionsF
                     type="button"
                     onClick={() => handleChange('numKidsUnder17', (data.numKidsUnder17 || 1) + 1)}
                     className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 text-foreground font-medium"
-                    aria-label="Tăng"
+                    aria-label={t('common.increase')}
                   >
                     +
                   </button>
@@ -218,42 +220,42 @@ export function IntakeQuestionsForm({ data, onChange, errors }: IntakeQuestionsF
               </FormRow>
 
               <ToggleQuestion
-                label="Có trả tiền Daycare cho con?"
+                label={t('legacyIntake.paysDaycare')}
                 checked={data.paysDaycare}
                 onChange={(v) => handleChange('paysDaycare', v)}
-                hint="Có thể được Child and Dependent Care Credit"
+                hint={t('legacyIntake.daycareHint')}
               />
             </div>
           )}
 
           <ToggleQuestion
-            label="Có con từ 17-24 tuổi đang đi học?"
+            label={t('legacyIntake.hasKids17to24')}
             checked={data.hasKids17to24}
             onChange={(v) => handleChange('hasKids17to24', v)}
-            hint="Có thể được American Opportunity Credit"
+            hint={t('legacyIntake.educationCreditHint')}
           />
         </div>
       </FormSection>
 
       {/* Section: Business - Conditional */}
       {showBusinessQuestions && (
-        <FormSection title="Thông tin doanh nghiệp">
+        <FormSection title={t('section.business')}>
           <div className="space-y-3">
             <ToggleQuestion
-              label="Có nhân viên (W2)?"
+              label={t('legacyIntake.hasEmployees')}
               checked={data.hasEmployees}
               onChange={(v) => handleChange('hasEmployees', v)}
             />
             <ToggleQuestion
-              label="Có trả cho contractors (1099-NEC)?"
+              label={t('legacyIntake.hasContractors')}
               checked={data.hasContractors}
               onChange={(v) => handleChange('hasContractors', v)}
             />
             <ToggleQuestion
-              label="Có nhận thanh toán qua thẻ (1099-K)?"
+              label={t('legacyIntake.has1099K')}
               checked={data.has1099K}
               onChange={(v) => handleChange('has1099K', v)}
-              hint="Stripe, Square, PayPal Business, etc."
+              hint={t('legacyIntake.has1099KHint')}
             />
           </div>
         </FormSection>

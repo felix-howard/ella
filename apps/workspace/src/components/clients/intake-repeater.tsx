@@ -4,22 +4,40 @@
  */
 
 import { HelpCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import type { FieldType } from '../../lib/api-client'
 import { CustomSelect } from '../ui/custom-select'
 
+interface RepeaterOption {
+  value: string
+  label?: string
+  labelVi?: string
+  labelEn?: string
+  labelKey?: string
+  labelViKey?: string
+  labelEnKey?: string
+}
+
 interface RepeaterField {
   suffix: string // e.g., 'Address' -> rentalAddress_1, rentalAddress_2
-  labelVi: string
+  labelVi?: string
   labelEn: string
+  labelViKey?: string
+  labelEnKey?: string
   fieldType: FieldType
-  options?: { value: string; label: string }[]
+  options?: RepeaterOption[]
 }
 
 interface IntakeRepeaterProps {
   countKey: string
   itemLabel: string
-  labelVi: string
+  itemLabelVi?: string
+  itemLabelViKey?: string
+  labelVi?: string
+  labelEn?: string
+  labelViKey?: string
+  labelEnKey?: string
   maxItems?: number
   fields: RepeaterField[]
   answers: Record<string, unknown>
@@ -34,12 +52,19 @@ function sanitizeTextInput(value: string): string {
 export function IntakeRepeater({
   countKey,
   itemLabel,
+  itemLabelVi,
+  itemLabelViKey,
   labelVi,
+  labelEn,
+  labelViKey,
+  labelEnKey,
   maxItems = 10,
   fields,
   answers,
   onChange,
 }: IntakeRepeaterProps) {
+  const { i18n, t } = useTranslation()
+  const language = i18n.language
   const count = typeof answers[countKey] === 'number'
     ? Math.min(answers[countKey] as number, maxItems)
     : 0
@@ -49,13 +74,14 @@ export function IntakeRepeater({
   return (
     <div className="space-y-4 mt-4 pl-4 border-l-2 border-primary/20">
       <h4 className="text-sm font-medium text-muted-foreground">
-        {labelVi} ({count} {itemLabel})
+        {getLocalizedText(labelEn, labelVi, language, t, labelEnKey, labelViKey)} ({count}{' '}
+        {getLocalizedText(itemLabel, itemLabelVi, language, t, undefined, itemLabelViKey)})
       </h4>
 
       {Array.from({ length: count }, (_, index) => (
         <div key={index} className="bg-muted/30 rounded-lg p-4 space-y-3">
           <div className="text-sm font-medium text-foreground">
-            {itemLabel} #{index + 1}
+            {getLocalizedText(itemLabel, itemLabelVi, language, t, undefined, itemLabelViKey)} #{index + 1}
           </div>
 
           {fields.map(field => {
@@ -69,6 +95,8 @@ export function IntakeRepeater({
                 field={field}
                 value={value}
                 onChange={onChange}
+                language={language}
+                t={t}
               />
             )
           })}
@@ -83,6 +111,8 @@ interface RepeaterFieldInputProps {
   field: RepeaterField
   value: unknown
   onChange: (key: string, value: unknown) => void
+  language: string
+  t: ReturnType<typeof useTranslation>['t']
 }
 
 function RepeaterFieldInput({
@@ -90,15 +120,18 @@ function RepeaterFieldInput({
   field,
   value,
   onChange,
+  language,
+  t,
 }: RepeaterFieldInputProps) {
-  const { fieldType, labelVi, labelEn, options } = field
+  const { fieldType, labelVi, labelEn, labelViKey, labelEnKey, options } = field
+  const label = getLocalizedText(labelEn, labelVi, language, t, labelEnKey, labelViKey)
 
   if (fieldType === 'BOOLEAN') {
     return (
       <BooleanField
         fieldKey={fieldKey}
-        labelVi={labelVi}
-        labelEn={labelEn}
+        label={label}
+        hint={labelEn}
         checked={value === true}
         onChange={(checked) => onChange(fieldKey, checked)}
       />
@@ -109,8 +142,8 @@ function RepeaterFieldInput({
     return (
       <NumberField
         fieldKey={fieldKey}
-        labelVi={labelVi}
-        labelEn={labelEn}
+        label={label}
+        hint={labelEn}
         value={typeof value === 'number' ? value : 0}
         onChange={(val) => onChange(fieldKey, val)}
       />
@@ -121,10 +154,10 @@ function RepeaterFieldInput({
     return (
       <SelectField
         fieldKey={fieldKey}
-        labelVi={labelVi}
-        labelEn={labelEn}
+        label={label}
+        hint={labelEn}
         value={typeof value === 'string' ? value : ''}
-        options={options}
+        options={getLocalizedOptions(options, language, t)}
         onChange={(val) => onChange(fieldKey, val)}
       />
     )
@@ -134,8 +167,8 @@ function RepeaterFieldInput({
   return (
     <TextField
       fieldKey={fieldKey}
-      labelVi={labelVi}
-      labelEn={labelEn}
+      label={label}
+      hint={labelEn}
       value={typeof value === 'string' ? value : ''}
       onChange={(val) => onChange(fieldKey, val)}
     />
@@ -145,16 +178,16 @@ function RepeaterFieldInput({
 // Boolean field
 interface BooleanFieldProps {
   fieldKey: string
-  labelVi: string
-  labelEn: string
+  label: string
+  hint: string
   checked: boolean
   onChange: (checked: boolean) => void
 }
 
 function BooleanField({
   fieldKey: _fieldKey,
-  labelVi,
-  labelEn,
+  label,
+  hint,
   checked,
   onChange,
 }: BooleanFieldProps) {
@@ -176,13 +209,13 @@ function BooleanField({
         }
       }}
       aria-pressed={checked}
-      aria-label={labelVi}
+      aria-label={label}
     >
       <div className="flex-1">
-        <span className="text-sm font-medium text-foreground">{labelVi}</span>
+        <span className="text-sm font-medium text-foreground">{label}</span>
         <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
           <HelpCircle className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
-          {labelEn}
+          {hint}
         </p>
       </div>
       <div
@@ -205,16 +238,16 @@ function BooleanField({
 // Number field
 interface NumberFieldProps {
   fieldKey: string
-  labelVi: string
-  labelEn: string
+  label: string
+  hint: string
   value: number
   onChange: (value: number) => void
 }
 
 function NumberField({
   fieldKey,
-  labelVi,
-  labelEn,
+  label,
+  hint,
   value,
   onChange,
 }: NumberFieldProps) {
@@ -223,11 +256,11 @@ function NumberField({
   return (
     <div className="space-y-1.5">
       <label htmlFor={fieldKey} className="block text-sm font-medium text-foreground">
-        {labelVi}
+        {label}
       </label>
       <p className="text-xs text-muted-foreground flex items-center gap-1">
         <HelpCircle className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
-        {labelEn}
+        {hint}
       </p>
       <input
         id={fieldKey}
@@ -249,8 +282,8 @@ function NumberField({
 // Select field
 interface SelectFieldProps {
   fieldKey: string
-  labelVi: string
-  labelEn: string
+  label: string
+  hint: string
   value: string
   options: { value: string; label: string }[]
   onChange: (value: string) => void
@@ -258,26 +291,28 @@ interface SelectFieldProps {
 
 function SelectField({
   fieldKey,
-  labelVi,
-  labelEn,
+  label,
+  hint,
   value,
   options,
   onChange,
 }: SelectFieldProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="space-y-1.5">
       <label htmlFor={fieldKey} className="block text-sm font-medium text-foreground">
-        {labelVi}
+        {label}
       </label>
       <p className="text-xs text-muted-foreground flex items-center gap-1">
         <HelpCircle className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
-        {labelEn}
+        {hint}
       </p>
       <CustomSelect
         value={value}
         onChange={onChange}
         options={options}
-        placeholder="Chọn..."
+        placeholder={t('common.selectPlaceholder')}
       />
     </div>
   )
@@ -286,27 +321,27 @@ function SelectField({
 // Text field
 interface TextFieldProps {
   fieldKey: string
-  labelVi: string
-  labelEn: string
+  label: string
+  hint: string
   value: string
   onChange: (value: string) => void
 }
 
 function TextField({
   fieldKey,
-  labelVi,
-  labelEn,
+  label,
+  hint,
   value,
   onChange,
 }: TextFieldProps) {
   return (
     <div className="space-y-1.5">
       <label htmlFor={fieldKey} className="block text-sm font-medium text-foreground">
-        {labelVi}
+        {label}
       </label>
       <p className="text-xs text-muted-foreground flex items-center gap-1">
         <HelpCircle className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
-        {labelEn}
+        {hint}
       </p>
       <input
         id={fieldKey}
@@ -324,31 +359,65 @@ function TextField({
   )
 }
 
+function getLocalizedText(
+  english: string | undefined,
+  vietnamese: string | undefined,
+  language: string,
+  t: ReturnType<typeof useTranslation>['t'],
+  englishKey?: string,
+  vietnameseKey?: string
+): string {
+  const englishText = englishKey ? t(englishKey, { lng: 'en' }) : english
+  const vietnameseText = vietnameseKey ? t(vietnameseKey, { lng: 'vi' }) : vietnamese
+  if (language.toLowerCase().startsWith('vi')) return vietnameseText || englishText || ''
+  return englishText || vietnameseText || ''
+}
+
+function getLocalizedOptions(
+  options: RepeaterOption[],
+  language: string,
+  t: ReturnType<typeof useTranslation>['t']
+): { value: string; label: string }[] {
+  return options.map((option) => ({
+    value: option.value,
+    label: getLocalizedText(
+      option.labelEn || option.label,
+      option.labelVi || option.label,
+      language,
+      t,
+      option.labelEnKey || option.labelKey,
+      option.labelViKey || option.labelKey
+    ),
+  }))
+}
+
 // Export repeater configuration for common use cases
 // eslint-disable-next-line react-refresh/only-export-components
 export const REPEATER_CONFIGS = {
   rental: {
     countKey: 'rentalPropertyCount',
-    itemLabel: 'Bất động sản',
-    labelVi: 'Chi tiết bất động sản cho thuê',
+    itemLabel: 'Property',
+    itemLabelViKey: 'intakeRepeater.rental.itemLabel',
+    labelEn: 'Rental property details',
+    labelViKey: 'intakeRepeater.rental.label',
     maxItems: 10,
     fields: [
       {
         suffix: 'rentalAddress',
-        labelVi: 'Địa chỉ',
+        labelViKey: 'intakeRepeater.rental.address',
         labelEn: 'Property address',
         fieldType: 'TEXT' as FieldType,
       },
       {
         suffix: 'rentalType',
-        labelVi: 'Loại bất động sản',
+        labelViKey: 'intakeRepeater.rental.type',
         labelEn: 'Property type',
         fieldType: 'SELECT' as FieldType,
         options: [
-          { value: 'SINGLE_FAMILY', label: 'Nhà đơn lẻ' },
-          { value: 'MULTI_FAMILY', label: 'Chung cư' },
-          { value: 'CONDO', label: 'Căn hộ' },
-          { value: 'COMMERCIAL', label: 'Thương mại' },
+          { value: 'SINGLE_FAMILY', labelEn: 'Single family', labelViKey: 'intakeRepeater.rental.option.singleFamily' },
+          { value: 'MULTI_FAMILY', labelEn: 'Multi-family', labelViKey: 'intakeRepeater.rental.option.multiFamily' },
+          { value: 'CONDO', labelEn: 'Condo', labelViKey: 'intakeRepeater.rental.option.condo' },
+          { value: 'COMMERCIAL', labelEn: 'Commercial', labelViKey: 'intakeRepeater.rental.option.commercial' },
         ],
       },
     ],
@@ -356,18 +425,19 @@ export const REPEATER_CONFIGS = {
   k1: {
     countKey: 'k1Count',
     itemLabel: 'K-1',
-    labelVi: 'Chi tiết K-1',
+    labelEn: 'K-1 details',
+    labelViKey: 'intakeRepeater.k1.label',
     maxItems: 10,
     fields: [
       {
         suffix: 'k1EntityName',
-        labelVi: 'Tên công ty/partnership',
+        labelViKey: 'intakeRepeater.k1.entityName',
         labelEn: 'Entity name',
         fieldType: 'TEXT' as FieldType,
       },
       {
         suffix: 'k1EIN',
-        labelVi: 'EIN của công ty',
+        labelViKey: 'intakeRepeater.k1.entityEin',
         labelEn: 'Entity EIN',
         fieldType: 'TEXT' as FieldType,
       },
@@ -376,12 +446,13 @@ export const REPEATER_CONFIGS = {
   w2: {
     countKey: 'w2Count',
     itemLabel: 'W-2',
-    labelVi: 'Chi tiết W-2',
+    labelEn: 'W-2 details',
+    labelViKey: 'intakeRepeater.w2.label',
     maxItems: 10,
     fields: [
       {
         suffix: 'w2EmployerName',
-        labelVi: 'Tên công ty',
+        labelViKey: 'intakeRepeater.w2.employerName',
         labelEn: 'Employer name',
         fieldType: 'TEXT' as FieldType,
       },

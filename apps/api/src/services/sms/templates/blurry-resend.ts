@@ -45,7 +45,7 @@ Thank you!`
 export function generateBlurryResendMessage(
   params: BlurryResendTemplateParams
 ): string {
-  const template = TEMPLATES[params.language] || TEMPLATES.VI
+  const template = TEMPLATES[params.language] || TEMPLATES.EN
   return template(params)
 }
 

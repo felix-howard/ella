@@ -21,7 +21,7 @@ export interface ImageQualityResult {
   canBeProcessed: boolean
   issues: BlurIssue[]
   recommendation: string
-  issuesSummary?: string // Vietnamese summary of issues
+  issuesSummary?: string
   error?: string
   processingTimeMs?: number
 }
@@ -53,7 +53,7 @@ export async function detectBlur(
       blurScore: 0,
       canBeProcessed: true, // Assume processable if AI not available
       issues: [],
-      recommendation: 'Không thể kiểm tra chất lượng ảnh (AI chưa cấu hình)',
+      recommendation: 'Could not check image quality because AI is not configured',
       error: 'Gemini API key not configured',
       processingTimeMs: Date.now() - startTime,
     }
@@ -68,7 +68,7 @@ export async function detectBlur(
       blurScore: 0,
       canBeProcessed: false,
       issues: [],
-      recommendation: 'Định dạng ảnh không được hỗ trợ',
+      recommendation: 'Unsupported image format',
       error: `Unsupported MIME type: ${mimeType}`,
       processingTimeMs: Date.now() - startTime,
     }
@@ -85,7 +85,7 @@ export async function detectBlur(
         blurScore: 0,
         canBeProcessed: true, // Assume processable if detection fails
         issues: [],
-        recommendation: 'Không thể kiểm tra chất lượng ảnh',
+        recommendation: 'Could not check image quality',
         error: result.error || 'Unknown error during blur detection',
         processingTimeMs: Date.now() - startTime,
       }
@@ -99,7 +99,7 @@ export async function detectBlur(
         blurScore: 0,
         canBeProcessed: true,
         issues: [],
-        recommendation: 'Không thể phân tích kết quả kiểm tra',
+        recommendation: 'Could not parse image quality check result',
         error: 'AI returned invalid blur detection format',
         processingTimeMs: Date.now() - startTime,
       }
@@ -107,7 +107,7 @@ export async function detectBlur(
 
     const data = result.data
 
-    // Generate Vietnamese summary of issues
+    // Generate summary of issues
     const issuesSummary = generateIssuesSummary(data.issues)
 
     return {
@@ -128,7 +128,7 @@ export async function detectBlur(
       blurScore: 0,
       canBeProcessed: true,
       issues: [],
-      recommendation: 'Lỗi khi kiểm tra chất lượng ảnh',
+      recommendation: 'Error checking image quality',
       error: errorMessage,
       processingTimeMs: Date.now() - startTime,
     }
@@ -157,11 +157,11 @@ export async function quickBlurCheck(
 }
 
 /**
- * Generate Vietnamese summary of issues
+ * Generate summary of issues
  */
 function generateIssuesSummary(issues: BlurIssue[]): string {
   if (!issues || issues.length === 0) {
-    return 'Không có vấn đề về chất lượng'
+    return 'No quality issues'
   }
 
   const summaryParts = issues.map((issue) => {
@@ -212,11 +212,11 @@ export function shouldRequestResend(result: ImageQualityResult): boolean {
 }
 
 /**
- * Get resend request message in Vietnamese
+ * Get resend request message.
  */
 export function getResendMessage(result: ImageQualityResult): string {
   if (result.issues.length === 0) {
-    return 'Vui lòng chụp lại ảnh với chất lượng cao hơn.'
+    return 'Please retake this image at higher quality.'
   }
 
   // Find the most severe issue
@@ -228,7 +228,7 @@ export function getResendMessage(result: ImageQualityResult): string {
   const mainIssue = sortedIssues[0]
   const issueLabel = getIssueTypeLabel(mainIssue.type)
 
-  return `${issueLabel}: ${mainIssue.description}. Vui lòng chụp lại ảnh.`
+  return `${issueLabel}: ${mainIssue.description}. Please retake this image.`
 }
 
 // Re-export types

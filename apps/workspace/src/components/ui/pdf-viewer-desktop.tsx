@@ -7,6 +7,7 @@
  */
 
 import { useRef, useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { RotateCw, Loader2 } from 'lucide-react'
 
 /** Valid rotation degrees */
@@ -75,6 +76,7 @@ export default function PdfViewerDesktop({
   onRotate,
   showControls = true,
 }: PdfViewerDesktopProps) {
+  const { t } = useTranslation()
   const [isLoading, setIsLoading] = useState(true)
   const [containerRect, setContainerRect] = useState<DOMRect | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -112,7 +114,7 @@ export default function PdfViewerDesktop({
   if (!sanitizedUrl) {
     return (
       <div className="relative w-full h-full flex items-center justify-center bg-muted/50">
-        <p className="text-muted-foreground text-sm">Không thể tải PDF</p>
+        <p className="text-muted-foreground text-sm">{t('viewer.pdfLoadError')}</p>
       </div>
     )
   }
@@ -132,8 +134,8 @@ export default function PdfViewerDesktop({
           <button
             onClick={onRotate}
             className="p-2 rounded-full bg-black/70 hover:bg-black/80 transition-colors"
-            aria-label="Xoay"
-            title="Xoay (R)"
+            aria-label={t('viewer.rotate')}
+            title={t('viewer.rotateTitle')}
           >
             <RotateCw className="h-4 w-4 text-white" />
           </button>

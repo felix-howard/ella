@@ -2,6 +2,7 @@
  * NEC Breakdown List - Shows per-payer 1099-NEC amounts under gross receipts
  * Displays payer name + compensation for each verified 1099-NEC
  */
+import { useTranslation } from 'react-i18next'
 import type { NecBreakdownItem } from '../../../../lib/api-client'
 import { formatUSD } from './format-utils'
 import { CopyableValue } from './copyable-value'
@@ -11,6 +12,7 @@ interface NecBreakdownListProps {
 }
 
 export function NecBreakdownList({ items }: NecBreakdownListProps) {
+  const { t } = useTranslation()
   if (items.length === 0) return null
 
   return (
@@ -18,7 +20,7 @@ export function NecBreakdownList({ items }: NecBreakdownListProps) {
       {items.map((item) => (
         <div key={item.docId} className="flex justify-between items-center text-xs">
           <span className="text-muted-foreground truncate mr-2">
-            {item.payerName || 'Không rõ'}
+            {item.payerName || t('scheduleC.unknownPayer')}
           </span>
           <CopyableValue
             formatted={formatUSD(item.nonemployeeCompensation)}

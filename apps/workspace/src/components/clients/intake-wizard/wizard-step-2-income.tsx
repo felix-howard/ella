@@ -5,7 +5,8 @@
 
 import { cn } from '@ella/ui'
 import { ChevronDown, Briefcase, Building2, TrendingUp, Coins, Home } from 'lucide-react'
-import { useCategoryToggle, createItemToggleHandler } from './use-category-toggle'
+import { useTranslation } from 'react-i18next'
+import { useCategoryToggle } from './use-category-toggle'
 import type { TaxType } from '../../../lib/api-client'
 import type { IntakeAnswers } from './wizard-container'
 
@@ -19,7 +20,7 @@ interface WizardStep2IncomeProps {
 // Income category config
 interface IncomeCategory {
   id: string
-  label: string
+  labelKey: string
   icon: React.ElementType
   iconBg: string
   iconColor: string
@@ -28,14 +29,14 @@ interface IncomeCategory {
 
 interface IncomeItem {
   key: string
-  label: string
-  hint?: string
+  labelKey: string
+  hintKey?: string
   detailFields?: DetailField[]
 }
 
 interface DetailField {
   key: string
-  label: string
+  labelKey: string
   type: 'number' | 'text' | 'currency'
   placeholder?: string
 }
@@ -44,120 +45,120 @@ interface DetailField {
 const INCOME_CATEGORIES: IncomeCategory[] = [
   {
     id: 'employment',
-    label: 'Thu nhập từ việc làm',
+    labelKey: 'intakeWizard.income.categories.employment',
     icon: Briefcase,
     iconBg: 'bg-blue-500/10',
     iconColor: 'text-blue-600',
     items: [
       {
         key: 'hasW2',
-        label: 'Có W-2 (lương từ công ty)',
-        hint: 'Thu nhập từ việc làm có khấu trừ thuế',
+        labelKey: 'intakeWizard.income.items.hasW2.label',
+        hintKey: 'intakeWizard.income.items.hasW2.hint',
         detailFields: [
-          { key: 'w2Count', label: 'Số lượng W-2', type: 'number', placeholder: '1' },
+          { key: 'w2Count', labelKey: 'intakeWizard.income.fields.w2Count', type: 'number', placeholder: '1' },
         ],
       },
       {
         key: 'has1099NEC',
-        label: 'Có 1099-NEC (thu nhập tự do)',
-        hint: 'Thu nhập từ hợp đồng, freelance',
+        labelKey: 'intakeWizard.income.items.has1099NEC.label',
+        hintKey: 'intakeWizard.income.items.has1099NEC.hint',
       },
       {
         key: 'hasTipsIncome',
-        label: 'Có thu nhập từ Tips',
-        hint: 'Tiền boa không được báo cáo qua W-2',
+        labelKey: 'intakeWizard.income.items.hasTipsIncome.label',
+        hintKey: 'intakeWizard.income.items.hasTipsIncome.hint',
       },
     ],
   },
   {
     id: 'self_employment',
-    label: 'Kinh doanh / Tự làm chủ',
+    labelKey: 'intakeWizard.income.categories.selfEmployment',
     icon: Building2,
     iconBg: 'bg-purple-500/10',
     iconColor: 'text-purple-600',
     items: [
       {
         key: 'hasSelfEmployment',
-        label: 'Có thu nhập tự kinh doanh',
-        hint: 'Schedule C - kinh doanh cá nhân',
+        labelKey: 'intakeWizard.income.items.hasSelfEmployment.label',
+        hintKey: 'intakeWizard.income.items.hasSelfEmployment.hint',
       },
       {
         key: 'hasK1Income',
-        label: 'Có K-1 (Partnership/S-Corp)',
-        hint: 'Thu nhập từ công ty hợp danh hoặc S-Corp',
+        labelKey: 'intakeWizard.income.items.hasK1Income.label',
+        hintKey: 'intakeWizard.income.items.hasK1Income.hint',
         detailFields: [
-          { key: 'k1Count', label: 'Số lượng K-1', type: 'number', placeholder: '1' },
+          { key: 'k1Count', labelKey: 'intakeWizard.income.fields.k1Count', type: 'number', placeholder: '1' },
         ],
       },
     ],
   },
   {
     id: 'investments',
-    label: 'Đầu tư & Tài chính',
+    labelKey: 'intakeWizard.income.categories.investments',
     icon: TrendingUp,
     iconBg: 'bg-emerald-500/10',
     iconColor: 'text-emerald-600',
     items: [
       {
         key: 'hasBankAccount',
-        label: 'Có tài khoản ngân hàng (lãi suất)',
-        hint: '1099-INT - tiền lãi từ ngân hàng',
+        labelKey: 'intakeWizard.income.items.hasBankAccount.label',
+        hintKey: 'intakeWizard.income.items.hasBankAccount.hint',
       },
       {
         key: 'hasInvestments',
-        label: 'Có đầu tư chứng khoán',
-        hint: '1099-B, 1099-DIV - cổ phiếu, quỹ',
+        labelKey: 'intakeWizard.income.items.hasInvestments.label',
+        hintKey: 'intakeWizard.income.items.hasInvestments.hint',
       },
       {
         key: 'hasCrypto',
-        label: 'Có giao dịch Crypto',
-        hint: 'Bitcoin, Ethereum, etc.',
+        labelKey: 'intakeWizard.income.items.hasCrypto.label',
+        hintKey: 'intakeWizard.income.items.hasCrypto.hint',
       },
     ],
   },
   {
     id: 'retirement',
-    label: 'Hưu trí & Trợ cấp',
+    labelKey: 'intakeWizard.income.categories.retirement',
     icon: Coins,
     iconBg: 'bg-amber-500/10',
     iconColor: 'text-amber-600',
     items: [
       {
         key: 'hasRetirement',
-        label: 'Có thu nhập hưu trí',
-        hint: '1099-R - 401k, IRA, pension',
+        labelKey: 'intakeWizard.income.items.hasRetirement.label',
+        hintKey: 'intakeWizard.income.items.hasRetirement.hint',
       },
       {
         key: 'hasSocialSecurity',
-        label: 'Có Social Security',
-        hint: 'SSA-1099 - an sinh xã hội',
+        labelKey: 'intakeWizard.income.items.hasSocialSecurity.label',
+        hintKey: 'intakeWizard.income.items.hasSocialSecurity.hint',
       },
       {
         key: 'hasUnemployment',
-        label: 'Có Unemployment',
-        hint: '1099-G - trợ cấp thất nghiệp',
+        labelKey: 'intakeWizard.income.items.hasUnemployment.label',
+        hintKey: 'intakeWizard.income.items.hasUnemployment.hint',
       },
     ],
   },
   {
     id: 'property',
-    label: 'Bất động sản',
+    labelKey: 'intakeWizard.income.categories.property',
     icon: Home,
     iconBg: 'bg-rose-500/10',
     iconColor: 'text-rose-600',
     items: [
       {
         key: 'hasRentalProperty',
-        label: 'Có bất động sản cho thuê',
-        hint: 'Schedule E - thu nhập cho thuê',
+        labelKey: 'intakeWizard.income.items.hasRentalProperty.label',
+        hintKey: 'intakeWizard.income.items.hasRentalProperty.hint',
         detailFields: [
-          { key: 'rentalPropertyCount', label: 'Số bất động sản', type: 'number', placeholder: '1' },
+          { key: 'rentalPropertyCount', labelKey: 'intakeWizard.income.fields.rentalPropertyCount', type: 'number', placeholder: '1' },
         ],
       },
       {
         key: 'hasBoughtSoldHome',
-        label: 'Có mua/bán nhà trong năm',
-        hint: 'Có thể có lợi nhuận chịu thuế',
+        labelKey: 'intakeWizard.income.items.hasBoughtSoldHome.label',
+        hintKey: 'intakeWizard.income.items.hasBoughtSoldHome.hint',
       },
     ],
   },
@@ -169,18 +170,25 @@ export function WizardStep2Income({
   taxTypes: _taxTypes,
   errors: _errors,
 }: WizardStep2IncomeProps) {
+  const { t } = useTranslation()
   // Use shared category toggle hook
   const { isExpanded, toggleCategory } = useCategoryToggle(['employment'])
 
-  // Use shared item toggle handler
-  const handleItemToggle = createItemToggleHandler(answers, onChange)
+  const handleItemToggle = (item: IncomeItem) => {
+    const currentValue = answers[item.key] === true
+    onChange(item.key, !currentValue)
+
+    if (currentValue && item.detailFields) {
+      item.detailFields.forEach((field) => onChange(field.key, undefined))
+    }
+  }
 
   return (
     <div className="space-y-4">
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-foreground">Nguồn thu nhập</h3>
+        <h3 className="text-lg font-semibold text-foreground">{t('intakeWizard.income.title')}</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Chọn tất cả các nguồn thu nhập bạn có trong năm thuế
+          {t('intakeWizard.income.subtitle')}
         </p>
       </div>
 
@@ -210,10 +218,10 @@ export function WizardStep2Income({
                 <div className={cn('p-2 rounded-lg', category.iconBg)}>
                   <Icon className={cn('w-5 h-5', category.iconColor)} />
                 </div>
-                <span className="font-medium text-foreground">{category.label}</span>
+                <span className="font-medium text-foreground">{t(category.labelKey)}</span>
                 {hasActiveItems && (
                   <span className="px-2 py-0.5 text-xs font-medium bg-primary text-white rounded-full">
-                    Có
+                    {t('intakeWizard.common.yes')}
                   </span>
                 )}
               </div>
@@ -230,6 +238,8 @@ export function WizardStep2Income({
               <div className="px-4 pb-4 space-y-2">
                 {category.items.map((item) => {
                   const isChecked = answers[item.key] === true
+                  const label = t(item.labelKey)
+                  const hint = item.hintKey ? t(item.hintKey) : undefined
 
                   return (
                     <div key={item.key}>
@@ -244,7 +254,7 @@ export function WizardStep2Income({
                         )}
                         role="checkbox"
                         aria-checked={isChecked}
-                        aria-label={`${item.label}${item.hint ? `. ${item.hint}` : ''}`}
+                        aria-label={`${label}${hint ? `. ${hint}` : ''}`}
                         tabIndex={0}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
@@ -287,11 +297,11 @@ export function WizardStep2Income({
                               isChecked ? 'text-foreground' : 'text-foreground/80'
                             )}
                           >
-                            {item.label}
+                            {label}
                           </span>
-                          {item.hint && (
+                          {hint && (
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              {item.hint}
+                              {hint}
                             </p>
                           )}
                         </div>
@@ -306,6 +316,7 @@ export function WizardStep2Income({
                               field={field}
                               value={answers[field.key] as number | string | undefined}
                               onChange={(value) => onChange(field.key, value)}
+                              label={t(field.labelKey)}
                             />
                           ))}
                         </div>
@@ -327,13 +338,14 @@ interface DetailFieldInputProps {
   field: DetailField
   value: number | string | undefined
   onChange: (value: number | string) => void
+  label: string
 }
 
-function DetailFieldInput({ field, value, onChange }: DetailFieldInputProps) {
+function DetailFieldInput({ field, value, onChange, label }: DetailFieldInputProps) {
   if (field.type === 'number') {
     return (
       <div className="flex items-center gap-2">
-        <label className="text-sm text-muted-foreground w-32">{field.label}:</label>
+        <label className="text-sm text-muted-foreground w-32">{label}:</label>
         <input
           type="number"
           min={0}
@@ -357,7 +369,7 @@ function DetailFieldInput({ field, value, onChange }: DetailFieldInputProps) {
   if (field.type === 'currency') {
     return (
       <div className="flex items-center gap-2">
-        <label className="text-sm text-muted-foreground w-32">{field.label}:</label>
+        <label className="text-sm text-muted-foreground w-32">{label}:</label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
             $
@@ -384,7 +396,7 @@ function DetailFieldInput({ field, value, onChange }: DetailFieldInputProps) {
 
   return (
     <div className="flex items-center gap-2">
-      <label className="text-sm text-muted-foreground w-32">{field.label}:</label>
+      <label className="text-sm text-muted-foreground w-32">{label}:</label>
       <input
         type="text"
         value={(value as string) ?? ''}

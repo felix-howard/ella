@@ -19,15 +19,15 @@ import { publishMessageEventFromConversation } from '../realtime/message-publish
 
 /**
  * Get the organization's SMS language preference
- * Falls back to 'VI' if org not found or no preference set
+ * Falls back to 'EN' if org not found or no preference set
  */
 export async function getOrgSmsLanguage(organizationId: string | null): Promise<SmsLanguage> {
-  if (!organizationId) return 'VI'
+  if (!organizationId) return 'EN'
   const org = await prisma.organization.findUnique({
     where: { id: organizationId },
     select: { smsLanguage: true },
   })
-  return (org?.smsLanguage as SmsLanguage) || 'VI'
+  return org?.smsLanguage === 'VI' ? 'VI' : 'EN'
 }
 
 export interface SendMessageResult {
@@ -86,7 +86,7 @@ export async function sendWelcomeMessage(
   clientPhone: string,
   magicLink: string,
   taxYear: number,
-  language: SmsLanguage = 'VI',
+  language: SmsLanguage = 'EN',
   customMessage?: string,
   staffId?: string | null
 ): Promise<SendMessageResult> {
@@ -135,7 +135,7 @@ export async function sendMissingDocsReminder(
   clientPhone: string,
   magicLink: string,
   missingDocs: string[],
-  language: SmsLanguage = 'VI',
+  language: SmsLanguage = 'EN',
   staffId?: string | null
 ): Promise<SendMessageResult> {
   if (missingDocs.length === 0) {
@@ -161,7 +161,7 @@ export async function sendBlurryResendRequest(
   clientPhone: string,
   magicLink: string,
   docTypes: string[],
-  language: SmsLanguage = 'VI',
+  language: SmsLanguage = 'EN',
   staffId?: string | null
 ): Promise<SendMessageResult> {
   if (docTypes.length === 0) {
@@ -186,7 +186,7 @@ export async function sendDocsCompleteMessage(
   clientName: string,
   clientPhone: string,
   taxYear: number,
-  language: SmsLanguage = 'VI',
+  language: SmsLanguage = 'EN',
   staffId?: string | null
 ): Promise<SendMessageResult> {
   const body = generateCompleteMessage({
@@ -319,7 +319,7 @@ export async function sendScheduleCFormMessage(
   clientName: string,
   clientPhone: string,
   magicLink: string,
-  language: SmsLanguage = 'VI',
+  language: SmsLanguage = 'EN',
   customMessage?: string,
   businessName?: string | null,
   staffId?: string | null
@@ -357,7 +357,7 @@ export async function sendScheduleEFormMessage(
   clientName: string,
   clientPhone: string,
   magicLink: string,
-  language: SmsLanguage = 'VI',
+  language: SmsLanguage = 'EN',
   customMessage?: string,
   staffId?: string | null
 ): Promise<SendMessageResult> {

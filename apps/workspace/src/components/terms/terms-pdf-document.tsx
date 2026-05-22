@@ -1,6 +1,6 @@
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
 import { PDF_FONT_FAMILY } from '../../lib/pdf-fonts'
-import { TERMS_CONTENT, type TermsContent, type TermsLanguage } from './terms-content'
+import { TERMS_CONTENT, type TermsContent } from './terms-content'
 
 const styles = StyleSheet.create({
   page: {
@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
 })
 
 /** Deterministic date formatting for PDF (no locale dependency) */
-function formatSignedDate(date: Date, lang: TermsLanguage): string {
+function formatSignedDate(date: Date): string {
   const months_en = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December']
   const day = date.getDate()
@@ -78,9 +78,6 @@ function formatSignedDate(date: Date, lang: TermsLanguage): string {
   const hours = date.getHours().toString().padStart(2, '0')
   const minutes = date.getMinutes().toString().padStart(2, '0')
 
-  if (lang === 'VI') {
-    return `${day} th\u00E1ng ${month + 1}, ${year} ${hours}:${minutes}`
-  }
   return `${months_en[month]} ${day}, ${year} ${hours}:${minutes}`
 }
 
@@ -89,7 +86,6 @@ function isValidSignatureDataUrl(url: string): boolean {
 }
 
 interface TermsPDFDocumentProps {
-  language?: TermsLanguage
   signatureDataUrl: string
   staffName: string
   signedAt: Date
@@ -136,7 +132,7 @@ export function TermsPDFDocument({ signatureDataUrl, staffName, signedAt }: Term
           </View>
 
           <Text style={styles.timestamp}>
-            Signed on: {formatSignedDate(signedAt, 'EN')}
+            Signed on: {formatSignedDate(signedAt)}
           </Text>
         </View>
       </Page>

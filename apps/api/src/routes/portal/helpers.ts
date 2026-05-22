@@ -3,12 +3,24 @@
  * Shared scope-validation and payload-shaping utilities for /portal/:token endpoints.
  */
 import { prisma } from '../../lib/db'
-import { DOC_TYPE_LABELS_VI, CHECKLIST_STATUS_LABELS_VI } from '../../lib/constants'
+import {
+  BLURRY_IMAGE_RESEND_REASONS,
+  CHECKLIST_STATUS_LABELS_EN,
+  CHECKLIST_STATUS_LABELS_VI,
+  UNCLEAR_IMAGE_LABELS,
+} from '../../lib/constants'
+import { getDocTypeLabel } from '../../services/ai/document-classifier'
 import type { MagicLinkValidationResult } from '../../services/magic-link'
 
 export const PORTAL_ERROR_MESSAGES: Record<string, string> = {
-  INVALID_TOKEN: 'Link không hợp lệ. Vui lòng liên hệ văn phòng thuế.',
-  EXPIRED_TOKEN: 'Link đã hết hạn. Vui lòng liên hệ văn phòng thuế.',
+  INVALID_TOKEN: 'This link is invalid. Please contact the tax office.',
+  EXPIRED_TOKEN: 'This link has expired. Please contact the tax office.',
+}
+
+const INVALID_TARGET_CASE_MESSAGE = 'Invalid document target'
+
+function getPortalDocTypeLabel(docType: string, language: 'EN' | 'VI' = 'EN'): string {
+  return getDocTypeLabel(docType as Parameters<typeof getDocTypeLabel>[0], language)
 }
 
 /**
@@ -38,7 +50,7 @@ export async function assertCaseInScope(
       ok: false,
       status: 404,
       code: 'INVALID_TARGET_CASE',
-      message: 'Loại tài liệu không hợp lệ',
+      message: INVALID_TARGET_CASE_MESSAGE,
     }
   }
 
@@ -47,7 +59,7 @@ export async function assertCaseInScope(
       ok: false,
       status: 403,
       code: 'INVALID_TARGET_CASE',
-      message: 'Loại tài liệu không hợp lệ',
+      message: INVALID_TARGET_CASE_MESSAGE,
     }
   }
 
@@ -56,7 +68,7 @@ export async function assertCaseInScope(
       ok: false,
       status: 403,
       code: 'INVALID_TARGET_CASE',
-      message: 'Loại tài liệu không hợp lệ',
+      message: INVALID_TARGET_CASE_MESSAGE,
     }
   }
 
@@ -68,7 +80,7 @@ export async function assertCaseInScope(
       ok: false,
       status: 403,
       code: 'INVALID_TARGET_CASE',
-      message: 'Loại tài liệu không hợp lệ',
+      message: INVALID_TARGET_CASE_MESSAGE,
     }
   }
 
@@ -90,8 +102,11 @@ export function buildCaseChecklistPayload(
     .map((item) => ({
       id: item.id,
       docType: item.template.docType,
-      labelVi: DOC_TYPE_LABELS_VI[item.template.docType] || item.template.labelVi,
-      status: CHECKLIST_STATUS_LABELS_VI[item.status],
+      labelEn: getPortalDocTypeLabel(item.template.docType),
+      labelVi: getPortalDocTypeLabel(item.template.docType, 'VI') || item.template.labelVi,
+      status: CHECKLIST_STATUS_LABELS_EN[item.status],
+      statusEn: CHECKLIST_STATUS_LABELS_EN[item.status],
+      statusVi: CHECKLIST_STATUS_LABELS_VI[item.status],
     }))
 
   const blurry = rawImages
@@ -99,10 +114,15 @@ export function buildCaseChecklistPayload(
     .map((img) => ({
       id: img.id,
       docType: img.classifiedType,
+      labelEn: img.classifiedType
+        ? getPortalDocTypeLabel(img.classifiedType)
+        : UNCLEAR_IMAGE_LABELS.EN,
       labelVi: img.classifiedType
-        ? DOC_TYPE_LABELS_VI[img.classifiedType] || img.classifiedType
-        : 'Ảnh không rõ',
-      reason: 'Ảnh bị mờ, vui lòng gửi lại',
+        ? getPortalDocTypeLabel(img.classifiedType, 'VI')
+        : UNCLEAR_IMAGE_LABELS.VI,
+      reason: BLURRY_IMAGE_RESEND_REASONS.EN,
+      reasonEn: BLURRY_IMAGE_RESEND_REASONS.EN,
+      reasonVi: BLURRY_IMAGE_RESEND_REASONS.VI,
     }))
 
   const missing = checklistItems
@@ -110,7 +130,8 @@ export function buildCaseChecklistPayload(
     .map((item) => ({
       id: item.id,
       docType: item.template.docType,
-      labelVi: DOC_TYPE_LABELS_VI[item.template.docType] || item.template.labelVi,
+      labelEn: getPortalDocTypeLabel(item.template.docType),
+      labelVi: getPortalDocTypeLabel(item.template.docType, 'VI') || item.template.labelVi,
     }))
 
   return {

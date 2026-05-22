@@ -162,7 +162,7 @@ describe('Public Rental Routes', () => {
 
       expect(res.status).toBe(401)
       expect(json.error).toBe('EXPIRED_TOKEN')
-      expect(json.message).toContain('hết hạn')
+      expect(json.message).toContain('expired')
     })
 
     it('returns 401 for locked form', async () => {
@@ -173,7 +173,7 @@ describe('Public Rental Routes', () => {
 
       expect(res.status).toBe(401)
       expect(json.error).toBe('FORM_LOCKED')
-      expect(json.message).toContain('khóa')
+      expect(json.message).toContain('locked')
     })
 
     it('returns 401 for wrong token type', async () => {
@@ -333,7 +333,7 @@ describe('Public Rental Routes', () => {
 
       expect(res.status).toBe(200)
       expect(json.success).toBe(true)
-      expect(json.message).toContain('tự động lưu')
+      expect(json.message).toContain('Autosaved')
     })
 
     it('returns 401 for invalid token', async () => {

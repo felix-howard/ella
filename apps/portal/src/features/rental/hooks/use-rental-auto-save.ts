@@ -4,6 +4,7 @@
  * Reuses patterns from expense auto-save with rental-specific API
  */
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { rentalApi } from '../lib/rental-api'
 import type { ScheduleEProperty } from '@ella/shared'
 
@@ -35,6 +36,7 @@ export function useRentalAutoSave(
   isDirty: boolean,
   formStatus: string
 ): UseRentalAutoSaveReturn {
+  const { t } = useTranslation()
   const [status, setStatus] = useState<AutoSaveStatus>('idle')
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -69,7 +71,7 @@ export function useRentalAutoSave(
 
     // Check saves per minute
     const oneMinuteAgo = now - 60000
-    saveCountRef.current = saveCountRef.current.filter(ts => ts > oneMinuteAgo)
+    saveCountRef.current = saveCountRef.current.filter((ts) => ts > oneMinuteAgo)
     if (saveCountRef.current.length >= MAX_SAVES_PER_MINUTE) {
       return false
     }
@@ -137,13 +139,13 @@ export function useRentalAutoSave(
 
       // All retries exhausted - show error
       retryCountRef.current = 0
-      const message = err instanceof Error ? err.message : 'Không thể lưu tự động'
+      const message = err instanceof Error ? err.message : t('rental.autoSave.error')
       setError(message)
       setStatus('error')
     } finally {
       isSavingRef.current = false
     }
-  }, [token, formStatus, canSave])
+  }, [token, formStatus, canSave, t])
 
   // Debounced auto-save effect
   useEffect(() => {

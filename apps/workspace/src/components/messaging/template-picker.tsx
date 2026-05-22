@@ -8,6 +8,7 @@
 
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { X, Search, Receipt, Building2, Send, Loader2, FileText } from 'lucide-react'
 import {
@@ -63,6 +64,7 @@ const mapApiTemplateToUi = (apiTemplate: ApiMessageTemplate): MessageTemplate | 
 }
 
 export function TemplatePicker({ isOpen, onClose, onSelect, clientName }: TemplatePickerProps) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<TemplateCategory | 'all'>('all')
 
@@ -97,8 +99,8 @@ export function TemplatePicker({ isOpen, onClose, onSelect, clientName }: Templa
   const handleSelect = (template: MessageTemplate) => {
     // Replace all known placeholders with values or friendly defaults
     const processedContent = template.content
-      .replace(/{clientName}/g, clientName || 'Quý khách')
-      .replace(/{docType}/g, '[loại tài liệu]') // Default placeholder for docType
+      .replace(/{clientName}/g, clientName || t('messages.clientFallback'))
+      .replace(/{docType}/g, t('messages.docTypePlaceholder'))
 
     const processedTemplate = {
       ...template,
@@ -120,15 +122,15 @@ export function TemplatePicker({ isOpen, onClose, onSelect, clientName }: Templa
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Chọn mẫu tin nhắn</h2>
+            <h2 className="text-lg font-semibold text-foreground">{t('messages.templatePickerTitle')}</h2>
             <p className="text-sm text-muted-foreground">
-              Chọn mẫu để gửi nhanh cho khách hàng
+              {t('messages.templatePickerDesc')}
             </p>
           </div>
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-muted transition-colors"
-            aria-label="Đóng"
+            aria-label={t('common.close')}
           >
             <X className="w-5 h-5 text-muted-foreground" />
           </button>
@@ -141,7 +143,7 @@ export function TemplatePicker({ isOpen, onClose, onSelect, clientName }: Templa
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Tìm mẫu tin nhắn..."
+              placeholder={t('common.searchTemplates')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className={cn(
@@ -163,7 +165,7 @@ export function TemplatePicker({ isOpen, onClose, onSelect, clientName }: Templa
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
               )}
             >
-              Tất cả
+              {t('common.all')}
             </button>
             {(Object.keys(CATEGORIES) as TemplateCategory[]).map((category) => {
               const config = CATEGORIES[category]
@@ -198,8 +200,8 @@ export function TemplatePicker({ isOpen, onClose, onSelect, clientName }: Templa
               <FileText className="w-10 h-10 mx-auto mb-2 opacity-50" />
               <p className="text-sm">
                 {templates.length === 0
-                  ? 'Chưa có mẫu tin nhắn nào. Hãy cấu hình trong Cài đặt.'
-                  : 'Không tìm thấy mẫu phù hợp'}
+                  ? t('messages.noTemplates')
+                  : t('messages.noTemplateMatches')}
               </p>
             </div>
           ) : (
@@ -227,7 +229,7 @@ export function TemplatePicker({ isOpen, onClose, onSelect, clientName }: Templa
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground line-clamp-2 whitespace-pre-wrap">
-                          {template.content.replace(/{clientName}/g, clientName || 'Quý khách')}
+                          {template.content.replace(/{clientName}/g, clientName || t('messages.clientFallback'))}
                         </p>
                       </div>
                       <Send className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-1" />

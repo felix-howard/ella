@@ -6,14 +6,15 @@
 import { memo, useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn, Tooltip } from '@ella/ui'
-import { Phone, Globe, Bot, ImageOff, PhoneCall, PhoneOff, PhoneMissed, Check, CheckCheck, Clock, AlertCircle, XCircle } from 'lucide-react'
+import { Phone, Globe, Bot, ImageOff, PhoneCall, PhoneOff, PhoneMissed, Check, CheckCheck, Clock, AlertCircle, XCircle, Heart } from 'lucide-react'
 import { sanitizeText, linkifyText, formatShortRelativeTime, formatFullDateTime, getInitials, getAvatarColor } from '../../lib/formatters'
 import type { Message } from '../../lib/api-client'
+import type { MessageReaction } from '../../lib/message-reactions'
 import { fetchMediaBlobUrl } from '../../lib/api-client'
 import { AudioPlayer } from './audio-player'
 
 export interface MessageBubbleProps {
-  message: Message & { _optimistic?: 'sending' | 'failed' }
+  message: Message & { _optimistic?: 'sending' | 'failed'; reactions?: MessageReaction[] }
   showTime?: boolean
   onRetry?: (message: Message) => void
 }
@@ -98,6 +99,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
   const _ChannelIcon = channelConfig.icon
   const _channelLabel = t(channelConfig.labelKey)
   const hasAttachments = message.attachmentUrls && message.attachmentUrls.length > 0
+  const hasLoveReaction = message.reactions?.some((reaction) => reaction.type === 'love') ?? false
 
   // Format time
   const time = new Date(message.createdAt).toLocaleTimeString('en-US', {
@@ -242,6 +244,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
                   <LinkifiedText text={safeContent} isOutbound />
                 </p>
               )}
+              {hasLoveReaction && <MessageReactionBadge label="Loved" />}
             </div>
           </div>
           {/* Staff avatar */}
@@ -301,6 +304,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
               <LinkifiedText text={safeContent} isOutbound={false} />
             </p>
           )}
+          {hasLoveReaction && <MessageReactionBadge label="Loved" />}
         </div>
       </div>
       {/* Time below bubble — matching outbound style */}
@@ -314,6 +318,17 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
     </div>
   )
 })
+
+function MessageReactionBadge({ label }: { label: string }) {
+  return (
+    <span
+      aria-label={label}
+      className="mt-1 ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-white text-rose-500 shadow-sm ring-1 ring-rose-100 dark:bg-slate-900 dark:ring-rose-900/60"
+    >
+      <Heart className="h-3 w-3 fill-current" aria-hidden="true" />
+    </span>
+  )
+}
 
 /** Staff avatar shown to the right of outbound messages */
 function StaffAvatar({ sentBy }: { sentBy?: Message['sentBy'] }) {

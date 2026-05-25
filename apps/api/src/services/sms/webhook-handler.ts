@@ -11,6 +11,7 @@ import crypto from 'crypto'
 import { processMmsMedia } from './mms-media-handler'
 import { updateLastActivity } from '../activity-tracker'
 import { publishMessageEventFromConversation } from '../realtime/message-publisher'
+import { processTapbackReaction } from './tapback-reaction-handler'
 import {
   isValidE164Phone,
   createPlaceholderConversation,
@@ -266,6 +267,30 @@ export async function processIncomingMessage(
       create: { caseId: targetCase.id },
     })
     conversationId = conversation.id
+  }
+
+  if (!hasMedia) {
+    const tapbackResult = await processTapbackReaction({
+      conversationId,
+      content,
+      twilioSid,
+    })
+
+    if (tapbackResult) {
+      publishMessageEventFromConversation(conversationId, {
+        id: tapbackResult.targetMessageId,
+        direction: 'INBOUND',
+        channel: 'SMS',
+      }).catch(() => {})
+
+      return {
+        success: true,
+        messageId: tapbackResult.targetMessageId,
+        caseId,
+        actionCreated: false,
+        isUnknownCaller,
+      }
+    }
   }
 
   // Process MMS media (download from Twilio, upload to R2, create RawImage)

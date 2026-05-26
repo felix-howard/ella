@@ -4,12 +4,13 @@
  * 1099 count + W-2 payroll employees + payroll-mode radio cards.
  * Inputs expose `data-calc-input` keys matching `CalcInput` (phase 01).
  */
-import { PAYROLL } from "@/config/pricing";
+import { PAYROLL, TIER_BASIC, TIER_PRO } from "@/config/pricing";
 import {
   headingCls,
   hintCls,
   inputCls,
   labelCls,
+  rateInputCls,
   sectionCls,
 } from "./calculator-form-styles";
 ---
@@ -51,6 +52,72 @@ import {
         class={inputCls}
       />
       <p id="calc-payroll-emp-hint" class={hintCls}>Leave at 0 if you don't run payroll yet.</p>
+    </div>
+  </div>
+
+  <div class="mt-5">
+    <p class={labelCls}>Monthly base rates</p>
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <label class="text-xs text-gray-500">
+        Basic tier
+        <span class="mt-1 block text-gray-700">
+          $<input
+            type="text"
+            inputmode="numeric"
+            pattern="\d*"
+            maxlength="5"
+            value={TIER_BASIC.monthly}
+            data-calc-input="rates.tiers.basicMonthly"
+            class={rateInputCls}
+            aria-label="Basic tier monthly rate"
+          />/mo
+        </span>
+      </label>
+      <label class="text-xs text-gray-500">
+        Pro tier
+        <span class="mt-1 block text-gray-700">
+          $<input
+            type="text"
+            inputmode="numeric"
+            pattern="\d*"
+            maxlength="5"
+            value={TIER_PRO.monthly}
+            data-calc-input="rates.tiers.proMonthly"
+            class={rateInputCls}
+            aria-label="Pro tier monthly rate"
+          />/mo
+        </span>
+      </label>
+      <label class="text-xs text-gray-500">
+        VIP tier
+        <span class="mt-1 block text-gray-700">
+          $<input
+            type="text"
+            inputmode="numeric"
+            pattern="\d*"
+            maxlength="5"
+            value={TIER_PRO.monthly}
+            data-calc-input="rates.tiers.vipMonthly"
+            class={rateInputCls}
+            aria-label="VIP tier monthly rate"
+          />/mo
+        </span>
+      </label>
+      <label class="text-xs text-gray-500">
+        Payroll base
+        <span class="mt-1 block text-gray-700">
+          $<input
+            type="text"
+            inputmode="numeric"
+            pattern="\d*"
+            maxlength="5"
+            value={PAYROLL.baseMonthly}
+            data-calc-input="rates.payroll.baseMonthly"
+            class={rateInputCls}
+            aria-label="Payroll base monthly rate"
+          />/mo
+        </span>
+      </label>
     </div>
   </div>
 

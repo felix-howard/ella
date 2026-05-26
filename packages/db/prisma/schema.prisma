@@ -1072,6 +1072,7 @@ model Message {
   channel   MessageChannel
   direction MessageDirection
   content   String           @db.VarChar(5000) // M3: Limit message length for security
+  reactions Json             @default("[]") // SMS Tapback reactions displayed on the original message
 
   twilioSid    String? @unique
   twilioStatus String?

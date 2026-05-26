@@ -15,3 +15,7 @@ export {
   generateDocumentName,
   getDisplayNameFromKey,
 } from './filename-sanitizer'
+
+// SMS Tapback reaction helpers
+export type { MessageReaction, MessageReactionType, ParsedTapbackReaction } from './message-reactions'
+export { parseTapbackReaction, isSameTapbackTarget } from './message-reactions'

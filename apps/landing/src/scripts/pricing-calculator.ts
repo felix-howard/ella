@@ -8,7 +8,10 @@ import {
   AUDIT_PROTECTION,
   CASH_PLAN,
   ONE_TIME,
+  PAYROLL,
   SALES_TAX_MONITORING_MONTHLY,
+  TIER_BASIC,
+  TIER_PRO,
   calculatePrice,
   type CalcInput,
 } from "@/config/pricing";
@@ -29,6 +32,14 @@ const DEFAULT_INPUT: CalcInput = {
   },
   salesTaxShops: 0,
   rates: {
+    tiers: {
+      basicMonthly: TIER_BASIC.monthly,
+      proMonthly: TIER_PRO.monthly,
+      vipMonthly: TIER_PRO.monthly,
+    },
+    payroll: {
+      baseMonthly: PAYROLL.baseMonthly,
+    },
     cashPlan: {
       setup: CASH_PLAN.setup,
       perEmployeeMonthly: CASH_PLAN.perEmployeeMonthly,

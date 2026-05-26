@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { MessageSquare } from 'lucide-react'
 import { MessageBubble, TypingIndicator } from './message-bubble'
+import { buildMessagesWithTapbackReactions } from '../../lib/message-reactions'
 import type { Message } from '../../lib/api-client'
 
 export interface MessageThreadProps {
@@ -31,14 +32,19 @@ export function MessageThread({
   const prevMessagesLengthRef = useRef(0)
   const hasScrolledInitialRef = useRef(false)
 
+  const displayMessages = useMemo(
+    () => buildMessagesWithTapbackReactions(messages),
+    [messages]
+  )
+
   // Group messages by date for date separators (sorted oldest first)
   const groupedMessages = useMemo(() => {
     // Sort messages by createdAt ascending (oldest first)
-    const sortedMessages = [...messages].sort(
+    const sortedMessages = [...displayMessages].sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     )
 
-    const groups: { date: string; messages: Message[] }[] = []
+    const groups: { date: string; messages: typeof displayMessages }[] = []
     let currentDate = ''
 
     const dateLocale = i18n.language === 'vi' ? 'vi-VN' : 'en-US'
@@ -58,7 +64,7 @@ export function MessageThread({
     })
 
     return groups
-  }, [messages, i18n.language])
+  }, [displayMessages, i18n.language])
 
   // Reset scroll state when messages are cleared (e.g., navigating between conversations)
   useEffect(() => {
@@ -111,7 +117,7 @@ export function MessageThread({
   }
 
   // Empty state
-  if (messages.length === 0) {
+  if (displayMessages.length === 0) {
     return (
       <div className={cn('flex-1 flex items-center justify-center', className)}>
         <div className="text-center">

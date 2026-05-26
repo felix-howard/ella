@@ -11,7 +11,6 @@ import {
   SALES_TAX_MONITORING_MONTHLY,
 } from "@/config/pricing";
 import {
-  chevronSvgCls,
   headingCls,
   hintCls,
   inputCls,
@@ -55,56 +54,51 @@ const oneTimeRows: OneTimeRow[] = [
 ---
 
 <!-- Section B — Cash Plan -->
-<details class={sectionCls}>
-  <summary class="flex cursor-pointer list-none items-center justify-between">
-    <label class="flex cursor-pointer items-start gap-3" onclick="event.stopPropagation()">
-      <input
-        type="checkbox"
-        name="cashPlanEnabled"
-        data-calc-input="cashPlan.enabled"
-        class="mt-1 h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-      />
-      <span>
-        <span class={headingCls}>Enable Cash Plan</span>
-        <span class="mt-0.5 block text-sm text-gray-500">
-          $<input
-            type="text"
-            inputmode="numeric"
-            pattern="\d*"
-            maxlength="6"
-            value={CASH_PLAN.setup}
-            data-calc-input="rates.cashPlan.setup"
-            class={rateInputCls}
-            aria-label="Cash Plan setup fee"
-            onclick="event.preventDefault(); event.stopPropagation();"
-          /> setup · $<input
-            type="text"
-            inputmode="numeric"
-            pattern="\d*"
-            maxlength="4"
-            value={CASH_PLAN.perEmployeeMonthly}
-            data-calc-input="rates.cashPlan.perEmployeeMonthly"
-            class={rateInputCls}
-            aria-label="Cash Plan per employee monthly"
-            onclick="event.preventDefault(); event.stopPropagation();"
-          />/emp + $<input
-            type="text"
-            inputmode="numeric"
-            pattern="\d*"
-            maxlength="4"
-            value={CASH_PLAN.perOwnerMonthly}
-            data-calc-input="rates.cashPlan.perOwnerMonthly"
-            class={rateInputCls}
-            aria-label="Cash Plan per owner monthly"
-            onclick="event.preventDefault(); event.stopPropagation();"
-          />/owner monthly
-        </span>
+<div class={sectionCls}>
+  <label class="flex cursor-pointer items-start gap-3">
+    <input
+      type="checkbox"
+      name="cashPlanEnabled"
+      data-calc-input="cashPlan.enabled"
+      class="mt-1 h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+    />
+    <span>
+      <span class={headingCls}>Enable Cash Plan</span>
+      <span class="mt-0.5 block text-sm text-gray-500">
+        $<input
+          type="text"
+          inputmode="numeric"
+          pattern="\d*"
+          maxlength="6"
+          value={CASH_PLAN.setup}
+          data-calc-input="rates.cashPlan.setup"
+          class={rateInputCls}
+          aria-label="Cash Plan setup fee"
+          onclick="event.preventDefault(); event.stopPropagation();"
+        /> setup · $<input
+          type="text"
+          inputmode="numeric"
+          pattern="\d*"
+          maxlength="4"
+          value={CASH_PLAN.perEmployeeMonthly}
+          data-calc-input="rates.cashPlan.perEmployeeMonthly"
+          class={rateInputCls}
+          aria-label="Cash Plan per employee monthly"
+          onclick="event.preventDefault(); event.stopPropagation();"
+        />/emp + $<input
+          type="text"
+          inputmode="numeric"
+          pattern="\d*"
+          maxlength="4"
+          value={CASH_PLAN.perOwnerMonthly}
+          data-calc-input="rates.cashPlan.perOwnerMonthly"
+          class={rateInputCls}
+          aria-label="Cash Plan per owner monthly"
+          onclick="event.preventDefault(); event.stopPropagation();"
+        />/owner monthly
       </span>
-    </label>
-    <svg class={chevronSvgCls} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-    </svg>
-  </summary>
+    </span>
+  </label>
   <div class="mt-4 space-y-4">
     <div class="grid gap-4 sm:grid-cols-2">
       <div>
@@ -137,7 +131,7 @@ const oneTimeRows: OneTimeRow[] = [
       </div>
     </div>
   </div>
-</details>
+</div>
 
 <!-- Section C — Audit Protection -->
 <div class={sectionCls}>
@@ -178,16 +172,11 @@ const oneTimeRows: OneTimeRow[] = [
 </div>
 
 <!-- Section D — One-time services -->
-<details class={sectionCls}>
-  <summary class="flex cursor-pointer list-none items-center justify-between">
-    <div>
-      <span class={headingCls}>One-time services</span>
-      <p class={hintCls}>Add LLC formation, tax returns, and other fixed-fee work.</p>
-    </div>
-    <svg class={chevronSvgCls} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-    </svg>
-  </summary>
+<div class={sectionCls}>
+  <div>
+    <span class={headingCls}>One-time services</span>
+    <p class={hintCls}>Add LLC formation, tax returns, and other fixed-fee work.</p>
+  </div>
   <ul class="mt-4 space-y-3">
     {oneTimeRows.map((row) => (
       <li class="grid gap-2 sm:grid-cols-[1fr_120px] sm:items-center">
@@ -251,7 +240,7 @@ const oneTimeRows: OneTimeRow[] = [
       </li>
     ))}
   </ul>
-</details>
+</div>
 
 <!-- Section E — Ongoing extras -->
 <div class={sectionCls}>

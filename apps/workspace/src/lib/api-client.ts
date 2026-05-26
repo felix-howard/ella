@@ -3,6 +3,7 @@
  * Centralized HTTP client with type-safe request handling
  * Features: timeout, retry logic, env validation
  */
+import type { MessageReaction } from '@ella/shared'
 
 // Environment validation
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002'
@@ -2483,6 +2484,7 @@ export interface Message {
   channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
   direction: 'INBOUND' | 'OUTBOUND'
   content: string
+  reactions?: MessageReaction[]
   attachmentUrls?: string[]
   createdAt: string
   // SMS delivery status from Twilio (queued, sent, delivered, undelivered, failed)

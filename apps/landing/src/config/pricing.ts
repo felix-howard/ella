@@ -52,6 +52,14 @@ export interface CalcInput {
    * Defaults to the constants in `pricing-constants.ts` unless operator edits inputs.
    */
   rates: {
+    tiers: {
+      basicMonthly: number;
+      proMonthly: number;
+      vipMonthly: number;
+    };
+    payroll: {
+      baseMonthly: number;
+    };
     cashPlan: {
       setup: number;
       perEmployeeMonthly: number;
@@ -131,13 +139,19 @@ export function calculatePrice(input: CalcInput): CalcResult {
         : { ...TIER_PRO, label: TIER_ENTERPRISE.marketingLabel };
   const monthly: LineItem[] = [];
   const setup: LineItem[] = [];
+  const tierMonthly =
+    tier === "basic"
+      ? input.rates.tiers.basicMonthly
+      : tier === "pro"
+        ? input.rates.tiers.proMonthly
+        : input.rates.tiers.vipMonthly;
 
-  monthly.push({ label: `${tierDef.label} tier`, amount: tierDef.monthly, kind: "monthly" });
+  monthly.push({ label: `${tierDef.label} tier`, amount: tierMonthly, kind: "monthly" });
   setup.push({ label: `${tierDef.label} bookkeeping setup`, amount: tierDef.setup, kind: "setup" });
 
   // Payroll — only applies when employees > 0 (matches worked example #1)
   if (input.payrollEmployees > 0) {
-    monthly.push({ label: "Payroll base", amount: PAYROLL.baseMonthly, kind: "monthly" });
+    monthly.push({ label: "Payroll base", amount: input.rates.payroll.baseMonthly, kind: "monthly" });
     setup.push({ label: "Payroll setup", amount: PAYROLL.baseSetup, kind: "setup" });
     const perEmp =
       input.payrollMode === "ella-staff" ? PAYROLL.ellaStaffPerEmp : PAYROLL.ownerManualPerEmp;

@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { Building2 } from 'lucide-react'
 import { getInitials, formatRelativeTime, sanitizeText, getAvatarColor } from '../../lib/formatters'
+import { parseTapbackReaction } from '../../lib/message-reactions'
 import type { Conversation } from '../../lib/api-client'
 
 export interface ConversationListItemProps {
@@ -34,6 +35,12 @@ export const ConversationListItem = memo(function ConversationListItem({
   // Truncate and sanitize last message
   const getMessagePreview = () => {
     if (!lastMessage) return t('messages.noMessages')
+    const tapback = lastMessage.direction === 'INBOUND' && lastMessage.channel === 'SMS'
+      ? parseTapbackReaction(lastMessage.content)
+      : null
+    if (tapback?.type === 'love') {
+      return t('messages.lovedMessage', 'Loved a message')
+    }
     if (lastMessage.channel === 'CALL') {
       // Translate call messages instead of showing hardcoded Vietnamese from DB
       if (lastMessage.callStatus === 'completed' && lastMessage.recordingDuration) {

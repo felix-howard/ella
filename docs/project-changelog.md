@@ -1,7 +1,25 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-22 ICT
+> **Last Updated:** 2026-05-24 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-05-24
+
+### Messages: SMS Love Reactions
+**Status:** Complete
+
+**Changed:**
+- Added Message.reactions JSON storage plus migration `20260524153340_add_message_reactions`.
+- Converted inbound SMS Tapback text like `Loved "..."` into a heart reaction on the quoted message instead of a new visible chat bubble.
+- Kept UI fallback that folds existing stored Tapback messages into reactions for old conversations.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api test -- tapback-reaction-handler.test.ts webhook-handler-routing.test.ts` pass
+- `pnpm -F @ella/workspace test -- message-reactions.test.ts` pass
 
 ---
 

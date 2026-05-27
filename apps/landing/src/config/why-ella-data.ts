@@ -10,7 +10,7 @@ export interface IconContent {
 export const clientProblems: IconContent[] = [
   {
     icon: "M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75",
-    title: "DIY software can miss context",
+    title: "Tax facts need context",
     description:
       "Tax forms do not always explain life changes, business records, deductions, notices, or planning questions clearly.",
   },
@@ -61,32 +61,32 @@ export const ellaApproach: IconContent[] = [
   },
 ];
 
-export const comparisonRows = [
+export const onlineFilingHighlights: IconContent[] = [
   {
-    category: "Tax guidance",
-    diy: "You answer prompts on your own.",
-    local: "Advice may depend on office availability.",
-    ella: "Advisor-supported questions through an online service path.",
+    icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z",
+    title: "Start when it is convenient",
+    description:
+      "Begin online, share the basics, and move into the right filing, bookkeeping, notice, or advisory path with fewer scheduling steps.",
   },
   {
-    category: "Documents",
-    diy: "You decide what matters.",
-    local: "Paper, email, and portal steps can vary.",
-    ella: "Service-specific document requests and follow-up.",
+    icon: "M9 12h6m-6 4.5h6m2.25 4.5H6.75A2.25 2.25 0 014.5 18.75V5.25A2.25 2.25 0 016.75 3h5.379a2.25 2.25 0 011.59.659l3.622 3.622A2.25 2.25 0 0118 8.871v9.879A2.25 2.25 0 0115.75 21z",
+    title: "Upload documents securely",
+    description:
+      "Use a guided online collection process for tax forms, books, notices, payroll reports, and follow-up items.",
   },
   {
-    category: "Business support",
-    diy: "Limited help for books, payroll, notices, and entities.",
-    local: "Often split across separate providers.",
-    ella: "Tax prep, bookkeeping, compliance, and advisory connected.",
+    icon: "M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z",
+    title: "Get advisor review",
+    description:
+      "Ella reviews the facts, asks clarifying questions, and keeps next steps clear before preparation or filing moves forward.",
   },
   {
-    category: "Convenience",
-    diy: "Fast if your tax situation is simple.",
-    local: "Can require office visits and back-and-forth scheduling.",
-    ella: "Start online, then call, email, or consult as needed.",
+    icon: "M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z",
+    title: "Keep support flexible",
+    description:
+      "Continue by call, email, secure upload, or consultation as needed while the main workflow stays online.",
   },
-] as const;
+];
 
 export const trustItems = [
   {
@@ -109,9 +109,9 @@ export const trustItems = [
 
 export const whyEllaFaq = [
   {
-    question: "Why use Ella Tax Services instead of DIY tax software?",
+    question: "Why choose Ella Tax Services for online tax filing?",
     answer:
-      "DIY software can work for simple filings. Ella Tax Services adds advisor review, document follow-up, planning conversations, and business tax support when the facts are more involved.",
+      "Ella Tax Services combines online convenience with advisor review, document follow-up, planning conversations, and business tax support when the facts are more involved.",
   },
   {
     question: "Do I need to be in Houston to work with Ella Tax Services?",

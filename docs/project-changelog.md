@@ -7,6 +7,19 @@
 
 ## 2026-05-27
 
+### Landing: Online Tax Filing Positioning
+**Status:** Complete
+
+**Changed:**
+- Removed comparison positioning from landing pages.
+- Reworked Why Ella and Services sections around online intake, secure document upload, advisor review, and follow-up.
+- Updated home page copy to emphasize convenient online filing for real tax situations.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+
 ### Landing: Pricing Calculator Restore and Green Brand
 **Status:** Complete
 
@@ -61,7 +74,7 @@
 
 **Changed:**
 - Rebuilt `/about` as a service-company trust page with company facts, service highlights, advisor cards, values, FAQ schema, and contact CTA.
-- Rebuilt `/why-ella` around client decision factors: DIY software, traditional office support, and Ella Tax Services online service.
+- Rebuilt `/why-ella` around online service decision factors, advisor support, and Ella Tax Services positioning.
 - Kept `/tax-advisory` as a noindex, sitemap-excluded static preview while removing internal phrases, vendor references, taxpayer examples, and specific example savings.
 - Removed unsupported public metrics and non-clickable whole-card hover affordance from the shared service card pattern.
 

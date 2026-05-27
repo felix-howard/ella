@@ -13,8 +13,8 @@ import {
 } from "@/components/seo/structured-data";
 import { siteConfig } from "@/config/site";
 import {
+  onlineServiceSupport,
   serviceDetails,
-  servicesComparison,
   servicesFaqs,
   servicesProcessSteps,
 } from "@/config/services-page-content";
@@ -77,38 +77,27 @@ const structuredData = [
       </div>
     </section>
 
-    <section class="bg-primary-50/70 py-16 sm:py-24">
+    <section class="bg-primary-50/70 py-16 sm:py-24" aria-label="Online tax service support">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="max-w-3xl" data-animate="fade-up">
           <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">
-            Advisor review
+            Online filing support
           </p>
           <h2 class="mt-2 text-3xl font-bold text-slate-950 sm:text-4xl font-heading">
-            DIY software versus an online tax service
+            Convenient online filing with advisor support
           </h2>
+          <p class="mt-4 text-base leading-7 text-slate-600">
+            Ella keeps the service path online where it should be simple: intake, document upload, review questions, filing steps, and follow-up.
+          </p>
         </div>
 
-        <div class="mt-10 overflow-x-auto rounded-lg border border-primary-100 bg-white shadow-xl shadow-primary-900/5">
-          <table class="w-full min-w-[680px] border-collapse text-sm">
-            <thead class="bg-slate-950 text-left text-white">
-              <tr>
-                <th scope="col" class="p-4 font-semibold">Topic</th>
-                <th scope="col" class="p-4 font-semibold">DIY software</th>
-                <th scope="col" class="p-4 font-semibold">Ella Tax Services</th>
-              </tr>
-            </thead>
-            <tbody>
-              {servicesComparison.map((row) => (
-                <tr class="border-t border-primary-100">
-                  <th scope="row" class="bg-primary-50/70 p-4 text-left font-semibold text-slate-950">
-                    {row.label}
-                  </th>
-                  <td class="p-4 leading-6 text-slate-600">{row.diy}</td>
-                  <td class="p-4 leading-6 text-slate-700">{row.ella}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div class="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4" data-stagger>
+          {onlineServiceSupport.map((item) => (
+            <article class="service-card bg-white p-6 shadow-xl shadow-primary-900/5" data-animate="fade-up">
+              <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">{item.label}</p>
+              <p class="mt-4 text-sm leading-6 text-slate-700">{item.description}</p>
+            </article>
+          ))}
         </div>
       </div>
     </section>

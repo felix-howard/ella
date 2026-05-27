@@ -6,6 +6,7 @@ import PageHero from "@/components/page-hero.astro";
 import ServiceCard from "@/components/service-card.astro";
 import ServiceProcess from "@/components/service-process.astro";
 import HeadSEO from "@/components/seo/head-seo.astro";
+import SoftwareShowcase from "@/components/software-showcase.astro";
 import {
   faqSchema,
   organizationSchema,
@@ -51,6 +52,8 @@ const structuredData = [
 
     <TrustStrip items={homeTrustItems} />
 
+    <SoftwareShowcase />
+
     <section class="bg-white py-16 sm:py-24">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="max-w-3xl" data-animate="fade-up">
@@ -90,7 +93,7 @@ const structuredData = [
             Who we serve
           </p>
           <h2 class="mt-2 text-3xl font-bold text-slate-950 sm:text-4xl font-heading">
-            Built for real tax situations, not one-size-fits-all software
+            Built for real tax situations and convenient online filing
           </h2>
           <p class="mt-4 text-base leading-7 text-slate-600">
             Ella works with clients who want online convenience plus a person reviewing the tax facts.

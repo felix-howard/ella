@@ -49,26 +49,22 @@ export const serviceDetails = [
   },
 ] as const;
 
-export const servicesComparison = [
+export const onlineServiceSupport = [
   {
     label: "Document collection",
-    diy: "You track every form and missing item yourself.",
-    ella: "Ella gives a service-specific checklist and follows up on open items.",
+    description: "Ella gives a service-specific checklist and follows up on open items.",
   },
   {
-    label: "Review",
-    diy: "Software depends on what you enter and understand.",
-    ella: "An advisor reviews records and asks clarifying questions.",
+    label: "Advisor review",
+    description: "An advisor reviews records and asks clarifying questions.",
   },
   {
     label: "Business support",
-    diy: "Business books, payroll, and state filings often sit outside the flow.",
-    ella: "Tax, books, payroll records, sales tax, and franchise tax can be coordinated together.",
+    description: "Tax, books, payroll records, sales tax, and franchise tax can be coordinated together.",
   },
   {
     label: "Notices and planning",
-    diy: "Notice responses and planning questions require separate research.",
-    ella: "The team helps organize notice next steps and planning conversations.",
+    description: "The team helps organize notice next steps and planning conversations.",
   },
 ] as const;
 

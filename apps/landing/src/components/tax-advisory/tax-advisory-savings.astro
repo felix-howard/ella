@@ -8,29 +8,29 @@ import {
 <section class="bg-[linear-gradient(135deg,#0f3f52_0%,#1e3a5f_100%)] py-16 sm:py-20">
   <div class="mx-auto max-w-7xl px-5 sm:px-6">
     <div class="rounded-lg bg-white p-6 shadow-2xl shadow-slate-950/25 sm:p-10" data-animate="fade-up">
-      <p class="text-lg text-slate-500">Next step:</p>
+      <p class="text-lg text-slate-500">Planning checkpoint:</p>
       <h2 class="mt-1 font-heading text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl">
-        Calculating estimated taxes
+        Reviewing estimated taxes
       </h2>
       <div class="mt-4 h-1.5 w-80 max-w-full bg-lime-300" aria-hidden="true"></div>
 
       <div class="mt-8 overflow-x-auto rounded-lg border border-slate-200">
         <table class="min-w-[720px] w-full border-collapse text-left">
           <caption class="bg-white p-4 text-left font-heading text-2xl font-bold text-slate-950">
-            Total 2025 estimated taxes
+            Estimated tax review framework
           </caption>
           <thead class="bg-slate-50 text-sm font-bold text-slate-700">
             <tr>
-              <th class="px-4 py-3">Tax type</th>
-              <th class="px-4 py-3">Taxes owed before</th>
-              <th class="px-4 py-3">Taxes owed after</th>
-              <th class="px-4 py-3">Total tax savings</th>
+              <th scope="col" class="px-4 py-3">Tax type</th>
+              <th scope="col" class="px-4 py-3">Before planning review</th>
+              <th scope="col" class="px-4 py-3">After accepted updates</th>
+              <th scope="col" class="px-4 py-3">Planning note</th>
             </tr>
           </thead>
           <tbody>
             {estimatedTaxRows.map((row) => (
               <tr class:list={[row.total ? "bg-lime-50 font-bold" : "bg-white", "border-t border-slate-200"]}>
-                <th class="px-4 py-3 text-slate-950">{row.label}</th>
+                <th scope="row" class="px-4 py-3 text-slate-950">{row.label}</th>
                 <td class="px-4 py-3 text-slate-950">{row.before}</td>
                 <td class="px-4 py-3 text-slate-950">{row.after}</td>
                 <td class:list={["px-4 py-3", row.total ? "text-emerald-700" : "text-slate-950"]}>
@@ -48,10 +48,10 @@ import {
         </div>
         <dl class="grid gap-0 divide-y divide-slate-200">
           {estimatedTaxInputs.map(([label, value, note]) => (
-            <div class="grid gap-2 px-4 py-3 md:grid-cols-[0.8fr_0.45fr_1fr] md:items-center">
+            <div class="grid gap-2 px-4 py-3 md:grid-cols-[0.8fr_1.2fr] md:items-center">
               <dt class="font-semibold text-slate-700">{label}</dt>
               <dd class="font-bold text-slate-950">{value}</dd>
-              <dd class="text-sm italic leading-6 text-slate-500">{note}</dd>
+              {note && <dd class="text-sm italic leading-6 text-slate-500 md:col-span-2">{note}</dd>}
             </div>
           ))}
         </dl>

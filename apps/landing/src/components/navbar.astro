@@ -6,6 +6,7 @@
  * Includes Login link, mobile menu, and accessibility features.
  */
 import { navLinks } from "@/config/navigation";
+import { siteConfig } from "@/config/site";
 
 interface Props {
   currentPath?: string;
@@ -33,11 +34,11 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
     <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]">
       <!-- Logo -->
       <a href="/" class="shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500">
-        <img src="/ella-logo.png" alt="ella.tax" class="h-8 object-contain transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]" />
+        <img src="/ella-logo.png" alt={siteConfig.name} class="h-8 object-contain transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]" />
       </a>
 
       <!-- Desktop nav links (centered) -->
-      <nav class="hidden items-center gap-8 md:flex">
+      <nav class="hidden items-center gap-5 lg:gap-8 md:flex">
         {navLinks.map((link) => (
           <a
             href={link.href}
@@ -54,16 +55,13 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
         ))}
       </nav>
 
-      <!-- Right side: Login + mobile menu -->
+      <!-- Right side: primary CTA + mobile menu -->
       <div class="flex items-center gap-3 md:gap-5">
-        <!-- Login button (desktop) -->
         <a
-          href="https://app.ella.tax/"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary-700 hover:shadow-lg hover:shadow-primary-600/25 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 md:px-5 md:py-2.5"
+          href={siteConfig.cta.primaryHref}
+          class="whitespace-nowrap rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary-700 hover:shadow-lg hover:shadow-primary-600/25 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 md:px-5 md:py-2.5"
         >
-          Login
+          {siteConfig.cta.navLabel}
         </a>
 
         <!-- Mobile hamburger -->
@@ -95,6 +93,7 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
   id="mobile-menu"
   class="fixed top-0 right-0 bottom-0 z-50 w-72 translate-x-full bg-white shadow-2xl transition-transform duration-300 ease-out md:hidden"
   aria-hidden="true"
+  inert
 >
   <!-- Close button -->
   <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -162,7 +161,7 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
       border: none;
       border-radius: 9999px;
       /* Equal left/right margin creates symmetric inset from both edges */
-      margin: 0.75rem 8rem;
+      margin: 0.75rem 1rem;
       box-shadow:
         0 4px 24px rgba(0, 0, 0, 0.06),
         0 1px 3px rgba(0, 0, 0, 0.04),
@@ -188,6 +187,20 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
     /* Smaller logo in scrolled state */
     .nav-pill-scrolled img {
       height: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .nav-pill-scrolled {
+      margin-left: 2rem;
+      margin-right: 2rem;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .nav-pill-scrolled {
+      margin-left: 8rem;
+      margin-right: 8rem;
     }
   }
 </style>
@@ -238,6 +251,7 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
     menu?.classList.add("translate-x-full");
     menu?.classList.remove("translate-x-0");
     menu?.setAttribute("aria-hidden", "true");
+    menu?.setAttribute("inert", "");
     backdrop?.classList.add("opacity-0", "pointer-events-none");
     backdrop?.classList.remove("opacity-100", "pointer-events-auto");
     btn?.setAttribute("aria-expanded", "false");
@@ -250,6 +264,7 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
     menu?.classList.remove("translate-x-full");
     menu?.classList.add("translate-x-0");
     menu?.setAttribute("aria-hidden", "false");
+    menu?.removeAttribute("inert");
     backdrop?.classList.remove("opacity-0", "pointer-events-none");
     backdrop?.classList.add("opacity-100", "pointer-events-auto");
     btn?.setAttribute("aria-expanded", "true");

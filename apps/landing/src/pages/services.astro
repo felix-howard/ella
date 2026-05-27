@@ -1,0 +1,128 @@
+---
+import ContactBand from "@/components/contact-band.astro";
+import FAQSection from "@/components/faq-section.astro";
+import PageHero from "@/components/page-hero.astro";
+import ServiceCard from "@/components/service-card.astro";
+import ServiceProcess from "@/components/service-process.astro";
+import HeadSEO from "@/components/seo/head-seo.astro";
+import {
+  breadcrumbSchema,
+  faqSchema,
+  professionalServiceSchema,
+  serviceListSchema,
+} from "@/components/seo/structured-data";
+import { siteConfig } from "@/config/site";
+import {
+  serviceDetails,
+  servicesComparison,
+  servicesFaqs,
+  servicesProcessSteps,
+} from "@/config/services-page-content";
+import BaseLayout from "@/layouts/base-layout.astro";
+
+const structuredData = [
+  professionalServiceSchema(),
+  serviceListSchema(serviceDetails),
+  faqSchema(servicesFaqs),
+  breadcrumbSchema([
+    { name: "Home", url: siteConfig.url },
+    { name: "Services", url: `${siteConfig.url}/services` },
+  ]),
+];
+---
+
+<BaseLayout>
+  <HeadSEO
+    slot="head"
+    title="Services - Online Tax Preparation, Bookkeeping, and Advisory"
+    description="Explore Ella Tax Services for individual tax preparation, business tax, tax planning, bookkeeping, payroll coordination, sales tax, franchise tax, notices, and business advisory."
+    canonicalUrl={`${siteConfig.url}/services`}
+    structuredData={structuredData}
+  />
+
+  <main>
+    <PageHero
+      eyebrow="Services"
+      title="Tax services for individuals and businesses, delivered online"
+      subtitle="Ella Tax Services helps clients prepare returns, organize books, coordinate compliance records, respond to notices, and make tax decisions with advisor support."
+      primaryCta={{ label: siteConfig.cta.primaryLabel, href: siteConfig.cta.primaryHref }}
+      secondaryCta={{ label: "Call " + siteConfig.contact.phone, href: siteConfig.contact.phoneHref }}
+      align="center"
+    />
+
+    <section class="bg-white py-16 sm:py-24" id="services">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="max-w-3xl" data-animate="fade-up">
+          <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">
+            Service catalog
+          </p>
+          <h2 class="mt-2 text-3xl font-bold text-slate-950 sm:text-4xl font-heading">
+            Every major service Ella offers
+          </h2>
+          <p class="mt-4 text-base leading-7 text-slate-600">
+            Choose the service that matches your tax situation. Ella will confirm records, timing, and next steps before work begins.
+          </p>
+        </div>
+
+        <div class="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4" data-stagger>
+          {serviceDetails.map((service) => (
+            <ServiceCard
+              audience={service.audience}
+              title={service.title}
+              description={service.description}
+              bullets={service.bullets}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="bg-primary-50/70 py-16 sm:py-24">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="max-w-3xl" data-animate="fade-up">
+          <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">
+            Advisor review
+          </p>
+          <h2 class="mt-2 text-3xl font-bold text-slate-950 sm:text-4xl font-heading">
+            DIY software versus an online tax service
+          </h2>
+        </div>
+
+        <div class="mt-10 overflow-x-auto rounded-lg border border-sky-100 bg-white shadow-xl shadow-sky-900/5">
+          <table class="w-full min-w-[680px] border-collapse text-sm">
+            <thead class="bg-slate-950 text-left text-white">
+              <tr>
+                <th scope="col" class="p-4 font-semibold">Topic</th>
+                <th scope="col" class="p-4 font-semibold">DIY software</th>
+                <th scope="col" class="p-4 font-semibold">Ella Tax Services</th>
+              </tr>
+            </thead>
+            <tbody>
+              {servicesComparison.map((row) => (
+                <tr class="border-t border-sky-100">
+                  <th scope="row" class="bg-sky-50/70 p-4 text-left font-semibold text-slate-950">
+                    {row.label}
+                  </th>
+                  <td class="p-4 leading-6 text-slate-600">{row.diy}</td>
+                  <td class="p-4 leading-6 text-slate-700">{row.ella}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <ServiceProcess
+      title="From intake to filing and follow-up"
+      steps={servicesProcessSteps}
+    />
+
+    <FAQSection title="Service questions" items={servicesFaqs} />
+
+    <ContactBand
+      title="Talk with Ella about your tax service need"
+      description="Start with a filing, bookkeeping, notice, compliance, or advisory request. Ella will confirm the right next step."
+    />
+  </main>
+</BaseLayout>

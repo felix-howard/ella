@@ -1,20 +1,27 @@
 ---
-/**
- * About page — mission, origin story, values, stats, contact info, and CTA.
- * Builds trust and humanizes the Ella brand for tax professionals.
- * Aurora UI design: glassmorphism, gradients, premium typography.
- */
-import BaseLayout from "@/layouts/base-layout.astro";
-import HeadSEO from "@/components/seo/head-seo.astro";
+import AdvisorCard from "@/components/advisor-card.astro";
+import ContactBand from "@/components/contact-band.astro";
+import FAQSection from "@/components/faq-section.astro";
+import PageHero from "@/components/page-hero.astro";
 import SectionHeading from "@/components/section-heading.astro";
-import CTASection from "@/components/cta-section.astro";
-import StatsBar from "@/components/stats-bar.astro";
+import ServiceCard from "@/components/service-card.astro";
+import ServiceProcess from "@/components/service-process.astro";
+import TrustStrip from "@/components/trust-strip.astro";
+import HeadSEO from "@/components/seo/head-seo.astro";
 import {
   breadcrumbSchema,
   organizationSchema,
 } from "@/components/seo/structured-data";
+import BaseLayout from "@/layouts/base-layout.astro";
+import {
+  aboutFaq,
+  advisors,
+  companyFacts,
+  howWeWorkSteps,
+  serviceHighlights,
+  values,
+} from "@/config/about-data";
 import { siteConfig } from "@/config/site";
-import { values, socialLinks } from "@/config/about-data";
 
 const structuredData = [
   breadcrumbSchema([
@@ -23,326 +30,97 @@ const structuredData = [
   ]),
   organizationSchema(),
 ];
-
-const stats = [
-  { value: 1000000, label: "Documents Processed", suffix: "+" },
-  { value: 500, label: "Tax Firms Trust Us", suffix: "+" },
-  { value: 99, label: "Accuracy Rate", suffix: "%" },
-  { value: 80, label: "Time Saved", suffix: "%" },
-];
 ---
 
 <BaseLayout>
   <HeadSEO
     slot="head"
-    title="About Ella - Modern Tax Document Management Built for Tax Professionals"
-    description="Learn about Ella's mission to empower tax professionals with AI-powered document management. Serving 500+ firms with modern tools built for efficiency and collaboration."
+    title="About Ella Tax Services LLC - Online Tax Services"
+    description="Learn about Ella Tax Services LLC, a Houston-based online tax services company supporting individuals, families, and small businesses."
     structuredData={structuredData}
   />
 
   <main>
-    <!-- ═══ Hero Section: Aurora background like home page ═══ -->
-    <section
-      class="relative flex min-h-[60vh] items-center justify-center overflow-hidden pt-16 sm:min-h-[70vh]"
-    >
-      <!-- Layer 1: Aurora mesh gradient background -->
-      <div
-        class="pointer-events-none absolute inset-0 aurora-bg opacity-90"
-        aria-hidden="true"
-      ></div>
+    <PageHero
+      eyebrow="About Ella Tax Services"
+      title="Online tax service with advisor support"
+      subtitle="Ella Tax Services LLC helps individuals, families, and small businesses file taxes online, organize records, plan ahead, and handle tax questions with a clearer process."
+      primaryCta={{ label: "Start Online Tax Filing", href: siteConfig.cta.primaryHref }}
+      secondaryCta={{ label: "Call Ella Tax Services", href: siteConfig.contact.phoneHref }}
+    />
 
-      <!-- Layer 2: Grid pattern overlay -->
-      <div
-        class="pointer-events-none absolute inset-0 grid-pattern"
-        aria-hidden="true"
-      ></div>
+    <TrustStrip />
 
-      <!-- Layer 3: Bottom fade to white -->
-      <div
-        class="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-white to-transparent"
-        aria-hidden="true"
-      ></div>
-
-      <div class="relative mx-auto max-w-4xl px-4 sm:px-6 py-16 sm:py-24 text-center">
-        <p
-          class="mb-4 inline-block rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-semibold uppercase tracking-widest text-white backdrop-blur-sm"
-          data-animate="fade-up"
-        >
-          About Ella
-        </p>
-        <h1
-          class="mx-auto max-w-3xl text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl md:text-5xl lg:text-6xl font-heading"
-          data-animate="fade-up"
-          data-delay="0.1s"
-        >
-          Building the future of
-          <span style="background: linear-gradient(135deg, #A7F3D0, #6EE7B7, #34D399); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
-            tax document management
-          </span>
-        </h1>
-        <p
-          class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/80 md:text-xl"
-          data-animate="fade-up"
-          data-delay="0.2s"
-        >
-          Our mission is to empower tax professionals with modern, AI-powered
-          tools that eliminate busywork and let them focus on what matters:
-          serving clients and growing their firms.
-        </p>
-      </div>
-    </section>
-
-    <!-- ═══ Stats Bar ═══ -->
-    <section class="relative -mt-12 z-10 pb-8">
-      <div class="mx-auto max-w-4xl px-4 sm:px-6">
-        <div class="rounded-2xl bg-surface-dark/95 px-8 py-8 shadow-2xl backdrop-blur-sm" data-animate="fade-up">
-          <StatsBar stats={stats} />
+    <section class="bg-white py-16 sm:py-24" aria-label="Company story">
+      <div class="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
+        <div>
+          <SectionHeading eyebrow="Our company" title="A clearer way to get tax help online" align="left" />
+          <div class="mt-6 space-y-4 text-base leading-7 text-slate-600">
+            <p>
+              Tax clients deserve more than scattered email threads and last-minute document requests.
+              Ella Tax Services brings tax preparation, planning, bookkeeping, and advisory support into
+              an organized online service experience.
+            </p>
+            <p>
+              We are Houston-based and digital-first, so clients can start online, share records
+              securely, and receive practical guidance from a tax service team.
+            </p>
+          </div>
         </div>
-      </div>
-    </section>
-
-    <!-- ═══ Story Section ═══ -->
-    <section class="py-16 sm:py-24" aria-label="Our story">
-      <div class="mx-auto max-w-6xl px-4 sm:px-6">
-        <div class="grid gap-12 lg:grid-cols-2 lg:items-center">
-          <!-- Left: Text content -->
-          <div>
-            <SectionHeading
-              eyebrow="Our Story"
-              title="Why we built Ella"
-              align="left"
-            />
-            <div
-              class="mt-8 space-y-5 text-base leading-relaxed text-gray-600 sm:text-lg"
-              data-animate="fade-up"
-            >
-              <p>
-                Tax professionals deserve better tools. For decades, tax firms have
-                relied on manual processes, email attachments, and legacy software
-                that hasn't evolved. We saw tax preparers spending more time chasing
-                documents and organizing files than actually preparing returns.
-              </p>
-              <p>
-                Ella was born from a simple question: <span class="font-semibold text-gray-900">What if AI could handle the
-                tedious parts of tax season</span> — document collection, classification,
-                data extraction — so tax professionals could focus on strategy,
-                advisory, and client relationships?
-              </p>
-              <p>
-                Today, Ella serves <span class="font-semibold text-primary-600">500+ tax firms</span> and processes over <span class="font-semibold text-primary-600">1 million
-                documents annually</span>. We're just getting started.
-              </p>
+        <div class="grid gap-4 sm:grid-cols-2">
+          {companyFacts.map((fact) => (
+            <div class="service-card p-5">
+              <p class="text-xs font-semibold uppercase tracking-widest text-primary-700">{fact.label}</p>
+              <p class="mt-2 text-sm font-semibold leading-6 text-slate-950">{fact.value}</p>
             </div>
-          </div>
-
-          <!-- Right: Visual timeline -->
-          <div class="relative" data-animate="fade-up" data-delay="0.15s">
-            <div class="space-y-6">
-              <!-- Timeline item 1 -->
-              <div class="glass-card-light p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer">
-                <div class="flex items-start gap-4">
-                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white" style="background: linear-gradient(135deg, #059669, #3B82F6);">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p class="text-sm font-semibold text-primary-600">The Insight</p>
-                    <h3 class="mt-1 font-semibold text-gray-900">We saw the problem firsthand</h3>
-                    <p class="mt-1 text-sm text-gray-600">Working with CPAs, we watched them drown in disorganized documents every tax season.</p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Timeline item 2 -->
-              <div class="glass-card-light p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer">
-                <div class="flex items-start gap-4">
-                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white" style="background: linear-gradient(135deg, #3B82F6, #8B5CF6);">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456Z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p class="text-sm font-semibold text-aurora-purple">The Solution</p>
-                    <h3 class="mt-1 font-semibold text-gray-900">We built AI that actually helps</h3>
-                    <p class="mt-1 text-sm text-gray-600">Not to replace tax pros, but to eliminate the hours spent on document busywork.</p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Timeline item 3 -->
-              <div class="glass-card-light p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer">
-                <div class="flex items-start gap-4">
-                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white" style="background: linear-gradient(135deg, #8B5CF6, #06B6D4);">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p class="text-sm font-semibold text-aurora-cyan">The Vision</p>
-                    <h3 class="mt-1 font-semibold text-gray-900">The OS for modern tax practices</h3>
-                    <p class="mt-1 text-sm text-gray-600">Combining AI, automation, and collaboration into one intuitive platform.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ═══ Product Showcase Section ═══ -->
-    <section class="relative py-16 sm:py-24 overflow-hidden" aria-label="Product showcase">
-      <!-- Subtle background gradient -->
-      <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-white via-primary-50/30 to-white" aria-hidden="true"></div>
-
-      <div class="relative mx-auto max-w-6xl px-4 sm:px-6">
-        <SectionHeading
-          eyebrow="The Product"
-          title="A glimpse of what we've built"
-          subtitle="Modern, intuitive client management designed for tax professionals"
-        />
-
-        <div class="mt-10 sm:mt-14" data-animate="fade-up">
-          <!-- Screenshot container with premium styling -->
-          <div class="relative rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/5">
-            <!-- Gradient border effect -->
-            <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary-500/20 via-transparent to-aurora-purple/20 pointer-events-none" aria-hidden="true"></div>
-
-            <img
-              src="/assets/Screenshot_368.png"
-              alt="Ella client management dashboard showing a list of clients with their documents, uploads, and task status"
-              class="w-full h-auto"
-              loading="lazy"
-            />
-          </div>
-
-          <!-- Caption -->
-          <p class="mt-6 text-center text-sm text-gray-500">
-            Manage all your clients, track documents, and monitor task progress — all in one place.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- ═══ Values Section ═══ -->
-    <section class="relative py-16 sm:py-24 overflow-hidden" aria-label="Our values">
-      <!-- Subtle background gradient -->
-      <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary-50/50 via-white to-white" aria-hidden="true"></div>
-
-      <div class="relative mx-auto max-w-6xl px-4 sm:px-6">
-        <SectionHeading
-          eyebrow="Our Values"
-          title="What drives everything we build"
-        />
-        <div
-          class="mt-10 sm:mt-14 grid gap-6 sm:gap-8 sm:grid-cols-2"
-          data-stagger
-        >
-          {values.map((v, i) => {
-            const gradients = [
-              "linear-gradient(135deg, #059669, #3B82F6)",
-              "linear-gradient(135deg, #3B82F6, #8B5CF6)",
-              "linear-gradient(135deg, #8B5CF6, #06B6D4)",
-              "linear-gradient(135deg, #06B6D4, #059669)",
-            ];
-            return (
-              <div data-animate="fade-up">
-                <div class="glass-card-light h-full p-6 sm:p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer">
-                  <div class="flex h-12 w-12 items-center justify-center rounded-xl text-white" style={`background: ${gradients[i]};`}>
-                    <svg
-                      class="h-6 w-6"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      aria-hidden="true"
-                    >
-                      <path stroke-linecap="round" stroke-linejoin="round" d={v.icon} />
-                    </svg>
-                  </div>
-                  <h3 class="mt-5 text-lg font-semibold text-gray-900 font-heading">{v.title}</h3>
-                  <p class="mt-2 text-sm leading-relaxed text-gray-600">{v.description}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-
-    <!-- ═══ Contact Section ═══ -->
-    <section id="contact" class="relative py-16 sm:py-24 overflow-hidden" aria-label="Get in touch">
-      <!-- Subtle aurora glow -->
-      <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-white via-primary-50/30 to-white" aria-hidden="true"></div>
-
-      <div class="relative mx-auto max-w-2xl px-4 sm:px-6 text-center">
-        <SectionHeading
-          eyebrow="Contact"
-          title="Get in touch"
-          subtitle="Have questions about Ella? We'd love to hear from you."
-        />
-
-        <!-- Phone CTA -->
-        <a
-          href="tel:+18786780999"
-          class="mt-10 inline-flex items-center gap-3 rounded-full bg-primary-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all hover:bg-primary-700 hover:shadow-xl active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
-          data-animate="fade-up"
-        >
-          <svg
-            class="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="1.5"
-            aria-hidden="true"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z"
-            ></path>
-          </svg>
-          (878) 678-0999
-        </a>
-
-        <!-- Social Links -->
-        <div
-          class="mt-8 flex items-center justify-center gap-4"
-          data-animate="fade-up"
-        >
-          {socialLinks.map((link) => (
-            <a
-              href={link.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Follow Ella on ${link.label}`}
-              class="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-all hover:bg-primary-100 hover:text-primary-600 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 cursor-pointer"
-            >
-              <svg
-                class="h-5 w-5"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path d={link.iconPath} />
-              </svg>
-            </a>
           ))}
         </div>
-
-        <p class="mt-6 text-sm text-gray-500" data-animate="fade-up">
-          Remote-first team &middot; Based in the US &amp; Vietnam
-        </p>
       </div>
     </section>
 
-    <!-- ═══ Bottom CTA ═══ -->
-    <CTASection
-      title="Ready to modernize your tax practice?"
-      description="Join 500+ firms using Ella to streamline tax season. Request a demo today."
-      buttonText="Request a Demo"
-      buttonHref="/#contact"
+    <section class="service-section py-16 sm:py-24" aria-label="What we do">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <SectionHeading eyebrow="What we do" title="Tax services for real filing and business situations" />
+        <div class="mt-10 grid gap-6 lg:grid-cols-3" data-stagger>
+          {serviceHighlights.map((service) => (
+            <div data-animate="fade-up">
+              <ServiceCard {...service} ctaLabel="Start online" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <ServiceProcess
+      eyebrow="How we work"
+      title="Digital-first, advisor-supported tax service"
+      steps={howWeWorkSteps}
     />
+
+    <section class="bg-sky-50 py-16 sm:py-24" aria-label="Advisor support">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <SectionHeading eyebrow="Team support" title="Support from people who understand tax service" />
+        <div class="mt-10 grid gap-6 md:grid-cols-2">
+          {advisors.map((advisor) => <AdvisorCard {...advisor} />)}
+        </div>
+      </div>
+    </section>
+
+    <section class="bg-white py-16 sm:py-24" aria-label="Our values">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <SectionHeading eyebrow="Values" title="What shapes our service" />
+        <div class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4" data-stagger>
+          {values.map((value) => (
+            <article class="service-card p-6" data-animate="fade-up">
+              <h3 class="text-lg font-semibold text-slate-950">{value.label}</h3>
+              <p class="mt-3 text-sm leading-6 text-slate-600">{value.description}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <FAQSection title="About Ella Tax Services" items={aboutFaq} includeSchema={true} />
+    <ContactBand description="Start online tax filing, ask about advisory, or contact the team about bookkeeping and notices." />
   </main>
 </BaseLayout>

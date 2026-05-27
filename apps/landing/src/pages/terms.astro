@@ -14,6 +14,7 @@ const structuredData = [
     { name: "Terms of Service", url: `${siteConfig.url}/terms` },
   ]),
 ];
+const address = siteConfig.contact.address;
 ---
 
 <BaseLayout>
@@ -24,8 +25,8 @@ const structuredData = [
     structuredData={structuredData}
   />
 
-  <main class="pt-28 pb-16 sm:pt-32 sm:pb-24">
-    <article class="legal-content mx-auto max-w-3xl px-4 sm:px-6">
+  <main class="service-section pt-28 pb-16 sm:pt-32 sm:pb-24">
+    <article class="legal-content service-card mx-auto max-w-3xl px-4 py-8 sm:px-8">
       <h1>Ella Tax Services LLC &ndash; Terms of Service</h1>
       <p><strong>Effective Date:</strong> April 4th, 2026</p>
       <p>
@@ -40,9 +41,9 @@ const structuredData = [
         <li>Tax preparation and filing for individuals and businesses</li>
         <li>Bookkeeping and financial record maintenance</li>
         <li>Tax strategy and advisory services</li>
-        <li>Business formation services, including LLC formation in all 50 states</li>
+        <li>Business formation and entity structure support where available</li>
       </ul>
-      <p>Services may be delivered through digital platforms, third-party tools, or direct consultation.</p>
+      <p>Services may be delivered through secure online portals, third-party tools, or direct consultation.</p>
 
       <hr />
 
@@ -58,15 +59,15 @@ const structuredData = [
 
       <hr />
 
-      <h2>3. User Accounts</h2>
-      <p>To access certain services, you may be required to create an account.</p>
+      <h2>3. Client Portal Access</h2>
+      <p>To access certain services, you may be required to use a client portal or secure upload workflow.</p>
       <p>You agree to:</p>
       <ul>
         <li>Provide accurate and complete information</li>
         <li>Maintain the confidentiality of your login credentials</li>
         <li>Notify us immediately of unauthorized use</li>
       </ul>
-      <p>You are responsible for all activity under your account.</p>
+      <p>You are responsible for all activity under your client portal access.</p>
 
       <hr />
 
@@ -97,8 +98,8 @@ const structuredData = [
       <h2>6. Fees and Payment</h2>
       <ul>
         <li>Fees will be disclosed before services are performed</li>
-        <li>Payment may be required upfront, upon completion, or via subscription</li>
-        <li>Subscription services may automatically renew unless canceled</li>
+        <li>Payment may be required upfront, upon completion, or through an agreed recurring service arrangement</li>
+        <li>Recurring service terms, if any, will be disclosed in the applicable engagement or billing agreement</li>
       </ul>
       <p>By providing a payment method, you authorize Ella Tax Services LLC to:</p>
       <ul>
@@ -193,7 +194,7 @@ const structuredData = [
 
       <h2>16. Governing Law</h2>
       <p>
-        These Terms shall be governed by and construed in accordance with the laws of the applicable jurisdiction in which Ella Tax Services LLC operates.
+        These Terms shall be governed by and construed in accordance with the laws of the State of Texas, except where prohibited by applicable law.
       </p>
 
       <hr />
@@ -215,8 +216,10 @@ const structuredData = [
       <h2>19. Contact Information</h2>
       <p>For questions regarding these Terms, please contact:</p>
       <ul>
-        <li>Email: <a href="mailto:contact@ella.tax">contact@ella.tax</a></li>
-        <li>Web: <a href="https://ella.tax">ella.tax</a></li>
+        <li>Email: <a href={siteConfig.contact.emailHref}>{siteConfig.contact.email}</a></li>
+        <li>Phone: <a href={siteConfig.contact.phoneHref}>{siteConfig.contact.phone}</a></li>
+        <li>Address: {address.streetAddress}, {address.addressLocality}, {address.addressRegion} {address.postalCode}</li>
+        <li>Web: <a href={siteConfig.url}>ella.tax</a></li>
       </ul>
     </article>
   </main>

@@ -2,7 +2,7 @@ import { defineConfig } from "astro/config";
 import tailwindcss from "@tailwindcss/vite";
 import sitemap from "@astrojs/sitemap";
 
-const hiddenSitemapPaths = new Set(["/tax-advisory"]);
+const hiddenSitemapPaths = new Set(["/features", "/tax-advisory", "/try-now"]);
 
 export default defineConfig({
   // Replace with your production domain

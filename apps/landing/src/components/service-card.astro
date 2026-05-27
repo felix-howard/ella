@@ -1,0 +1,53 @@
+---
+import { siteConfig } from "@/config/site";
+import { checkPath } from "@/lib/icons";
+
+interface Props {
+  title: string;
+  description: string;
+  audience?: string;
+  bullets?: readonly string[];
+  href?: string;
+  ctaLabel?: string;
+}
+
+const {
+  title,
+  description,
+  audience,
+  bullets = [],
+  href = siteConfig.cta.primaryHref,
+  ctaLabel = "Start with this service",
+} = Astro.props;
+
+const ctaAriaLabel = `${ctaLabel}: ${title}`;
+---
+
+<article class="service-card flex h-full flex-col p-6">
+  {audience && (
+    <p class="text-xs font-semibold uppercase tracking-widest text-primary-700">{audience}</p>
+  )}
+  <h3 class="mt-2 text-xl font-semibold text-slate-950 font-heading">{title}</h3>
+  <p class="mt-3 flex-1 text-sm leading-6 text-slate-600">{description}</p>
+
+  {bullets.length > 0 && (
+    <ul class="mt-5 space-y-3">
+      {bullets.map((bullet) => (
+        <li class="flex gap-3 text-sm text-slate-700">
+          <svg class="mt-0.5 h-4 w-4 flex-none text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d={checkPath} />
+          </svg>
+          <span>{bullet}</span>
+        </li>
+      ))}
+    </ul>
+  )}
+
+  <a
+    href={href}
+    aria-label={ctaAriaLabel}
+    class="focus-ring mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-primary-700 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
+  >
+    {ctaLabel}
+  </a>
+</article>

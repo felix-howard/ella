@@ -1,0 +1,30 @@
+---
+interface TrustItem {
+  label: string;
+  description: string;
+}
+
+interface Props {
+  items?: readonly TrustItem[];
+}
+
+const {
+  items = [
+    { label: "Secure online workflow", description: "Documents and next steps stay organized." },
+    { label: "Advisor review", description: "A tax professional reviews open items." },
+    { label: "IRS and state support", description: "Help with notices, filings, and deadlines." },
+    { label: "Houston-based service", description: "Online support from Ella Tax Services LLC." },
+  ],
+} = Astro.props;
+---
+
+<section class="border-y border-sky-100 bg-white">
+  <div class="mx-auto grid max-w-7xl gap-px px-4 py-6 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
+    {items.map((item) => (
+      <div class="px-2 py-4">
+        <p class="text-sm font-semibold text-slate-950">{item.label}</p>
+        <p class="mt-1 text-sm leading-6 text-slate-600">{item.description}</p>
+      </div>
+    ))}
+  </div>
+</section>

@@ -1,7 +1,89 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-24 ICT
+> **Last Updated:** 2026-05-27 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-05-27
+
+### Landing: Phase 06 Validation, Review, and Docs
+**Status:** Complete
+
+**Changed:**
+- Closed the landing reposition rollout as all 6 phases complete.
+- Verified `pnpm -F @ella/landing type-check`, `lint`, and `build` all pass; build produced 11 pages and a sitemap.
+- Ran the SaaS-copy audit; no old SaaS terms matched.
+- Completed responsive QA across `/`, `/services`, `/about`, `/why-ella`, `/pricing`, `/get-started`, `/tax-advisory`, `/privacy`, and `/terms` at 375/768/1024/1440 with no overflow failures.
+- Final code review pass cleared the earlier mobile drawer and submit-arrow issues.
+- Synced roadmap, PDR, codebase summary, and journal notes to Phase 06 complete.
+- Remaining production config question: replace mailto fallback with production Formspree ID or backend lead endpoint.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+- SaaS-copy audit pass, no matches for old SaaS terms
+- Responsive QA pass across key routes and breakpoints
+- Code review final pass
+
+### Landing: Public Route and Inquiry Flow Reposition
+**Status:** Complete
+
+**Changed:**
+- Added `/get-started` as the canonical service inquiry page for tax filing, bookkeeping, cleanup, payroll coordination, notices, and advisory requests.
+- Kept `/try-now` as a noindex redirect to `/get-started` with canonical handling and sitemap exclusion.
+- Reworked `/pricing` into public service pricing with starting points, quote disclaimers, FAQ, and no internal password-gated calculator.
+- Kept contact form fields low-risk, added a sensitive-data warning, and preserved mailto fallback when Formspree is not configured.
+- Hid `/features` from the sitemap because it redirects to `/services`.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass
+- `pnpm -F @ella/landing build` pass
+- `pnpm -F @ella/landing lint` pass
+
+### Landing: About, Why Ella, and Tax Advisory Reposition
+**Status:** Complete
+
+**Changed:**
+- Rebuilt `/about` as a service-company trust page with company facts, service highlights, advisor cards, values, FAQ schema, and contact CTA.
+- Rebuilt `/why-ella` around client decision factors: DIY software, traditional office support, and Ella Tax Services online service.
+- Kept `/tax-advisory` as a noindex, sitemap-excluded static preview while removing internal phrases, vendor references, taxpayer examples, and specific example savings.
+- Removed unsupported public metrics and non-clickable whole-card hover affordance from the shared service card pattern.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass
+- `pnpm -F @ella/landing build` pass
+- `pnpm -F @ella/landing lint` pass
+- Targeted old/internal phrase audit pass
+- Tester validation and follow-up code review pass
+
+### Landing: Shared Service Design System
+**Status:** Complete
+
+**Changed:**
+- Added trust-first shared landing primitives for Ella Tax Services pages: page hero, service card, process, trust strip, advisor card, contact band, and FAQ section.
+- Moved shared tokens to sky/mint professional-service palette with darker accessible warm CTA states.
+- Hardened shared contact form fallback, SSR stats rendering, FAQ JSON-LD escaping, no-JS animation visibility, and testimonial star accessibility.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass
+- `pnpm -F @ella/landing build` pass
+- `pnpm -F @ella/landing lint` pass
+
+### Landing: Public Tax Services Reposition
+**Status:** Complete
+
+**Changed:**
+- Reframed the public landing app around Ella Tax Services LLC and online tax services.
+- Updated site metadata, structured data, navbar/footer, contact flow, and service taxonomy to match the new public positioning.
+- Replaced `/features` with `/services` and converted `/try-now` into the tax-service contact flow.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass
+- `pnpm -F @ella/landing build` pass
+- `pnpm -F @ella/landing lint` pass
+- Old SaaS audit returned no matches
 
 ---
 

@@ -43,7 +43,7 @@ const getToneClass = (tone: string) => toneClasses[tone as Tone];
           </div>
           <span class="hidden text-slate-400 md:block">or</span>
           <div class="rounded-lg border border-slate-300 bg-stone-100 p-4 text-stone-700">
-            Not fit client
+            Not the right service fit
           </div>
         </div>
         <div class="text-slate-400" aria-hidden="true">&darr;</div>
@@ -53,7 +53,7 @@ const getToneClass = (tone: string) => toneClasses[tone as Tone];
           </div>
           <span class="hidden text-slate-400 md:block">&rarr;</span>
           <div class="rounded-lg border border-slate-300 bg-stone-100 p-4 text-stone-700">
-            Not fit client
+            Not the right service fit
           </div>
         </div>
         {["proposal", "engagement", "onboard", "bookkeeping"].map((id) => (
@@ -67,8 +67,8 @@ const getToneClass = (tone: string) => toneClasses[tone as Tone];
         ))}
         <div class="text-slate-400" aria-hidden="true">&darr;</div>
         <div class="grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
-          <div class:list={["rounded-lg border p-4", getToneClass(getNode("oltro").tone)]}>
-            {getNode("oltro").label}
+          <div class:list={["rounded-lg border p-4", getToneClass(getNode("records").tone)]}>
+            {getNode("records").label}
           </div>
           <span class="hidden text-slate-400 md:block">&rarr;</span>
           <div class:list={["rounded-lg border p-4", getToneClass(getNode("specialist").tone)]}>

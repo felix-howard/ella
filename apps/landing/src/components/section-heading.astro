@@ -18,15 +18,15 @@ const subtitleMargin = align === "center" ? "mx-auto" : "";
 
 <div class={alignClass}>
   {eyebrow && (
-    <p class="text-sm font-semibold uppercase tracking-widest gradient-text">
+    <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">
       {eyebrow}
     </p>
   )}
-  <h2 class="mt-2 text-2xl font-bold text-gray-900 sm:text-3xl md:text-4xl font-heading">
+  <h2 class="mt-2 text-2xl font-bold text-slate-950 sm:text-3xl md:text-4xl font-heading">
     {title}
   </h2>
   {subtitle && (
-    <p class:list={["mt-4 max-w-2xl text-gray-600", subtitleMargin]}>
+    <p class:list={["mt-4 max-w-2xl leading-relaxed text-slate-600", subtitleMargin]}>
       {subtitle}
     </p>
   )}

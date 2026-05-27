@@ -52,6 +52,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Technology:** React 19, Vite, TanStack Router 1.94+, React Query 5.64+, Tailwind CSS 4
 
 **Apps:**
+- `apps/landing/` - Public-facing Astro site for Ella Tax Services LLC, with home, services, pricing, get-started, why Ella, about, privacy, terms, and tax-advisory pages. Shared service primitives cover page heroes, service cards, process steps, trust strips, contact bands, FAQs, contact forms, and stats. `/try-now` redirects to `/get-started`, and `/features` redirects to `/services`.
 - `apps/portal/` - Client magic link upload portal
 - `apps/workspace/` - Staff dashboard with team management
 

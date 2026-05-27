@@ -1,9 +1,9 @@
 ---
 /**
- * Full-width service inquiry CTA with contact form.
+ * Full-width service inquiry CTA.
  * Used across pages for consistent bottom CTA.
  */
-import ContactForm from "@/components/contact-form.astro";
+import { siteConfig } from "@/config/site";
 
 interface Props {
   title: string;
@@ -14,7 +14,7 @@ interface Props {
   buttonHref?: string;
 }
 
-const { title, description, idPrefix = "cta-contact" } = Astro.props;
+const { title, description } = Astro.props;
 ---
 
 <section class="service-section relative overflow-hidden py-16 sm:py-24">
@@ -30,8 +30,13 @@ const { title, description, idPrefix = "cta-contact" } = Astro.props;
       )}
     </div>
 
-    <div class="service-card mx-auto mt-8 max-w-3xl p-6 sm:mt-12 sm:p-8" data-animate="fade-up">
-      <ContactForm tone="light" idPrefix={idPrefix} />
+    <div class="mt-8 flex justify-center sm:mt-12" data-animate="fade-up">
+      <a
+        class="focus-ring inline-flex min-h-11 items-center justify-center rounded-full bg-accent-700 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-700/20 transition-colors hover:bg-accent-800"
+        href={siteConfig.cta.primaryHref}
+      >
+        {siteConfig.cta.primaryLabel}
+      </a>
     </div>
   </div>
 </section>

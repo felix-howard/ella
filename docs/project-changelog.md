@@ -7,6 +7,19 @@
 
 ## 2026-05-27
 
+### Landing: CTA Registration Redirect
+**Status:** Complete
+
+**Changed:**
+- Pointed landing CTA destinations to `https://my.ella.tax/register/team/web-sp`.
+- Updated hero, nav, service cards, contact bands, pricing cards, and legacy CTA redirect paths.
+- Replaced the `/get-started` inquiry form CTA area with a secure registration CTA.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+
 ### Landing: Online Tax Filing Positioning
 **Status:** Complete
 

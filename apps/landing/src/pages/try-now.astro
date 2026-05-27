@@ -4,6 +4,7 @@
  */
 import BaseLayout from "@/layouts/base-layout.astro";
 import HeadSEO from "@/components/seo/head-seo.astro";
+import { siteConfig } from "@/config/site";
 ---
 
 <BaseLayout>
@@ -14,12 +15,12 @@ import HeadSEO from "@/components/seo/head-seo.astro";
     canonicalUrl="https://ella.tax/get-started/"
     noindex
   />
-  <meta slot="head" http-equiv="refresh" content="0; url=/get-started" />
+  <meta slot="head" http-equiv="refresh" content={`0; url=${siteConfig.cta.primaryHref}`} />
   <main class="pt-32 pb-20">
     <section class="mx-auto max-w-2xl px-4 text-center sm:px-6">
       <h1 class="text-3xl font-bold text-slate-950 font-heading">Redirecting to Get Started</h1>
       <p class="mt-4 text-slate-600">
-        If you are not redirected, <a class="text-primary-700 underline underline-offset-2" href="/get-started">continue to the inquiry page</a>.
+        If you are not redirected, <a class="text-primary-700 underline underline-offset-2" href={siteConfig.cta.primaryHref}>continue to online registration</a>.
       </p>
     </section>
   </main>

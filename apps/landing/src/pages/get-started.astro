@@ -9,7 +9,6 @@ import TrustStrip from "@/components/trust-strip.astro";
 import ServiceProcess from "@/components/service-process.astro";
 import FAQSection from "@/components/faq-section.astro";
 import ContactBand from "@/components/contact-band.astro";
-import ContactForm from "@/components/contact-form.astro";
 import { faqSchema, professionalServiceSchema } from "@/components/seo/structured-data";
 import { getStartedFaqItems, getStartedProcess, inquiryCards } from "@/config/get-started-page-content";
 import { siteConfig } from "@/config/site";
@@ -34,8 +33,8 @@ const structuredData = [
       eyebrow="Get Started"
       title="Start your online tax service request."
       subtitle="Tell Ella Tax Services what you need help with. We will confirm scope, explain next steps, and move sensitive tax information through secure onboarding after engagement."
-      primaryCta={{ label: "Send Inquiry", href: "#inquiry-form" }}
-      secondaryCta={{ label: siteConfig.contact.phone, href: siteConfig.contact.phoneHref }}
+      primaryCta={{ label: siteConfig.cta.primaryLabel, href: siteConfig.cta.primaryHref }}
+      secondaryCta={{ label: siteConfig.cta.secondaryLabel, href: siteConfig.cta.secondaryHref }}
     />
 
     <TrustStrip />
@@ -89,28 +88,43 @@ const structuredData = [
 
     <ServiceProcess steps={getStartedProcess} />
 
-    <section id="inquiry-form" class="service-section py-16 sm:py-24">
+    <section id="registration" class="service-section py-16 sm:py-24">
       <div class="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start lg:px-8">
         <div>
-          <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">Inquiry form</p>
+          <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">Online registration</p>
           <h2 class="mt-2 text-3xl font-bold text-slate-950 sm:text-4xl font-heading">
-            Start with basic contact details.
+            Continue in the secure Ella onboarding flow.
           </h2>
           <p class="mt-5 text-base leading-7 text-slate-600">
-            The form opens a prepared email to Ella Tax Services. You can also call or message
-            us on Facebook if that is easier for the first conversation.
+            Use the registration flow to start online tax filing, bookkeeping,
+            notice help, or advisory support with the right service path.
           </p>
           <div class="mt-6 flex flex-col gap-3 sm:flex-row">
-            <a class="focus-ring inline-flex min-h-11 items-center justify-center rounded-full border border-primary-200 bg-white px-5 py-3 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-50" href={siteConfig.facebook} target="_blank" rel="noopener noreferrer">
-              Facebook
+            <a class="focus-ring inline-flex min-h-11 items-center justify-center rounded-full border border-primary-200 bg-white px-5 py-3 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-50" href={siteConfig.cta.primaryHref}>
+              {siteConfig.cta.primaryLabel}
             </a>
-            <a class="focus-ring inline-flex min-h-11 items-center justify-center rounded-full border border-primary-200 bg-white px-5 py-3 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-50" href={siteConfig.contact.emailHref}>
-              {siteConfig.contact.email}
+            <a class="focus-ring inline-flex min-h-11 items-center justify-center rounded-full border border-primary-200 bg-white px-5 py-3 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-50" href={siteConfig.cta.secondaryHref}>
+              {siteConfig.cta.secondaryLabel}
             </a>
           </div>
         </div>
         <div class="service-card p-6 sm:p-8">
-          <ContactForm idPrefix="get-started" tone="light" submitLabel="Send Inquiry" />
+          <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">
+            Secure next step
+          </p>
+          <h3 class="mt-3 text-2xl font-bold text-slate-950 font-heading">
+            Register online to begin.
+          </h3>
+          <p class="mt-4 text-sm leading-6 text-slate-600">
+            Ella will collect the right details in the registration path and route
+            your request to the correct service workflow.
+          </p>
+          <a
+            class="focus-ring mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-accent-700 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-800"
+            href={siteConfig.cta.primaryHref}
+          >
+            {siteConfig.cta.primaryLabel}
+          </a>
         </div>
       </div>
     </section>

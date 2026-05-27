@@ -7,9 +7,16 @@ interface Props {
   idPrefix?: string;
   tone?: "dark" | "light";
   submitLabel?: string;
+  submitHref?: string;
 }
 
-const { prefillMessage = "", idPrefix = "contact", tone = "dark", submitLabel = "Send Inquiry" } = Astro.props;
+const {
+  prefillMessage = "",
+  idPrefix = "contact",
+  tone = "dark",
+  submitLabel = siteConfig.cta.primaryLabel,
+  submitHref = siteConfig.cta.primaryHref,
+} = Astro.props;
 const formId = `${idPrefix}-form`;
 const nameId = `${idPrefix}-name`;
 const emailId = `${idPrefix}-email`;
@@ -47,6 +54,7 @@ const formspreeEndpoint = hasFormspreeId
   data-contact-form
   data-contact-email={contactEmail}
   data-formspree-endpoint={formspreeEndpoint}
+  data-submit-href={submitHref}
 >
   <div class="grid gap-4 sm:grid-cols-2">
     <div>
@@ -181,8 +189,15 @@ const formspreeEndpoint = hasFormspreeId
       e.preventDefault();
       const contactEmail = form.dataset.contactEmail || "contact@ella.tax";
       const formspreeEndpoint = form.dataset.formspreeEndpoint || "";
+      const submitHref = form.dataset.submitHref || "";
       const status = form.querySelector("[data-contact-status]");
       const data = new FormData(form);
+
+      if (submitHref) {
+        window.location.href = submitHref;
+        return;
+      }
+
       const body = [
         `Name: ${data.get("name") || ""}`,
         `Email: ${data.get("email") || ""}`,

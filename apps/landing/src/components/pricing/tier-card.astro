@@ -13,6 +13,7 @@
  * Pro tier gets `popular=true` for the "Most Popular" badge + emphasis.
  */
 import { checkPath } from "@/lib/icons";
+import { siteConfig } from "@/config/site";
 
 export interface BreakdownRow {
   /** Item label, e.g. "Basic tier (≤10 workers)". */
@@ -60,8 +61,8 @@ const {
   breakdownHeading = "How it adds up",
   bullets,
   popular = false,
-  ctaLabel = "Calculate my price",
-  ctaHref = "#calculator",
+  ctaLabel = siteConfig.cta.navLabel,
+  ctaHref = siteConfig.cta.primaryHref,
 } = Astro.props;
 
 // When a fixed setup fee is provided, render two specific setup lines

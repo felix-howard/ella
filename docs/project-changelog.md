@@ -7,6 +7,20 @@
 
 ## 2026-05-27
 
+### Landing: Pricing Calculator Restore and Green Brand
+**Status:** Complete
+
+**Changed:**
+- Restored `/pricing` to the password-gated pricing page with Basic, Pro, and VIP tier cards, fixed-fee add-ons, and live calculator.
+- Moved pricing tier card display data into `pricing-page-content.ts` so the route file stays under the repo size target.
+- Switched landing brand tokens, theme color, and remaining blue utility accents to green primary styling.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+- Dev-server smoke check confirmed `/pricing` renders the password gate and calculator markup
+
 ### Landing: Phase 06 Validation, Review, and Docs
 **Status:** Complete
 

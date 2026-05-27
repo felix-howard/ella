@@ -9,7 +9,7 @@ export const siteConfig = {
   url: "https://ella.tax",
   ogImage: "/og-default.png",
   locale: "en_US",
-  themeColor: "#0EA5E9",
+  themeColor: "#059669",
 
   contact: {
     phone: "(878) 678 0999",

@@ -38,7 +38,7 @@ interface Props {
   /** Free-form setup copy, used when no fixed fee (e.g. VIP custom quote). */
   setupNote?: string;
   /** Optional formula rows shown under price — explains how `monthlyPrice` adds up. */
-  breakdown?: BreakdownRow[];
+  breakdown?: readonly BreakdownRow[];
   /** Heading above breakdown rows ("How it adds up" / "What's included"). */
   breakdownHeading?: string;
   bullets: readonly string[];

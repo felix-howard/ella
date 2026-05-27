@@ -1,7 +1,7 @@
 # Ella Tax Document Management - Project Roadmap
 
 > **Last Updated:** 2026-05-27 ICT
-> **Current Phase:** Landing Reposition Phase 06 COMPLETE ✅ | English-First i18n Hardcode Removal COMPLETE ✅ | Comprehensive User Activity Log COMPLETE ✅ | Operational Filed Retention Workflow COMPLETE ✅ | Upload Portal Security Hardening COMPLETE ✅ | Tax Advisory Presentation Landing COMPLETE ✅ | Contractor Agent Agreement Phase 06 COMPLETE ✅ | Upload Link Message Template Selection COMPLETE ✅ | Campaign Form Intro Landing Content COMPLETE ✅ | Individual Schedule C Activity COMPLETE ✅ | Edit & Send Modal Service Builder COMPLETE ✅ | Engagement Letter Placeholder Fields COMPLETE ✅ | Shared Docs Actions Rework COMPLETE (All 5 Phases) ✅ | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL SUPERSEDED BY SECURITY HARDENING | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Current Phase:** Landing Pricing Restore COMPLETE ✅ | Landing Reposition Phase 06 COMPLETE ✅ | English-First i18n Hardcode Removal COMPLETE ✅ | Comprehensive User Activity Log COMPLETE ✅ | Operational Filed Retention Workflow COMPLETE ✅ | Upload Portal Security Hardening COMPLETE ✅ | Tax Advisory Presentation Landing COMPLETE ✅ | Contractor Agent Agreement Phase 06 COMPLETE ✅ | Upload Link Message Template Selection COMPLETE ✅ | Campaign Form Intro Landing Content COMPLETE ✅ | Individual Schedule C Activity COMPLETE ✅ | Edit & Send Modal Service Builder COMPLETE ✅ | Engagement Letter Placeholder Fields COMPLETE ✅ | Shared Docs Actions Rework COMPLETE (All 5 Phases) ✅ | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL SUPERSEDED BY SECURITY HARDENING | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
 > **Overall Project Progress:** Landing Reposition Phase 06 COMPLETE (6 of 6 phases, 100% done) ✅ + English-First i18n Hardcode Removal COMPLETE (6 of 6 phases, 100% done) ✅ + Comprehensive User Activity Log COMPLETE (5 of 5 phases, 100% done) ✅ + Operational Filed Retention Workflow COMPLETE (4 of 4 phases, 100% done) ✅ + Upload Portal Security Hardening COMPLETE (10 phases, 100% done) ✅ + Tax Advisory Presentation Landing COMPLETE (3 phases, 100% done) ✅ + Contractor Agent Agreement Phase 06 COMPLETE (6 of 6 phases done; migration applied/status clean) ✅ + Upload Link Message Template Selection COMPLETE (4 phases, 100% done) ✅ + Campaign Form Intro Landing Content COMPLETE (single-phase conversion UX enhancement, 100% done) ✅ + Individual Schedule C Activity COMPLETE (5 phases, 100% done) ✅ + Edit & Send Modal Service Builder COMPLETE (single-phase UX enhancement, 100% done) ✅ + Engagement Letter Placeholder Fields COMPLETE (single-phase UX enhancement, 100% done) ✅ + Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
 
 ### Landing Reposition Phase 06: Validation, Review, and Docs ✅
@@ -24,6 +24,25 @@
 
 ---
 
+### Landing Pricing Restore and Green Brand ✅
+**Started:** 2026-05-27
+**Completed:** 2026-05-27
+**Status:** COMPLETE
+**Objective:** Restore the previous internal pricing calculator and align the landing brand color with green.
+
+**Delivered:**
+- `/pricing` again uses the password gate, Basic/Pro/VIP tier cards, fixed-fee add-ons, and live calculator.
+- Tier display data lives in `pricing-page-content.ts`; `pricing.astro` stays below 200 LOC.
+- Landing primary tokens, theme color, and former sky-blue utility accents now resolve to green brand styling.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass
+- Dev-server smoke check confirmed password gate and calculator markup on `/pricing`
+
+---
+
 ### Landing Reposition Phase 05: Public Routes and Inquiry Flow ✅
 **Started:** 2026-05-27
 **Completed:** 2026-05-27
@@ -33,7 +52,7 @@
 **Delivered:**
 - `/get-started` is the canonical service inquiry page for tax filing, bookkeeping, cleanup, payroll coordination, notices, and advisory requests.
 - `/try-now` now redirects to `/get-started`, uses canonical/noindex treatment, and stays out of the sitemap.
-- `/pricing` is a public tax service pricing page with starting points, quote disclaimers, FAQ, and no internal password-gated calculator.
+- `/pricing` was initially changed to public service pricing; later restored to the password-gated calculator per owner request.
 - Contact form fields stay low-risk, include a sensitive-data warning, and fall back to prepared email when Formspree is not configured.
 - `/features` remains hidden from the sitemap because it redirects to `/services`.
 

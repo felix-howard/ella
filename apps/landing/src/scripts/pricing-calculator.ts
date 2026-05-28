@@ -13,8 +13,10 @@ import {
   TIER_BASIC,
   TIER_PRO,
   calculatePrice,
+  type CalcResult,
   type CalcInput,
 } from "@/config/pricing";
+import { formatBreakdown } from "./pricing-calculator-format";
 import { renderResult, resolveRefs } from "./pricing-calculator-render";
 
 const DEFAULT_INPUT: CalcInput = {
@@ -124,15 +126,30 @@ function init(): void {
   const refs = resolveRefs(panel);
   if (!refs) return;
 
+  let currentResult: CalcResult | null = null;
+
   const recalc = (): void => {
     const input = readInputs(form);
     if (!isInputSane(input)) return; // silent skip; UI constraints prevent most bad states
-    renderResult(refs, calculatePrice(input));
+    currentResult = calculatePrice(input);
+    renderResult(refs, currentResult);
   };
 
   const debounced = debounce(recalc, 150);
   form.addEventListener("input", debounced);
   form.addEventListener("change", debounced);
+  panel.addEventListener("click", (event) => {
+    const trigger = (event.target as Element | null)?.closest("[data-calc-consultation-trigger]");
+    if (!trigger || !currentResult) return;
+    document.dispatchEvent(
+      new CustomEvent("calc:open-consultation", {
+        detail: {
+          breakdownText: formatBreakdown(currentResult),
+          showBreakdown: currentResult.hasAnySelection && !currentResult.isEnterprise,
+        },
+      }),
+    );
+  });
 
   recalc();
 }

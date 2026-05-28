@@ -1,0 +1,49 @@
+---
+interface ProcessStep {
+  title: string;
+  description: string;
+}
+
+interface Props {
+  eyebrow?: string;
+  title?: string;
+  steps: readonly ProcessStep[];
+}
+
+const {
+  eyebrow = "Online process",
+  title = "How working with Ella Tax Services works",
+  steps,
+} = Astro.props;
+
+const desktopGridClass = steps.length === 6 ? "lg:grid-cols-3" : "lg:grid-cols-4";
+---
+
+<section class="bg-white py-16 sm:py-24">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl">
+      <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">{eyebrow}</p>
+      <h2 class="mt-2 text-3xl font-bold text-slate-950 sm:text-4xl font-heading">{title}</h2>
+    </div>
+
+    <div class="relative mt-10">
+      <span class="absolute left-6 right-6 top-[1.375rem] hidden h-px bg-gradient-to-r from-primary-200 via-primary-100 to-transparent lg:block" aria-hidden="true"></span>
+      <ol class={`relative grid gap-5 md:grid-cols-2 ${desktopGridClass}`} data-stagger>
+        {steps.map((step, index) => (
+          <li class="service-card relative flex min-h-56 flex-col p-6" data-animate="fade-up">
+            <div class="flex items-center gap-3">
+              <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-700 text-sm font-bold text-white shadow-sm shadow-primary-900/20">
+                {String(index + 1).padStart(2, "0")}
+              </div>
+              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">
+                Step {index + 1}
+              </p>
+            </div>
+            <h3 class="mt-5 text-lg font-semibold text-slate-950">{step.title}</h3>
+            <p class="mt-3 text-sm leading-6 text-slate-600">{step.description}</p>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </div>
+</section>

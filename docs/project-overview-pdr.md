@@ -1,12 +1,16 @@
 # Ella - Project Overview & Product Development Requirements
 
-**Current Phase:** Landing Page Killer Features Phase 01 - Complete | Multi-Tenancy & Permission System - Complete | Voice Calls - Complete | Schedule C Phase 4 - In Progress
-**Last Updated:** 2026-02-05
-**Branch:** feature/landing-page
+**Current Phase:** Landing Pricing Restore - Complete | Landing Reposition Phase 06 - Complete | Multi-Tenancy & Permission System - Complete | Voice Calls - Complete | Schedule C Phase 4 - Complete
+**Last Updated:** 2026-05-27
+**Branch:** codex-work-20260527-dev-base
 
 ## Project Vision
 
 Ella is a modern, tax-focused SaaS application designed to streamline document management and compliance workflows. Built as a monorepo with TypeScript, it prioritizes type safety, scalability, and developer experience.
+
+**Public-facing Positioning:** The marketing site now presents Ella Tax Services LLC as an online tax services firm with shared service-page primitives, green brand tokens, service-led home/services/about/why pages, the canonical `/get-started` inquiry flow, password-gated `/pricing` calculator, and resilient contact paths with legacy redirects that preserve route continuity. The internal app remains the tax document management SaaS platform.
+
+**Rollout Status:** Landing Reposition is fully closed out. All 6 phases are complete, validation and review are done, and docs now match the public rollout.
 
 ## High-Level Goals
 

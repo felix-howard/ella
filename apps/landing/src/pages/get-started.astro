@@ -1,0 +1,163 @@
+---
+/**
+ * Service inquiry page for Ella Tax Services.
+ */
+import BaseLayout from "@/layouts/base-layout.astro";
+import HeadSEO from "@/components/seo/head-seo.astro";
+import PageHero from "@/components/page-hero.astro";
+import TrustStrip from "@/components/trust-strip.astro";
+import ServiceProcess from "@/components/service-process.astro";
+import FAQSection from "@/components/faq-section.astro";
+import ContactBand from "@/components/contact-band.astro";
+import { faqSchema, professionalServiceSchema } from "@/components/seo/structured-data";
+import { getStartedFaqItems, getStartedProcess, inquiryCards } from "@/config/get-started-page-content";
+import { siteConfig } from "@/config/site";
+import { checkPath } from "@/lib/icons";
+
+const structuredData = [
+  professionalServiceSchema(),
+  faqSchema(getStartedFaqItems),
+];
+---
+
+<BaseLayout>
+  <HeadSEO
+    slot="head"
+    title="Get Started With Ella Tax Services"
+    description="Start online tax filing, bookkeeping, tax notice, or advisory support with Ella Tax Services."
+    structuredData={structuredData}
+  />
+
+  <main>
+    <PageHero
+      eyebrow="Get Started"
+      title="Start your online tax service request."
+      subtitle="Tell Ella Tax Services what you need help with. We will confirm scope, explain next steps, and move sensitive tax information through secure onboarding after engagement."
+      primaryCta={{ label: siteConfig.cta.primaryLabel, href: siteConfig.cta.primaryHref }}
+      secondaryCta={{ label: siteConfig.cta.secondaryLabel, href: siteConfig.cta.secondaryHref }}
+    />
+
+    <TrustStrip />
+
+    <section class="bg-white py-16 sm:py-24">
+      <div class="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[0.86fr_1.14fr] lg:items-start lg:px-8">
+        <div class="service-card p-6 sm:p-8" data-animate="fade-up">
+          <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">Safe first contact</p>
+          <h2 class="mt-2 text-3xl font-bold text-slate-950 sm:text-4xl font-heading">
+            Share enough to route the request, not sensitive tax data.
+          </h2>
+          <p class="mt-5 text-base leading-7 text-slate-600">
+            This page starts the conversation for individual tax preparation, business returns,
+            bookkeeping, cleanup, payroll coordination, notices, and advisory questions.
+            Ella will request private documents only through secure onboarding after scope is confirmed.
+          </p>
+          <div class="mt-6 rounded-lg bg-primary-50 p-4 ring-1 ring-primary-100">
+            <p class="text-sm font-semibold text-primary-900">Public inquiry only</p>
+            <p class="mt-1 text-sm leading-6 text-primary-900/75">
+              SSNs, tax IDs, documents, bank details, and income files belong in secure onboarding after Ella confirms scope.
+            </p>
+          </div>
+          <address class="mt-5 grid gap-3 not-italic text-sm leading-6 text-slate-600 sm:grid-cols-2">
+            <span class="rounded-lg border border-neutral-border bg-white p-4">
+              <span class="block text-xs font-semibold uppercase tracking-widest text-slate-400">Office</span>
+              <span class="mt-1 block font-semibold text-slate-950">{siteConfig.legalName}</span>
+              <span class="block">{siteConfig.contact.address.streetAddress}</span>
+              <span class="block">
+                {siteConfig.contact.address.addressLocality}, {siteConfig.contact.address.addressRegion} {siteConfig.contact.address.postalCode}
+              </span>
+            </span>
+            <span class="rounded-lg border border-neutral-border bg-white p-4">
+              <span class="block text-xs font-semibold uppercase tracking-widest text-slate-400">Contact</span>
+              <a class="mt-1 block font-semibold text-primary-700 underline underline-offset-2" href={siteConfig.contact.phoneHref}>
+                {siteConfig.contact.phone}
+              </a>
+              <a class="block font-semibold text-primary-700 underline underline-offset-2" href={siteConfig.contact.emailHref}>
+                {siteConfig.contact.email}
+              </a>
+            </span>
+          </address>
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-3" data-stagger>
+          {inquiryCards.map((card) => (
+            <article class="service-card service-card-interactive p-5" data-animate="fade-up">
+              <h3 class="text-base font-semibold text-slate-950">{card.title}</h3>
+              <ul class="mt-4 space-y-3">
+                {card.items.map((item) => (
+                  <li class="flex gap-2 text-sm leading-5 text-slate-600">
+                    <svg class="mt-0.5 h-4 w-4 flex-none text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d={checkPath} />
+                    </svg>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <ServiceProcess steps={getStartedProcess} />
+
+    <section id="registration" class="service-section py-16 sm:py-24">
+      <div class="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start lg:px-8">
+        <div data-animate="fade-up">
+          <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">Online registration</p>
+          <h2 class="mt-2 text-3xl font-bold text-slate-950 sm:text-4xl font-heading">
+            Continue in the secure Ella onboarding flow.
+          </h2>
+          <p class="mt-5 text-base leading-7 text-slate-600">
+            Use the registration flow to start online tax filing, bookkeeping,
+            notice help, or advisory support with the right service path.
+          </p>
+          <div class="mt-6 flex flex-col gap-3 sm:flex-row">
+            <a class="focus-ring inline-flex min-h-11 items-center justify-center rounded-full border border-primary-200 bg-white px-5 py-3 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-50" href={siteConfig.cta.primaryHref}>
+              {siteConfig.cta.primaryLabel}
+            </a>
+            <a class="focus-ring inline-flex min-h-11 items-center justify-center rounded-full border border-primary-200 bg-white px-5 py-3 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-50" href={siteConfig.cta.secondaryHref}>
+              {siteConfig.cta.secondaryLabel}
+            </a>
+          </div>
+        </div>
+        <div class="service-card overflow-hidden p-0" data-animate="fade-up">
+          <div class="bg-surface-dark p-6 text-white sm:p-8">
+            <p class="text-sm font-semibold uppercase tracking-widest text-primary-200">
+              Secure next step
+            </p>
+            <h3 class="mt-3 text-2xl font-bold text-white font-heading">
+              Register online to begin.
+            </h3>
+            <p class="mt-4 text-sm leading-6 text-primary-100/80">
+              Ella collects the right details in the registration path and routes
+              your request to the correct service workflow.
+            </p>
+            <a
+              class="btn-primary mt-6 w-full"
+              href={siteConfig.cta.primaryHref}
+            >
+              {siteConfig.cta.primaryLabel}
+            </a>
+          </div>
+          <div class="grid gap-3 p-6 text-sm sm:grid-cols-3 sm:p-8">
+            <div class="rounded-lg bg-primary-50 p-4">
+              <p class="font-semibold text-slate-950">1. Register</p>
+              <p class="mt-1 text-slate-600">Start the secure path.</p>
+            </div>
+            <div class="rounded-lg bg-sky-50 p-4">
+              <p class="font-semibold text-slate-950">2. Confirm</p>
+              <p class="mt-1 text-slate-600">Ella reviews scope.</p>
+            </div>
+            <div class="rounded-lg bg-orange-50 p-4">
+              <p class="font-semibold text-slate-950">3. Onboard</p>
+              <p class="mt-1 text-slate-600">Share private records.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <FAQSection title="Before you start" items={getStartedFaqItems} />
+    <ContactBand />
+  </main>
+</BaseLayout>

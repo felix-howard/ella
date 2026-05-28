@@ -8,20 +8,23 @@ interface Props {
   icon: string;
   title: string;
   description: string;
-  /** "primary" = emerald circle, "error" = red circle */
-  variant?: "primary" | "error";
+  variant?: "primary" | "mint" | "accent" | "error";
 }
 
 const { icon, title, description, variant = "primary" } = Astro.props;
 
-const iconBg = variant === "error" ? "bg-error-100" : "bg-primary-100";
-const iconColor = variant === "error" ? "text-error-500" : "text-primary-600";
+const styles = {
+  primary: "bg-primary-100 text-primary-700",
+  mint: "bg-emerald-100 text-emerald-700",
+  accent: "bg-accent-100 text-accent-600",
+  error: "bg-error-100 text-error-500",
+}[variant];
 ---
 
-<div class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-  <div class:list={["mb-4 flex h-12 w-12 items-center justify-center rounded-full", iconBg]}>
+<div class="service-card service-card-interactive p-6">
+  <div class:list={["mb-4 flex h-12 w-12 items-center justify-center rounded-lg ring-1 ring-white/60", styles]}>
     <svg
-      class:list={["h-6 w-6", iconColor]}
+      class="h-6 w-6"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -31,6 +34,6 @@ const iconColor = variant === "error" ? "text-error-500" : "text-primary-600";
       <path stroke-linecap="round" stroke-linejoin="round" d={icon} />
     </svg>
   </div>
-  <h3 class="text-base font-semibold text-gray-900">{title}</h3>
-  <p class="mt-2 text-sm leading-relaxed text-gray-600">{description}</p>
+  <h3 class="text-base font-bold text-slate-950">{title}</h3>
+  <p class="mt-2 text-sm leading-relaxed text-slate-600">{description}</p>
 </div>

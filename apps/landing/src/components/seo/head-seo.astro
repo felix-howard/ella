@@ -29,6 +29,9 @@ const {
 const fullTitle = title === siteConfig.name ? title : `${title} | ${siteConfig.name}`;
 const canonical = canonicalUrl || new URL(Astro.url.pathname, siteConfig.url).href;
 const ogImageUrl = ogImage.startsWith("http") ? ogImage : new URL(ogImage, siteConfig.url).href;
+const structuredDataJson = structuredData
+  ? JSON.stringify(structuredData).replace(/</g, "\\u003c")
+  : undefined;
 ---
 
 <!-- Primary meta tags -->
@@ -57,12 +60,11 @@ const ogImageUrl = ogImage.startsWith("http") ? ogImage : new URL(ogImage, siteC
 
 <!-- JSON-LD Structured Data -->
 {
-  structuredData && (
+  structuredDataJson && (
     <script
+      is:inline
       type="application/ld+json"
-      set:html={JSON.stringify(
-        Array.isArray(structuredData) ? structuredData : structuredData
-      )}
+      set:html={structuredDataJson}
     />
   )
 }

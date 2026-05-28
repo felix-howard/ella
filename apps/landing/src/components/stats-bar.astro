@@ -12,23 +12,29 @@ interface StatItem {
 
 interface Props {
   stats: StatItem[];
+  variant?: "dark" | "light";
 }
 
-const { stats } = Astro.props;
+const { stats, variant = "dark" } = Astro.props;
+const isLight = variant === "light";
+const formatValue = (stat: StatItem) => `${stat.value.toLocaleString()}${stat.suffix ?? ""}`;
 ---
 
 <div class="grid grid-cols-2 gap-8 md:grid-cols-4" data-stagger>
   {stats.map((stat) => (
     <div class="text-center" data-animate="fade-up">
       <p
-        class="text-3xl font-bold text-white sm:text-4xl font-heading"
-        style="text-shadow: 0 0 20px rgba(5, 150, 105, 0.6), 0 0 40px rgba(5, 150, 105, 0.3);"
+        class:list={[
+          "text-3xl font-bold sm:text-4xl font-heading",
+          isLight ? "text-primary-700" : "text-white",
+        ]}
+        style={isLight ? "" : "text-shadow: 0 12px 30px rgba(14, 165, 233, 0.32);"}
         data-count={stat.value}
         data-suffix={stat.suffix ?? ""}
       >
-        0{stat.suffix ?? ""}
+        {formatValue(stat)}
       </p>
-      <p class="mt-2 text-sm text-gray-400">{stat.label}</p>
+      <p class:list={["mt-2 text-sm", isLight ? "text-slate-600" : "text-primary-100/80"]}>{stat.label}</p>
     </div>
   ))}
 </div>

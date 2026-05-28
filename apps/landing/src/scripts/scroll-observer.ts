@@ -14,6 +14,7 @@ function animateCounter(element: HTMLElement): void {
   const suffix = element.dataset.suffix || "";
   const duration = 1500; // ms
   const start = performance.now();
+  element.textContent = `0${suffix}`;
 
   function update(currentTime: number): void {
     const elapsed = currentTime - start;

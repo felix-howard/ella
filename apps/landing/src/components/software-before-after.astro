@@ -1,0 +1,64 @@
+---
+/**
+ * Organized workflow section adapted from the former product workflow page.
+ */
+import SectionHeading from "@/components/section-heading.astro";
+import { afterEllaItems, beforeEllaItems } from "@/config/software-content";
+import { checkPath, xPath } from "@/lib/icons";
+---
+
+<section class="relative overflow-hidden py-16 sm:py-24" aria-label="Organized Ella Tax Services workflow">
+  <div class="pointer-events-none absolute inset-0 bg-gradient-to-br from-orange-50 via-white to-primary-50" aria-hidden="true"></div>
+  <div class="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+    <SectionHeading title="A more organized online tax season" />
+    <div class="mt-10 grid gap-6 md:grid-cols-2" data-animate="fade-up">
+      <article class="rounded-lg border border-orange-100 bg-white/92 p-6 shadow-sm sm:p-8">
+        <div class="mb-6 flex items-center gap-3">
+          <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-accent-500 text-white">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d={xPath} />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-slate-950 font-heading">Before Ella</h3>
+            <p class="text-sm text-slate-500">Manual process</p>
+          </div>
+        </div>
+        <ul class="space-y-3">
+          {beforeEllaItems.map((item) => (
+            <li class="flex items-start gap-3">
+              <svg class="mt-0.5 h-5 w-5 flex-none text-accent-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d={xPath} />
+              </svg>
+              <span class="text-sm leading-6 text-slate-700">{item}</span>
+            </li>
+          ))}
+        </ul>
+      </article>
+
+      <article class="rounded-lg border border-primary-200 bg-white/92 p-6 shadow-lg shadow-primary-900/10 sm:p-8">
+        <div class="mb-6 flex items-center gap-3">
+          <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-600 text-white">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d={checkPath} />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-slate-950 font-heading">After Ella</h3>
+            <p class="text-sm text-slate-500">Organized workflow</p>
+          </div>
+        </div>
+        <ul class="space-y-3">
+          {afterEllaItems.map((item) => (
+            <li class="flex items-start gap-3">
+              <svg class="mt-0.5 h-5 w-5 flex-none text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d={checkPath} />
+              </svg>
+              <span class="text-sm leading-6 text-slate-700">{item}</span>
+            </li>
+          ))}
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,24 @@
+{
+  "redirects": [
+    {
+      "source": "/features",
+      "destination": "/services",
+      "statusCode": 301
+    },
+    {
+      "source": "/features/",
+      "destination": "/services",
+      "statusCode": 301
+    },
+    {
+      "source": "/try-now",
+      "destination": "/get-started",
+      "statusCode": 301
+    },
+    {
+      "source": "/try-now/",
+      "destination": "/get-started",
+      "statusCode": 301
+    }
+  ]
+}

@@ -62,30 +62,24 @@ export const homeServiceHighlights = [
   },
 ] as const;
 
-export const homeProcessSteps = [
+export const homeHowItWorksSteps = [
   {
-    title: "Contact Ella",
-    description: "Tell the team what filing, bookkeeping, notice, or advisory support you need.",
+    step: "1",
+    title: "Client Texts Photo",
+    description:
+      "Client snaps a photo of their tax document and texts it to your firm's Ella number. No app required.",
   },
   {
-    title: "Share documents securely",
-    description: "Upload or share requested records through the online process.",
+    step: "2",
+    title: "AI Classifies & Renames",
+    description:
+      "Ella classifies the document, extracts data, and renames it: '2024_W2_Employer_ClientName.pdf'.",
   },
   {
-    title: "Advisor reviews",
-    description: "Ella reviews records, checks open questions, and asks for missing items.",
-  },
-  {
-    title: "Work is prepared",
-    description: "The team prepares the return, compliance work, cleanup, or advisory next step.",
-  },
-  {
-    title: "Review and sign",
-    description: "You review the prepared work and complete signatures or approvals.",
-  },
-  {
-    title: "Filing and follow-up",
-    description: "Ella helps keep the filing or follow-up path clear after submission.",
+    step: "3",
+    title: "Review & Prepare",
+    description:
+      "Your team reviews organized documents, completes the checklist, and prepares the return.",
   },
 ] as const;
 

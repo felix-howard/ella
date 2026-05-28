@@ -1,0 +1,75 @@
+---
+import ClassificationCard from "@/components/home-how-ella-works/classification-card.astro";
+import ExtractionCard from "@/components/home-how-ella-works/extraction-card.astro";
+import SmsCollectionCard from "@/components/home-how-ella-works/sms-collection-card.astro";
+---
+
+<div class="showcase-folder" data-animate="fade-up">
+  <div class="showcase-folder-tab">
+    <span class="text-sm font-semibold text-slate-600 font-heading">How Ella Works</span>
+  </div>
+
+  <SmsCollectionCard />
+  <ClassificationCard />
+  <ExtractionCard />
+</div>
+
+<script>
+  function initShowcaseLoops() {
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReducedMotion) return;
+
+    document.querySelectorAll<HTMLElement>(".showcase-mockup").forEach((mockup) => {
+      const duration = parseInt(mockup.dataset.loopDuration || "5000", 10);
+      const fadeTime = 600;
+      const pauseTime = 800;
+      let intervalId: number | undefined;
+
+      function playAnimations() {
+        mockup.classList.remove("fading");
+        mockup.classList.add("playing");
+        mockup.querySelectorAll<HTMLElement>("[data-sc-anim]").forEach((el) => {
+          el.style.animation = el.dataset.scAnim || "";
+        });
+      }
+
+      function resetAnimations() {
+        mockup.classList.add("fading");
+        mockup.classList.remove("playing");
+        mockup.querySelectorAll<HTMLElement>("[data-sc-anim]").forEach((el) => {
+          el.style.animation = "none";
+        });
+      }
+
+      function startLoop() {
+        playAnimations();
+        intervalId = window.setInterval(() => {
+          resetAnimations();
+          window.setTimeout(playAnimations, fadeTime + pauseTime);
+        }, duration);
+      }
+
+      const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          if (mutation.type === "attributes" && mockup.classList.contains("animate") && !intervalId) {
+            startLoop();
+            observer.disconnect();
+          }
+        }
+      });
+
+      observer.observe(mockup, { attributes: true, attributeFilter: ["class"] });
+
+      if (mockup.classList.contains("animate")) {
+        startLoop();
+        observer.disconnect();
+      }
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initShowcaseLoops);
+  } else {
+    initShowcaseLoops();
+  }
+</script>

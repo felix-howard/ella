@@ -92,6 +92,10 @@ const structuredData = [
             const services = serviceDetails.filter((service) =>
               (group.audiences as readonly string[]).includes(service.audience),
             );
+            const serviceGridClass =
+              services.length === 2
+                ? "grid gap-5 md:grid-cols-2"
+                : "grid gap-5 md:grid-cols-2 xl:grid-cols-3";
 
             return (
               <section class="rounded-lg border border-neutral-border bg-neutral-bg/60 p-4 sm:p-5" aria-labelledby={`services-${group.id}`}>
@@ -107,7 +111,7 @@ const structuredData = [
                   </span>
                 </div>
 
-                <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3" data-stagger>
+                <div class={serviceGridClass} data-stagger>
                   {services.map((service) => (
                     <ServiceCard
                       audience={service.audience}

@@ -80,12 +80,9 @@ const structuredData = [
     <section class="service-section py-16 sm:py-24" aria-label="Ella Tax Services approach">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading eyebrow="The Ella approach" title="Advisor-supported filing, planning, and business tax support" />
-        <div class="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4" data-stagger>
-          {ellaApproach.map((item, index) => (
-            <article class:list={[
-              "service-card p-6",
-              index === 0 ? "lg:col-span-2" : "",
-            ]} data-animate="fade-up">
+        <div class="mx-auto mt-10 grid max-w-5xl gap-6 md:grid-cols-2" data-stagger>
+          {ellaApproach.map((item) => (
+            <article class="service-card h-full p-6 sm:p-8" data-animate="fade-up">
               <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-700 text-white">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />

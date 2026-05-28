@@ -3,18 +3,18 @@ export const taxAdvisoryPasswordHash =
 export const taxAdvisoryStorageKey = "ellaTaxAdvisoryAuth:1233";
 
 export const heroMetrics = [
-  { value: "14", label: "presentation sections" },
-  { value: "365", label: "day implementation roadmap" },
-  { value: "$53,953", label: "example tax savings" },
+  { value: "01", label: "discovery and records review" },
+  { value: "04", label: "planning checkpoints" },
+  { value: "365", label: "day implementation view" },
 ];
 
 export const helpPromises = [
-  "Make smarter tax decisions",
-  "Maximize the tax strategies to provide the most benefit to you, the taxpayer",
-  "Provide accountability to help realize tax savings through key implementation tasks",
-  "Strategize to help increase revenue",
-  "Strategize to help increase profit",
-  "Keep an eye on potential tax burdens",
+  "Understand which tax planning topics fit your facts",
+  "Review records before recommending implementation steps",
+  "Coordinate tax planning, bookkeeping, payroll, and compliance needs",
+  "Prepare estimated tax conversations before deadlines",
+  "Document agreed next steps for filing and follow-up",
+  "Keep planning recommendations tied to eligibility and records",
 ];
 
 export const clientExperienceStages = [
@@ -47,42 +47,42 @@ export const clientExperienceStages = [
 
 export const overpaymentReasons = [
   {
-    title: "Lack of knowledge from tax professional.",
-    description: "The professional does not identify the right strategies early enough.",
+    title: "Late planning conversations",
+    description: "Tax decisions are easier to evaluate before deadlines or major transactions.",
   },
   {
-    title: "Lack of strategies",
-    description: "The client does not receive a complete strategy plan.",
+    title: "Incomplete records",
+    description: "Missing bookkeeping, payroll, or entity records can limit planning options.",
   },
   {
-    title: "Number does not align with book record",
-    description: "The return, books, payroll, and supporting records do not match.",
+    title: "Books do not match the return",
+    description: "The return, books, payroll, and supporting records need to align.",
   },
   {
-    title: "Audit and penalties",
-    description: "Weak documentation can create audit exposure and penalties.",
+    title: "Weak documentation",
+    description: "Planning positions need support from facts, records, and retained documentation.",
   },
   {
-    title: "Client hasn't done the necessary work",
-    description: "A strategy cannot be claimed if the required work is not completed.",
+    title: "Implementation work not complete",
+    description: "A strategy cannot be used if required actions are not completed on time.",
   },
 ];
 
 export const serviceDeliverables = [
   {
     title: "Tax return analysis",
-    highlights: ["Compliance", "Find Saving"],
-    description: "What Tax Strategies are clients qualified",
+    highlights: ["Compliance", "Eligibility"],
+    description: "Review prior-year filings, records, and current facts before recommending next steps.",
   },
   {
-    title: "Tax Plan",
-    highlights: ["Confidence"],
-    description: "What firm and client agree on plan",
+    title: "Tax plan",
+    highlights: ["Clarity"],
+    description: "Document the advisory topics, responsibilities, and follow-up schedule.",
   },
   {
-    title: "Tax Strategy Report",
-    highlights: ["Certainty"],
-    description: "Document every Strategy for Compliance",
+    title: "Strategy report",
+    highlights: ["Support"],
+    description: "Keep planning recommendations tied to documents, eligibility, and compliance notes.",
   },
 ];
 
@@ -94,7 +94,7 @@ export const advisoryFlow = [
   { id: "engagement", label: "Engagement letter", sublabel: "(contract)", tone: "blue" },
   { id: "onboard", label: "Onboard, implement", tone: "green" },
   { id: "bookkeeping", label: "Bookkeeping", tone: "green" },
-  { id: "oltro", label: "Data enter Oltro", tone: "green" },
+  { id: "records", label: "Organize planning records", tone: "green" },
   { id: "specialist", label: "Review by tax specialist", tone: "green" },
   {
     id: "zoom",
@@ -110,60 +110,60 @@ export const advisoryFlow = [
 export const processSteps = [
   {
     phase: "Consultation",
-    items: ["Initial Meeting", "Faint Process", "Tax Return Analysis"],
+    items: ["Initial meeting", "Fit review", "Tax return analysis"],
   },
   {
     phase: "Strategy Session",
-    items: ["Discovery", "Proposal", "Tax Return Analysis", "Pricing Calculator", "Engagement Letter"],
+    items: ["Discovery", "Proposal", "Return review", "Service scope", "Engagement letter"],
   },
   {
     phase: "Engagement Letter",
-    items: ["Engagement Letter Signed", "Payment Processed"],
+    items: ["Engagement signed", "Payment processed"],
   },
   {
     phase: "Document Request",
-    items: ["Request List", "Questionnaire", "Client Expectation"],
+    items: ["Request list", "Questionnaire", "Client expectations"],
   },
   {
     phase: "Onboarding",
-    items: ["Bookkeeping Onboard", "Payroll Onboard", "Implement Tasks"],
+    items: ["Bookkeeping setup", "Payroll coordination", "Implementation tasks"],
   },
 ];
 
 export const roadmapStages = [
   {
     period: "First 30 Days",
-    items: ["Initial Meeting", "Tax Return Review", "Compliance / Planning Session", "Confirm"],
+    items: ["Initial meeting", "Tax return review", "Compliance and planning session", "Confirm scope"],
   },
   {
     period: "31-90 Days",
     items: [
-      "Implement Entity Optimization",
-      "Implement Bookkeeping",
-      "Implement Payroll",
-      "Implement Reasonable Compensation",
-      "Implement Cash Plan",
+      "Review entity structure",
+      "Implement bookkeeping cleanup",
+      "Coordinate payroll records",
+      "Review reasonable compensation",
+      "Review cash flow planning",
     ],
   },
   {
     period: "91-180 Days",
     items: [
-      "Retirement Implement",
-      "Implement Augusta Rule",
-      "Fringe Benefit Implementation",
-      "Medical Implementation",
+      "Retirement plan review",
+      "Accountable plan review",
+      "Fringe benefit review",
+      "Medical expense planning review",
     ],
   },
   {
     period: "181-270 Days",
-    items: ["Ongoing Strategy Implementation", "Advance Strategy Implementation"],
+    items: ["Ongoing strategy implementation", "Advanced strategy review"],
   },
   {
     period: "271-365 Days",
     items: [
-      "Ongoing Strategy Implementation",
-      "Advance Strategy Implementation",
-      "Assess New Strategy for Y2",
+      "Ongoing strategy implementation",
+      "Advanced strategy review",
+      "Assess next-year planning topics",
     ],
   },
 ];

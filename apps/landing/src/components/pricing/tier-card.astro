@@ -13,6 +13,7 @@
  * Pro tier gets `popular=true` for the "Most Popular" badge + emphasis.
  */
 import { checkPath } from "@/lib/icons";
+import { siteConfig } from "@/config/site";
 
 export interface BreakdownRow {
   /** Item label, e.g. "Basic tier (≤10 workers)". */
@@ -38,7 +39,7 @@ interface Props {
   /** Free-form setup copy, used when no fixed fee (e.g. VIP custom quote). */
   setupNote?: string;
   /** Optional formula rows shown under price — explains how `monthlyPrice` adds up. */
-  breakdown?: BreakdownRow[];
+  breakdown?: readonly BreakdownRow[];
   /** Heading above breakdown rows ("How it adds up" / "What's included"). */
   breakdownHeading?: string;
   bullets: readonly string[];
@@ -60,8 +61,8 @@ const {
   breakdownHeading = "How it adds up",
   bullets,
   popular = false,
-  ctaLabel = "Calculate my price",
-  ctaHref = "#calculator",
+  ctaLabel = siteConfig.cta.navLabel,
+  ctaHref = siteConfig.cta.primaryHref,
 } = Astro.props;
 
 // When a fixed setup fee is provided, render two specific setup lines
@@ -82,10 +83,10 @@ if (setupFee !== undefined) {
 <article
   id={`tier-${id}`}
   class:list={[
-    "relative flex flex-col rounded-2xl bg-white p-8 shadow-sm ring-1 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg",
+    "service-card service-card-interactive relative flex h-full flex-col p-6 sm:p-8",
     popular
-      ? "ring-2 ring-primary-600 shadow-xl lg:scale-105"
-      : "ring-gray-200",
+      ? "border-primary-400 shadow-xl shadow-primary-900/10 lg:scale-105"
+      : "",
   ]}
   data-animate="fade-up"
   aria-labelledby={`tier-${id}-name`}
@@ -97,18 +98,18 @@ if (setupFee !== undefined) {
   )}
 
   <div class="mb-6">
-    <h3 id={`tier-${id}-name`} class="text-lg font-semibold text-gray-900">
+    <h3 id={`tier-${id}-name`} class="text-lg font-bold text-slate-950 font-heading">
       {name}
     </h3>
-    <p class="mt-1 text-sm text-gray-500">{tagline}</p>
+    <p class="mt-1 text-sm leading-6 text-slate-600">{tagline}</p>
   </div>
 
   <div class="mb-5">
     <div class="flex items-baseline gap-1">
-      <span class="text-4xl font-extrabold tabular-nums text-gray-900">
+      <span class="text-4xl font-extrabold tabular-nums text-slate-950">
         ${monthlyPrice}
       </span>
-      <span class="text-base text-gray-500">/mo</span>
+      <span class="text-base text-slate-500">/mo</span>
     </div>
     {priceNote && (
       <p class="mt-1 text-xs font-medium uppercase tracking-wide text-gray-400">
@@ -135,8 +136,8 @@ if (setupFee !== undefined) {
       </p>
       <ul class="space-y-1.5" role="list">
         {breakdown.map((row) => (
-          <li class="flex items-baseline justify-between gap-3">
-            <span class="text-gray-600">{row.label}</span>
+          <li class="grid gap-1 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-baseline lg:gap-3">
+            <span class="min-w-0 text-gray-600">{row.label}</span>
             {row.amount !== undefined && (
               <span class="whitespace-nowrap font-medium tabular-nums text-gray-900">
                 ${row.amount}
@@ -154,9 +155,9 @@ if (setupFee !== undefined) {
   <a
     href={ctaHref}
     class:list={[
-      "mb-8 block rounded-full py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
+      "mb-8 inline-flex min-h-11 w-full cursor-pointer items-center justify-center rounded-full px-5 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
       popular
-        ? "bg-primary-600 text-white hover:bg-primary-700"
+        ? "bg-accent-700 text-white hover:bg-accent-800"
         : "border border-primary-600 text-primary-600 hover:bg-primary-50",
     ]}
   >

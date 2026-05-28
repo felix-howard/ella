@@ -1,7 +1,214 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-24 ICT
+> **Last Updated:** 2026-05-28 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-05-28
+
+### Landing: Polish Visual QA and Docs Phase 05
+**Status:** Complete
+
+**Changed:**
+- Completed full-route responsive QA for the polished Astro landing site.
+- Fixed 768px pricing-card breakdown overflow by using a two-column tablet tier grid and delaying side-by-side breakdown rows until large screens.
+- Confirmed private/hidden route behavior for `/tax-advisory`, `/try-now`, and `/features`.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+- Headless Chrome QA pass across 44 route-width combinations: 11 routes at 375px, 768px, 1024px, and 1440px
+- No horizontal scroll, text overflow, missing alt text, or broken visible images after lazy-load scroll
+
+---
+
+### Landing: Polish Private, Legal, Redirect Pages Phase 04
+**Status:** Complete
+
+**Changed:**
+- Polished `/tax-advisory`, `/privacy`, `/terms`, `/try-now`, and `/features` route behavior after conversion-page work.
+- Preserved noindex/private treatment and redirect behavior for hidden and legacy pages.
+- Added reusable legal-page navigation for policy pages.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+
+---
+
+### Landing: Polish Conversion Pages Phase 03
+**Status:** Complete
+
+**Changed:**
+- Polished `/services` with service-family grouping and clearer online filing support.
+- Polished `/get-started` safe-contact messaging, contact details, inquiry cards, and secure registration path.
+- Polished `/pricing` gate, hero, tier cards, fixed-fee add-ons, calculator shell, form controls, and summary panel.
+- Mounted and wired pricing consultation modal from calculator summary CTAs.
+- Extracted contact form submit behavior into `apps/landing/src/scripts/contact-form.ts` and kept modal contact submission on mailto/Formspree instead of registration redirect.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+- `pnpm -F @ella/landing exec tsc --noEmit -p tsconfig.json` pass
+- Local route smoke check pass for `/services`, `/get-started`, `/pricing`
+- Tester and code review follow-up pass for pricing consultation flow
+
+---
+
+### Landing: Polish Core Marketing Pages Phase 02
+**Status:** Complete
+
+**Changed:**
+- Polished home, about, and why Ella page rhythm while preserving routes, SEO, structured data, and CTA destinations.
+- Reframed product screenshots with browser/device framing, captions, and intrinsic dimensions.
+- Added controlled software feature grid variants, richer advisor cards, and connected process-step treatment.
+- Varied audience, company facts, challenge, approach, and convenience sections to reduce repeated card-grid density.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+- Follow-up review confirmed list semantics, decorative initials, and screenshot dimension fixes
+
+---
+
+### Landing: Polish Foundation Phase 01
+**Status:** Complete
+
+**Changed:**
+- Refined landing design tokens with neutral depth, dark/warm surfaces, stronger borders, and shared CTA utilities.
+- Switched landing typography to Plus Jakarta Sans.
+- Polished shared hero, section heading, service/icon cards, trust strip, contact band, navbar, and footer.
+- Extracted navbar behavior into a focused script and fixed resize state sync, focus restore, and mobile overlay stacking.
+
+**Validation:**
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+
+---
+
+## 2026-05-27
+
+### Landing: CTA Registration Redirect
+**Status:** Complete
+
+**Changed:**
+- Pointed landing CTA destinations to `https://my.ella.tax/register/team/web-sp`.
+- Updated hero, nav, service cards, contact bands, pricing cards, and legacy CTA redirect paths.
+- Replaced the `/get-started` inquiry form CTA area with a secure registration CTA.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+
+### Landing: Online Tax Filing Positioning
+**Status:** Complete
+
+**Changed:**
+- Removed comparison positioning from landing pages.
+- Reworked Why Ella and Services sections around online intake, secure document upload, advisor review, and follow-up.
+- Updated home page copy to emphasize convenient online filing for real tax situations.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+
+### Landing: Pricing Calculator Restore and Green Brand
+**Status:** Complete
+
+**Changed:**
+- Restored `/pricing` to the password-gated pricing page with Basic, Pro, and VIP tier cards, fixed-fee add-ons, and live calculator.
+- Moved pricing tier card display data into `pricing-page-content.ts` so the route file stays under the repo size target.
+- Switched landing brand tokens, theme color, and remaining blue utility accents to green primary styling.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+- Dev-server smoke check confirmed `/pricing` renders the password gate and calculator markup
+
+### Landing: Phase 06 Validation, Review, and Docs
+**Status:** Complete
+
+**Changed:**
+- Closed the landing reposition rollout as all 6 phases complete.
+- Verified `pnpm -F @ella/landing type-check`, `lint`, and `build` all pass; build produced 11 pages and a sitemap.
+- Ran the SaaS-copy audit; no old SaaS terms matched.
+- Completed responsive QA across `/`, `/services`, `/about`, `/why-ella`, `/pricing`, `/get-started`, `/tax-advisory`, `/privacy`, and `/terms` at 375/768/1024/1440 with no overflow failures.
+- Final code review pass cleared the earlier mobile drawer and submit-arrow issues.
+- Synced roadmap, PDR, codebase summary, and journal notes to Phase 06 complete.
+- Remaining production config question: replace mailto fallback with production Formspree ID or backend lead endpoint.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+- SaaS-copy audit pass, no matches for old SaaS terms
+- Responsive QA pass across key routes and breakpoints
+- Code review final pass
+
+### Landing: Public Route and Inquiry Flow Reposition
+**Status:** Complete
+
+**Changed:**
+- Added `/get-started` as the canonical service inquiry page for tax filing, bookkeeping, cleanup, payroll coordination, notices, and advisory requests.
+- Kept `/try-now` as a noindex redirect to `/get-started` with canonical handling and sitemap exclusion.
+- Reworked `/pricing` into public service pricing with starting points, quote disclaimers, FAQ, and no internal password-gated calculator.
+- Kept contact form fields low-risk, added a sensitive-data warning, and preserved mailto fallback when Formspree is not configured.
+- Hid `/features` from the sitemap because it redirects to `/services`.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass
+- `pnpm -F @ella/landing build` pass
+- `pnpm -F @ella/landing lint` pass
+
+### Landing: About, Why Ella, and Tax Advisory Reposition
+**Status:** Complete
+
+**Changed:**
+- Rebuilt `/about` as a service-company trust page with company facts, service highlights, advisor cards, values, FAQ schema, and contact CTA.
+- Rebuilt `/why-ella` around online service decision factors, advisor support, and Ella Tax Services positioning.
+- Kept `/tax-advisory` as a noindex, sitemap-excluded static preview while removing internal phrases, vendor references, taxpayer examples, and specific example savings.
+- Removed unsupported public metrics and non-clickable whole-card hover affordance from the shared service card pattern.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass
+- `pnpm -F @ella/landing build` pass
+- `pnpm -F @ella/landing lint` pass
+- Targeted old/internal phrase audit pass
+- Tester validation and follow-up code review pass
+
+### Landing: Shared Service Design System
+**Status:** Complete
+
+**Changed:**
+- Added trust-first shared landing primitives for Ella Tax Services pages: page hero, service card, process, trust strip, advisor card, contact band, and FAQ section.
+- Moved shared tokens to sky/mint professional-service palette with darker accessible warm CTA states.
+- Hardened shared contact form fallback, SSR stats rendering, FAQ JSON-LD escaping, no-JS animation visibility, and testimonial star accessibility.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass
+- `pnpm -F @ella/landing build` pass
+- `pnpm -F @ella/landing lint` pass
+
+### Landing: Public Tax Services Reposition
+**Status:** Complete
+
+**Changed:**
+- Reframed the public landing app around Ella Tax Services LLC and online tax services.
+- Updated site metadata, structured data, navbar/footer, contact flow, and service taxonomy to match the new public positioning.
+- Replaced `/features` with `/services` and converted `/try-now` into the tax-service contact flow.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass
+- `pnpm -F @ella/landing build` pass
+- `pnpm -F @ella/landing lint` pass
+- Old SaaS audit returned no matches
 
 ---
 

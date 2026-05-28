@@ -1,0 +1,130 @@
+---
+/**
+ * Home page sections for the online service workflow visuals.
+ */
+import SectionHeading from "@/components/section-heading.astro";
+import { checkPath } from "@/lib/icons";
+import { portalUploadBullets, softwareFeatureCards } from "@/config/software-content";
+---
+
+<section class="service-section py-16 sm:py-24" aria-label="Ella Tax Services online workflow">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
+      <div data-animate="fade-up">
+        <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">
+          Online service workflow
+        </p>
+        <h2 class="mt-2 text-3xl font-bold text-slate-950 sm:text-4xl font-heading">
+          Convenient online tax filing from intake to follow-up
+        </h2>
+        <p class="mt-4 text-base leading-7 text-slate-600">
+          Ella Tax Services uses a secure online process for client intake,
+          document collection, advisor review, and tax-season follow-up.
+        </p>
+        <div class="mt-8 grid gap-4">
+          {softwareFeatureCards.map((card) => (
+            <div class="service-card service-card-interactive p-5" data-animate="fade-up">
+              <div class="flex items-start gap-4">
+                <span class="flex h-10 w-10 flex-none items-center justify-center rounded-lg bg-primary-100 text-primary-700">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d={card.icon} />
+                  </svg>
+                </span>
+                <div>
+                  <h3 class="text-base font-semibold text-slate-950">{card.title}</h3>
+                  <p class="mt-2 text-sm leading-6 text-slate-600">{card.description}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div class="rounded-lg border border-slate-900/10 bg-surface-dark p-2 shadow-2xl shadow-primary-900/20" data-animate="fade-up">
+        <div class="rounded-md border border-white/10 bg-slate-950/60">
+          <div class="flex items-center justify-between border-b border-white/10 px-4 py-3">
+            <div class="flex gap-1.5" aria-hidden="true">
+              <span class="h-2.5 w-2.5 rounded-full bg-red-400"></span>
+              <span class="h-2.5 w-2.5 rounded-full bg-amber-300"></span>
+              <span class="h-2.5 w-2.5 rounded-full bg-primary-400"></span>
+            </div>
+            <p class="hidden text-xs font-medium text-white/60 sm:block">Ella workspace</p>
+          </div>
+          <img
+            src="/assets/Screenshot_369.png"
+            alt="Ella Tax Services workspace showing client list, uploads, documents, assignments, and task status"
+            width="1919"
+            height="1079"
+            class="w-full rounded-b-md"
+            loading="lazy"
+          />
+        </div>
+        <div class="grid gap-3 px-2 py-4 text-white sm:grid-cols-3">
+          {["Client status", "Upload review", "Team follow-up"].map((label) => (
+            <div class="rounded-md border border-white/10 bg-white/[0.06] px-3 py-2">
+              <p class="text-xs font-semibold uppercase tracking-[0.14em] text-primary-200">{label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="bg-white py-16 sm:py-24" aria-label="Passwordless client upload portal">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="grid gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+      <div data-animate="fade-up">
+        <SectionHeading
+          eyebrow="Client upload"
+          title="Passwordless document upload for clients"
+          subtitle="Clients can open a secure link, upload tax documents, and complete collection steps without remembering a portal password."
+          align="left"
+        />
+        <div class="mt-8 rounded-lg border border-primary-100 bg-white p-5 shadow-sm">
+          <ul class="space-y-4">
+            {portalUploadBullets.map((item) => (
+              <li class="flex items-start gap-3">
+                <span class="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-full bg-primary-600 text-white">
+                  <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d={checkPath} />
+                  </svg>
+                </span>
+                <span class="text-sm leading-6 text-slate-700 sm:text-base">{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div class="grid gap-5 sm:grid-cols-2" data-animate="fade-up">
+        <figure class="rounded-lg border border-primary-100 bg-slate-50 p-3 shadow-xl shadow-slate-900/10">
+          <div class="mx-auto max-w-56 rounded-[1.75rem] border border-slate-200 bg-slate-950 p-2 shadow-lg">
+            <img
+              src="/assets/Screenshot_376.png"
+              alt="Ella Tax Services mobile client portal upload screen with tap to upload documents button"
+              width="394"
+              height="620"
+              class="rounded-[1.25rem]"
+              loading="lazy"
+            />
+          </div>
+          <figcaption class="mt-4 text-center text-sm font-medium text-slate-700">Upload from phone</figcaption>
+        </figure>
+        <figure class="rounded-lg border border-primary-100 bg-slate-50 p-3 shadow-xl shadow-slate-900/10 sm:mt-8">
+          <div class="mx-auto max-w-56 rounded-[1.75rem] border border-slate-200 bg-slate-950 p-2 shadow-lg">
+            <img
+              src="/assets/Screenshot_378.png"
+              alt="Ella Tax Services mobile business expense form for client income and expense collection"
+              width="398"
+              height="620"
+              class="rounded-[1.25rem]"
+              loading="lazy"
+            />
+          </div>
+          <figcaption class="mt-4 text-center text-sm font-medium text-slate-700">Collect expense detail</figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>

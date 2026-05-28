@@ -72,9 +72,9 @@ const oneTimeRows: OneTimeRow[] = [
           maxlength="6"
           value={CASH_PLAN.setup}
           data-calc-input="rates.cashPlan.setup"
+          data-stop-label-toggle
           class={rateInputCls}
           aria-label="Cash Plan setup fee"
-          onclick="event.preventDefault(); event.stopPropagation();"
         /> setup · $<input
           type="text"
           inputmode="numeric"
@@ -82,9 +82,9 @@ const oneTimeRows: OneTimeRow[] = [
           maxlength="4"
           value={CASH_PLAN.perEmployeeMonthly}
           data-calc-input="rates.cashPlan.perEmployeeMonthly"
+          data-stop-label-toggle
           class={rateInputCls}
           aria-label="Cash Plan per employee monthly"
-          onclick="event.preventDefault(); event.stopPropagation();"
         />/emp + $<input
           type="text"
           inputmode="numeric"
@@ -92,9 +92,9 @@ const oneTimeRows: OneTimeRow[] = [
           maxlength="4"
           value={CASH_PLAN.perOwnerMonthly}
           data-calc-input="rates.cashPlan.perOwnerMonthly"
+          data-stop-label-toggle
           class={rateInputCls}
           aria-label="Cash Plan per owner monthly"
-          onclick="event.preventDefault(); event.stopPropagation();"
         />/owner monthly
       </span>
     </span>
@@ -152,9 +152,9 @@ const oneTimeRows: OneTimeRow[] = [
           maxlength="5"
           value={AUDIT_PROTECTION.monthly}
           data-calc-input="rates.auditProtection.monthly"
+          data-stop-label-toggle
           class={rateInputCls}
           aria-label="Audit Protection monthly"
-          onclick="event.preventDefault(); event.stopPropagation();"
         />/mo · $<input
           type="text"
           inputmode="numeric"
@@ -162,9 +162,9 @@ const oneTimeRows: OneTimeRow[] = [
           maxlength="6"
           value={AUDIT_PROTECTION.setup}
           data-calc-input="rates.auditProtection.setup"
+          data-stop-label-toggle
           class={rateInputCls}
           aria-label="Audit Protection setup"
-          onclick="event.preventDefault(); event.stopPropagation();"
         /> one-time setup
       </span>
     </span>
@@ -270,3 +270,11 @@ const oneTimeRows: OneTimeRow[] = [
     />/mo per shop monitored.
   </p>
 </div>
+
+<script>
+  document.querySelectorAll<HTMLInputElement>("[data-stop-label-toggle]").forEach((input) => {
+    input.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+  });
+</script>

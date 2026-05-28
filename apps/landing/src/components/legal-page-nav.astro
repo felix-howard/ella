@@ -1,0 +1,23 @@
+---
+interface Link {
+  href: string;
+  label: string;
+}
+
+interface Props {
+  links: Link[];
+}
+
+const { links } = Astro.props;
+---
+
+<nav class="legal-page-nav" aria-label="On this page">
+  <p>On this page</p>
+  <ul>
+    {links.map((link) => (
+      <li>
+        <a href={link.href}>{link.label}</a>
+      </li>
+    ))}
+  </ul>
+</nav>

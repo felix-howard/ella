@@ -100,29 +100,36 @@ export const additionalCostStrategyColumns = [
 ];
 
 export const estimatedTaxRows = [
-  { label: "Federal", before: "$584,269", after: "$531,632", savings: "$52,638" },
-  { label: "State", before: "$66,400", after: "$65,085", savings: "$1,315" },
-  { label: "Total tax", before: "$650,669", after: "$596,717", savings: "$53,953", total: true },
+  {
+    label: "Federal",
+    before: "Calculated from current records",
+    after: "Updated after accepted strategies",
+    savings: "Depends on eligibility",
+  },
+  {
+    label: "State",
+    before: "Reviewed by filing state",
+    after: "Adjusted for state treatment",
+    savings: "Varies by jurisdiction",
+  },
+  {
+    label: "Total tax",
+    before: "Current projection",
+    after: "Revised projection",
+    savings: "Reviewed with client",
+    total: true,
+  },
 ];
 
 export const estimatedTaxInputs = [
-  ["Taxpayer name", "Sarah Jones"],
-  ["Tax Year", "2025"],
-  ["Are you a farmer/fisherman?", "No"],
-  ["Tax Filing Status", "Married filing jointly ..."],
-  ["Deductible type", "Standard"],
-  ["Itemized amount", "$45,000", "Value should be $0"],
-  ["Federal Wages", "$90,000"],
-  [
-    "Qualified dividends/capital gains",
-    "$800,000",
-    "Note Federal Capital gains in scope. Add the state cap gains tax when needed",
-  ],
-  ["Other federal adjustments", "$15,000"],
-  ["Other federal credits", "$3,000"],
-  ["Other federal taxes", "$5,000"],
-  ["Federal taxes withheld", "$1,000"],
-  ["Prior year federal estimated overpayments", "$2,000"],
+  ["Taxpayer profile", "Confirmed during discovery"],
+  ["Tax year", "Current planning year"],
+  ["Filing status", "Confirmed from client facts"],
+  ["Income sources", "Wages, business income, investments, or other income"],
+  ["Deduction profile", "Standard or itemized review"],
+  ["Credits and adjustments", "Reviewed against eligibility"],
+  ["Withholding and estimates", "Compared against projected tax"],
+  ["State considerations", "Reviewed by filing state"],
 ];
 
 export const clientResponsibilities = [
@@ -134,32 +141,32 @@ export const clientResponsibilities = [
 ];
 
 export const actionItems = [
-  "Will be sending over a request list of key items needed to begin the engagement.",
-  "You will look for an email from Corvee and be able to see the items requested.",
+  "Review the document request list sent by Ella Tax Services.",
+  "Upload the requested records and answer open planning questions.",
 ];
 
 export const nextSteps = {
   forYou: [
-    "Sent request list with key info needed via Corvee",
-    "Attend tax plan call and select strategies recommended by us",
+    "Review the request list and provide records",
+    "Attend the planning call and confirm agreed next steps",
   ],
   forUs: ["Review documents in detail", "Build tax plan", "Present tax plan"],
 };
 
 export const individualStrategies = [
-  "Augusta Rule",
-  "Child IRA & Roth",
-  "Itemize",
-  "No Tax on Tips",
-  "No Tax on Overtime",
-  "No Tax on Car Loan",
-  "401K",
+  "Retirement planning",
+  "Education planning",
+  "Itemized deductions",
+  "Charitable giving",
+  "Estimated taxes",
+  "Credit review",
+  "Filing status",
 ];
 
 export const businessStrategies = [
-  "Cash Plan",
-  "Home Office",
-  "Business Travel",
-  "Business Meal",
-  "Vehicle Expense",
+  "Cash flow planning",
+  "Home office",
+  "Business travel",
+  "Business meals",
+  "Vehicle expenses",
 ];

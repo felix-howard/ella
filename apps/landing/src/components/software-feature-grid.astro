@@ -1,0 +1,42 @@
+---
+/**
+ * Online workflow card grid shared by landing pages.
+ */
+import IconCard from "@/components/icon-card.astro";
+import SectionHeading from "@/components/section-heading.astro";
+import type { SoftwareCard } from "@/config/software-content";
+
+interface Props {
+  eyebrow: string;
+  title: string;
+  subtitle?: string;
+  cards: SoftwareCard[];
+  variant?: "default" | "proof" | "compact";
+}
+
+const { eyebrow, title, subtitle, cards, variant = "default" } = Astro.props;
+const sectionClass = variant === "proof" ? "section-dark py-16 sm:py-24" : "bg-white py-16 sm:py-24";
+const headingClass = variant === "proof" ? "text-white [&_h2]:text-white [&_p]:text-primary-100" : "";
+const gridClass = variant === "compact" ? "mt-10 grid gap-4 md:grid-cols-3" : "mt-10 grid gap-6 md:grid-cols-3";
+const cardVariant = variant === "proof" ? "mint" : "primary";
+---
+
+<section class={sectionClass} aria-label={title}>
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class={headingClass}>
+      <SectionHeading eyebrow={eyebrow} title={title} subtitle={subtitle} />
+    </div>
+    <div class={gridClass} data-stagger>
+      {cards.map((card) => (
+        <div data-animate="fade-up">
+          <IconCard
+            icon={card.icon}
+            title={card.title}
+            description={card.description}
+            variant={cardVariant}
+          />
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

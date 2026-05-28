@@ -1,32 +1,64 @@
 ---
-/**
- * Demo request form with name, email, and company fields.
- * Styled for dark aurora backgrounds with glassmorphism inputs.
- * On submit, opens Facebook contact page.
- *
- * Props:
- *  - `prefillMessage` — default value for the message textarea (e.g. price breakdown from calculator).
- *  - `idPrefix` — allows multiple instances on one page without DOM id collisions
- *    (e.g. pricing page has both <CTASection> and <ConsultationModal> rendering this form).
- */
+import { serviceCategories } from "@/config/company-services";
+import { siteConfig } from "@/config/site";
 
 interface Props {
   prefillMessage?: string;
   idPrefix?: string;
+  tone?: "dark" | "light";
+  submitLabel?: string;
+  submitHref?: string;
 }
 
-const { prefillMessage = "", idPrefix = "demo" } = Astro.props;
+const {
+  prefillMessage = "",
+  idPrefix = "contact",
+  tone = "dark",
+  submitLabel = siteConfig.cta.primaryLabel,
+  submitHref = siteConfig.cta.primaryHref,
+} = Astro.props;
 const formId = `${idPrefix}-form`;
 const nameId = `${idPrefix}-name`;
 const emailId = `${idPrefix}-email`;
-const companyId = `${idPrefix}-company`;
+const phoneId = `${idPrefix}-phone`;
+const clientTypeId = `${idPrefix}-client-type`;
+const serviceId = `${idPrefix}-service`;
 const messageId = `${idPrefix}-message`;
+const statusId = `${idPrefix}-status`;
+const contactEmail = siteConfig.contact.email;
+const isLight = tone === "light";
+const labelClass = isLight ? "text-slate-700" : "text-white/90";
+const optionalClass = isLight ? "text-slate-400" : "text-white/40";
+const inputClass = isLight
+  ? "w-full rounded-lg border border-primary-200 bg-white px-4 py-3 text-base text-slate-900 placeholder-slate-400 transition-all duration-200 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100 md:text-sm"
+  : "w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-base text-white placeholder-white/40 backdrop-blur-sm transition-all duration-200 focus:border-white/30 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20 md:text-sm";
+const helperClass = isLight ? "text-center text-xs text-slate-500" : "text-center text-xs text-white/55";
+const helperLinkClass = isLight
+  ? "font-semibold text-primary-700 underline underline-offset-2 transition-colors hover:text-primary-900"
+  : "underline transition-colors hover:text-white";
+const clientTypes = ["Individual or family", "Business owner", "Both individual and business"] as const;
+const configuredFormspreeId = siteConfig.formspreeId as string;
+const hasFormspreeId =
+  configuredFormspreeId !== "" && configuredFormspreeId !== "YOUR_FORMSPREE_ID";
+const formspreeEndpoint = hasFormspreeId
+  ? `https://formspree.io/f/${configuredFormspreeId}`
+  : "";
 ---
 
-<form id={formId} class="space-y-5">
+<form
+  id={formId}
+  class="space-y-5"
+  method="post"
+  action={siteConfig.contact.emailHref}
+  enctype="text/plain"
+  data-contact-form
+  data-contact-email={contactEmail}
+  data-formspree-endpoint={formspreeEndpoint}
+  data-submit-href={submitHref}
+>
   <div class="grid gap-4 sm:grid-cols-2">
     <div>
-      <label for={nameId} class="mb-1.5 block text-sm font-medium text-white/90">
+      <label for={nameId} class:list={["mb-1.5 block text-sm font-medium", labelClass]}>
         Full Name
       </label>
       <input
@@ -34,71 +66,118 @@ const messageId = `${idPrefix}-message`;
         id={nameId}
         name="name"
         placeholder="John Smith"
+        maxlength="100"
         required
-        class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 backdrop-blur-sm transition-all duration-200 focus:border-white/30 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
+        class={inputClass}
       />
     </div>
     <div>
-      <label for={emailId} class="mb-1.5 block text-sm font-medium text-white/90">
-        Work Email
+      <label for={emailId} class:list={["mb-1.5 block text-sm font-medium", labelClass]}>
+        Email
       </label>
       <input
         type="email"
         id={emailId}
         name="email"
-        placeholder="john@yourfirm.com"
+        placeholder="john@example.com"
+        maxlength="254"
         required
-        class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 backdrop-blur-sm transition-all duration-200 focus:border-white/30 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
+        class={inputClass}
       />
     </div>
   </div>
 
-  <div>
-    <label for={companyId} class="mb-1.5 block text-sm font-medium text-white/90">
-      Company / Firm Name
-    </label>
-    <input
-      type="text"
-      id={companyId}
-      name="company"
-      placeholder="Smith & Associates CPA"
-      class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 backdrop-blur-sm transition-all duration-200 focus:border-white/30 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
-    />
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for={phoneId} class:list={["mb-1.5 block text-sm font-medium", labelClass]}>
+        Phone <span class={optionalClass}>(optional)</span>
+      </label>
+      <input
+        type="tel"
+        id={phoneId}
+        name="phone"
+        placeholder={siteConfig.contact.phone}
+        maxlength="30"
+        class={inputClass}
+      />
+    </div>
+    <div>
+      <label for={clientTypeId} class:list={["mb-1.5 block text-sm font-medium", labelClass]}>
+        Client Type
+      </label>
+      <select
+        id={clientTypeId}
+        name="clientType"
+        required
+        class={inputClass}
+      >
+        <option class="text-gray-900" value="">Select type</option>
+        {clientTypes.map((type) => <option class="text-gray-900" value={type}>{type}</option>)}
+      </select>
+    </div>
   </div>
 
   <div>
-    <label for={messageId} class="mb-1.5 block text-sm font-medium text-white/90">
-      Message <span class="text-white/40">(optional)</span>
+    <label for={serviceId} class:list={["mb-1.5 block text-sm font-medium", labelClass]}>
+      Service Needed
+    </label>
+    <select
+      id={serviceId}
+      name="service"
+      required
+      class={inputClass}
+    >
+      <option class="text-gray-900" value="">Select a service</option>
+      {serviceCategories.map((category) => (
+        <optgroup class="text-gray-900" label={category.audience}>
+          {category.services.map((service) => (
+            <option class="text-gray-900" value={service.name}>{service.name}</option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  </div>
+
+  <div>
+    <label for={messageId} class:list={["mb-1.5 block text-sm font-medium", labelClass]}>
+      Message <span class={optionalClass}>(optional)</span>
     </label>
     <textarea
       id={messageId}
       name="message"
       rows="3"
-      placeholder="Tell us about your firm and what you're looking for..."
-      class="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 backdrop-blur-sm transition-all duration-200 focus:border-white/30 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
+      maxlength="1200"
+      placeholder="Tell us about your tax filing, bookkeeping, or advisory need..."
+      class:list={[inputClass, "resize-none"]}
     >{prefillMessage}</textarea>
   </div>
 
   <button
     type="submit"
-    class="group relative w-full overflow-hidden rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-primary-700 shadow-lg transition-all duration-300 hover:shadow-xl hover:shadow-white/25 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:text-base"
+    class:list={[
+      "group relative w-full cursor-pointer overflow-hidden rounded-full px-6 py-3.5 text-sm font-semibold shadow-lg transition-all duration-300 hover:shadow-xl active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 sm:text-base",
+      isLight
+        ? "bg-accent-700 text-white hover:bg-accent-800 focus-visible:outline-accent-700"
+        : "bg-white text-primary-700 hover:shadow-white/25 focus-visible:outline-white",
+    ]}
   >
     <span class="relative z-10 flex items-center justify-center gap-2">
-      Request a Demo
-      <svg class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      {submitLabel}
+      <svg class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
       </svg>
     </span>
   </button>
 
-  <p class="text-center text-xs text-white/50">
-    We'll reach out within 24 hours to schedule your personalized demo.
+  <p class={helperClass}>
+    {hasFormspreeId ? "This form sends your inquiry to Ella Tax Services." : "This form opens a prepared email."} Prefer to talk now? Call <a class={helperLinkClass} href={siteConfig.contact.phoneHref}>{siteConfig.contact.phone}</a> or email <a class={helperLinkClass} href={siteConfig.contact.emailHref}>{siteConfig.contact.email}</a>.
   </p>
+  <p class={helperClass}>
+    Do not include SSNs, Tax ID numbers, tax documents, or bank information in this public form.
+  </p>
+  <p id={statusId} class:list={[helperClass, "hidden rounded-lg px-3 py-2"]} aria-live="polite" data-contact-status></p>
 </form>
 
-<script is:inline define:vars={{ formId }}>
-  document.getElementById(formId)?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    window.open('https://www.facebook.com/my.ella.tax/', '_blank', 'noopener,noreferrer');
-  });
+<script>
+  import "@/scripts/contact-form";
 </script>

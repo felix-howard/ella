@@ -1,0 +1,173 @@
+---
+import ContactBand from "@/components/contact-band.astro";
+import FAQSection from "@/components/faq-section.astro";
+import PageHero from "@/components/page-hero.astro";
+import ServiceCard from "@/components/service-card.astro";
+import ServiceProcess from "@/components/service-process.astro";
+import HeadSEO from "@/components/seo/head-seo.astro";
+import {
+  breadcrumbSchema,
+  faqSchema,
+  professionalServiceSchema,
+  serviceListSchema,
+} from "@/components/seo/structured-data";
+import { siteConfig } from "@/config/site";
+import {
+  onlineServiceSupport,
+  serviceDetails,
+  servicesFaqs,
+  servicesProcessSteps,
+} from "@/config/services-page-content";
+import BaseLayout from "@/layouts/base-layout.astro";
+
+const serviceGroups = [
+  {
+    id: "individuals-families",
+    label: "Individuals & families",
+    description: "Annual filings, planning questions, and household tax complexity.",
+    audiences: ["Individual tax", "Advisory"],
+  },
+  {
+    id: "business-operations",
+    label: "Business operations",
+    description: "Entity returns, books, cleanup, and owner-level decisions.",
+    audiences: ["Business tax", "Bookkeeping", "Business advisory"],
+  },
+  {
+    id: "compliance-notices",
+    label: "Compliance & notices",
+    description: "Payroll records, state obligations, IRS letters, and deadline response.",
+    audiences: ["Compliance", "Notice help"],
+  },
+] as const;
+
+const structuredData = [
+  professionalServiceSchema(),
+  serviceListSchema(serviceDetails),
+  faqSchema(servicesFaqs),
+  breadcrumbSchema([
+    { name: "Home", url: siteConfig.url },
+    { name: "Services", url: `${siteConfig.url}/services` },
+  ]),
+];
+---
+
+<BaseLayout>
+  <HeadSEO
+    slot="head"
+    title="Services - Online Tax Preparation, Bookkeeping, and Advisory"
+    description="Explore Ella Tax Services for individual tax preparation, business tax, tax planning, bookkeeping, payroll coordination, sales tax, franchise tax, notices, and business advisory."
+    canonicalUrl={`${siteConfig.url}/services`}
+    structuredData={structuredData}
+  />
+
+  <main>
+    <PageHero
+      eyebrow="Services"
+      title="Tax services for individuals and businesses, delivered online"
+      subtitle="Ella Tax Services helps clients prepare returns, organize books, coordinate compliance records, respond to notices, and make tax decisions with advisor support."
+      primaryCta={{ label: siteConfig.cta.primaryLabel, href: siteConfig.cta.primaryHref }}
+      secondaryCta={{ label: siteConfig.cta.secondaryLabel, href: siteConfig.cta.secondaryHref }}
+      align="center"
+    />
+
+    <section class="bg-white py-16 sm:py-24" id="services">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-end" data-animate="fade-up">
+          <div>
+            <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">
+              Service catalog
+            </p>
+            <h2 class="mt-2 text-3xl font-bold text-slate-950 sm:text-4xl font-heading">
+              Find the right lane before you start
+            </h2>
+          </div>
+          <p class="max-w-2xl text-base leading-7 text-slate-600 lg:ml-auto">
+            Choose the service family that matches your tax situation. Ella confirms records, timing, and next steps before work begins, so the first conversation stays focused.
+          </p>
+        </div>
+
+        <div class="mt-10 space-y-8">
+          {serviceGroups.map((group) => {
+            const services = serviceDetails.filter((service) =>
+              (group.audiences as readonly string[]).includes(service.audience),
+            );
+            const serviceGridClass =
+              services.length === 2
+                ? "grid gap-5 md:grid-cols-2"
+                : "grid gap-5 md:grid-cols-2 xl:grid-cols-3";
+
+            return (
+              <section class="rounded-lg border border-neutral-border bg-neutral-bg/60 p-4 sm:p-5" aria-labelledby={`services-${group.id}`}>
+                <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h3 id={`services-${group.id}`} class="text-lg font-bold text-slate-950 font-heading">
+                      {group.label}
+                    </h3>
+                    <p class="mt-1 text-sm leading-6 text-slate-600">{group.description}</p>
+                  </div>
+                  <span class="inline-flex w-fit rounded-full bg-white px-3 py-1 text-xs font-semibold text-primary-800 ring-1 ring-primary-100">
+                    {services.length} services
+                  </span>
+                </div>
+
+                <div class={serviceGridClass} data-stagger>
+                  {services.map((service) => (
+                    <ServiceCard
+                      audience={service.audience}
+                      title={service.title}
+                      description={service.description}
+                      bullets={service.bullets}
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+
+    <section class="bg-primary-50/70 py-16 sm:py-24" aria-label="Online tax service support">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+          <div class="service-card bg-white p-6 sm:p-8" data-animate="fade-up">
+            <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">
+              Online filing support
+            </p>
+            <h2 class="mt-2 text-3xl font-bold text-slate-950 sm:text-4xl font-heading">
+              Convenient online filing with advisor support
+            </h2>
+            <p class="mt-4 text-base leading-7 text-slate-600">
+              Ella keeps the service path online where it should be simple: intake, document upload, review questions, filing steps, and follow-up.
+            </p>
+            <a class="btn-primary mt-7 w-full sm:w-auto" href={siteConfig.cta.primaryHref}>
+              {siteConfig.cta.primaryLabel}
+            </a>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-2" data-stagger>
+            {onlineServiceSupport.map((item) => (
+              <article class="service-card bg-white p-6 shadow-xl shadow-primary-900/5" data-animate="fade-up">
+                <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">{item.label}</p>
+                <p class="mt-4 text-sm leading-6 text-slate-700">{item.description}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <ServiceProcess
+      title="From intake to filing and follow-up"
+      steps={servicesProcessSteps}
+    />
+
+    <FAQSection title="Service questions" items={servicesFaqs} />
+
+    <ContactBand
+      title="Talk with Ella about your tax service need"
+      description="Start with a filing, bookkeeping, notice, compliance, or advisory request. Ella will confirm the right next step."
+    />
+  </main>
+</BaseLayout>

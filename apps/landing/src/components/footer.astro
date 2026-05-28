@@ -1,7 +1,6 @@
 ---
 /**
- * Site-wide footer with 3-column layout: logo/tagline, navigation links, legal/social.
- * Dynamic copyright year. Dark premium theme matching aurora aesthetic.
+ * Site-wide footer with business facts, navigation links, and legal/social.
  */
 import { navLinks, legalLinks } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
@@ -16,16 +15,38 @@ const hasFacebook = siteConfig.facebook !== "";
       <!-- Column 1: Logo & tagline -->
       <div>
         <a href="/" class="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500">
-          <img src="/ella-logo.png" alt="ella.tax" class="h-8 object-contain brightness-0 invert" />
+          <img src="/ella-logo.png" alt={siteConfig.name} class="h-8 object-contain brightness-0 invert" />
         </a>
-        <p class="mt-3 max-w-xs text-sm leading-relaxed text-gray-400">
-          AI-powered tax document management for modern tax professionals.
+        <p class="mt-3 max-w-xs text-sm leading-relaxed text-primary-50/70">
+          Online tax preparation, bookkeeping, and advisory support for individuals and small businesses.
         </p>
+        <address class="mt-4 not-italic text-sm leading-relaxed text-primary-50/70">
+          <a class="block transition-colors hover:text-primary-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-400" href={siteConfig.contact.phoneHref}>
+            {siteConfig.contact.phone}
+          </a>
+          <a class="block transition-colors hover:text-primary-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-400" href={siteConfig.contact.emailHref}>
+            {siteConfig.contact.email}
+          </a>
+          <span class="block">{siteConfig.contact.address.streetAddress}</span>
+          <span class="block">
+            {siteConfig.contact.address.addressLocality}, {siteConfig.contact.address.addressRegion} {siteConfig.contact.address.postalCode}
+          </span>
+        </address>
       </div>
 
       <!-- Column 2: Navigation -->
       <div>
-        <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-300">
+        <h3 class="text-sm font-semibold uppercase tracking-wider text-primary-50">
+          Services
+        </h3>
+        <p class="mt-3 max-w-xs text-sm leading-relaxed text-primary-50/70">
+          Individual tax prep, business returns, bookkeeping, cleanup, payroll coordination, tax notices, and advisory.
+        </p>
+      </div>
+
+      <!-- Column 3: Navigation, Legal & Social -->
+      <div>
+        <h3 class="text-sm font-semibold uppercase tracking-wider text-primary-50">
           Navigation
         </h3>
         <ul class="mt-3 flex flex-col gap-1">
@@ -33,18 +54,14 @@ const hasFacebook = siteConfig.facebook !== "";
             <li>
               <a
                 href={link.href}
-                class="inline-block py-2 text-sm text-gray-400 transition-colors hover:text-primary-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                class="inline-block py-2 text-sm text-primary-50/70 transition-colors hover:text-primary-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-400"
               >
                 {link.label}
               </a>
             </li>
           ))}
         </ul>
-      </div>
-
-      <!-- Column 3: Legal & Social -->
-      <div>
-        <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-300">
+        <h3 class="mt-6 text-sm font-semibold uppercase tracking-wider text-primary-50">
           Legal
         </h3>
         <ul class="mt-3 flex flex-col gap-1">
@@ -52,7 +69,7 @@ const hasFacebook = siteConfig.facebook !== "";
             <li>
               <a
                 href={link.href}
-                class="inline-block py-2 text-sm text-gray-400 transition-colors hover:text-primary-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                class="inline-block py-2 text-sm text-primary-50/70 transition-colors hover:text-primary-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-400"
               >
                 {link.label}
               </a>
@@ -66,7 +83,7 @@ const hasFacebook = siteConfig.facebook !== "";
             {hasFacebook && (
               <a
                 href={siteConfig.facebook}
-                class="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white/5 hover:text-primary-400 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                class="flex h-11 w-11 min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-full text-primary-50/60 transition-colors hover:bg-white/5 hover:text-primary-300 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-400"
                 aria-label="Facebook"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -79,7 +96,7 @@ const hasFacebook = siteConfig.facebook !== "";
             {hasLinkedIn && (
               <a
                 href={siteConfig.linkedIn}
-                class="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white/5 hover:text-primary-400 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                class="flex h-11 w-11 min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-full text-primary-50/60 transition-colors hover:bg-white/5 hover:text-primary-300 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-400"
                 aria-label="LinkedIn"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -96,8 +113,8 @@ const hasFacebook = siteConfig.facebook !== "";
 
     <!-- Bottom bar -->
     <div class="mt-10 border-t border-white/10 pt-6">
-      <p class="text-center text-sm text-gray-500">
-        &copy; {new Date().getFullYear()} Ella. All rights reserved.
+      <p class="text-center text-sm text-primary-50/50">
+        &copy; {new Date().getFullYear()} {siteConfig.legalName}. All rights reserved.
       </p>
     </div>
   </div>

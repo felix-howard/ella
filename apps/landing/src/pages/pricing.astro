@@ -1,8 +1,6 @@
 ---
 /**
  * Pricing page — Ella Tax-specific 3-tier marketing cards + interactive calculator.
- * Phase 02 scope: hero, tier cards row, calculator.
- * Calculator UI + logic wired in subsequent phases (03-05).
  */
 import BaseLayout from "@/layouts/base-layout.astro";
 import HeadSEO from "@/components/seo/head-seo.astro";
@@ -10,6 +8,7 @@ import SectionHeading from "@/components/section-heading.astro";
 import TierCard from "@/components/pricing/tier-card.astro";
 import CalculatorSection from "@/components/pricing/calculator-section.astro";
 import OneTimeServicesSection from "@/components/pricing/one-time-services-section.astro";
+import ConsultationModal from "@/components/pricing/consultation-modal.astro";
 import { breadcrumbSchema } from "@/components/seo/structured-data";
 import { pricingTierCards } from "@/config/pricing-page-content";
 import { siteConfig } from "@/config/site";
@@ -49,42 +48,53 @@ const structuredData = [
   <!-- Password gate overlay -->
   <div
     id="pricing-gate"
-    class="fixed inset-0 z-[100] flex items-center justify-center bg-white px-6"
+    class="service-section fixed inset-0 z-[100] flex items-center justify-center px-4 py-8 sm:px-6"
     role="dialog"
     aria-modal="true"
     aria-labelledby="pricing-gate-title"
+    aria-describedby="pricing-gate-description"
   >
-    <form id="pricing-gate-form" class="w-full max-w-sm">
-      <h2 id="pricing-gate-title" class="mb-2 text-center text-xl font-semibold text-gray-900">
-        Internal access
-      </h2>
-      <p class="mb-5 text-center text-sm text-gray-600">
-        Enter the password to view this page.
+    <form id="pricing-gate-form" class="service-card w-full max-w-md p-6 shadow-2xl shadow-slate-900/10 sm:p-8">
+      <p class="text-center text-xs font-semibold uppercase tracking-widest text-primary-700">
+        Ella pricing
       </p>
+      <h2 id="pricing-gate-title" class="mt-2 text-center text-2xl font-bold text-slate-950 font-heading">
+        Internal preview access
+      </h2>
+      <p id="pricing-gate-description" class="mx-auto mt-3 max-w-xs text-center text-sm leading-6 text-slate-600">
+        Enter the preview password to view pricing packages and the calculator.
+      </p>
+      <label for="pricing-gate-input" class="mt-6 block text-sm font-semibold text-slate-800">
+        Password
+      </label>
       <input
         id="pricing-gate-input"
         type="password"
         autocomplete="off"
         autofocus
-        placeholder="Password"
-        class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-base text-gray-900 placeholder-gray-400 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+        aria-describedby="pricing-gate-error"
+        placeholder="Enter password"
+        class="mt-2 w-full rounded-lg border border-neutral-border bg-white px-4 py-3 text-base text-slate-900 placeholder-slate-400 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
       />
-      <p id="pricing-gate-error" hidden class="mt-2 text-sm text-red-600">
+      <p id="pricing-gate-error" hidden class="mt-2 text-sm font-medium text-error-500">
         Incorrect password.
       </p>
       <button
         type="submit"
-        class="mt-4 w-full rounded-full bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+        class="btn-primary mt-5 w-full"
       >
         Continue
       </button>
+      <p class="mt-4 text-center text-xs leading-5 text-slate-500">
+        This gate is only preview friction, not a security boundary.
+      </p>
     </form>
   </div>
 
   <main>
     <!-- Hero -->
-    <section class="pt-32 pb-16">
-      <div class="mx-auto max-w-3xl px-6 text-center">
+    <section class="service-section border-b border-neutral-border/70 pt-32 pb-16">
+      <div class="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
         <p
           class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary-800"
           data-animate="fade-up"
@@ -92,26 +102,35 @@ const structuredData = [
           Pricing
         </p>
         <h1
-          class="text-4xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-5xl"
+          class="text-4xl font-extrabold leading-tight text-slate-950 sm:text-5xl font-heading"
           data-animate="fade-up"
         >
           Packages designed to fit your business
         </h1>
         <p
-          class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600"
+          class="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600"
           data-animate="fade-up"
         >
           Transparent pricing built for nail salons, small shops, and LLCs.
           Each tier shows the typical monthly bundle with the exact formula —
           then dial in your numbers with the calculator below.
         </p>
+        <div class="mt-8 flex flex-col justify-center gap-3 sm:flex-row" data-animate="fade-up">
+          <a class="btn-primary w-full sm:w-auto" href="#pricing">Compare packages</a>
+          <a class="btn-secondary w-full sm:w-auto" href="#calculator">Use calculator</a>
+        </div>
       </div>
     </section>
 
     <!-- Tier cards -->
-    <section id="pricing" class="pb-24" aria-label="Pricing tiers">
-      <div class="mx-auto max-w-6xl px-6">
-        <div class="grid gap-8 md:grid-cols-3" data-stagger>
+    <section id="pricing" class="bg-white py-16 sm:py-24" aria-label="Pricing tiers">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+        <SectionHeading
+          eyebrow="Packages"
+          title="Start with the plan that matches your operation"
+          subtitle="Every package can be adjusted in the calculator below. The cards show common monthly bundles, setup fees, and included support."
+        />
+        <div class="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3" data-stagger>
           {pricingTierCards.map((tier) => <TierCard {...tier} />)}
         </div>
       </div>
@@ -123,10 +142,10 @@ const structuredData = [
     <!-- Calculator placeholder (phases 03-05 fill this) -->
     <section
       id="calculator"
-      class="bg-gray-50 py-24"
+      class="section-muted py-16 sm:py-24"
       aria-label="Pricing calculator"
     >
-      <div class="mx-auto max-w-5xl px-6">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           eyebrow="Calculator"
           title="Calculate Your Exact Price"
@@ -139,6 +158,8 @@ const structuredData = [
     </section>
 
   </main>
+
+  <ConsultationModal />
 
   <script>
     import "@/scripts/pricing-calculator";

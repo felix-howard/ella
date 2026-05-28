@@ -30,8 +30,8 @@ const isLight = tone === "light";
 const labelClass = isLight ? "text-slate-700" : "text-white/90";
 const optionalClass = isLight ? "text-slate-400" : "text-white/40";
 const inputClass = isLight
-  ? "w-full rounded-lg border border-primary-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 transition-all duration-200 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100"
-  : "w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 backdrop-blur-sm transition-all duration-200 focus:border-white/30 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20";
+  ? "w-full rounded-lg border border-primary-200 bg-white px-4 py-3 text-base text-slate-900 placeholder-slate-400 transition-all duration-200 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100 md:text-sm"
+  : "w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-base text-white placeholder-white/40 backdrop-blur-sm transition-all duration-200 focus:border-white/30 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20 md:text-sm";
 const helperClass = isLight ? "text-center text-xs text-slate-500" : "text-center text-xs text-white/55";
 const helperLinkClass = isLight
   ? "font-semibold text-primary-700 underline underline-offset-2 transition-colors hover:text-primary-900"
@@ -175,73 +175,9 @@ const formspreeEndpoint = hasFormspreeId
   <p class={helperClass}>
     Do not include SSNs, Tax ID numbers, tax documents, or bank information in this public form.
   </p>
-  <p id={statusId} class:list={[helperClass, "hidden"]} aria-live="polite" data-contact-status></p>
+  <p id={statusId} class:list={[helperClass, "hidden rounded-lg px-3 py-2"]} aria-live="polite" data-contact-status></p>
 </form>
 
 <script>
-  document.querySelectorAll("form[data-contact-form]").forEach((form) => {
-    if (!(form instanceof HTMLFormElement) || form.dataset.contactBound === "true") {
-      return;
-    }
-    form.dataset.contactBound = "true";
-
-    form.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const contactEmail = form.dataset.contactEmail || "contact@ella.tax";
-      const formspreeEndpoint = form.dataset.formspreeEndpoint || "";
-      const submitHref = form.dataset.submitHref || "";
-      const status = form.querySelector("[data-contact-status]");
-      const data = new FormData(form);
-
-      if (submitHref) {
-        window.location.href = submitHref;
-        return;
-      }
-
-      const body = [
-        `Name: ${data.get("name") || ""}`,
-        `Email: ${data.get("email") || ""}`,
-        `Phone: ${data.get("phone") || ""}`,
-        `Client Type: ${data.get("clientType") || ""}`,
-        `Service Needed: ${data.get("service") || ""}`,
-        "",
-        `Message: ${data.get("message") || ""}`,
-      ].join("\n");
-      const mailtoHref = `mailto:${contactEmail}?subject=${encodeURIComponent("Ella Tax Services inquiry")}&body=${encodeURIComponent(body)}`;
-
-      if (formspreeEndpoint) {
-        fetch(formspreeEndpoint, {
-          method: "POST",
-          body: data,
-          headers: { Accept: "application/json" },
-        })
-          .then((response) => {
-            if (!response.ok) throw new Error("Inquiry submit failed");
-            form.reset();
-            if (status) {
-              status.textContent = "Inquiry sent. Ella Tax Services will follow up.";
-              status.classList.remove("hidden");
-            }
-          })
-          .catch(() => {
-            if (status) {
-              status.textContent = "Online submit failed. Opening email fallback.";
-              status.classList.remove("hidden");
-            }
-            window.location.href = mailtoHref;
-          });
-        return;
-      }
-
-      if (mailtoHref.length > 1800) {
-        if (status) {
-          status.textContent = `Please shorten the message or email ${contactEmail} directly.`;
-          status.classList.remove("hidden");
-        }
-        return;
-      }
-
-      window.location.href = mailtoHref;
-    });
-  });
+  import "@/scripts/contact-form";
 </script>

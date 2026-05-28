@@ -1,7 +1,92 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-27 ICT
+> **Last Updated:** 2026-05-28 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-05-28
+
+### Landing: Polish Visual QA and Docs Phase 05
+**Status:** Complete
+
+**Changed:**
+- Completed full-route responsive QA for the polished Astro landing site.
+- Fixed 768px pricing-card breakdown overflow by using a two-column tablet tier grid and delaying side-by-side breakdown rows until large screens.
+- Confirmed private/hidden route behavior for `/tax-advisory`, `/try-now`, and `/features`.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+- Headless Chrome QA pass across 44 route-width combinations: 11 routes at 375px, 768px, 1024px, and 1440px
+- No horizontal scroll, text overflow, missing alt text, or broken visible images after lazy-load scroll
+
+---
+
+### Landing: Polish Private, Legal, Redirect Pages Phase 04
+**Status:** Complete
+
+**Changed:**
+- Polished `/tax-advisory`, `/privacy`, `/terms`, `/try-now`, and `/features` route behavior after conversion-page work.
+- Preserved noindex/private treatment and redirect behavior for hidden and legacy pages.
+- Added reusable legal-page navigation for policy pages.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+
+---
+
+### Landing: Polish Conversion Pages Phase 03
+**Status:** Complete
+
+**Changed:**
+- Polished `/services` with service-family grouping and clearer online filing support.
+- Polished `/get-started` safe-contact messaging, contact details, inquiry cards, and secure registration path.
+- Polished `/pricing` gate, hero, tier cards, fixed-fee add-ons, calculator shell, form controls, and summary panel.
+- Mounted and wired pricing consultation modal from calculator summary CTAs.
+- Extracted contact form submit behavior into `apps/landing/src/scripts/contact-form.ts` and kept modal contact submission on mailto/Formspree instead of registration redirect.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+- `pnpm -F @ella/landing exec tsc --noEmit -p tsconfig.json` pass
+- Local route smoke check pass for `/services`, `/get-started`, `/pricing`
+- Tester and code review follow-up pass for pricing consultation flow
+
+---
+
+### Landing: Polish Core Marketing Pages Phase 02
+**Status:** Complete
+
+**Changed:**
+- Polished home, about, and why Ella page rhythm while preserving routes, SEO, structured data, and CTA destinations.
+- Reframed product screenshots with browser/device framing, captions, and intrinsic dimensions.
+- Added controlled software feature grid variants, richer advisor cards, and connected process-step treatment.
+- Varied audience, company facts, challenge, approach, and convenience sections to reduce repeated card-grid density.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+- Follow-up review confirmed list semantics, decorative initials, and screenshot dimension fixes
+
+---
+
+### Landing: Polish Foundation Phase 01
+**Status:** Complete
+
+**Changed:**
+- Refined landing design tokens with neutral depth, dark/warm surfaces, stronger borders, and shared CTA utilities.
+- Switched landing typography to Plus Jakarta Sans.
+- Polished shared hero, section heading, service/icon cards, trust strip, contact band, navbar, and footer.
+- Extracted navbar behavior into a focused script and fixed resize state sync, focus restore, and mobile overlay stacking.
+
+**Validation:**
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
 
 ---
 

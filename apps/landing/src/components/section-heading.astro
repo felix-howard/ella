@@ -14,19 +14,20 @@ const { eyebrow, title, subtitle, align = "center" } = Astro.props;
 
 const alignClass = align === "center" ? "text-center" : "text-left";
 const subtitleMargin = align === "center" ? "mx-auto" : "";
+const titleMargin = align === "center" ? "mx-auto" : "";
 ---
 
 <div class={alignClass}>
   {eyebrow && (
-    <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">
+    <p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">
       {eyebrow}
     </p>
   )}
-  <h2 class="mt-2 text-2xl font-bold text-slate-950 sm:text-3xl md:text-4xl font-heading">
+  <h2 class:list={["mt-3 max-w-3xl text-2xl font-extrabold leading-tight text-slate-950 sm:text-3xl md:text-4xl font-heading", titleMargin]}>
     {title}
   </h2>
   {subtitle && (
-    <p class:list={["mt-4 max-w-2xl leading-relaxed text-slate-600", subtitleMargin]}>
+    <p class:list={["mt-4 max-w-2xl text-base leading-7 text-slate-600", subtitleMargin]}>
       {subtitle}
     </p>
   )}

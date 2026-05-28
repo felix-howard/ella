@@ -18,10 +18,18 @@ const {
 } = Astro.props;
 ---
 
-<section class="border-y border-primary-100 bg-white">
-  <div class="mx-auto grid max-w-7xl gap-px px-4 py-6 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
-    {items.map((item) => (
-      <div class="px-2 py-4">
+<section class="border-y border-neutral-border bg-white">
+  <div class="mx-auto grid max-w-7xl px-4 py-6 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
+    {items.map((item, index) => (
+      <div
+        class:list={[
+          "border-neutral-border px-3 py-4 transition-colors hover:bg-neutral-muted/60 md:px-5",
+          index > 0 ? "border-t md:border-t-0" : "",
+          index % 2 === 1 ? "md:border-l" : "",
+          index > 1 ? "md:border-t" : "",
+          index > 0 ? "lg:border-l lg:border-t-0" : "",
+        ]}
+      >
         <p class="text-sm font-semibold text-slate-950">{item.label}</p>
         <p class="mt-1 text-sm leading-6 text-slate-600">{item.description}</p>
       </div>

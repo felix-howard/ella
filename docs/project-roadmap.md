@@ -1,8 +1,106 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-05-27 ICT
-> **Current Phase:** Landing Pricing Restore COMPLETE ✅ | Landing Reposition Phase 06 COMPLETE ✅ | English-First i18n Hardcode Removal COMPLETE ✅ | Comprehensive User Activity Log COMPLETE ✅ | Operational Filed Retention Workflow COMPLETE ✅ | Upload Portal Security Hardening COMPLETE ✅ | Tax Advisory Presentation Landing COMPLETE ✅ | Contractor Agent Agreement Phase 06 COMPLETE ✅ | Upload Link Message Template Selection COMPLETE ✅ | Campaign Form Intro Landing Content COMPLETE ✅ | Individual Schedule C Activity COMPLETE ✅ | Edit & Send Modal Service Builder COMPLETE ✅ | Engagement Letter Placeholder Fields COMPLETE ✅ | Shared Docs Actions Rework COMPLETE (All 5 Phases) ✅ | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL SUPERSEDED BY SECURITY HARDENING | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Landing Reposition Phase 06 COMPLETE (6 of 6 phases, 100% done) ✅ + English-First i18n Hardcode Removal COMPLETE (6 of 6 phases, 100% done) ✅ + Comprehensive User Activity Log COMPLETE (5 of 5 phases, 100% done) ✅ + Operational Filed Retention Workflow COMPLETE (4 of 4 phases, 100% done) ✅ + Upload Portal Security Hardening COMPLETE (10 phases, 100% done) ✅ + Tax Advisory Presentation Landing COMPLETE (3 phases, 100% done) ✅ + Contractor Agent Agreement Phase 06 COMPLETE (6 of 6 phases done; migration applied/status clean) ✅ + Upload Link Message Template Selection COMPLETE (4 phases, 100% done) ✅ + Campaign Form Intro Landing Content COMPLETE (single-phase conversion UX enhancement, 100% done) ✅ + Individual Schedule C Activity COMPLETE (5 phases, 100% done) ✅ + Edit & Send Modal Service Builder COMPLETE (single-phase UX enhancement, 100% done) ✅ + Engagement Letter Placeholder Fields COMPLETE (single-phase UX enhancement, 100% done) ✅ + Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Last Updated:** 2026-05-28 ICT
+> **Current Phase:** Landing Polish COMPLETE ✅ | Landing Pricing Restore COMPLETE ✅ | Landing Reposition Phase 06 COMPLETE ✅ | English-First i18n Hardcode Removal COMPLETE ✅ | Comprehensive User Activity Log COMPLETE ✅ | Operational Filed Retention Workflow COMPLETE ✅ | Upload Portal Security Hardening COMPLETE ✅ | Tax Advisory Presentation Landing COMPLETE ✅ | Contractor Agent Agreement Phase 06 COMPLETE ✅ | Upload Link Message Template Selection COMPLETE ✅ | Campaign Form Intro Landing Content COMPLETE ✅ | Individual Schedule C Activity COMPLETE ✅ | Edit & Send Modal Service Builder COMPLETE ✅ | Engagement Letter Placeholder Fields COMPLETE ✅ | Shared Docs Actions Rework COMPLETE (All 5 Phases) ✅ | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL SUPERSEDED BY SECURITY HARDENING | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Landing Polish COMPLETE (5 of 5 phases, 100% done) ✅ + Landing Reposition Phase 06 COMPLETE (6 of 6 phases, 100% done) ✅ + English-First i18n Hardcode Removal COMPLETE (6 of 6 phases, 100% done) ✅ + Comprehensive User Activity Log COMPLETE (5 of 5 phases, 100% done) ✅ + Operational Filed Retention Workflow COMPLETE (4 of 4 phases, 100% done) ✅ + Upload Portal Security Hardening COMPLETE (10 phases, 100% done) ✅ + Tax Advisory Presentation Landing COMPLETE (3 phases, 100% done) ✅ + Contractor Agent Agreement Phase 06 COMPLETE (6 of 6 phases done; migration applied/status clean) ✅ + Upload Link Message Template Selection COMPLETE (4 phases, 100% done) ✅ + Campaign Form Intro Landing Content COMPLETE (single-phase conversion UX enhancement, 100% done) ✅ + Individual Schedule C Activity COMPLETE (5 phases, 100% done) ✅ + Edit & Send Modal Service Builder COMPLETE (single-phase UX enhancement, 100% done) ✅ + Engagement Letter Placeholder Fields COMPLETE (single-phase UX enhancement, 100% done) ✅ + Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+
+### Landing Polish Phase 05: Visual QA and Docs ✅
+**Started:** 2026-05-28
+**Completed:** 2026-05-28
+**Status:** COMPLETE
+**Objective:** Validate every polished landing route, fix responsive regressions, and sync docs.
+
+**Delivered:**
+- Full responsive route QA across public, legal, private, and hidden redirect pages.
+- Fixed tablet pricing-card overflow by adjusting tier grid and breakdown row breakpoints.
+- Confirmed `/tax-advisory` and `/try-now` noindex treatment and `/features` redirect to `/services`.
+- Changelog and roadmap synced for final landing polish completion.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+- Headless Chrome QA pass for 11 routes at 375px, 768px, 1024px, and 1440px
+- No horizontal scroll, text overflow, missing alt text, or broken visible images
+
+---
+
+### Landing Polish Phase 04: Private, Legal, Redirect Pages ✅
+**Started:** 2026-05-28
+**Completed:** 2026-05-28
+**Status:** COMPLETE
+**Objective:** Polish private, legal, hidden, and redirect landing routes without changing SEO/privacy intent.
+
+**Delivered:**
+- `/tax-advisory` private presentation route polished while preserving noindex behavior.
+- `/privacy` and `/terms` legal pages polished with reusable legal-page navigation.
+- `/try-now` and `/features` preserved as hidden/redirect routes.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+
+---
+
+### Landing Polish Phase 03: Conversion Pages ✅
+**Started:** 2026-05-28
+**Completed:** 2026-05-28
+**Status:** COMPLETE
+**Objective:** Polish high-intent services, get-started, pricing, calculator, and contact conversion paths.
+
+**Delivered:**
+- `/services` now groups service cards into scannable service families and separates online filing support as a capability path.
+- `/get-started` now has stronger safe-contact guidance, premium contact details, clearer inquiry cards, and secure registration path.
+- `/pricing` now has a polished preview gate, hero, package cards, fixed-fee add-ons, calculator shell, and summary panel.
+- Pricing consultation modal is mounted and opened from calculator summary CTAs.
+- Contact form behavior was extracted to a focused script and the pricing modal uses contact submission instead of registration redirect.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+- Local route smoke check pass for `/services`, `/get-started`, `/pricing`
+- Tester and code review follow-up pass for pricing consultation flow
+
+---
+
+### Landing Polish Phase 02: Core Marketing Pages ✅
+**Started:** 2026-05-28
+**Completed:** 2026-05-28
+**Status:** COMPLETE
+**Objective:** Polish home, about, and why Ella pages after the shared landing foundation.
+
+**Delivered:**
+- Home page software proof now uses browser/device screenshot framing with captions and intrinsic image dimensions.
+- About page story/facts layout now reads more editorial and less like equal-weight cards.
+- Why Ella now separates challenge, approach, and online convenience sections with distinct visual treatments.
+- Shared advisor cards, software feature grid variants, and service process visuals refined with accessibility fixes.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+- Follow-up review pass, no blocker-level issues
+
+---
+
+### Landing Polish Phase 01: Design Foundation ✅
+**Started:** 2026-05-28
+**Completed:** 2026-05-28
+**Status:** COMPLETE
+**Objective:** Establish shared premium visual foundation for the Astro landing app before page-level polish.
+
+**Delivered:**
+- Neutral, warm, and dark surface tokens added while preserving Ella mint/coral brand.
+- Plus Jakarta Sans font loading and shared CTA utilities added.
+- Shared hero, cards, section headings, trust strip, contact band, nav, and footer polished.
+- Navbar behavior extracted to focused script with resize sync and focus restore.
+
+**Validation:**
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing build` pass, 11 pages built and sitemap generated
+
+---
 
 ### Landing Reposition Phase 06: Validation, Review, and Docs ✅
 **Started:** 2026-05-27

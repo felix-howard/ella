@@ -52,10 +52,10 @@ const structuredData = [
     <TrustStrip />
 
     <section class="bg-white py-16 sm:py-24" aria-label="Company story">
-      <div class="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
-        <div>
+      <div class="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:px-8">
+        <div class="max-w-3xl">
           <SectionHeading eyebrow="Our company" title="A clearer way to get tax help online" align="left" />
-          <div class="mt-6 space-y-4 text-base leading-7 text-slate-600">
+          <div class="mt-6 space-y-5 border-l-2 border-primary-200 pl-6 text-base leading-8 text-slate-600">
             <p>
               Tax clients deserve more than scattered email threads and last-minute document requests.
               Ella Tax Services brings tax preparation, planning, bookkeeping, and advisory support into
@@ -67,11 +67,22 @@ const structuredData = [
             </p>
           </div>
         </div>
-        <div class="grid gap-4 sm:grid-cols-2">
-          {companyFacts.map((fact) => (
-            <div class="service-card p-5">
-              <p class="text-xs font-semibold uppercase tracking-widest text-primary-700">{fact.label}</p>
-              <p class="mt-2 text-sm font-semibold leading-6 text-slate-950">{fact.value}</p>
+        <div class="grid gap-4">
+          {companyFacts.map((fact, index) => (
+            <div class:list={[
+              "rounded-lg border p-5",
+              index === 0
+                ? "border-primary-700 bg-surface-dark text-white shadow-xl shadow-primary-900/15"
+                : "border-neutral-border bg-white shadow-sm",
+            ]}>
+              <p class:list={[
+                "text-xs font-semibold uppercase tracking-widest",
+                index === 0 ? "text-primary-200" : "text-primary-700",
+              ]}>{fact.label}</p>
+              <p class:list={[
+                "mt-2 text-sm font-semibold leading-6",
+                index === 0 ? "text-white" : "text-slate-950",
+              ]}>{fact.value}</p>
             </div>
           ))}
         </div>

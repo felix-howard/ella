@@ -20,7 +20,7 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
 <!-- Backdrop overlay for mobile menu -->
 <div
   id="mobile-backdrop"
-  class="fixed inset-0 z-[45] bg-black/50 opacity-0 pointer-events-none transition-opacity duration-300 md:hidden"
+  class="fixed inset-0 z-[55] bg-black/50 opacity-0 pointer-events-none transition-opacity duration-300 md:hidden"
   aria-hidden="true"
 ></div>
 
@@ -43,10 +43,10 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
           <a
             href={link.href}
             class:list={[
-              "text-base font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
+              "rounded-full px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
               normalizedPath === link.href
-                ? "text-primary-600"
-                : "text-gray-600 hover:text-gray-900",
+                ? "bg-primary-50 text-primary-700"
+                : "text-slate-600 hover:bg-white hover:text-slate-950",
             ]}
             aria-current={normalizedPath === link.href ? "page" : undefined}
           >
@@ -59,7 +59,7 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
       <div class="flex items-center gap-3 md:gap-5">
         <a
           href={siteConfig.cta.primaryHref}
-          class="whitespace-nowrap rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary-700 hover:shadow-lg hover:shadow-primary-600/25 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 md:px-5 md:py-2.5"
+          class="whitespace-nowrap rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-[background-color,box-shadow,transform] hover:bg-primary-800 hover:shadow-lg hover:shadow-primary-600/25 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 md:px-5 md:py-2.5"
         >
           {siteConfig.cta.navLabel}
         </a>
@@ -67,7 +67,7 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
         <!-- Mobile hamburger -->
         <button
           id="mobile-menu-btn"
-          class="flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 active:scale-[0.98] transition-transform focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 md:hidden"
+          class="flex h-10 w-10 min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-lg text-slate-600 transition-[background-color,transform] hover:bg-slate-100 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 md:hidden"
           aria-expanded="false"
           aria-controls="mobile-menu"
           aria-label="Toggle navigation menu"
@@ -91,7 +91,7 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
 <!-- Mobile slide-in menu (right to left) -->
 <div
   id="mobile-menu"
-  class="fixed top-0 right-0 bottom-0 z-50 w-72 translate-x-full bg-white shadow-2xl transition-transform duration-300 ease-out md:hidden"
+  class="fixed top-0 right-0 bottom-0 z-[60] w-72 translate-x-full bg-white shadow-2xl transition-transform duration-300 ease-out md:hidden"
   aria-hidden="true"
   inert
 >
@@ -100,7 +100,7 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
     <span class="text-lg font-semibold text-gray-900">Menu</span>
     <button
       id="mobile-menu-close"
-      class="flex h-10 w-10 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 active:scale-[0.98] transition-transform focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+      class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg text-slate-600 transition-[background-color,transform] hover:bg-slate-100 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
       aria-label="Close menu"
     >
       <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -114,10 +114,10 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
       <a
         href={link.href}
         class:list={[
-          "rounded-lg px-4 py-3 text-base font-medium transition-colors active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
+          "rounded-lg px-4 py-3 text-base font-medium transition-[background-color,color,transform] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
           normalizedPath === link.href
-            ? "bg-primary-50 text-primary-600"
-            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+            ? "bg-primary-50 text-primary-700"
+            : "text-slate-600 hover:bg-slate-50 hover:text-slate-950",
         ]}
         aria-current={normalizedPath === link.href ? "page" : undefined}
       >
@@ -127,187 +127,8 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
   </div>
 </div>
 
-<style>
-  /* Initial state: full-width, transparent, no border-radius */
-  .nav-pill-initial {
-    background: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: none;
-    border-radius: 0;
-    /* Equal horizontal margin keeps expansion symmetric from both sides */
-    margin: 0;
-    box-shadow: none;
-    /* border-radius snaps to 0 instantly so no rounded corners on full-width */
-    transition:
-      background 500ms cubic-bezier(0.4, 0, 0.2, 1),
-      backdrop-filter 500ms cubic-bezier(0.4, 0, 0.2, 1),
-      margin 500ms cubic-bezier(0.4, 0, 0.2, 1),
-      box-shadow 500ms cubic-bezier(0.4, 0, 0.2, 1),
-      border-radius 0ms;
-  }
-
-  /* Scrolled state: floating pill with rounded corners and gradient bg (desktop only) */
-  @media (min-width: 768px) {
-    .nav-pill-scrolled {
-      background: linear-gradient(
-        135deg,
-        rgba(255, 255, 255, 0.92),
-        rgba(245, 250, 246, 0.95),
-        rgba(255, 255, 255, 0.92)
-      );
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      border: none;
-      border-radius: 9999px;
-      /* Equal left/right margin creates symmetric inset from both edges */
-      margin: 0.75rem 1rem;
-      box-shadow:
-        0 4px 24px rgba(0, 0, 0, 0.06),
-        0 1px 3px rgba(0, 0, 0, 0.04),
-        0 0 0 1px rgba(255, 255, 255, 0.6) inset;
-      /* border-radius animates in with a delay so width shrinks first */
-      transition:
-        background 500ms cubic-bezier(0.4, 0, 0.2, 1),
-        backdrop-filter 500ms cubic-bezier(0.4, 0, 0.2, 1),
-        margin 500ms cubic-bezier(0.4, 0, 0.2, 1),
-        box-shadow 500ms cubic-bezier(0.4, 0, 0.2, 1),
-        border-radius 400ms cubic-bezier(0.4, 0, 0.2, 1) 100ms;
-    }
-
-    /* Scrolled: content fills pill edge-to-edge, logo/buttons at edges */
-    .nav-pill-scrolled > div {
-      max-width: 100%;
-      padding-top: 0.75rem;
-      padding-bottom: 0.75rem;
-      padding-left: 2rem;
-      padding-right: 2rem;
-    }
-
-    /* Smaller logo in scrolled state */
-    .nav-pill-scrolled img {
-      height: 1.5rem;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .nav-pill-scrolled {
-      margin-left: 2rem;
-      margin-right: 2rem;
-    }
-  }
-
-  @media (min-width: 1280px) {
-    .nav-pill-scrolled {
-      margin-left: 8rem;
-      margin-right: 8rem;
-    }
-  }
-</style>
-
 <script>
-  /** Navbar: scroll-based floating pill animation (desktop), mobile slide-in menu */
-  const navPill = document.getElementById("nav-pill");
-  const btn = document.getElementById("mobile-menu-btn");
-  const closeBtn = document.getElementById("mobile-menu-close");
-  const menu = document.getElementById("mobile-menu");
-  const backdrop = document.getElementById("mobile-backdrop");
+  import { initNavbar } from "@/scripts/navbar";
 
-  const SCROLL_THRESHOLD = 50;
-  let isOpen = false;
-  let isScrolled = false;
-
-  /* ── Scroll-based pill animation (desktop only) ── */
-  function updateNavState() {
-    if (window.innerWidth < 768) return; // Skip on mobile
-    const scrolled = window.scrollY > SCROLL_THRESHOLD;
-    if (scrolled === isScrolled) return;
-    isScrolled = scrolled;
-
-    if (scrolled) {
-      navPill?.classList.remove("nav-pill-initial");
-      navPill?.classList.add("nav-pill-scrolled");
-    } else {
-      navPill?.classList.remove("nav-pill-scrolled");
-      navPill?.classList.add("nav-pill-initial");
-    }
-  }
-
-  window.addEventListener("scroll", updateNavState, { passive: true });
-  updateNavState();
-
-  /* ── Mobile menu helpers ── */
-  function getFocusableElements(): HTMLElement[] {
-    if (!menu) return [];
-    return Array.from(
-      menu.querySelectorAll<HTMLElement>("a[href], button:not([disabled]), input:not([disabled])")
-    );
-  }
-
-  function closeMenu() {
-    if (!isOpen) return;
-    isOpen = false;
-    document.body.style.overflow = "";
-    menu?.classList.add("translate-x-full");
-    menu?.classList.remove("translate-x-0");
-    menu?.setAttribute("aria-hidden", "true");
-    menu?.setAttribute("inert", "");
-    backdrop?.classList.add("opacity-0", "pointer-events-none");
-    backdrop?.classList.remove("opacity-100", "pointer-events-auto");
-    btn?.setAttribute("aria-expanded", "false");
-  }
-
-  function openMenu() {
-    if (isOpen) return;
-    isOpen = true;
-    document.body.style.overflow = "hidden";
-    menu?.classList.remove("translate-x-full");
-    menu?.classList.add("translate-x-0");
-    menu?.setAttribute("aria-hidden", "false");
-    menu?.removeAttribute("inert");
-    backdrop?.classList.remove("opacity-0", "pointer-events-none");
-    backdrop?.classList.add("opacity-100", "pointer-events-auto");
-    btn?.setAttribute("aria-expanded", "true");
-    menu?.querySelector("a")?.focus();
-  }
-
-  function toggleMenu() {
-    isOpen ? closeMenu() : openMenu();
-  }
-
-  btn?.addEventListener("click", toggleMenu);
-  closeBtn?.addEventListener("click", closeMenu);
-  backdrop?.addEventListener("click", closeMenu);
-
-  /* Keyboard: Escape to close, Tab focus trap */
-  document.addEventListener("keydown", (e) => {
-    if (!isOpen) return;
-    if (e.key === "Escape") {
-      closeMenu();
-      btn?.focus();
-      return;
-    }
-    if (e.key === "Tab") {
-      const focusable = getFocusableElements();
-      if (focusable.length === 0) return;
-      const firstEl = focusable[0];
-      const lastEl = focusable[focusable.length - 1];
-      if (e.shiftKey) {
-        if (document.activeElement === firstEl) {
-          e.preventDefault();
-          lastEl.focus();
-        }
-      } else {
-        if (document.activeElement === lastEl) {
-          e.preventDefault();
-          firstEl.focus();
-        }
-      }
-    }
-  });
-
-  /* Close menu on resize to desktop */
-  window.addEventListener("resize", () => {
-    if (window.innerWidth >= 768 && isOpen) closeMenu();
-  }, { passive: true });
+  initNavbar();
 </script>

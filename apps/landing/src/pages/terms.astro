@@ -5,6 +5,7 @@
  */
 import BaseLayout from "@/layouts/base-layout.astro";
 import HeadSEO from "@/components/seo/head-seo.astro";
+import LegalPageNav from "@/components/legal-page-nav.astro";
 import { breadcrumbSchema } from "@/components/seo/structured-data";
 import { siteConfig } from "@/config/site";
 
@@ -15,6 +16,27 @@ const structuredData = [
   ]),
 ];
 const address = siteConfig.contact.address;
+const pageLinks = [
+  { href: "#services", label: "Services" },
+  { href: "#no-legal-or-tax-advice-guarantee", label: "No Legal or Tax Advice Guarantee" },
+  { href: "#client-portal-access", label: "Client Portal Access" },
+  { href: "#client-obligations", label: "Client Obligations" },
+  { href: "#authorization-to-file-and-act", label: "Authorization to File and Act" },
+  { href: "#fees-and-payment", label: "Fees and Payment" },
+  { href: "#refunds", label: "Refunds" },
+  { href: "#deadlines-and-client-delays", label: "Deadlines and Client Delays" },
+  { href: "#third-party-services", label: "Third-Party Services" },
+  { href: "#no-guarantee-of-results", label: "No Guarantee of Results" },
+  { href: "#limitation-of-liability", label: "Limitation of Liability" },
+  { href: "#indemnification", label: "Indemnification" },
+  { href: "#intellectual-property", label: "Intellectual Property" },
+  { href: "#termination", label: "Termination" },
+  { href: "#dispute-resolution", label: "Dispute Resolution" },
+  { href: "#governing-law", label: "Governing Law" },
+  { href: "#privacy", label: "Privacy" },
+  { href: "#modifications", label: "Modifications" },
+  { href: "#contact-information", label: "Contact Information" },
+];
 ---
 
 <BaseLayout>
@@ -26,16 +48,18 @@ const address = siteConfig.contact.address;
   />
 
   <main class="service-section pt-28 pb-16 sm:pt-32 sm:pb-24">
-    <article class="legal-content service-card mx-auto max-w-3xl px-4 py-8 sm:px-8">
+    <article class="legal-content legal-document service-card mx-auto max-w-4xl px-5 py-8 sm:px-10">
       <h1>Ella Tax Services LLC &ndash; Terms of Service</h1>
       <p><strong>Effective Date:</strong> April 4th, 2026</p>
       <p>
         These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of services provided by <strong>Ella Tax Services LLC</strong> (&ldquo;Ella Tax Services,&rdquo; &ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;). By accessing or using our services, you agree to be bound by these Terms.
       </p>
 
+      <LegalPageNav links={pageLinks} />
+
       <hr />
 
-      <h2>1. Services</h2>
+      <h2 id="services">1. Services</h2>
       <p>Ella Tax Services LLC provides services including:</p>
       <ul>
         <li>Tax preparation and filing for individuals and businesses</li>
@@ -47,7 +71,7 @@ const address = siteConfig.contact.address;
 
       <hr />
 
-      <h2>2. No Legal or Tax Advice Guarantee</h2>
+      <h2 id="no-legal-or-tax-advice-guarantee">2. No Legal or Tax Advice Guarantee</h2>
       <p>
         While we provide tax-related services, <strong>nothing on our platform or in our communications constitutes legal advice</strong>.
       </p>
@@ -59,7 +83,7 @@ const address = siteConfig.contact.address;
 
       <hr />
 
-      <h2>3. Client Portal Access</h2>
+      <h2 id="client-portal-access">3. Client Portal Access</h2>
       <p>To access certain services, you may be required to use a client portal or secure upload workflow.</p>
       <p>You agree to:</p>
       <ul>
@@ -71,7 +95,7 @@ const address = siteConfig.contact.address;
 
       <hr />
 
-      <h2>4. Client Obligations</h2>
+      <h2 id="client-obligations">4. Client Obligations</h2>
       <p>You agree that:</p>
       <ul>
         <li>All information and documents you provide are true, accurate, and complete</li>
@@ -84,7 +108,7 @@ const address = siteConfig.contact.address;
 
       <hr />
 
-      <h2>5. Authorization to File and Act</h2>
+      <h2 id="authorization-to-file-and-act">5. Authorization to File and Act</h2>
       <p>By using our services, you authorize Ella Tax Services LLC to:</p>
       <ul>
         <li>Prepare and submit tax filings on your behalf</li>
@@ -95,7 +119,7 @@ const address = siteConfig.contact.address;
 
       <hr />
 
-      <h2>6. Fees and Payment</h2>
+      <h2 id="fees-and-payment">6. Fees and Payment</h2>
       <ul>
         <li>Fees will be disclosed before services are performed</li>
         <li>Payment may be required upfront, upon completion, or through an agreed recurring service arrangement</li>
@@ -110,14 +134,14 @@ const address = siteConfig.contact.address;
 
       <hr />
 
-      <h2>7. Refunds</h2>
+      <h2 id="refunds">7. Refunds</h2>
       <p>
         All fees are <strong>non-refundable</strong> once services have been initiated or completed, unless otherwise stated in writing.
       </p>
 
       <hr />
 
-      <h2>8. Deadlines and Client Delays</h2>
+      <h2 id="deadlines-and-client-delays">8. Deadlines and Client Delays</h2>
       <p>You acknowledge that:</p>
       <ul>
         <li>Timely submission of documents is your responsibility</li>
@@ -126,7 +150,7 @@ const address = siteConfig.contact.address;
 
       <hr />
 
-      <h2>9. Third-Party Services</h2>
+      <h2 id="third-party-services">9. Third-Party Services</h2>
       <p>We may use third-party providers (e.g., software, payment processors, filing systems).</p>
       <p>We are not responsible for:</p>
       <ul>
@@ -136,7 +160,7 @@ const address = siteConfig.contact.address;
 
       <hr />
 
-      <h2>10. No Guarantee of Results</h2>
+      <h2 id="no-guarantee-of-results">10. No Guarantee of Results</h2>
       <p>We do not guarantee:</p>
       <ul>
         <li>Tax refunds or financial outcomes</li>
@@ -147,7 +171,7 @@ const address = siteConfig.contact.address;
 
       <hr />
 
-      <h2>11. Limitation of Liability</h2>
+      <h2 id="limitation-of-liability">11. Limitation of Liability</h2>
       <p>To the fullest extent permitted by law:</p>
       <ul>
         <li>Ella Tax Services LLC shall not be liable for indirect, incidental, special, or consequential damages</li>
@@ -156,7 +180,7 @@ const address = siteConfig.contact.address;
 
       <hr />
 
-      <h2>12. Indemnification</h2>
+      <h2 id="indemnification">12. Indemnification</h2>
       <p>
         You agree to indemnify and hold harmless Ella Tax Services LLC from any claims, damages, or liabilities arising from:
       </p>
@@ -168,14 +192,14 @@ const address = siteConfig.contact.address;
 
       <hr />
 
-      <h2>13. Intellectual Property</h2>
+      <h2 id="intellectual-property">13. Intellectual Property</h2>
       <p>
         All content, software, branding, and materials are the property of Ella Tax Services LLC and may not be copied, distributed, or used without permission.
       </p>
 
       <hr />
 
-      <h2>14. Termination</h2>
+      <h2 id="termination">14. Termination</h2>
       <p>We reserve the right to suspend or terminate your access to services at any time if:</p>
       <ul>
         <li>You violate these Terms</li>
@@ -185,35 +209,35 @@ const address = siteConfig.contact.address;
 
       <hr />
 
-      <h2>15. Dispute Resolution</h2>
+      <h2 id="dispute-resolution">15. Dispute Resolution</h2>
       <p>
         Any disputes arising under these Terms shall be resolved through <strong>binding arbitration</strong>, and not through court proceedings or class actions, except where prohibited by law.
       </p>
 
       <hr />
 
-      <h2>16. Governing Law</h2>
+      <h2 id="governing-law">16. Governing Law</h2>
       <p>
         These Terms shall be governed by and construed in accordance with the laws of the State of Texas, except where prohibited by applicable law.
       </p>
 
       <hr />
 
-      <h2>17. Privacy</h2>
+      <h2 id="privacy">17. Privacy</h2>
       <p>
         Your use of our services is also governed by our <a href="/privacy">Privacy Policy</a>, which explains how we collect, use, and protect your data.
       </p>
 
       <hr />
 
-      <h2>18. Modifications</h2>
+      <h2 id="modifications">18. Modifications</h2>
       <p>
         We may update these Terms at any time. Continued use of our services after updates constitutes acceptance of the revised Terms.
       </p>
 
       <hr />
 
-      <h2>19. Contact Information</h2>
+      <h2 id="contact-information">19. Contact Information</h2>
       <p>For questions regarding these Terms, please contact:</p>
       <ul>
         <li>Email: <a href={siteConfig.contact.emailHref}>{siteConfig.contact.email}</a></li>

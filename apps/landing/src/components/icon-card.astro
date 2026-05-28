@@ -21,8 +21,8 @@ const styles = {
 }[variant];
 ---
 
-<div class="service-card p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-  <div class:list={["mb-4 flex h-12 w-12 items-center justify-center rounded-lg", styles]}>
+<div class="service-card service-card-interactive p-6">
+  <div class:list={["mb-4 flex h-12 w-12 items-center justify-center rounded-lg ring-1 ring-white/60", styles]}>
     <svg
       class="h-6 w-6"
       fill="none"
@@ -34,6 +34,6 @@ const styles = {
       <path stroke-linecap="round" stroke-linejoin="round" d={icon} />
     </svg>
   </div>
-  <h3 class="text-base font-semibold text-slate-950">{title}</h3>
+  <h3 class="text-base font-bold text-slate-950">{title}</h3>
   <p class="mt-2 text-sm leading-relaxed text-slate-600">{description}</p>
 </div>

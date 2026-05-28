@@ -31,7 +31,7 @@ const currentPath = Astro.url.pathname;
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
 
@@ -43,7 +43,7 @@ const currentPath = Astro.url.pathname;
     <!-- SEO tags injected by each page via HeadSEO component -->
     <slot name="head" />
   </head>
-  <body class:list={["min-h-screen bg-primary-50/30 text-slate-900 font-body", className]}>
+  <body class:list={["min-h-screen bg-neutral-bg text-slate-900 font-body", className]}>
     <!-- Skip to content link for keyboard/screen reader users -->
     <a
       href="#main-content"

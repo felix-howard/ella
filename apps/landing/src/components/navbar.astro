@@ -58,7 +58,7 @@ const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, ""
       <!-- Right side: primary CTA + mobile menu -->
       <div class="flex items-center gap-3 md:gap-5">
         <a
-          href={siteConfig.cta.primaryHref}
+          href={siteConfig.cta.navHref}
           class="whitespace-nowrap rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-[background-color,box-shadow,transform] hover:bg-primary-800 hover:shadow-lg hover:shadow-primary-600/25 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 md:px-5 md:py-2.5"
         >
           {siteConfig.cta.navLabel}

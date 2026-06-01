@@ -7,37 +7,66 @@
 body { margin: 0; }
 
 .toolbar {
-  align-items: center;
   background: #ffffff;
   border-bottom: 1px solid #dbe7e2;
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  padding: 14px 18px;
+  padding: 10px 16px;
   position: sticky;
   top: 0;
   z-index: 2;
 }
 
-.toolbar a,
+.toolbar-inner {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin: 0 auto;
+  max-width: 8.5in;
+}
+
+.toolbar a {
+  align-items: center;
+  color: #355247;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 44px;
+  text-decoration: none;
+  transition: color 180ms ease;
+  white-space: nowrap;
+}
+
+.toolbar a::before {
+  border-bottom: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  content: "";
+  display: inline-block;
+  height: 7px;
+  margin-right: 9px;
+  transform: rotate(45deg);
+  width: 7px;
+}
+
+.toolbar a:hover { color: #047857; }
+
 .toolbar button {
   border-radius: 999px;
-  border: 1px solid #c9d8d2;
-  color: #163b30;
+  border: 1px solid #047857;
   cursor: pointer;
   font: inherit;
   font-size: 14px;
   font-weight: 700;
   min-height: 44px;
   padding: 0 18px;
-  text-decoration: none;
+  background: #047857;
+  color: #ffffff;
+  transition: background-color 180ms ease, transform 180ms ease;
 }
 
-.toolbar button {
-  background: #047857;
-  border-color: #047857;
-  color: #ffffff;
-}
+.toolbar button:hover { background: #065f46; }
+.toolbar button:active { transform: translateY(1px); }
+.toolbar a:focus-visible,
+.toolbar button:focus-visible { outline: 2px solid #047857; outline-offset: 3px; }
 
 .quote-shell {
   margin: 32px auto;
@@ -173,6 +202,8 @@ html[data-quote-state="invalid"] .quote-doc { display: none; }
 }
 
 @media (max-width: 720px) {
+  .toolbar { padding-inline: 14px; }
+  .toolbar button { padding-inline: 16px; }
   .quote-doc { padding: 28px 20px; }
   .brand-row, .meta-grid, .totals-grid { grid-template-columns: 1fr; }
   .right { text-align: left; }

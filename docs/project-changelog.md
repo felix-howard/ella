@@ -14,6 +14,7 @@
 - Removed public landing payment-link UI and token-based Stripe wiring from `/pricing`.
 - Added a Print PDF action after standard quote calculation.
 - Added `/pricing/print` formal quote page with itemized monthly/setup services, totals, terms, contact info, and print media styling.
+- Refined print-page toolbar so Back to pricing is a compact secondary link and Print remains the primary action.
 
 **Validation:**
 - `pnpm -F @ella/landing lint` pass

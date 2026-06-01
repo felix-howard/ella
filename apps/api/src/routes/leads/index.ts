@@ -11,6 +11,7 @@ import { sanitizeSearchInput, sanitizeTextInput } from '../../lib/validation'
 import { formatPhoneToE164, sendSmsOnly, isTwilioConfigured } from '../../services/sms'
 import { createMagicLink } from '../../services/magic-link'
 import { sendWelcomeMessage } from '../../services/sms'
+import { publishMessageEvent } from '../../services/realtime/message-publisher'
 import { rateLimiter } from '../../middleware/rate-limiter'
 import { authMiddleware, requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
@@ -670,7 +671,7 @@ leadsRoute.post(
     // Get org slug for form URL
     const org = await prisma.organization.findUnique({
       where: { id: orgId },
-      select: { slug: true },
+      select: { slug: true, clerkOrgId: true },
     })
 
     if (!org) {
@@ -699,6 +700,7 @@ leadsRoute.post(
     let sent = 0
     let failed = 0
     const errors: string[] = []
+    const createdMessages: Array<{ id: string; leadId: string }> = []
 
     // Process SMS in batches of 10 for concurrency control
     const BATCH_SIZE = 10
@@ -711,18 +713,35 @@ leadsRoute.post(
             .replace(/\{\{formLink\}\}/g, formUrl)
 
           const smsResult = await sendSmsOnly(lead.phone, personalizedMessage)
+          const twilioStatus = smsResult.success
+            ? (smsResult.status || 'queued')
+            : `ERROR: ${smsResult.error ?? 'unknown'}`
 
-          await prisma.smsSendLog.create({
-            data: {
-              leadId: lead.id,
-              message: personalizedMessage,
-              status: smsResult.success ? 'SENT' : 'FAILED',
-              twilioSid: smsResult.sid ?? null,
-              error: smsResult.error ?? null,
-              sentById: staffId,
-              organizationId: orgId,
-            },
-          })
+          const [messageRecord] = await prisma.$transaction([
+            prisma.message.create({
+              data: {
+                leadId: lead.id,
+                channel: 'SMS',
+                direction: 'OUTBOUND',
+                content: personalizedMessage,
+                twilioSid: smsResult.sid ?? null,
+                twilioStatus,
+                sentById: staffId,
+              },
+            }),
+            prisma.smsSendLog.create({
+              data: {
+                leadId: lead.id,
+                message: personalizedMessage,
+                status: smsResult.success ? 'SENT' : 'FAILED',
+                twilioSid: smsResult.sid ?? null,
+                error: smsResult.error ?? null,
+                sentById: staffId,
+                organizationId: orgId,
+              },
+            }),
+          ])
+          createdMessages.push({ id: messageRecord.id, leadId: lead.id })
 
           if (smsResult.success) {
             return { success: true, leadName: lead.firstName }
@@ -740,6 +759,16 @@ leadsRoute.post(
           errors.push(`${name}: SMS delivery failed`)
         }
       }
+    }
+
+    for (const messageRecord of createdMessages) {
+      publishMessageEvent(org.clerkOrgId, {
+        leadId: messageRecord.leadId,
+        messageId: messageRecord.id,
+        direction: 'OUTBOUND',
+        channel: 'SMS',
+        timestamp: new Date().toISOString(),
+      }).catch(() => {})
     }
 
     // Update all targeted leads to SENT status (regardless of delivery outcome)
@@ -768,6 +797,7 @@ leadsRoute.post(
         count: leads.length,
         sent,
         failed,
+        messageIds: createdMessages.map((m) => m.id),
         formLinkType,
         usedStaffFormSlug: Boolean(staffFormSlug),
       },

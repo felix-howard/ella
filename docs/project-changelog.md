@@ -7,6 +7,20 @@
 
 ## 2026-06-01
 
+### Workspace: Lead Bulk SMS Chat History Fix
+**Status:** Complete
+
+**Changed:**
+- Fixed lead bulk SMS sends to write outbound `Message` rows in addition to `SmsSendLog` audit rows.
+- Added lead message history read-repair for old bulk SMS logs that were sent before this fix.
+- Published lead message realtime events for bulk sends so open lead chat widgets can refresh.
+- Added regression coverage for `/leads/bulk-sms` dual-writing message history and legacy log backfill.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/leads/__tests__/bulk-sms.test.ts src/routes/leads/__tests__/messages.test.ts` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass
+
 ### Workspace: Recent Activity Noise Fix
 **Status:** Complete
 

@@ -19,8 +19,10 @@ vi.mock('../../../lib/db', () => ({
       findMany: vi.fn(),
       count: vi.fn(),
       create: vi.fn(),
+      createMany: vi.fn(),
     },
     smsSendLog: {
+      findMany: vi.fn(),
       create: vi.fn(),
     },
     $transaction: vi.fn(),
@@ -95,6 +97,7 @@ function buildApp(userOverride?: Record<string, unknown>) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(prisma.smsSendLog.findMany).mockResolvedValue([] as never)
 })
 
 describe('GET /leads/:id/messages', () => {
@@ -124,6 +127,57 @@ describe('GET /leads/:id/messages', () => {
     expect(vi.mocked(prisma.lead.findFirst)).toHaveBeenCalledWith({
       where: { id: VALID_LEAD_CUID, organizationId: 'org_1' },
       select: { id: true },
+    })
+  })
+
+  it('backfills legacy SmsSendLog rows so prior bulk SMS appears in lead chat', async () => {
+    const sentAt = new Date('2026-04-24T09:55:00Z')
+    vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({ id: VALID_LEAD_CUID } as never)
+    vi.mocked(prisma.smsSendLog.findMany).mockResolvedValueOnce([
+      {
+        message: 'legacy bulk sms',
+        status: 'SENT',
+        twilioSid: 'SM_LEGACY',
+        error: null,
+        sentById: 'staff_1',
+        sentAt,
+      },
+    ] as never)
+    vi.mocked(prisma.message.findMany)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        {
+          id: 'm_legacy',
+          leadId: VALID_LEAD_CUID,
+          direction: 'OUTBOUND',
+          channel: 'SMS',
+          content: 'legacy bulk sms',
+          twilioSid: 'SM_LEGACY',
+          createdAt: sentAt,
+          updatedAt: sentAt,
+          sentBy: null,
+        },
+      ] as never)
+    vi.mocked(prisma.message.createMany).mockResolvedValueOnce({ count: 1 } as never)
+    vi.mocked(prisma.message.count).mockResolvedValueOnce(1)
+
+    const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/messages`)
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { messages: Array<{ content: string }> }
+    expect(body.messages[0]?.content).toBe('legacy bulk sms')
+    expect(vi.mocked(prisma.message.createMany)).toHaveBeenCalledWith({
+      data: [{
+        leadId: VALID_LEAD_CUID,
+        channel: 'SMS',
+        direction: 'OUTBOUND',
+        content: 'legacy bulk sms',
+        twilioSid: 'SM_LEGACY',
+        twilioStatus: 'sent',
+        sentById: 'staff_1',
+        createdAt: sentAt,
+      }],
+      skipDuplicates: true,
     })
   })
 

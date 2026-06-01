@@ -34,6 +34,48 @@ const leadMessagesRoute = new Hono<{ Variables: AuthVariables }>()
 leadMessagesRoute.use('/:id/messages', authMiddleware, requireOrgAdmin)
 leadMessagesRoute.use('/:id/messages/*', authMiddleware, requireOrgAdmin)
 
+async function backfillLeadMessagesFromSmsLogs(leadId: string, organizationId: string) {
+  const smsLogs = await prisma.smsSendLog.findMany({
+    where: {
+      leadId,
+      organizationId,
+      twilioSid: { not: null },
+    },
+    select: {
+      message: true,
+      status: true,
+      twilioSid: true,
+      error: true,
+      sentById: true,
+      sentAt: true,
+    },
+  })
+  const twilioSids = smsLogs.flatMap((log) => (log.twilioSid ? [log.twilioSid] : []))
+  if (twilioSids.length === 0) return
+
+  const existingMessages = await prisma.message.findMany({
+    where: { leadId, twilioSid: { in: twilioSids } },
+    select: { twilioSid: true },
+  })
+  const existingTwilioSids = new Set(existingMessages.flatMap((m) => (m.twilioSid ? [m.twilioSid] : [])))
+  const missingLogs = smsLogs.filter((log) => log.twilioSid && !existingTwilioSids.has(log.twilioSid))
+  if (missingLogs.length === 0) return
+
+  await prisma.message.createMany({
+    data: missingLogs.map((log) => ({
+      leadId,
+      channel: 'SMS',
+      direction: 'OUTBOUND',
+      content: log.message,
+      twilioSid: log.twilioSid,
+      twilioStatus: log.status === 'FAILED' ? `ERROR: ${log.error ?? 'unknown'}` : 'sent',
+      sentById: log.sentById,
+      createdAt: log.sentAt,
+    })),
+    skipDuplicates: true,
+  })
+}
+
 // GET /leads/:id/messages - Chat history (oldest first for chat display)
 leadMessagesRoute.get(
   '/:id/messages',
@@ -53,6 +95,8 @@ leadMessagesRoute.get(
     if (!lead) {
       return c.json({ error: 'NOT_FOUND', message: 'Lead not found' }, 404)
     }
+
+    await backfillLeadMessagesFromSmsLogs(id, orgId)
 
     const [messages, total] = await Promise.all([
       prisma.message.findMany({

@@ -94,6 +94,8 @@ describe('workspace pricing calculator', () => {
     expect(markup).toContain('Pricing Calculator')
     expect(markup).toContain('Monthly services')
     expect(markup).toContain('Quote summary')
+    expect(markup).toContain('Quote PDF')
+    expect(markup).toContain('Print PDF')
     expect(markup).toContain('Payment link')
     expect(markup).toContain('Select at least one billable service')
     expect(markup).toContain('button')

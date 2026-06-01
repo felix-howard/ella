@@ -14,3 +14,5 @@ export {
   isPricingInputSane,
   MAX_CHECKOUT_LINE_AMOUNT,
 } from './calculator'
+export type { PricingQuotePayload } from './quote-codec'
+export { decodePricingQuote, encodePricingQuote } from './quote-codec'

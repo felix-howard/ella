@@ -11,6 +11,7 @@ import { toast } from '../../stores/toast-store'
 import { api } from '../../lib/api-client'
 import { PricingCalculatorForm } from './pricing-calculator-form'
 import { PricingPaymentLinkPanel } from './pricing-payment-link-panel'
+import { PricingPrintPanel } from './pricing-print-panel'
 import { PricingSummaryPanel } from './pricing-summary-panel'
 import { serializePricingInput, trimOptional } from './pricing-format'
 import type { PricingCheckout, PricingCustomerFields } from './pricing-calculator-types'
@@ -115,6 +116,7 @@ export function PricingCalculatorPage() {
         />
         <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
           <PricingSummaryPanel result={result} />
+          <PricingPrintPanel input={input} result={result} />
           <PricingPaymentLinkPanel
             checkout={checkout}
             disabledReason={disabledReason}

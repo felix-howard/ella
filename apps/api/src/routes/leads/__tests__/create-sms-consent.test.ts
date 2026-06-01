@@ -129,6 +129,6 @@ describe('POST /leads — SMS consent', () => {
     })
     const data = leadCreateMock.mock.calls[0][0].data
     expect(data.smsConsentText).toContain('Reply STOP to opt out')
-    expect(data.smsConsentText).toContain('Consent is not a condition of purchase')
+    expect(data.smsConsentText).toContain('Not required to purchase')
   })
 })

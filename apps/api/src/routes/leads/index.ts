@@ -35,7 +35,7 @@ import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '..
 const leadsRoute = new Hono<{ Variables: AuthVariables }>()
 
 function buildSmsConsentText(orgName: string): string {
-  return `By checking this box, I agree to receive SMS/text messages from ${orgName} about my tax consultation, appointments, document requests, and related services at the phone number I provided, including messages sent using automated technology. Message frequency varies. Message and data rates may apply. Reply STOP to opt out and HELP for help. Consent is not a condition of purchase.`
+  return `I agree to receive automated texts from ${orgName} about my tax consultation. Msg/data rates may apply. Reply STOP to opt out, HELP for help. Not required to purchase.`
 }
 
 // ============================================

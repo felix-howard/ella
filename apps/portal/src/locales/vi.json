@@ -338,7 +338,7 @@
   "register.emailPlaceholder": "email@example.com",
   "register.businessName": "Tên doanh nghiệp",
   "register.businessNamePlaceholder": "Tên tiệm/công ty của bạn",
-  "register.smsConsent": "Bằng cách đánh dấu ô này, tôi đồng ý nhận tin nhắn SMS/text từ {{orgName}} về tư vấn thuế, lịch hẹn, yêu cầu tài liệu và các dịch vụ liên quan theo số điện thoại tôi đã cung cấp, bao gồm tin nhắn được gửi bằng công nghệ tự động. Tần suất tin nhắn có thể thay đổi. Có thể phát sinh phí tin nhắn và dữ liệu. Nhắn STOP để hủy, HELP để được hỗ trợ. Đồng ý nhận tin nhắn không phải là điều kiện để mua dịch vụ.",
+  "register.smsConsent": "Tôi đồng ý nhận tin nhắn tự động từ {{orgName}} về tư vấn thuế. Có thể phát sinh phí SMS/data. Nhắn STOP để hủy, HELP để được hỗ trợ. Không bắt buộc để mua dịch vụ.",
   "register.submit": "Đăng ký",
   "register.submitting": "Đang gửi...",
   "register.success.title": "Đăng ký thành công!",

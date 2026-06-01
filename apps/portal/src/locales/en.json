@@ -338,7 +338,7 @@
   "register.emailPlaceholder": "email@example.com",
   "register.businessName": "Business Name",
   "register.businessNamePlaceholder": "Your shop/company name",
-  "register.smsConsent": "By checking this box, I agree to receive SMS/text messages from {{orgName}} about my tax consultation, appointments, document requests, and related services at the phone number I provided, including messages sent using automated technology. Message frequency varies. Message and data rates may apply. Reply STOP to opt out and HELP for help. Consent is not a condition of purchase.",
+  "register.smsConsent": "I agree to receive automated texts from {{orgName}} about my tax consultation. Msg/data rates may apply. Reply STOP to opt out, HELP for help. Not required to purchase.",
   "register.submit": "Register",
   "register.submitting": "Submitting...",
   "register.success.title": "Registration Successful!",

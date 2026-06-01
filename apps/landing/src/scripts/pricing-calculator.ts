@@ -18,6 +18,7 @@ import {
 } from "@/config/pricing";
 import { formatBreakdown } from "./pricing-calculator-format";
 import { renderResult, resolveRefs } from "./pricing-calculator-render";
+import { initPaymentLink } from "./pricing-payment-link";
 
 const DEFAULT_INPUT: CalcInput = {
   nec1099Count: 0,
@@ -127,17 +128,28 @@ function init(): void {
   if (!refs) return;
 
   let currentResult: CalcResult | null = null;
+  const paymentLink = initPaymentLink(panel);
 
   const recalc = (): void => {
     const input = readInputs(form);
-    if (!isInputSane(input)) return; // silent skip; UI constraints prevent most bad states
+    if (!isInputSane(input)) {
+      currentResult = null;
+      paymentLink?.disable("One or more calculator values is too high.");
+      return;
+    }
     currentResult = calculatePrice(input);
     renderResult(refs, currentResult);
+    paymentLink?.sync(input, currentResult);
   };
 
   const debounced = debounce(recalc, 150);
-  form.addEventListener("input", debounced);
-  form.addEventListener("change", debounced);
+  const handleFormUpdate = (): void => {
+    currentResult = null;
+    paymentLink?.disable("Quote changed. Recalculating...");
+    debounced();
+  };
+  form.addEventListener("input", handleFormUpdate);
+  form.addEventListener("change", handleFormUpdate);
   panel.addEventListener("click", (event) => {
     const trigger = (event.target as Element | null)?.closest("[data-calc-consultation-trigger]");
     if (!trigger || !currentResult) return;

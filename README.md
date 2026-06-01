@@ -96,15 +96,18 @@ cd ella
 pnpm install
 
 # Set up environment
-cp .env.example .env.local
-# Edit .env.local with your credentials
+# Use .env.example as the variable checklist.
+# API dev loads apps/api/.env; landing dev loads apps/landing/.env.
+# Copy needed values into each app env file or export them in each shell.
 
 # Database setup
 pnpm -F @ella/db migrate
 
 # Start development servers
 pnpm dev
-# Frontend: http://localhost:5174
+# Workspace: http://localhost:5174
+# Portal: http://localhost:5173
+# Landing: http://localhost:4321
 # Backend: http://localhost:3002
 ```
 
@@ -115,7 +118,7 @@ pnpm dev
 DATABASE_URL=postgresql://user:password@localhost:5432/ella
 CLERK_SECRET_KEY=sk_test_...
 GEMINI_API_KEY=AIzaSy...
-PORTAL_URL=http://localhost:5174
+PORTAL_URL=http://localhost:5173
 ```
 
 **Optional:**
@@ -129,6 +132,19 @@ MAGIC_LINK_EXPIRY_DAYS=60
 IDENTITY_DOC_RETENTION_DAYS=90
 TRUST_PROXY_HEADERS=false
 ```
+
+**Required for payment links:**
+```
+PUBLIC_API_URL=http://localhost:3002
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_SUCCESS_URL=http://localhost:4321/payment/success?session_id={CHECKOUT_SESSION_ID}
+STRIPE_CANCEL_URL=http://localhost:4321/payment/cancel
+STRIPE_CURRENCY=usd
+```
+For local payment-link testing, place `STRIPE_*` in `apps/api/.env` and `PUBLIC_API_URL` in `apps/landing/.env`, or export them in the process running each app. The Stripe return URLs above target the landing dev server on port `4321`.
+
+When Stripe CLI is installed and both `STRIPE_SECRET_KEY` and the matching local `STRIPE_WEBHOOK_SECRET` are present, `pnpm dev` starts a local Stripe webhook listener automatically for `localhost:3002/webhooks/stripe`. To bootstrap a local `whsec_...`, run `stripe listen --events checkout.session.completed --forward-to localhost:3002/webhooks/stripe` once with the same test account/key, copy the printed signing secret into `apps/api/.env`, then restart `pnpm dev`. Do not reuse the live Dashboard webhook secret for local CLI forwarding. If any prerequisite is missing, the listener is skipped and the rest of dev mode still starts.
 
 ## Architecture
 

@@ -14,7 +14,7 @@ import { docsRoute } from './routes/docs'
 import { imagesRoute } from './routes/images'
 import { messagesRoute } from './routes/messages'
 import { portalRoute } from './routes/portal'
-import { twilioWebhookRoute, clerkWebhookRoute } from './routes/webhooks'
+import { twilioWebhookRoute, clerkWebhookRoute, stripeWebhookRoute } from './routes/webhooks'
 import { inngestRoute } from './routes/inngest'
 import { adminRoute } from './routes/admin'
 import { voiceRoutes } from './routes/voice'
@@ -45,6 +45,7 @@ import { agreementsStaffRoute, agreementsPublicRoute } from './routes/agreements
 import { agreementTemplatesRoute } from './routes/agreement-templates'
 import { leadMessagesRoute } from './routes/leads/messages'
 import { activityRoute } from './routes/activity'
+import { billingRoute } from './routes/billing'
 
 const app = new OpenAPIHono()
 
@@ -73,6 +74,7 @@ app.route('/rental', rentalRoute) // Public Schedule E rental form
 app.route('/portal/draft', portalDraftRoute) // Public draft return viewer
 app.route('/webhooks/twilio', twilioWebhookRoute)
 app.route('/webhooks/clerk', clerkWebhookRoute)
+app.route('/webhooks/stripe', stripeWebhookRoute)
 app.route('/api/inngest', inngestRoute)
 app.route('/auth', authSignupRoute)
 app.route('/form', formRoute)
@@ -82,6 +84,7 @@ app.route('/leads', leadMessagesRoute) // Lead messages: /leads/:id/messages* (i
 app.route('/public/agreements', agreementsPublicRoute) // Public signing endpoints (token-based, no auth) — canonical path
 app.route('/public/nda', agreementsPublicRoute) // Alias retained for back-compat with existing customer SMS links
 app.route('/contractor-intake', contractorIntakeRoute)
+app.route('/billing', billingRoute)
 
 // Protected routes - require authenticated Clerk user + Staff record
 app.use('/clients/*', authMiddleware)

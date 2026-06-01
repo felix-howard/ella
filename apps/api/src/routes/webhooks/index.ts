@@ -4,3 +4,4 @@
  */
 export { twilioWebhookRoute } from './twilio'
 export { clerkWebhookRoute } from './clerk'
+export { stripeWebhookRoute } from './stripe'

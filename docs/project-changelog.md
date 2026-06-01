@@ -1,9 +1,88 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-28 ICT
+> **Last Updated:** 2026-06-01 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+## 2026-06-01
+
+### Billing: Stripe Checkout Validation And Rollout
+**Status:** Complete
+
+**Changed:**
+- Installed and verified Stripe CLI for local development.
+- Added local Stripe webhook listener to API dev mode; `pnpm dev` starts it when Stripe CLI plus `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are available.
+- Redacted `whsec_...` from dev terminal output while keeping listener diagnostics visible.
+- Confirmed test-mode Checkout payment from `/pricing` redirects to `/payment/success`.
+- Confirmed webhook updates local `PaymentQuote` and `StripeCheckoutSession` status records.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- Local `POST /webhooks/stripe` from Stripe CLI returned `200`
+- Latest test quote `quote_MOTVYsis-DJgHEt2` status is `active`
+- Latest test Checkout session status is `complete`, `paidAt` populated, latest Stripe event cursor persisted
+
+## 2026-05-31
+
+### Billing: Stripe Checkout Validation And Rollout Prep
+**Status:** Complete after 2026-06-01 local E2E validation
+
+**Changed:**
+- Added Stripe Checkout env names to `.env.example` and README env docs.
+- Documented Stripe rollout prerequisites for local webhook testing and production deployment.
+- Added Stripe webhook event cursor tracking on `PaymentQuote` and `StripeCheckoutSession` so stale or same-second lower-priority webhook events cannot overwrite newer local payment state.
+- Kept canceled checkout sessions terminal for later invoice events on the same Stripe subscription.
+- Blocked enterprise-sized calculator quotes from creating Stripe payment links; they remain contact-sales only.
+- Added focused tests for stale/same-second webhook delivery, enterprise quote rejection, and unauthenticated/non-admin billing route rejection.
+- Kept Phase 05 open pending local Stripe CLI webhook forwarding and test-mode Checkout payment; completed on 2026-06-01.
+
+**Validation:**
+- `pnpm -F @ella/db migrate --name add-stripe-webhook-event-tracking` pass after one connection retry
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass, database schema up to date
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test` pass, 116 files / 2458 tests
+- `pnpm -F @ella/api build` pass
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing build` pass, 13 pages built
+- Superseded on 2026-06-01: local Stripe CLI and test env were configured, then webhook forwarding and test Checkout payment passed.
+
+### Billing: Stripe Webhook Status Sync
+**Status:** Complete
+
+**Changed:**
+- Added public `POST /webhooks/stripe` with raw-body `Stripe-Signature` verification.
+- Synced local `PaymentQuote` and `StripeCheckoutSession` state for checkout completion, async payment success/failure, invoice paid/failed, and subscription deletion events.
+- Kept delayed unpaid checkout completion as `awaiting_payment`, and preferred the existing local checkout-session quote association over Stripe metadata when both are present.
+
+**Validation:**
+- Verified against the current webhook route, handler, and tests.
+
+### Billing: Stripe Quote Persistence and Session Tracking
+**Status:** Complete
+
+**Changed:**
+- Added `PaymentQuote` and `StripeCheckoutSession` persistence with a Prisma migration.
+- Persisted the quote before the Stripe call, then stored session id, URL, status, and expiry after session creation.
+- Used `quoteId` as the Stripe idempotency key and kept Stripe metadata free of internal notes and customer/business PII.
+- Excluded `quoteNotes` from the persisted input snapshot.
+
+**Validation:**
+- Verified against the current billing service, Prisma schema, and migration.
+- Focused persistence/idempotency tests passed.
+
+### Billing: Stripe Checkout Backend Foundation
+**Status:** Complete
+
+**Changed:**
+- Added admin-only `POST /billing/checkout-sessions` for Stripe Checkout session creation.
+- Centralized Stripe env config in the API: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `STRIPE_CURRENCY`.
+- Enforced production HTTPS guard on success/cancel URLs; localhost defaults remain dev-only.
+- Moved pricing defaults into `@ella/shared/constants` and kept landing on re-exported pricing constants.
+
+**Validation:**
+- Verified against current API route and config source.
+- No database schema or migration changes.
 
 ## 2026-05-28
 

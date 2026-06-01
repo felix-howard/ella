@@ -478,6 +478,7 @@ model Staff {
   createdCampaigns               Campaign[]                      @relation("CreatedCampaigns")
   agreementsCreated              Agreement[]                     @relation("AgreementCreatedBy")
   agreementTemplatesCreated      AgreementTemplate[]             @relation("AgreementTemplateCreatedBy")
+  createdPaymentQuotes           PaymentQuote[]                  @relation("PaymentQuoteCreatedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -592,6 +593,7 @@ model Organization {
   clients                        Client[]
   clientGroups                   ClientGroup[]
   leads                          Lead[]
+  paymentQuotes                  PaymentQuote[]
   smsSendLogs                    SmsSendLog[]
   campaigns                      Campaign[]
   agreements                     Agreement[]
@@ -650,6 +652,7 @@ model Client {
   taxCases       TaxCase[]
   convertedLeads Lead[]          @relation("ConvertedLead")
   agreements     Agreement[]
+  paymentQuotes  PaymentQuote[]
 
   // Business-type client relations (for clientType = BUSINESS)
   contractors   Contractor[]
@@ -1601,9 +1604,10 @@ model Lead {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Relations
-  smsSendLogs SmsSendLog[]
-  agreements  Agreement[]
-  messages    Message[]
+  smsSendLogs   SmsSendLog[]
+  agreements    Agreement[]
+  messages      Message[]
+  paymentQuotes PaymentQuote[]
 
   // Staff-side "last read" marker for inbound SMS unread count
   messagesLastReadAt DateTime?
@@ -1616,6 +1620,63 @@ model Lead {
   @@index([organizationId, status])
   @@index([phone])
   @@index([tags], type: Gin)
+}
+
+model PaymentQuote {
+  id                String                  @id @default(cuid())
+  organizationId    String?
+  organization      Organization?           @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  clientId          String?
+  client            Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  leadId            String?
+  lead              Lead?                   @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  customerEmail     String?
+  customerName      String?
+  businessName      String?
+  inputSnapshot     Json
+  resultSnapshot    Json
+  monthlyTotalCents Int
+  setupTotalCents   Int
+  status            String                  @default("pending_checkout")
+  lastStripeEventId String?
+  lastStripeEventAt DateTime?
+  createdByStaffId  String?
+  createdByStaff    Staff?                  @relation("PaymentQuoteCreatedBy", fields: [createdByStaffId], references: [id], onDelete: SetNull)
+  checkoutSessions  StripeCheckoutSession[]
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@index([organizationId, createdAt])
+  @@index([clientId])
+  @@index([leadId])
+  @@index([createdByStaffId])
+  @@index([status])
+  @@index([lastStripeEventAt])
+}
+
+model StripeCheckoutSession {
+  id                    String       @id @default(cuid())
+  paymentQuoteId        String
+  paymentQuote          PaymentQuote @relation(fields: [paymentQuoteId], references: [id], onDelete: Cascade)
+  stripeSessionId       String       @unique
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?
+  stripePaymentIntentId String?
+  status                String
+  lastStripeEventId     String?
+  lastStripeEventAt     DateTime?
+  url                   String?      @db.Text
+  expiresAt             DateTime?
+  paidAt                DateTime?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@index([paymentQuoteId])
+  @@index([status])
+  @@index([lastStripeEventAt])
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+  @@index([stripePaymentIntentId])
 }
 
 model SmsSendLog {

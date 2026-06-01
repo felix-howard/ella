@@ -109,6 +109,7 @@ export type User = z.infer<typeof userSchema>
 - `/schemas` - Zod validators only
 - `/types` - TypeScript types & inferred types
 - Default export includes all
+- Pricing defaults live in `@ella/shared/constants` and are re-exported by landing config; do not duplicate tier prices in app-local config.
 
 ## Condition Types & Evaluation
 
@@ -475,6 +476,15 @@ describe('Feature', () => {
 - `TAXBANDITS_CLIENT_SECRET` - TaxBandits OAuth client secret
 - `TAXBANDITS_USER_TOKEN` - TaxBandits user token
 - `TAXBANDITS_SANDBOX` - Set to `true` for sandbox environment
+
+**Stripe Checkout (Phase 01):**
+- `STRIPE_SECRET_KEY` - Stripe secret key for Checkout session creation
+- `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
+- `STRIPE_SUCCESS_URL` - Checkout success redirect URL; production must be HTTPS
+- `STRIPE_CANCEL_URL` - Checkout cancel redirect URL; production must be HTTPS
+- `STRIPE_CURRENCY` - Currency code for Checkout sessions; stored lowercase, defaults to `usd`
+- Localhost defaults are dev-only. Production config must satisfy the HTTPS return-URL guard.
+- Persist `PaymentQuote` before the Stripe API call and `StripeCheckoutSession` after success; keep stored snapshots minimal, exclude internal notes like `quoteNotes`, and avoid customer/business PII in Stripe metadata.
 
 **Optional:**
 - `GEMINI_MODEL` - default: gemini-2.0-flash

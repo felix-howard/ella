@@ -11,6 +11,7 @@
  * (XSS-safe by construction).
  */
 import { siteConfig } from "@/config/site";
+import PaymentLinkForm from "./payment-link-form.astro";
 ---
 
 <!-- Tier badge — wrapper drives visibility (phase 05 unhides), span holds text -->
@@ -52,7 +53,7 @@ import { siteConfig } from "@/config/site";
 </div>
 
 <!-- Result state (hidden initially; phase 05 unhides once has result + not enterprise) -->
-<div data-calc-state="result" hidden role="status" aria-live="polite" class="space-y-5">
+<div data-calc-state="result" hidden class="space-y-5">
   <!-- Monthly section -->
   <section aria-label="Monthly cost breakdown">
     <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
@@ -98,7 +99,10 @@ import { siteConfig } from "@/config/site";
       </span>
     </div>
   </div>
-  <button class="btn-primary w-full" type="button" data-calc-consultation-trigger>
+
+  <PaymentLinkForm />
+
+  <button class="btn-secondary w-full" type="button" data-calc-consultation-trigger>
     Book a consultation
   </button>
 </div>

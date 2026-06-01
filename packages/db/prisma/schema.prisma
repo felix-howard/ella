@@ -1583,16 +1583,19 @@ model DocumentView {
 // ============================================
 
 model Lead {
-  id           String     @id @default(cuid())
-  firstName    String
-  lastName     String
-  phone        String
-  email        String?
-  businessName String?
-  status       LeadStatus @default(NEW)
-  campaignTag  String?    @map("source") // renamed from source; e.g., "free-tax-meeting-march-2026" from eventSlug
-  tags         String[]   @default([])
-  notes        String?    @db.Text
+  id                   String     @id @default(cuid())
+  firstName            String
+  lastName             String
+  phone                String
+  email                String?
+  businessName         String?
+  status               LeadStatus @default(NEW)
+  campaignTag          String?    @map("source") // renamed from source; e.g., "free-tax-meeting-march-2026" from eventSlug
+  tags                 String[]   @default([])
+  notes                String?    @db.Text
+  smsConsentAccepted   Boolean    @default(false)
+  smsConsentAcceptedAt DateTime?
+  smsConsentText       String?    @db.Text
 
   // Conversion tracking
   convertedToId String?

@@ -29,6 +29,32 @@
 
 ---
 
+### Lead Registration SMS Consent ✅
+**Started:** 2026-06-01
+**Completed:** 2026-06-01
+**Status:** COMPLETE
+**Objective:** Require explicit SMS consent on public lead registration forms before storing phone numbers for follow-up texts.
+
+**Delivered:**
+- Required EN/VI SMS consent checkbox on default and campaign lead registration forms.
+- API validation rejects public lead submissions without accepted SMS consent.
+- Lead records store consent accepted flag, timestamp, and consent text via migration `20260601095500_add_lead_sms_consent`.
+
+**Validation:**
+- `pnpm -F @ella/db migrate --name add-lead-sms-consent` pass
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass
+- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/portal build` pass with existing chunk-size warning
+- `pnpm i18n:check` pass
+- `pnpm -F @ella/api lint` pass
+- `pnpm -F @ella/db lint` pass
+- `pnpm -F @ella/portal lint` pass with existing unrelated warning
+- `pnpm -F @ella/api test -- leads` pass, 4 files / 22 tests
+
+---
+
 ### Stripe Checkout Payments Phase 05: Validation, Docs, Rollout
 **Started:** 2026-05-31
 **Completed:** 2026-06-01

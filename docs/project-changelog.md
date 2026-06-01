@@ -7,6 +7,28 @@
 
 ## 2026-06-01
 
+### Portal: Lead SMS Consent
+**Status:** Complete
+
+**Changed:**
+- Added required SMS consent checkbox to public lead registration forms.
+- Added EN/VI consent copy covering sender, automated texts, message frequency, rates, STOP/HELP, and no purchase condition.
+- API now requires public lead submissions to include SMS consent and stores consent timestamp/text on Lead records.
+- Added Prisma migration `20260601095500_add_lead_sms_consent`.
+
+**Validation:**
+- `pnpm -F @ella/db migrate --name add-lead-sms-consent` pass
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass, database schema up to date
+- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/portal build` pass with existing chunk-size warning
+- `pnpm i18n:check` pass
+- `pnpm -F @ella/api lint` pass
+- `pnpm -F @ella/db lint` pass
+- `pnpm -F @ella/portal lint` pass with existing unrelated fast-refresh warning in `apps/portal/src/components/form/intake-business-form.tsx`
+- `pnpm -F @ella/api test -- leads` pass, 4 files / 22 tests
+
 ### Workspace: Pricing Calculator Payment Links
 **Status:** Complete
 

@@ -29,6 +29,7 @@ export interface RegistrationFormData {
   phone: string
   email: string
   businessName: string
+  smsConsentAccepted: boolean
 }
 
 export interface BusinessSubmitInput {
@@ -142,6 +143,7 @@ export const formApi = {
     phone: string
     email?: string
     businessName?: string
+    smsConsentAccepted: boolean
     orgSlug: string
     eventSlug?: string
   }): Promise<{ success: boolean; leadId?: string; error?: string }> {

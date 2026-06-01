@@ -1706,6 +1706,9 @@ export interface Lead {
   campaignName?: string | null
   tags: string[]
   notes: string | null
+  smsConsentAccepted?: boolean
+  smsConsentAcceptedAt?: string | null
+  smsConsentText?: string | null
   convertedToId: string | null
   convertedAt: string | null
   createdAt: string

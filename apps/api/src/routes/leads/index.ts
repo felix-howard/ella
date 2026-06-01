@@ -34,6 +34,10 @@ import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '..
 
 const leadsRoute = new Hono<{ Variables: AuthVariables }>()
 
+function buildSmsConsentText(orgName: string): string {
+  return `By checking this box, I agree to receive SMS/text messages from ${orgName} about my tax consultation, appointments, document requests, and related services at the phone number I provided, including messages sent using automated technology. Message frequency varies. Message and data rates may apply. Reply STOP to opt out and HELP for help. Consent is not a condition of purchase.`
+}
+
 // ============================================
 // PUBLIC: Create Lead (from registration form)
 // ============================================
@@ -46,7 +50,7 @@ leadsRoute.post(
 
     const org = await prisma.organization.findUnique({
       where: { slug: orgSlug },
-      select: { id: true, isActive: true },
+      select: { id: true, name: true, isActive: true },
     })
 
     if (!org || !org.isActive) {
@@ -54,6 +58,7 @@ leadsRoute.post(
     }
 
     const normalizedPhone = formatPhoneToE164(phone)
+    const smsConsentText = buildSmsConsentText(org.name)
 
     // Look up campaign tag from slug — reject if campaign doesn't exist or is archived
     let campaignTag: string | null = null
@@ -76,6 +81,9 @@ leadsRoute.post(
           phone: normalizedPhone,
           email: email ? sanitizeTextInput(email) : null,
           businessName: businessName ? sanitizeTextInput(businessName) : null,
+          smsConsentAccepted: true,
+          smsConsentAcceptedAt: new Date(),
+          smsConsentText,
           campaignTag,
           tags: campaignTag ? [campaignTag] : [],
           status: 'NEW',
@@ -96,6 +104,7 @@ leadsRoute.post(
           campaignTag,
           hasEmail: Boolean(email),
           hasBusinessName: Boolean(businessName),
+          smsConsentAccepted: true,
         },
         request: getAuditRequestContext(c),
       })
@@ -104,6 +113,14 @@ leadsRoute.post(
     } catch (err: unknown) {
       // Handle duplicate phone+org unique constraint violation
       if (err && typeof err === 'object' && 'code' in err && err.code === 'P2002') {
+        await prisma.lead.update({
+          where: { phone_organizationId: { phone: normalizedPhone, organizationId: org.id } },
+          data: {
+            smsConsentAccepted: true,
+            smsConsentAcceptedAt: new Date(),
+            smsConsentText,
+          },
+        })
         return c.json({ success: true, message: 'Registration received' })
       }
       throw err

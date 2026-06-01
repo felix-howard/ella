@@ -11,6 +11,7 @@ export const createLeadSchema = z.object({
   phone: z.string().regex(/^\+?[\d\s\-()]{10,15}$/, 'Invalid phone number format'),
   email: z.string().email().max(254).optional().nullable(),
   businessName: z.string().max(200).optional().nullable(),
+  smsConsentAccepted: z.literal(true),
   orgSlug: z.string().min(1).max(100),
   eventSlug: z.string().max(100).regex(/^[a-z0-9-]+$/).optional().or(z.literal('')).transform(v => v || undefined),
 })

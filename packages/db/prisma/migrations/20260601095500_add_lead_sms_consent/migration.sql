@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Lead"
+ADD COLUMN IF NOT EXISTS "smsConsentAccepted" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS "smsConsentAcceptedAt" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "smsConsentText" TEXT;

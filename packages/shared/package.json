@@ -18,6 +18,14 @@
       "types": "./src/types/index.ts",
       "default": "./src/types/index.ts"
     },
+    "./constants": {
+      "types": "./src/constants/index.ts",
+      "default": "./src/constants/index.ts"
+    },
+    "./pricing": {
+      "types": "./src/pricing/index.ts",
+      "default": "./src/pricing/index.ts"
+    },
     "./utils/computed-status": {
       "types": "./src/utils/computed-status.ts",
       "default": "./src/utils/computed-status.ts"
@@ -25,12 +33,14 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "test": "vitest run"
   },
   "dependencies": {
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.17"
   }
 }

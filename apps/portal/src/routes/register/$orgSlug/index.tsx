@@ -63,6 +63,7 @@ function RegisterPage() {
       <div className="mx-auto w-full max-w-3xl px-4 pb-8 sm:px-6">
         <div className="overflow-hidden rounded-2xl border border-white/80 bg-white/90 shadow-[0_1px_3px_rgba(15,23,42,0.06),0_20px_50px_rgba(15,23,42,0.10)] backdrop-blur">
           <RegistrationForm
+            orgName={org!.name}
             onSubmit={handleSubmit}
             isSubmitting={isSubmitting}
             error={submitError || undefined}

@@ -47,6 +47,8 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 └──────────────────────────────────────────────────┘
 ```
 
+`@ella/shared/constants` is the source of truth for pricing defaults; `@ella/shared/pricing` owns calculator math so landing, workspace, and billing stay aligned.
+
 ## Frontend Layer
 
 **Technology:** React 19, Vite, TanStack Router 1.94+, React Query 5.64+, Tailwind CSS 4
@@ -54,7 +56,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Apps:**
 - `apps/landing/` - Public-facing Astro site for Ella Tax Services LLC, with home, services, password-gated pricing calculator, get-started, why Ella, about, privacy, terms, and tax-advisory pages. Shared service primitives cover page heroes, service cards, process steps, trust strips, contact bands, FAQs, contact forms, and stats. `/try-now` redirects to `/get-started`, and `/features` redirects to `/services`.
 - `apps/portal/` - Client magic link upload portal
-- `apps/workspace/` - Staff dashboard with team management
+- `apps/workspace/` - Staff dashboard with team management and an admin-only pricing calculator/payment-link flow
 
 **Key Pages (Workspace):**
 - `/` - Dashboard with stats & quick actions
@@ -64,6 +66,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations
 - `/actions` - Action queue with priority filtering
+- `/pricing-calculator` - Admin-only pricing calculator with quote summary and Stripe payment-link creation through the staff Clerk session
 - `/team` - Team member management (Phase 3)
 - `/accept-invitation` - Clerk org invite acceptance (Phase 6)
 
@@ -111,6 +114,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Pagination: limit=20, max=100
 - **Client Types (Phase 10):** clientType: 'INDIVIDUAL' | 'BUSINESS'. GET /clients/:id returns einMasked (masked EIN) instead of encrypted version.
 - **Namespaces:** clients, cases, team, messages, leads, forms, contractors, clientGroups, sharedDocs (Phase 02, replaces draftReturns), businesses (deprecated in favor of clientGroups)
+- **Billing namespace:** `api.billing.createCheckoutSession(data)` posts shared pricing input plus optional customer fields to `/billing/checkout-sessions`. The workspace API client injects the Clerk JWT; the workspace pricing UI has no manual bearer-token field.
 - **Phase 02 API Client Changes (workspace):**
   - `api.draftReturns.*` renamed to `api.sharedDocs.*`
   - `DraftReturnData` → `ShareableDocumentData` (includes title field)
@@ -155,6 +159,17 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Storage keys: `contractor-agreements/{orgId}/{staffId}/{version}/{uuid}.pdf`; unique DB acceptance on `[staffId, version]` makes duplicate signing idempotent.
 - Firm signer lookup prefers `kaytax76@gmail.com` with a stored signature, then falls back to the first active admin with a stored signature. Production rollout must verify the exact signer account/title/signature before contractor staff sign.
 - Data model: `Staff.isContractorAgent` gates the workspace compliance flow; `ContractorAgreementAcceptance` stores the signed PDF, source template, SHA-256, signer snapshots, IP/User-Agent, and firm signer snapshot.
+
+**Billing (Stripe Checkout Foundation):**
+- `POST /billing/checkout-sessions` - Org-admin only. Persists a `PaymentQuote` first, then creates the Stripe Checkout session and stores the returned session URL, status, and expiry in `StripeCheckoutSession`. Uses `quoteId` as the Stripe idempotency key, keeps Stripe metadata free of internal notes and PII, and surfaces config errors as `STRIPE_NOT_CONFIGURED` or `STRIPE_RETURN_URLS_INVALID`.
+- `POST /webhooks/stripe` - Public Stripe webhook. Verifies `Stripe-Signature` with the raw request body and `STRIPE_WEBHOOK_SECRET`, then syncs local `PaymentQuote` and `StripeCheckoutSession` status for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `invoice.paid`, `invoice.payment_failed`, and `customer.subscription.deleted`. Completed unpaid checkouts map to `awaiting_payment`, and the existing local checkout-session quote association wins over Stripe metadata when both exist. Webhook updates persist `lastStripeEventId` and `lastStripeEventAt` on quote/session records, ignore older events, apply same-second status precedence, and keep canceled sessions terminal for later invoice events on the same subscription.
+- Pricing payment links are disabled for enterprise-sized quotes (>20 1099 workers); those quotes remain contact-sales only.
+- Workspace `/pricing-calculator` uses the same shared calculator domain as billing and creates payment links through the authenticated `api.billing` client. No-selection, enterprise-sized, unsafe quantity, and oversized checkout states disable link creation before the API call and are enforced again by billing before Stripe session creation.
+- Stripe config lives in the API process env: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `STRIPE_CURRENCY`. Local API dev loads `apps/api/.env`.
+- Landing payment-link calls require `PUBLIC_API_URL` in the landing process/build env so `/pricing` can reach the API. Local landing dev loads `apps/landing/.env`; deployed static builds need the same variable configured in build/deploy env.
+- Local webhook testing: `pnpm dev` starts Stripe CLI forwarding automatically when Stripe CLI plus `STRIPE_SECRET_KEY` and the matching local `STRIPE_WEBHOOK_SECRET` are available. Bootstrap or refresh the local `whsec_...` with `stripe listen --forward-to localhost:3002/webhooks/stripe`, then copy the printed signing secret into `apps/api/.env`. Do not reuse the live Dashboard webhook secret for local CLI forwarding.
+- Rollout order: set test-mode Stripe env vars in `apps/api/.env`, set `PUBLIC_API_URL` in `apps/landing/.env`, run `pnpm dev`, create a pricing payment link with an admin token, pay with a Stripe test card, confirm webhook status updates in `PaymentQuote`/`StripeCheckoutSession`, then configure the production Dashboard webhook with a separate live signing secret.
+- Production guard rejects non-HTTPS success/cancel URLs; localhost/loopback defaults stay dev-only.
 
 **Shared Docs (Multi-Section Document Sharing - Phase 02 Backend Complete, Phase 01 Actions Rework Complete, Phase 03 UI Refactor Complete):**
 - `POST /shared-docs/:caseId` - Create section with title + initial PDF (ShareableDocument + MagicLink)
@@ -415,6 +430,8 @@ Organization (root entity)
 - **TaxEngagement** - Year-specific engagement (copy-from support)
 - **ScheduleCExpense** - 20+ fields, version history
 - **ScheduleEExpense** - 1:1 with TaxCase. Status (DRAFT/SUBMITTED/LOCKED), up to 3 rental properties (JSON array), 7 IRS expense fields (insurance, mortgage interest, repairs, taxes, utilities, management fees, cleaning/maintenance), custom expense list, version history, property-level totals
+- **PaymentQuote** - checkout quote record for Stripe billing. Stores organization/client/lead links, customerEmail/customerName/businessName, inputSnapshot/resultSnapshot, monthlyTotalCents/setupTotalCents, status, createdByStaffId, and related checkout sessions.
+- **StripeCheckoutSession** - Stripe session mirror keyed by `stripeSessionId`. Stores paymentQuoteId, Stripe customer/subscription/paymentIntent ids, status, url, expiresAt, paidAt, and timestamps.
 - **Contractor** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). firstName, lastName, tinType (SSN|EIN), ssnEncrypted (encrypted), ssnLast4, address, city, state, zip, email, phone.
 - **ContractorAgreementAcceptance** - staffId FK + organizationId FK. Independent Contractor agreement acceptance for Contractor Agent staff. Fields: version, signedAt, signedPdfR2Key, sourceTemplateR2Key, pdfSha256, signerName, signerEmail, signerIpAddress, signerUserAgent, firmSignerName, firmSignerEmail, firmSignerTitle, firmSignaturePngKey. Unique on `[staffId, version]`.
 - **FilingBatch** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). taxYear, status (PENDING|SUBMITTED|PROCESSING|ACCEPTED|PARTIALLY_ACCEPTED|REJECTED), TaxBandits submission tracking (taxbanditsSubmissionId, submittedAt, acceptedAt, rejectedAt, rejectionReason), form counts (totalForms, acceptedForms, rejectedForms), e-file settings (tinCheckEnabled, uspsEnabled, eDeliveryEnabled).

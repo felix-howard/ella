@@ -1,9 +1,198 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-28 ICT
+> **Last Updated:** 2026-06-01 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+## 2026-06-01
+
+### Landing: Pricing Quote PDF Print
+**Status:** Complete
+
+**Changed:**
+- Removed public landing payment-link UI and token-based Stripe wiring from `/pricing`.
+- Added a Print PDF action after standard quote calculation.
+- Added `/pricing/print` formal quote page with itemized monthly/setup services, totals, terms, contact info, and print media styling.
+- Refined print-page toolbar so Back to pricing is a compact secondary link and Print remains the primary action.
+
+**Validation:**
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing build` pass, 14 pages built
+- Local `curl http://localhost:4321/pricing` confirms Quote PDF / Print PDF present and public payment-link copy absent
+
+### Workspace: Pricing Calculator Admin Navigation Guard
+**Status:** Complete
+
+**Changed:**
+- Extracted sidebar navigation composition into a tested helper.
+- Pinned Pricing Calculator sidebar visibility to admin users only.
+- Kept the existing route-level non-admin access guard in place.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/layout/__tests__/sidebar-nav-items.test.ts` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing unrelated warnings
+
+### Workspace: Lead Bulk SMS Chat History Fix
+**Status:** Complete
+
+**Changed:**
+- Fixed lead bulk SMS sends to write outbound `Message` rows in addition to `SmsSendLog` audit rows.
+- Added lead message history read-repair for old bulk SMS logs that were sent before this fix.
+- Published lead message realtime events for bulk sends so open lead chat widgets can refresh.
+- Added regression coverage for `/leads/bulk-sms` dual-writing message history and legacy log backfill.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/leads/__tests__/bulk-sms.test.ts src/routes/leads/__tests__/messages.test.ts` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass
+
+### Workspace: Recent Activity Noise Fix
+**Status:** Complete
+
+**Changed:**
+- Hid passive lead message read receipts from recent/client activity timelines.
+- Changed lead mark-read API to log read activity only when inbound unread messages are actually marked read.
+- Added regression coverage for no-op mark-read calls and activity timeline hidden actions.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/leads/__tests__/messages.test.ts src/routes/activity/__tests__/activity-route.test.ts` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass
+
+### Portal: Lead SMS Consent
+**Status:** Complete
+
+**Changed:**
+- Added required SMS consent checkbox to public lead registration forms.
+- Added EN/VI consent copy covering sender, automated texts, message frequency, rates, STOP/HELP, and no purchase condition.
+- API now requires public lead submissions to include SMS consent and stores consent timestamp/text on Lead records.
+- Added Prisma migration `20260601095500_add_lead_sms_consent`.
+
+**Validation:**
+- `pnpm -F @ella/db migrate --name add-lead-sms-consent` pass
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass, database schema up to date
+- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/portal build` pass with existing chunk-size warning
+- `pnpm i18n:check` pass
+- `pnpm -F @ella/api lint` pass
+- `pnpm -F @ella/db lint` pass
+- `pnpm -F @ella/portal lint` pass with existing unrelated fast-refresh warning in `apps/portal/src/components/form/intake-business-form.tsx`
+- `pnpm -F @ella/api test -- leads` pass, 4 files / 22 tests
+
+### Workspace: Pricing Calculator Payment Links
+**Status:** Complete
+
+**Changed:**
+- Completed admin-only workspace pricing calculator UI with shared pricing math, quote summary, and Stripe payment-link panel.
+- Removed manual bearer-token entry from the workspace flow; payment-link creation uses the Clerk-authenticated workspace API client.
+- Disabled link creation for empty selections, enterprise-sized quotes, unsafe counts, oversized checkout totals, and invalid customer email input.
+- Added focused workspace tests for calculator rendering, changed totals, disabled states, checkout URL actions, and token-free request payloads.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test -- billing` pass
+- `pnpm -F @ella/api test -- checkout` pass
+- `pnpm -F @ella/shared test -- pricing` pass
+- `pnpm -F @ella/shared type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- pricing` pass
+- `pnpm i18n:check` pass
+- Manual browser smoke not executed in this non-interactive session; requires org-admin Clerk login.
+
+### Workspace: Pricing Calculator Route Shell
+**Status:** Complete
+
+**Changed:**
+- Added admin-only `/pricing-calculator` workspace route shell.
+- Added Pricing Calculator to the sidebar for organization admins only.
+- Wired the shell to the existing billing client method `api.billing.createCheckoutSession(data)` with Clerk JWT auth and `retries: 0`.
+- Added EN/VI locale strings for the route title, subtitle, access states, and calculator/payment-link cards.
+- Kept the full calculator/payment-link form for phase 03.
+
+**Validation:**
+- Verified against the current route, sidebar, API client, and locale files.
+
+### Billing: Stripe Checkout Validation And Rollout
+**Status:** Complete
+
+**Changed:**
+- Installed and verified Stripe CLI for local development.
+- Added local Stripe webhook listener to API dev mode; `pnpm dev` starts it when Stripe CLI plus `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are available.
+- Redacted `whsec_...` from dev terminal output while keeping listener diagnostics visible.
+- Confirmed test-mode Checkout payment from `/pricing` redirects to `/payment/success`.
+- Confirmed webhook updates local `PaymentQuote` and `StripeCheckoutSession` status records.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- Local `POST /webhooks/stripe` from Stripe CLI returned `200`
+- Latest test quote `quote_MOTVYsis-DJgHEt2` status is `active`
+- Latest test Checkout session status is `complete`, `paidAt` populated, latest Stripe event cursor persisted
+
+## 2026-05-31
+
+### Billing: Stripe Checkout Validation And Rollout Prep
+**Status:** Complete after 2026-06-01 local E2E validation
+
+**Changed:**
+- Added Stripe Checkout env names to `.env.example` and README env docs.
+- Documented Stripe rollout prerequisites for local webhook testing and production deployment.
+- Added Stripe webhook event cursor tracking on `PaymentQuote` and `StripeCheckoutSession` so stale or same-second lower-priority webhook events cannot overwrite newer local payment state.
+- Kept canceled checkout sessions terminal for later invoice events on the same Stripe subscription.
+- Blocked enterprise-sized calculator quotes from creating Stripe payment links; they remain contact-sales only.
+- Added focused tests for stale/same-second webhook delivery, enterprise quote rejection, and unauthenticated/non-admin billing route rejection.
+- Kept Phase 05 open pending local Stripe CLI webhook forwarding and test-mode Checkout payment; completed on 2026-06-01.
+
+**Validation:**
+- `pnpm -F @ella/db migrate --name add-stripe-webhook-event-tracking` pass after one connection retry
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass, database schema up to date
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test` pass, 116 files / 2458 tests
+- `pnpm -F @ella/api build` pass
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing build` pass, 13 pages built
+- Superseded on 2026-06-01: local Stripe CLI and test env were configured, then webhook forwarding and test Checkout payment passed.
+
+### Billing: Stripe Webhook Status Sync
+**Status:** Complete
+
+**Changed:**
+- Added public `POST /webhooks/stripe` with raw-body `Stripe-Signature` verification.
+- Synced local `PaymentQuote` and `StripeCheckoutSession` state for checkout completion, async payment success/failure, invoice paid/failed, and subscription deletion events.
+- Kept delayed unpaid checkout completion as `awaiting_payment`, and preferred the existing local checkout-session quote association over Stripe metadata when both are present.
+
+**Validation:**
+- Verified against the current webhook route, handler, and tests.
+
+### Billing: Stripe Quote Persistence and Session Tracking
+**Status:** Complete
+
+**Changed:**
+- Added `PaymentQuote` and `StripeCheckoutSession` persistence with a Prisma migration.
+- Persisted the quote before the Stripe call, then stored session id, URL, status, and expiry after session creation.
+- Used `quoteId` as the Stripe idempotency key and kept Stripe metadata free of internal notes and customer/business PII.
+- Excluded `quoteNotes` from the persisted input snapshot.
+
+**Validation:**
+- Verified against the current billing service, Prisma schema, and migration.
+- Focused persistence/idempotency tests passed.
+
+### Billing: Stripe Checkout Backend Foundation
+**Status:** Complete
+
+**Changed:**
+- Added admin-only `POST /billing/checkout-sessions` for Stripe Checkout session creation.
+- Centralized Stripe env config in the API: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `STRIPE_CURRENCY`.
+- Enforced production HTTPS guard on success/cancel URLs; localhost defaults remain dev-only.
+- Moved pricing defaults into `@ella/shared/constants` and kept landing on re-exported pricing constants.
+
+**Validation:**
+- Verified against current API route and config source.
+- No database schema or migration changes.
 
 ## 2026-05-28
 

@@ -1,8 +1,8 @@
 # Ella - Project Overview & Product Development Requirements
 
-**Current Phase:** Landing Pricing Restore - Complete | Landing Reposition Phase 06 - Complete | Multi-Tenancy & Permission System - Complete | Voice Calls - Complete | Schedule C Phase 4 - Complete
-**Last Updated:** 2026-05-27
-**Branch:** codex-work-20260527-dev-base
+**Current Phase:** Stripe Checkout Validation Phase 05 - Blocked on local Stripe E2E | Landing Pricing Restore - Complete | Landing Reposition Phase 06 - Complete | Multi-Tenancy & Permission System - Complete | Voice Calls - Complete | Schedule C Phase 4 - Complete
+**Last Updated:** 2026-05-31
+**Branch:** codex-work-20260528-fresh
 
 ## Project Vision
 
@@ -10,7 +10,7 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 
 **Public-facing Positioning:** The marketing site now presents Ella Tax Services LLC as an online tax services firm with shared service-page primitives, green brand tokens, service-led home/services/about/why pages, the canonical `/get-started` inquiry flow, password-gated `/pricing` calculator, and resilient contact paths with legacy redirects that preserve route continuity. The internal app remains the tax document management SaaS platform.
 
-**Rollout Status:** Landing Reposition is fully closed out. All 6 phases are complete, validation and review are done, and docs now match the public rollout.
+**Rollout Status:** Stripe Checkout payment-link code is implemented through webhook status sync, stale/same-second event guards, enterprise quote blocking, and green automated validation. Phase 05 remains blocked for manual local E2E until Stripe CLI is installed and test-mode `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` are configured. Landing Reposition is fully closed out.
 
 ## High-Level Goals
 
@@ -591,7 +591,7 @@ docs/
    - Test resend SMS from workspace
 
 2. **Environment Configuration:**
-   - Ensure PORTAL_URL env var is set (e.g., `http://localhost:5174`)
+   - Ensure PORTAL_URL env var is set (e.g., `http://localhost:5173`)
    - Configure Twilio credentials if SMS testing needed:
      - `TWILIO_ACCOUNT_SID`
      - `TWILIO_AUTH_TOKEN`

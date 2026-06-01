@@ -1,0 +1,210 @@
+:root {
+  color: #111827;
+  background: #eef5f2;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body { margin: 0; }
+
+.toolbar {
+  background: #ffffff;
+  border-bottom: 1px solid #dbe7e2;
+  padding: 10px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.toolbar-inner {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin: 0 auto;
+  max-width: 8.5in;
+}
+
+.toolbar a {
+  align-items: center;
+  color: #355247;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 44px;
+  text-decoration: none;
+  transition: color 180ms ease;
+  white-space: nowrap;
+}
+
+.toolbar a::before {
+  border-bottom: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  content: "";
+  display: inline-block;
+  height: 7px;
+  margin-right: 9px;
+  transform: rotate(45deg);
+  width: 7px;
+}
+
+.toolbar a:hover { color: #047857; }
+
+.toolbar button {
+  border-radius: 999px;
+  border: 1px solid #047857;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 44px;
+  padding: 0 18px;
+  background: #047857;
+  color: #ffffff;
+  transition: background-color 180ms ease, transform 180ms ease;
+}
+
+.toolbar button:hover { background: #065f46; }
+.toolbar button:active { transform: translateY(1px); }
+.toolbar a:focus-visible,
+.toolbar button:focus-visible { outline: 2px solid #047857; outline-offset: 3px; }
+
+.quote-shell {
+  margin: 32px auto;
+  max-width: 8.5in;
+  padding: 0 16px;
+}
+
+.quote-doc {
+  background: #ffffff;
+  border: 1px solid #d8e3df;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
+  padding: 42px;
+}
+
+.brand-row,
+.meta-grid,
+.totals-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.brand-logo {
+  display: block;
+  height: 34px;
+  object-fit: contain;
+  object-position: left center;
+  width: auto;
+}
+
+.muted { color: #64748b; }
+
+h1 {
+  color: #0f172a;
+  font-size: 34px;
+  line-height: 1.1;
+  margin: 34px 0 10px;
+}
+
+h2 {
+  border-bottom: 1px solid #dbe7e2;
+  color: #0f172a;
+  font-size: 16px;
+  margin: 30px 0 12px;
+  padding-bottom: 8px;
+}
+
+p { line-height: 1.55; margin: 0; }
+.right { text-align: right; }
+
+.box {
+  background: #f8faf9;
+  border: 1px solid #dbe7e2;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.label {
+  color: #64748b;
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.value {
+  color: #0f172a;
+  display: block;
+  font-size: 18px;
+  font-weight: 800;
+  margin-top: 5px;
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 14px;
+  width: 100%;
+}
+
+th {
+  color: #64748b;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+td, th {
+  border-bottom: 1px solid #e5ece9;
+  padding: 11px 8px;
+  vertical-align: top;
+}
+
+.amount { font-weight: 800; text-align: right; white-space: nowrap; }
+.line-note { color: #64748b; display: block; font-size: 12px; margin-top: 3px; }
+.total-due { background: #ecfdf5; border-color: #bbf7d0; }
+.total-due .value { color: #065f46; font-size: 24px; }
+ul { margin: 0; padding-left: 20px; }
+li { line-height: 1.55; margin: 6px 0; }
+
+footer {
+  border-top: 1px solid #dbe7e2;
+  color: #64748b;
+  font-size: 12px;
+  margin-top: 34px;
+  padding-top: 14px;
+}
+
+.quote-error,
+.quote-loading {
+  background: #ffffff;
+  border: 1px solid #dbe7e2;
+  border-radius: 12px;
+  margin: 40px auto;
+  max-width: 620px;
+  padding: 28px;
+  text-align: center;
+}
+
+html[data-quote-state="ready"] .quote-loading,
+html[data-quote-state="ready"] .quote-error,
+html[data-quote-state="invalid"] .quote-loading,
+html[data-quote-state="invalid"] .quote-doc { display: none; }
+
+@media print {
+  @page { margin: 0.5in; size: letter; }
+  :root, body { background: #ffffff; }
+  .toolbar, .quote-loading, .quote-error { display: none !important; }
+  .quote-shell { margin: 0; max-width: none; padding: 0; }
+  .quote-doc { border: 0; box-shadow: none; padding: 0; }
+  section, .box, table { break-inside: avoid; }
+}
+
+@media (max-width: 720px) {
+  .toolbar { padding-inline: 14px; }
+  .toolbar button { padding-inline: 16px; }
+  .quote-doc { padding: 28px 20px; }
+  .brand-row, .meta-grid, .totals-grid { grid-template-columns: 1fr; }
+  .right { text-align: left; }
+}

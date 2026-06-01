@@ -1,0 +1,29 @@
+---
+import BaseLayout from "@/layouts/base-layout.astro";
+import HeadSEO from "@/components/seo/head-seo.astro";
+---
+
+<BaseLayout>
+  <HeadSEO
+    slot="head"
+    title="Payment Canceled - Ella Tax"
+    description="Your Ella Tax payment checkout was canceled."
+  />
+
+  <main class="service-section min-h-[70vh] pt-32 pb-16">
+    <section class="mx-auto max-w-2xl px-4 text-center sm:px-6 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-primary-800">
+        Payment canceled
+      </p>
+      <h1 class="mt-3 text-4xl font-extrabold leading-tight text-slate-950 font-heading">
+        Checkout was not completed
+      </h1>
+      <p class="mx-auto mt-5 max-w-xl text-lg leading-8 text-slate-600">
+        No payment was collected. Use the payment link again when ready.
+      </p>
+      <a class="btn-secondary mt-8" href="/pricing">
+        Return to pricing
+      </a>
+    </section>
+  </main>
+</BaseLayout>

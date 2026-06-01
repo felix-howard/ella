@@ -9,14 +9,8 @@ import { useClerk, useUser, useOrganization } from '@clerk/clerk-react'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useRef, useCallback } from 'react'
 import {
-  LayoutDashboard,
-  Users,
-  UsersRound,
-  MessageSquare,
-  Settings,
   ChevronLeft,
   ChevronRight,
-  Megaphone,
 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { useUIStore, useMobileMenu } from '../../stores/ui-store'
@@ -26,17 +20,7 @@ import { useOrgRole } from '../../hooks/use-org-role'
 import { useIsMobile } from '../../hooks'
 import { useRealtimeMessages } from '../../hooks/use-realtime-messages'
 import { SidebarContent } from './sidebar-content'
-
-// Navigation items
-const BASE_NAV_ITEMS = [
-  { path: '/', i18nKey: 'nav.dashboard', icon: LayoutDashboard },
-  { path: '/clients', i18nKey: 'nav.clients', icon: Users },
-  { path: '/messages', i18nKey: 'nav.messages', icon: MessageSquare },
-] as const
-
-const LEADS_NAV_ITEM = { path: '/leads', i18nKey: 'nav.leads', icon: Megaphone } as const
-const TEAM_NAV_ITEM = { path: '/team', i18nKey: 'nav.team', icon: UsersRound } as const
-const SETTINGS_NAV_ITEM = { path: '/settings', i18nKey: 'nav.settings', icon: Settings } as const
+import { getSidebarNavItems } from './sidebar-nav-items'
 
 export function Sidebar() {
   const { t } = useTranslation()
@@ -97,12 +81,7 @@ export function Sidebar() {
 
   useRealtimeMessages() // Subscribe to org message events for unread badge
 
-  const navItems = [
-    ...BASE_NAV_ITEMS,
-    ...(isAdmin ? [LEADS_NAV_ITEM] : []),
-    ...(isAdmin ? [TEAM_NAV_ITEM] : []),
-    SETTINGS_NAV_ITEM,
-  ]
+  const navItems = getSidebarNavItems(isAdmin)
 
   const userInitials = user?.firstName && user?.lastName
     ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
@@ -132,7 +111,7 @@ export function Sidebar() {
     isMobile,
     showLabels,
     isCollapsedDesktop,
-    navItems: navItems as { path: string; i18nKey: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number }> }[],
+    navItems,
     currentPath,
     unreadCount,
     userInitials,

@@ -35,7 +35,7 @@ import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '..
 const leadsRoute = new Hono<{ Variables: AuthVariables }>()
 
 function buildSmsConsentText(orgName: string): string {
-  return `I agree to receive automated texts from ${orgName} about my tax consultation. Msg/data rates may apply. Reply STOP to opt out, HELP for help. Not required to purchase.`
+  return `I agree to receive automated texts from ${orgName} about my tax consultation.`
 }
 
 // ============================================

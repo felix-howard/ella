@@ -338,7 +338,7 @@
   "register.emailPlaceholder": "email@example.com",
   "register.businessName": "Business Name",
   "register.businessNamePlaceholder": "Your shop/company name",
-  "register.smsConsent": "I agree to receive automated texts from {{orgName}} about my tax consultation. Msg/data rates may apply. Reply STOP to opt out, HELP for help. Not required to purchase.",
+  "register.smsConsent": "I agree to receive automated texts from {{orgName}} about my tax consultation.",
   "register.submit": "Register",
   "register.submitting": "Submitting...",
   "register.success.title": "Registration Successful!",

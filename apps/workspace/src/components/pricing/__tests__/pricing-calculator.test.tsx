@@ -121,7 +121,7 @@ describe('workspace pricing calculator', () => {
   it('renders empty default quantity fields without browser number spinners', () => {
     const input = createDefaultPricingInput()
     const markup = renderToStaticMarkup(
-      <PricingCalculatorForm input={input} defaults={input} onInputChange={vi.fn()} />
+      <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
     )
 
     expect(markup).toContain('id="pricing-nec-count"')
@@ -129,6 +129,69 @@ describe('workspace pricing calculator', () => {
     expect(markup).toContain('value=""')
     expect(markup).toContain('[appearance:textfield]')
     expect(markup).toContain('[&amp;::-webkit-inner-spin-button]:appearance-none')
+  })
+
+  it('renders editable rate fields with zero as the minimum instead of default prices', () => {
+    const input = createDefaultPricingInput()
+    input.cashPlan.enabled = true
+    input.auditProtection = true
+
+    const markup = renderToStaticMarkup(
+      <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
+    )
+
+    expect(markup).toContain('aria-label="Basic / mo rate"')
+    expect(markup).toContain('aria-label="Setup rate"')
+    expect(markup).toContain('aria-label="Audit / mo rate"')
+    expect(markup).toContain('value="75"')
+    expect(markup).toContain('value="1000"')
+    expect(markup).toContain('value="300"')
+    expect(markup).toContain('min="0"')
+    expect(markup).not.toContain('min="75"')
+    expect(markup).not.toContain('min="1000"')
+    expect(markup).not.toContain('min="300"')
+  })
+
+  it('hides Cash Plan and Audit Protection custom fields until their toggles are enabled', () => {
+    const input = createDefaultPricingInput()
+
+    const disabledMarkup = renderToStaticMarkup(
+      <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
+    )
+
+    expect(disabledMarkup).toContain('Enable Cash Plan')
+    expect(disabledMarkup).toContain('Enable Audit Protection')
+    expect(disabledMarkup).not.toContain('Employees enrolled')
+    expect(disabledMarkup).not.toContain('Owners / shareholders')
+    expect(disabledMarkup).not.toContain('Per employee / mo')
+    expect(disabledMarkup).not.toContain('Audit / mo')
+    expect(disabledMarkup).not.toContain('Audit setup')
+
+    input.cashPlan.enabled = true
+    input.auditProtection = true
+
+    const enabledMarkup = renderToStaticMarkup(
+      <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
+    )
+
+    expect(enabledMarkup).toContain('Employees enrolled')
+    expect(enabledMarkup).toContain('Owners / shareholders')
+    expect(enabledMarkup).toContain('Per employee / mo')
+    expect(enabledMarkup).toContain('Audit / mo')
+    expect(enabledMarkup).toContain('Audit setup')
+  })
+
+  it('renders zero-valued rate fields as empty so typing does not keep a leading zero', () => {
+    const input = createDefaultPricingInput()
+    input.rates.tiers.proMonthly = 0
+
+    const markup = renderToStaticMarkup(
+      <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
+    )
+
+    expect(markup).toContain('aria-label="Pro / mo rate"')
+    expect(markup).toContain('value=""')
+    expect(markup).not.toContain('value="0"')
   })
 
   it('builds the checkout-session payload from workspace fields without a token field', async () => {

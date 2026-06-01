@@ -1,0 +1,32 @@
+<section
+  class="space-y-3 rounded-xl border border-neutral-border bg-white p-4"
+  aria-labelledby="quote-print-title"
+  data-pricing-print-panel
+>
+  <div>
+    <h4 id="quote-print-title" class="text-sm font-semibold text-gray-900">
+      Quote PDF
+    </h4>
+    <p class="mt-1 text-xs leading-5 text-gray-500">
+      Open a formal print-ready quote for this calculation.
+    </p>
+  </div>
+
+  <button
+    class="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60"
+    type="button"
+    data-pricing-print
+    disabled
+  >
+    Print PDF
+  </button>
+
+  <p
+    class="text-sm font-medium text-gray-600"
+    role="status"
+    aria-live="polite"
+    data-pricing-print-status
+  >
+    Complete a calculation to enable PDF printing.
+  </p>
+</section>

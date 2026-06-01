@@ -13,7 +13,12 @@ import {
 } from '@/config/pricing'
 import { formatBreakdown } from './pricing-calculator-format'
 import { renderResult, resolveRefs } from './pricing-calculator-render'
-import { initPaymentLink } from './pricing-payment-link'
+import { encodePricingQuote } from './pricing-quote-codec'
+
+interface PrintRefs {
+  button: HTMLButtonElement
+  status: HTMLElement | null
+}
 
 function clampInt(raw: string): number {
   const n = parseInt(raw, 10)
@@ -64,6 +69,21 @@ function debounce<A extends unknown[]>(fn: (...args: A) => void, ms: number): (.
   }
 }
 
+function resolvePrintRefs(panel: HTMLElement): PrintRefs | null {
+  const button = panel.querySelector<HTMLButtonElement>('[data-pricing-print]')
+  if (!button) return null
+  return {
+    button,
+    status: panel.querySelector<HTMLElement>('[data-pricing-print-status]'),
+  }
+}
+
+function setPrintState(refs: PrintRefs | null, enabled: boolean, message: string): void {
+  if (!refs) return
+  refs.button.disabled = !enabled
+  if (refs.status) refs.status.textContent = message
+}
+
 function init(): void {
   const form = document.getElementById('pricing-calculator-form')
   const panel = document.getElementById('pricing-summary-panel')
@@ -73,24 +93,36 @@ function init(): void {
   if (!refs) return
 
   let currentResult: CalcResult | null = null
-  const paymentLink = initPaymentLink(panel)
+  let currentInput: CalcInput | null = null
+  const printRefs = resolvePrintRefs(panel)
 
   const recalc = (): void => {
     const input = readInputs(form)
     if (!isPricingInputSane(input)) {
       currentResult = null
-      paymentLink?.disable('One or more calculator values is too high.')
+      currentInput = null
+      setPrintState(printRefs, false, 'One or more calculator values is too high.')
       return
     }
+    currentInput = input
     currentResult = calculatePrice(input)
     renderResult(refs, currentResult)
-    paymentLink?.sync(input, currentResult)
+    setPrintState(
+      printRefs,
+      currentResult.hasAnySelection && !currentResult.isEnterprise,
+      currentResult.isEnterprise
+        ? 'Custom enterprise quotes are prepared by the Ella Tax team.'
+        : currentResult.hasAnySelection
+          ? 'Ready to open a formal print-ready quote.'
+          : 'Complete a calculation to enable PDF printing.'
+    )
   }
 
   const debounced = debounce(recalc, 150)
   const handleFormUpdate = (): void => {
     currentResult = null
-    paymentLink?.disable('Quote changed. Recalculating...')
+    currentInput = null
+    setPrintState(printRefs, false, 'Quote changed. Recalculating...')
     debounced()
   }
   form.addEventListener('input', handleFormUpdate)
@@ -106,6 +138,13 @@ function init(): void {
         },
       })
     )
+  })
+  printRefs?.button.addEventListener('click', () => {
+    if (!currentInput || !currentResult?.hasAnySelection || currentResult.isEnterprise) return
+    const quote = encodePricingQuote(currentInput)
+    const printWindow = window.open(`/pricing/print?q=${quote}`, '_blank')
+    if (!printWindow) setPrintState(printRefs, true, 'Popup blocked. Allow popups, then try Print PDF again.')
+    else printWindow.opener = null
   })
 
   recalc()

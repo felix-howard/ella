@@ -7,6 +7,33 @@
 
 ## 2026-06-01
 
+### Landing: Pricing Quote PDF Print
+**Status:** Complete
+
+**Changed:**
+- Removed public landing payment-link UI and token-based Stripe wiring from `/pricing`.
+- Added a Print PDF action after standard quote calculation.
+- Added `/pricing/print` formal quote page with itemized monthly/setup services, totals, terms, contact info, and print media styling.
+
+**Validation:**
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing build` pass, 14 pages built
+- Local `curl http://localhost:4321/pricing` confirms Quote PDF / Print PDF present and public payment-link copy absent
+
+### Workspace: Pricing Calculator Admin Navigation Guard
+**Status:** Complete
+
+**Changed:**
+- Extracted sidebar navigation composition into a tested helper.
+- Pinned Pricing Calculator sidebar visibility to admin users only.
+- Kept the existing route-level non-admin access guard in place.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/layout/__tests__/sidebar-nav-items.test.ts` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing unrelated warnings
+
 ### Workspace: Lead Bulk SMS Chat History Fix
 **Status:** Complete
 

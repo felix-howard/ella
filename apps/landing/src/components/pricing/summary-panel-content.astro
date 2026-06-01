@@ -11,7 +11,7 @@
  * (XSS-safe by construction).
  */
 import { siteConfig } from "@/config/site";
-import PaymentLinkForm from "./payment-link-form.astro";
+import QuotePrintAction from "./quote-print-action.astro";
 ---
 
 <!-- Tier badge — wrapper drives visibility (phase 05 unhides), span holds text -->
@@ -100,7 +100,7 @@ import PaymentLinkForm from "./payment-link-form.astro";
     </div>
   </div>
 
-  <PaymentLinkForm />
+  <QuotePrintAction />
 
   <button class="btn-secondary w-full" type="button" data-calc-consultation-trigger>
     Book a consultation

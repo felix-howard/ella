@@ -36,6 +36,11 @@ vi.mock('../../../services/realtime/message-publisher', () => ({
   publishMessageEventFromLead: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('../../../services/activity-log', () => ({
+  getAuditRequestContext: vi.fn(() => ({ route: '/leads/:id/messages/read', method: 'POST' })),
+  logStaffActivity: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('../../../middleware/auth', () => {
   const authMiddleware = async (c: any, next: () => Promise<void>) => {
     if (!c.get('user')) {
@@ -60,6 +65,7 @@ import { Hono } from 'hono'
 import type { AuthVariables } from '../../../middleware/auth'
 import { prisma } from '../../../lib/db'
 import { sendSmsOnly } from '../../../services/sms'
+import { logStaffActivity } from '../../../services/activity-log'
 import { leadMessagesRoute } from '../messages'
 
 const VALID_LEAD_CUID = 'cmnldqbqa0005gf6cuecae3x1'
@@ -292,8 +298,14 @@ describe('GET /leads/:id/messages/unread', () => {
 
 describe('POST /leads/:id/messages/read', () => {
   it('clamps upTo to now() when upTo is in the future (prevents silent-read race)', async () => {
+    vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({
+      id: VALID_LEAD_CUID,
+      messagesLastReadAt: null,
+    } as never)
     vi.mocked(prisma.lead.updateMany).mockResolvedValueOnce({ count: 1 } as never)
-    vi.mocked(prisma.message.count).mockResolvedValueOnce(0)
+    vi.mocked(prisma.message.count)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(0)
 
     const futureIso = new Date(Date.now() + 60_000).toISOString()
     const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/messages/read`, {
@@ -306,11 +318,21 @@ describe('POST /leads/:id/messages/read', () => {
     // readAt must be <= now (clamped, not echoed-future)
     expect(new Date(body.readAt).getTime()).toBeLessThanOrEqual(Date.now() + 1000)
     expect(new Date(body.readAt).getTime()).toBeLessThan(new Date(futureIso).getTime())
+    expect(vi.mocked(logStaffActivity)).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'lead.message_read',
+      metadata: expect.objectContaining({ markedMessageCount: 1 }),
+    }))
   })
 
   it('accepts past upTo as-is', async () => {
+    vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({
+      id: VALID_LEAD_CUID,
+      messagesLastReadAt: null,
+    } as never)
     vi.mocked(prisma.lead.updateMany).mockResolvedValueOnce({ count: 1 } as never)
-    vi.mocked(prisma.message.count).mockResolvedValueOnce(0)
+    vi.mocked(prisma.message.count)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(0)
 
     const pastIso = '2026-04-24T08:00:00Z'
     const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/messages/read`, {
@@ -324,12 +346,35 @@ describe('POST /leads/:id/messages/read', () => {
   })
 
   it('returns 404 when lead not in org', async () => {
-    vi.mocked(prisma.lead.updateMany).mockResolvedValueOnce({ count: 0 } as never)
+    vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce(null)
     const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/messages/read`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({}),
     })
     expect(res.status).toBe(404)
+    expect(vi.mocked(prisma.lead.updateMany)).not.toHaveBeenCalled()
+    expect(vi.mocked(logStaffActivity)).not.toHaveBeenCalled()
+  })
+
+  it('does not update or log activity when the read watermark is already current', async () => {
+    const readAt = new Date('2026-04-24T08:00:00Z')
+    vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({
+      id: VALID_LEAD_CUID,
+      messagesLastReadAt: readAt,
+    } as never)
+    vi.mocked(prisma.message.count)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0)
+
+    const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/messages/read`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ upTo: readAt.toISOString() }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(vi.mocked(prisma.lead.updateMany)).not.toHaveBeenCalled()
+    expect(vi.mocked(logStaffActivity)).not.toHaveBeenCalled()
   })
 })

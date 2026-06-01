@@ -7,6 +7,19 @@
 
 ## 2026-06-01
 
+### Workspace: Recent Activity Noise Fix
+**Status:** Complete
+
+**Changed:**
+- Hid passive lead message read receipts from recent/client activity timelines.
+- Changed lead mark-read API to log read activity only when inbound unread messages are actually marked read.
+- Added regression coverage for no-op mark-read calls and activity timeline hidden actions.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/leads/__tests__/messages.test.ts src/routes/activity/__tests__/activity-route.test.ts` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass
+
 ### Portal: Lead SMS Consent
 **Status:** Complete
 

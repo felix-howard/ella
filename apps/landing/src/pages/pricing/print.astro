@@ -1,0 +1,93 @@
+---
+import { siteConfig } from "@/config/site";
+import "@/styles/pricing-print.css";
+---
+
+<!doctype html>
+<html lang="en" data-quote-state="loading">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ella Tax Services Quote</title>
+  </head>
+  <body>
+    <div class="toolbar">
+      <div class="toolbar-inner">
+        <a href="/pricing#calculator">Back to pricing</a>
+        <button type="button" data-print-now>Print / Save PDF</button>
+      </div>
+    </div>
+
+    <div class="quote-loading">Preparing quote...</div>
+    <div class="quote-error">
+      <h1>Quote unavailable</h1>
+      <p data-quote-error>Return to pricing and print a new PDF.</p>
+    </div>
+
+    <main class="quote-shell">
+      <article class="quote-doc" aria-label="Ella Tax Services quote">
+        <header class="brand-row">
+          <div>
+            <img class="brand-logo" src={siteConfig.organization.logo} alt={siteConfig.name} />
+            <p class="muted">{siteConfig.legalName}</p>
+          </div>
+          <div class="right muted">
+            <p>{siteConfig.contact.address.streetAddress}</p>
+            <p>{siteConfig.contact.address.addressLocality}, {siteConfig.contact.address.addressRegion} {siteConfig.contact.address.postalCode}</p>
+            <p>{siteConfig.contact.email} | {siteConfig.contact.phone}</p>
+          </div>
+        </header>
+
+        <h1>Service Estimate</h1>
+        <p class="muted">
+          Prepared for a prospective client based on the pricing calculator selections.
+          This document is suitable for review, approval, and client discussion.
+        </p>
+
+        <section class="meta-grid" aria-label="Quote metadata">
+          <div class="box"><span class="label">Quote ID</span><span class="value" data-quote-id></span></div>
+          <div class="box"><span class="label">Prepared date</span><span class="value" data-quote-date></span></div>
+          <div class="box"><span class="label">Recommended tier</span><span class="value" data-quote-tier></span></div>
+          <div class="box"><span class="label">Prepared by</span><span class="value" data-quote-company></span></div>
+        </section>
+
+        <section aria-label="Monthly services">
+          <h2>Monthly Services</h2>
+          <table>
+            <thead><tr><th>Service</th><th>Cadence</th><th class="amount">Amount</th></tr></thead>
+            <tbody data-quote-monthly-rows></tbody>
+          </table>
+        </section>
+
+        <section aria-label="One-time services">
+          <h2>One-Time Setup And Fixed-Fee Services</h2>
+          <table>
+            <thead><tr><th>Service</th><th>Cadence</th><th class="amount">Amount</th></tr></thead>
+            <tbody data-quote-setup-rows></tbody>
+          </table>
+        </section>
+
+        <section class="totals-grid" aria-label="Quote totals">
+          <div class="box"><span class="label">Monthly total</span><span class="value" data-quote-monthly></span></div>
+          <div class="box"><span class="label">Setup total</span><span class="value" data-quote-setup></span></div>
+          <div class="box total-due"><span class="label">Due today</span><span class="value" data-quote-due></span></div>
+          <div class="box"><span class="label">Next month onward</span><span class="value" data-quote-next-month></span></div>
+        </section>
+
+        <section aria-label="Terms and assumptions">
+          <h2>Terms And Assumptions</h2>
+          <ul data-quote-terms></ul>
+        </section>
+
+        <footer>
+          <p>Questions: <span data-quote-contact></span></p>
+          <p>This estimate is not a tax opinion, engagement letter, or payment receipt.</p>
+        </footer>
+      </article>
+    </main>
+
+    <script>
+      import "@/scripts/pricing-quote-print";
+    </script>
+  </body>
+</html>

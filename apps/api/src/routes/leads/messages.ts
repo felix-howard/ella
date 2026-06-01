@@ -34,6 +34,48 @@ const leadMessagesRoute = new Hono<{ Variables: AuthVariables }>()
 leadMessagesRoute.use('/:id/messages', authMiddleware, requireOrgAdmin)
 leadMessagesRoute.use('/:id/messages/*', authMiddleware, requireOrgAdmin)
 
+async function backfillLeadMessagesFromSmsLogs(leadId: string, organizationId: string) {
+  const smsLogs = await prisma.smsSendLog.findMany({
+    where: {
+      leadId,
+      organizationId,
+      twilioSid: { not: null },
+    },
+    select: {
+      message: true,
+      status: true,
+      twilioSid: true,
+      error: true,
+      sentById: true,
+      sentAt: true,
+    },
+  })
+  const twilioSids = smsLogs.flatMap((log) => (log.twilioSid ? [log.twilioSid] : []))
+  if (twilioSids.length === 0) return
+
+  const existingMessages = await prisma.message.findMany({
+    where: { leadId, twilioSid: { in: twilioSids } },
+    select: { twilioSid: true },
+  })
+  const existingTwilioSids = new Set(existingMessages.flatMap((m) => (m.twilioSid ? [m.twilioSid] : [])))
+  const missingLogs = smsLogs.filter((log) => log.twilioSid && !existingTwilioSids.has(log.twilioSid))
+  if (missingLogs.length === 0) return
+
+  await prisma.message.createMany({
+    data: missingLogs.map((log) => ({
+      leadId,
+      channel: 'SMS',
+      direction: 'OUTBOUND',
+      content: log.message,
+      twilioSid: log.twilioSid,
+      twilioStatus: log.status === 'FAILED' ? `ERROR: ${log.error ?? 'unknown'}` : 'sent',
+      sentById: log.sentById,
+      createdAt: log.sentAt,
+    })),
+    skipDuplicates: true,
+  })
+}
+
 // GET /leads/:id/messages - Chat history (oldest first for chat display)
 leadMessagesRoute.get(
   '/:id/messages',
@@ -53,6 +95,8 @@ leadMessagesRoute.get(
     if (!lead) {
       return c.json({ error: 'NOT_FOUND', message: 'Lead not found' }, 404)
     }
+
+    await backfillLeadMessagesFromSmsLogs(id, orgId)
 
     const [messages, total] = await Promise.all([
       prisma.message.findMany({
@@ -240,13 +284,39 @@ leadMessagesRoute.post(
     const readAt =
       upTo && upTo.getTime() < now.getTime() ? upTo : now
 
-    const { count } = await prisma.lead.updateMany({
+    const lead = await prisma.lead.findFirst({
       where: { id, organizationId: orgId },
-      data: { messagesLastReadAt: readAt },
+      select: { id: true, messagesLastReadAt: true },
     })
-    if (count === 0) {
+    if (!lead) {
       return c.json({ error: 'NOT_FOUND', message: 'Lead not found' }, 404)
     }
+
+    const markedMessageCount = await prisma.message.count({
+      where: {
+        leadId: id,
+        direction: 'INBOUND',
+        createdAt: lead.messagesLastReadAt
+          ? { gt: lead.messagesLastReadAt, lte: readAt }
+          : { lte: readAt },
+      },
+    })
+
+    const shouldAdvanceReadAt =
+      !lead.messagesLastReadAt || lead.messagesLastReadAt.getTime() < readAt.getTime()
+    const updateResult = shouldAdvanceReadAt
+      ? await prisma.lead.updateMany({
+        where: {
+          id,
+          organizationId: orgId,
+          OR: [
+            { messagesLastReadAt: null },
+            { messagesLastReadAt: { lt: readAt } },
+          ],
+        },
+        data: { messagesLastReadAt: readAt },
+      })
+      : { count: 0 }
 
     const unreadCount = await prisma.message.count({
       where: {
@@ -256,22 +326,25 @@ leadMessagesRoute.post(
       },
     })
 
-    await logStaffActivity({
-      organizationId: orgId,
-      actorStaffId: staffId,
-      category: ACTIVITY_CATEGORIES.LEAD,
-      targetType: ACTIVITY_TARGET_TYPES.LEAD,
-      targetId: id,
-      summary: 'Marked lead messages read',
-      action: ACTIVITY_ACTIONS.LEAD.MESSAGE_READ,
-      riskLevel: ActivityRiskLevel.LOW,
-      metadata: {
-        leadId: id,
-        readAt: readAt.toISOString(),
-        unreadCount,
-      },
-      request: getAuditRequestContext(c),
-    })
+    if (markedMessageCount > 0 && updateResult.count > 0) {
+      await logStaffActivity({
+        organizationId: orgId,
+        actorStaffId: staffId,
+        category: ACTIVITY_CATEGORIES.LEAD,
+        targetType: ACTIVITY_TARGET_TYPES.LEAD,
+        targetId: id,
+        summary: 'Marked lead messages read',
+        action: ACTIVITY_ACTIONS.LEAD.MESSAGE_READ,
+        riskLevel: ActivityRiskLevel.LOW,
+        metadata: {
+          leadId: id,
+          readAt: readAt.toISOString(),
+          markedMessageCount,
+          unreadCount,
+        },
+        request: getAuditRequestContext(c),
+      })
+    }
 
     return c.json({ leadId: id, unreadCount, readAt: readAt.toISOString() })
   }

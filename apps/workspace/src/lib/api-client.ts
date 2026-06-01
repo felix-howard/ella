@@ -4,6 +4,7 @@
  * Features: timeout, retry logic, env validation
  */
 import type { MessageReaction } from '@ella/shared'
+import type { PricingCalculatorInput } from '@ella/shared/pricing'
 
 // Environment validation
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002'
@@ -49,6 +50,20 @@ export interface PaginatedResponse<T> {
     total: number
     totalPages: number
   }
+}
+
+export interface CreateCheckoutSessionInput {
+  pricingInput: PricingCalculatorInput
+  customerEmail?: string
+  customerName?: string
+  businessName?: string
+  quoteNotes?: string
+}
+
+export interface CheckoutSessionResponse {
+  quoteId: string
+  checkoutUrl: string
+  sessionId: string
 }
 
 // Request options type
@@ -226,6 +241,15 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
 // API methods organized by resource
 export const api = {
+  billing: {
+    createCheckoutSession: (data: CreateCheckoutSessionInput) =>
+      request<CheckoutSessionResponse>('/billing/checkout-sessions', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+  },
+
   // Clients
   clients: {
     list: (params?: { page?: number; limit?: number; search?: string; managedById?: string; attention?: 'newUploads' | 'needsVerification' | 'stale' | 'readyForEntry'; tag?: string; clientType?: ClientType }) =>
@@ -1682,6 +1706,9 @@ export interface Lead {
   campaignName?: string | null
   tags: string[]
   notes: string | null
+  smsConsentAccepted?: boolean
+  smsConsentAcceptedAt?: string | null
+  smsConsentText?: string | null
   convertedToId: string | null
   convertedAt: string | null
   createdAt: string

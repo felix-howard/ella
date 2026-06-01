@@ -1,0 +1,29 @@
+---
+import BaseLayout from "@/layouts/base-layout.astro";
+import HeadSEO from "@/components/seo/head-seo.astro";
+---
+
+<BaseLayout>
+  <HeadSEO
+    slot="head"
+    title="Checkout Received - Ella Tax"
+    description="Ella Tax received your checkout return and will confirm payment details."
+  />
+
+  <main class="service-section min-h-[70vh] pt-32 pb-16">
+    <section class="mx-auto max-w-2xl px-4 text-center sm:px-6 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-primary-800">
+        Checkout received
+      </p>
+      <h1 class="mt-3 text-4xl font-extrabold leading-tight text-slate-950 font-heading">
+        Checkout received
+      </h1>
+      <p class="mx-auto mt-5 max-w-xl text-lg leading-8 text-slate-600">
+        Thanks for using Ella Tax Checkout. We will confirm payment details and follow up with next steps.
+      </p>
+      <a class="btn-primary mt-8" href="/">
+        Return home
+      </a>
+    </section>
+  </main>
+</BaseLayout>

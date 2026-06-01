@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as PricingCalculatorRouteImport } from './routes/pricing-calculator'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AutoLoginRouteImport } from './routes/auto-login'
@@ -37,6 +38,11 @@ const TeamRoute = TeamRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PricingCalculatorRoute = PricingCalculatorRouteImport.update({
+  id: '/pricing-calculator',
+  path: '/pricing-calculator',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MessagesRoute = MessagesRouteImport.update({
@@ -131,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/auto-login': typeof AutoLoginRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRouteWithChildren
+  '/pricing-calculator': typeof PricingCalculatorRoute
   '/settings': typeof SettingsRoute
   '/team': typeof TeamRouteWithChildren
   '/clients/$clientId': typeof ClientsClientIdRoute
@@ -151,6 +158,7 @@ export interface FileRoutesByTo {
   '/accept-invitation': typeof AcceptInvitationRoute
   '/auto-login': typeof AutoLoginRoute
   '/login': typeof LoginRoute
+  '/pricing-calculator': typeof PricingCalculatorRoute
   '/settings': typeof SettingsRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
@@ -172,6 +180,7 @@ export interface FileRoutesById {
   '/auto-login': typeof AutoLoginRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRouteWithChildren
+  '/pricing-calculator': typeof PricingCalculatorRoute
   '/settings': typeof SettingsRoute
   '/team': typeof TeamRouteWithChildren
   '/clients/$clientId': typeof ClientsClientIdRoute
@@ -195,6 +204,7 @@ export interface FileRouteTypes {
     | '/auto-login'
     | '/login'
     | '/messages'
+    | '/pricing-calculator'
     | '/settings'
     | '/team'
     | '/clients/$clientId'
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
     | '/accept-invitation'
     | '/auto-login'
     | '/login'
+    | '/pricing-calculator'
     | '/settings'
     | '/clients/$clientId'
     | '/clients/new'
@@ -235,6 +246,7 @@ export interface FileRouteTypes {
     | '/auto-login'
     | '/login'
     | '/messages'
+    | '/pricing-calculator'
     | '/settings'
     | '/team'
     | '/clients/$clientId'
@@ -257,6 +269,7 @@ export interface RootRouteChildren {
   AutoLoginRoute: typeof AutoLoginRoute
   LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRouteWithChildren
+  PricingCalculatorRoute: typeof PricingCalculatorRoute
   SettingsRoute: typeof SettingsRoute
   TeamRoute: typeof TeamRouteWithChildren
   ClientsClientIdRoute: typeof ClientsClientIdRoute
@@ -283,6 +296,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing-calculator': {
+      id: '/pricing-calculator'
+      path: '/pricing-calculator'
+      fullPath: '/pricing-calculator'
+      preLoaderRoute: typeof PricingCalculatorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/messages': {
@@ -439,6 +459,7 @@ const rootRouteChildren: RootRouteChildren = {
   AutoLoginRoute: AutoLoginRoute,
   LoginRoute: LoginRoute,
   MessagesRoute: MessagesRouteWithChildren,
+  PricingCalculatorRoute: PricingCalculatorRoute,
   SettingsRoute: SettingsRoute,
   TeamRoute: TeamRouteWithChildren,
   ClientsClientIdRoute: ClientsClientIdRoute,

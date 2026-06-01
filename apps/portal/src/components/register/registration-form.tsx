@@ -4,8 +4,25 @@ import { AlertCircle, BriefcaseBusiness, Loader2, Mail, Phone, UserRound } from 
 import type { LucideIcon } from 'lucide-react'
 import type { RegistrationFormData } from '../../lib/form-api'
 
-interface RegistrationFormProps { onSubmit: (data: RegistrationFormData) => void; isSubmitting: boolean; error?: string }
-type FieldProps = { id: string; label: string; value: string; onChange: (value: string) => void; placeholder: string; icon: LucideIcon; autoComplete: string; type?: string; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']; required?: boolean; fullWidth?: boolean }
+interface RegistrationFormProps {
+  orgName: string
+  onSubmit: (data: RegistrationFormData) => void
+  isSubmitting: boolean
+  error?: string
+}
+type FieldProps = {
+  id: string
+  label: string
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+  icon: LucideIcon
+  autoComplete: string
+  type?: string
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
+  required?: boolean
+  fullWidth?: boolean
+}
 
 function formatPhone(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 10)
@@ -14,13 +31,19 @@ function formatPhone(value: string): string {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
 }
 
-export function RegistrationForm({ onSubmit, isSubmitting, error }: RegistrationFormProps) {
+export function RegistrationForm({
+  orgName,
+  onSubmit,
+  isSubmitting,
+  error,
+}: RegistrationFormProps) {
   const { t } = useTranslation()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [businessName, setBusinessName] = useState('')
+  const [smsConsentAccepted, setSmsConsentAccepted] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const validate = (): boolean => {
@@ -44,6 +67,10 @@ export function RegistrationForm({ onSubmit, isSubmitting, error }: Registration
       newErrors.email = t('register.errors.emailInvalid')
     }
 
+    if (!smsConsentAccepted) {
+      newErrors.smsConsent = t('register.errors.smsConsentRequired')
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -51,7 +78,7 @@ export function RegistrationForm({ onSubmit, isSubmitting, error }: Registration
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (validate()) {
-      onSubmit({ firstName, lastName, phone, email, businessName })
+      onSubmit({ firstName, lastName, phone, email, businessName, smsConsentAccepted })
     }
   }
 
@@ -69,7 +96,10 @@ export function RegistrationForm({ onSubmit, isSubmitting, error }: Registration
 
   const errorMessage = (field: string) =>
     errors[field] ? (
-      <p id={`${field}-error`} className="mt-1.5 flex items-center gap-1.5 text-sm text-destructive">
+      <p
+        id={`${field}-error`}
+        className="mt-1.5 flex items-center gap-1.5 text-sm text-destructive"
+      >
         <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         {errors[field]}
       </p>
@@ -171,6 +201,32 @@ export function RegistrationForm({ onSubmit, isSubmitting, error }: Registration
           autoComplete: 'organization',
           fullWidth: true,
         })}
+      </div>
+
+      <div className="mt-5">
+        <label
+          htmlFor="smsConsent"
+          className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-left transition duration-200 ${
+            errors.smsConsent
+              ? 'border-destructive/60 bg-destructive/5'
+              : 'border-border/80 bg-muted/25 hover:border-primary/40 hover:bg-primary/5'
+          }`}
+        >
+          <input
+            id="smsConsent"
+            type="checkbox"
+            checked={smsConsentAccepted}
+            onChange={(e) => setSmsConsentAccepted(e.target.checked)}
+            disabled={isSubmitting}
+            className="mt-1 h-5 w-5 shrink-0 cursor-pointer rounded border-border text-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+            aria-invalid={!!errors.smsConsent}
+            aria-describedby={errors.smsConsent ? 'smsConsent-error' : 'smsConsent-copy'}
+          />
+          <span id="smsConsent-copy" className="text-sm leading-6 text-muted-foreground">
+            {t('register.smsConsent', { orgName })}
+          </span>
+        </label>
+        {errorMessage('smsConsent')}
       </div>
 
       {error && (

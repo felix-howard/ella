@@ -70,6 +70,7 @@ export function useRegistrationPage({ orgSlug, eventSlug }: UseRegistrationPageP
           phone: data.phone.replace(/\D/g, ''),
           email: data.email.trim() || undefined,
           businessName: data.businessName.trim() || undefined,
+          smsConsentAccepted: data.smsConsentAccepted,
           orgSlug,
           eventSlug,
         })

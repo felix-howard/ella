@@ -1,8 +1,85 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-05-28 ICT
-> **Current Phase:** Landing Polish COMPLETE ✅ | Landing Pricing Restore COMPLETE ✅ | Landing Reposition Phase 06 COMPLETE ✅ | English-First i18n Hardcode Removal COMPLETE ✅ | Comprehensive User Activity Log COMPLETE ✅ | Operational Filed Retention Workflow COMPLETE ✅ | Upload Portal Security Hardening COMPLETE ✅ | Tax Advisory Presentation Landing COMPLETE ✅ | Contractor Agent Agreement Phase 06 COMPLETE ✅ | Upload Link Message Template Selection COMPLETE ✅ | Campaign Form Intro Landing Content COMPLETE ✅ | Individual Schedule C Activity COMPLETE ✅ | Edit & Send Modal Service Builder COMPLETE ✅ | Engagement Letter Placeholder Fields COMPLETE ✅ | Shared Docs Actions Rework COMPLETE (All 5 Phases) ✅ | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL SUPERSEDED BY SECURITY HARDENING | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Landing Polish COMPLETE (5 of 5 phases, 100% done) ✅ + Landing Reposition Phase 06 COMPLETE (6 of 6 phases, 100% done) ✅ + English-First i18n Hardcode Removal COMPLETE (6 of 6 phases, 100% done) ✅ + Comprehensive User Activity Log COMPLETE (5 of 5 phases, 100% done) ✅ + Operational Filed Retention Workflow COMPLETE (4 of 4 phases, 100% done) ✅ + Upload Portal Security Hardening COMPLETE (10 phases, 100% done) ✅ + Tax Advisory Presentation Landing COMPLETE (3 phases, 100% done) ✅ + Contractor Agent Agreement Phase 06 COMPLETE (6 of 6 phases done; migration applied/status clean) ✅ + Upload Link Message Template Selection COMPLETE (4 phases, 100% done) ✅ + Campaign Form Intro Landing Content COMPLETE (single-phase conversion UX enhancement, 100% done) ✅ + Individual Schedule C Activity COMPLETE (5 phases, 100% done) ✅ + Edit & Send Modal Service Builder COMPLETE (single-phase UX enhancement, 100% done) ✅ + Engagement Letter Placeholder Fields COMPLETE (single-phase UX enhancement, 100% done) ✅ + Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Last Updated:** 2026-06-01 ICT
+> **Current Phase:** Workspace Pricing Calculator Payment Links COMPLETE ✅ | Stripe Checkout Validation Phase 05 COMPLETE ✅ | Landing Polish COMPLETE ✅ | Landing Pricing Restore COMPLETE ✅ | Landing Reposition Phase 06 COMPLETE ✅ | English-First i18n Hardcode Removal COMPLETE ✅ | Comprehensive User Activity Log COMPLETE ✅ | Operational Filed Retention Workflow COMPLETE ✅ | Upload Portal Security Hardening COMPLETE ✅ | Tax Advisory Presentation Landing COMPLETE ✅ | Contractor Agent Agreement Phase 06 COMPLETE ✅ | Upload Link Message Template Selection COMPLETE ✅ | Campaign Form Intro Landing Content COMPLETE ✅ | Individual Schedule C Activity COMPLETE ✅ | Edit & Send Modal Service Builder COMPLETE ✅ | Engagement Letter Placeholder Fields COMPLETE ✅ | Shared Docs Actions Rework COMPLETE (All 5 Phases) ✅ | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL SUPERSEDED BY SECURITY HARDENING | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Workspace Pricing Calculator Payment Links COMPLETE (4 of 4 phases, 100% done) ✅ + Stripe Checkout Payments COMPLETE (Phase 05 local E2E completed on 2026-06-01) ✅ + Landing Polish COMPLETE (5 of 5 phases, 100% done) ✅ + Landing Reposition Phase 06 COMPLETE (6 of 6 phases, 100% done) ✅ + English-First i18n Hardcode Removal COMPLETE (6 of 6 phases, 100% done) ✅ + Comprehensive User Activity Log COMPLETE (5 of 5 phases, 100% done) ✅ + Operational Filed Retention Workflow COMPLETE (4 of 4 phases, 100% done) ✅ + Upload Portal Security Hardening COMPLETE (10 phases, 100% done) ✅ + Tax Advisory Presentation Landing COMPLETE (3 phases, 100% done) ✅ + Contractor Agent Agreement Phase 06 COMPLETE (6 of 6 phases done; migration applied/status clean) ✅ + Upload Link Message Template Selection COMPLETE (4 phases, 100% done) ✅ + Campaign Form Intro Landing Content COMPLETE (single-phase conversion UX enhancement, 100% done) ✅ + Individual Schedule C Activity COMPLETE (5 phases, 100% done) ✅ + Edit & Send Modal Service Builder COMPLETE (single-phase UX enhancement, 100% done) ✅ + Engagement Letter Placeholder Fields COMPLETE (single-phase UX enhancement, 100% done) ✅ + Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+
+### Workspace Pricing Calculator Payment Links ✅
+**Started:** 2026-06-01
+**Completed:** 2026-06-01
+**Status:** COMPLETE
+**Objective:** Add authenticated workspace pricing calculator and payment-link creation without manual bearer-token entry.
+
+**Delivered:**
+- Shared pricing calculator domain covers tier detection, totals, and checkout safety checks.
+- Workspace `/pricing-calculator` is admin-only and uses the Clerk-authenticated API client for Stripe Checkout link creation.
+- Empty selections, enterprise quotes, unsafe counts, oversized totals, and invalid email input block payment-link creation.
+- Focused shared/workspace/API validation and docs synced.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test -- billing` pass
+- `pnpm -F @ella/api test -- checkout` pass
+- `pnpm -F @ella/shared test -- pricing` pass
+- `pnpm -F @ella/shared type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- pricing` pass
+- `pnpm i18n:check` pass
+- Manual browser smoke not executed in this non-interactive session; requires org-admin Clerk login.
+
+---
+
+### Lead Registration SMS Consent ✅
+**Started:** 2026-06-01
+**Completed:** 2026-06-01
+**Status:** COMPLETE
+**Objective:** Require explicit SMS consent on public lead registration forms before storing phone numbers for follow-up texts.
+
+**Delivered:**
+- Required EN/VI SMS consent checkbox on default and campaign lead registration forms.
+- API validation rejects public lead submissions without accepted SMS consent.
+- Lead records store consent accepted flag, timestamp, and consent text via migration `20260601095500_add_lead_sms_consent`.
+
+**Validation:**
+- `pnpm -F @ella/db migrate --name add-lead-sms-consent` pass
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass
+- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/portal build` pass with existing chunk-size warning
+- `pnpm i18n:check` pass
+- `pnpm -F @ella/api lint` pass
+- `pnpm -F @ella/db lint` pass
+- `pnpm -F @ella/portal lint` pass with existing unrelated warning
+- `pnpm -F @ella/api test -- leads` pass, 4 files / 22 tests
+
+---
+
+### Stripe Checkout Payments Phase 05: Validation, Docs, Rollout
+**Started:** 2026-05-31
+**Completed:** 2026-06-01
+**Status:** COMPLETE
+**Objective:** Validate payment-link generation, Stripe webhook fulfillment, docs, and rollout readiness.
+
+**Completed:**
+- API type-check, full API tests, and API build passed.
+- Landing type-check and build passed.
+- Review fixes completed: stale/same-second webhook event-order guard, enterprise payment-link blocking, and billing auth coverage.
+- Prisma migration `20260531110843_add_stripe_webhook_event_tracking` applied and `prisma migrate status` is clean.
+- Stripe env names added to `.env.example` and README.
+- Architecture, changelog, codebase summary, and plan files document the rollout state.
+- Local Stripe CLI forwarding and test-mode Checkout payment passed on 2026-06-01.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test` pass, 116 files / 2458 tests
+- `pnpm -F @ella/api build` pass
+- `pnpm -F @ella/landing type-check` pass, 0 errors/warnings/hints
+- `pnpm -F @ella/landing build` pass, 13 pages built
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass
+- `stripe version` pass
+
+---
 
 ### Landing Polish Phase 05: Visual QA and Docs ✅
 **Started:** 2026-05-28

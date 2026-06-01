@@ -94,6 +94,18 @@ export const config = {
     ),
   },
 
+  // Stripe Checkout
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || '',
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+    successUrl:
+      process.env.STRIPE_SUCCESS_URL ||
+      'http://localhost:4321/payment/success?session_id={CHECKOUT_SESSION_ID}',
+    cancelUrl: process.env.STRIPE_CANCEL_URL || 'http://localhost:4321/payment/cancel',
+    currency: (process.env.STRIPE_CURRENCY || 'usd').toLowerCase(),
+    isConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
+  },
+
   // Clerk Authentication (Phase 3)
   clerk: {
     publishableKey: process.env.CLERK_PUBLISHABLE_KEY || '',

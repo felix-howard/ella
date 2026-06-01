@@ -89,14 +89,14 @@ body { margin: 0; }
   grid-template-columns: 1fr 1fr;
 }
 
-.brand {
-  color: #0f172a;
-  font-size: 28px;
-  font-weight: 900;
-  letter-spacing: 0;
+.brand-logo {
+  display: block;
+  height: 34px;
+  object-fit: contain;
+  object-position: left center;
+  width: auto;
 }
 
-.brand span { color: #047857; }
 .muted { color: #64748b; }
 
 h1 {

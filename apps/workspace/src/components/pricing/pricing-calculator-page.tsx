@@ -22,7 +22,6 @@ interface CreateLinkPayload {
 }
 
 export function PricingCalculatorPage() {
-  const defaults = useMemo(() => createDefaultPricingInput(), [])
   const [input, setInput] = useState<PricingCalculatorInput>(() => createDefaultPricingInput())
   const [customerFields, setCustomerFields] = useState<PricingCustomerFields>({
     customerEmail: '',
@@ -110,7 +109,6 @@ export function PricingCalculatorPage() {
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
         <PricingCalculatorForm
           input={input}
-          defaults={defaults}
           disabled={createLinkMutation.isPending}
           onInputChange={handleInputChange}
         />

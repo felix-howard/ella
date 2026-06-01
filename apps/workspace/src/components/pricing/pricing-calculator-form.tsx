@@ -7,7 +7,6 @@ import { clampWholeNumber, formatCurrency } from './pricing-format'
 
 interface PricingCalculatorFormProps {
   input: PricingCalculatorInput
-  defaults: PricingCalculatorInput
   disabled?: boolean
   onInputChange: (input: PricingCalculatorInput) => void
 }
@@ -42,7 +41,6 @@ const numberInputClass =
 
 export function PricingCalculatorForm({
   input,
-  defaults,
   disabled = false,
   onInputChange,
 }: PricingCalculatorFormProps) {
@@ -52,8 +50,7 @@ export function PricingCalculatorForm({
   const setRate = <T extends RateObjectGroup>(
     group: T,
     key: keyof PricingCalculatorInput['rates'][T],
-    value: string,
-    minimum: number
+    value: string
   ) => {
     onInputChange({
       ...input,
@@ -61,7 +58,7 @@ export function PricingCalculatorForm({
         ...input.rates,
         [group]: {
           ...input.rates[group],
-          [key]: clampWholeNumber(value, 1_000_000, minimum),
+          [key]: clampWholeNumber(value, 1_000_000),
         },
       },
     })
@@ -111,34 +108,22 @@ export function PricingCalculatorForm({
             <RateField
               label="Basic / mo"
               value={input.rates.tiers.basicMonthly}
-              min={defaults.rates.tiers.basicMonthly}
-              onChange={(value) =>
-                setRate('tiers', 'basicMonthly', value, defaults.rates.tiers.basicMonthly)
-              }
+              onChange={(value) => setRate('tiers', 'basicMonthly', value)}
             />
             <RateField
               label="Pro / mo"
               value={input.rates.tiers.proMonthly}
-              min={defaults.rates.tiers.proMonthly}
-              onChange={(value) =>
-                setRate('tiers', 'proMonthly', value, defaults.rates.tiers.proMonthly)
-              }
+              onChange={(value) => setRate('tiers', 'proMonthly', value)}
             />
             <RateField
               label="VIP / mo"
               value={input.rates.tiers.vipMonthly}
-              min={defaults.rates.tiers.vipMonthly}
-              onChange={(value) =>
-                setRate('tiers', 'vipMonthly', value, defaults.rates.tiers.vipMonthly)
-              }
+              onChange={(value) => setRate('tiers', 'vipMonthly', value)}
             />
             <RateField
               label="Payroll base / mo"
               value={input.rates.payroll.baseMonthly}
-              min={defaults.rates.payroll.baseMonthly}
-              onChange={(value) =>
-                setRate('payroll', 'baseMonthly', value, defaults.rates.payroll.baseMonthly)
-              }
+              onChange={(value) => setRate('payroll', 'baseMonthly', value)}
             />
           </div>
         </FormSection>
@@ -151,68 +136,53 @@ export function PricingCalculatorForm({
               onInputChange({ ...input, cashPlan: { ...input.cashPlan, enabled } })
             }
           />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <NumberField
-              id="pricing-cash-employees"
-              label="Employees enrolled"
-              value={input.cashPlan.employees}
-              max={200}
-              onChange={(value) =>
-                onInputChange({
-                  ...input,
-                  cashPlan: { ...input.cashPlan, employees: clampWholeNumber(value, 200) },
-                })
-              }
-            />
-            <NumberField
-              id="pricing-cash-owners"
-              label="Owners / shareholders"
-              value={input.cashPlan.owners}
-              max={99}
-              onChange={(value) =>
-                onInputChange({
-                  ...input,
-                  cashPlan: { ...input.cashPlan, owners: clampWholeNumber(value, 99) },
-                })
-              }
-            />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <RateField
-              label="Setup"
-              value={input.rates.cashPlan.setup}
-              min={defaults.rates.cashPlan.setup}
-              onChange={(value) =>
-                setRate('cashPlan', 'setup', value, defaults.rates.cashPlan.setup)
-              }
-            />
-            <RateField
-              label="Per employee / mo"
-              value={input.rates.cashPlan.perEmployeeMonthly}
-              min={defaults.rates.cashPlan.perEmployeeMonthly}
-              onChange={(value) =>
-                setRate(
-                  'cashPlan',
-                  'perEmployeeMonthly',
-                  value,
-                  defaults.rates.cashPlan.perEmployeeMonthly
-                )
-              }
-            />
-            <RateField
-              label="Per owner / mo"
-              value={input.rates.cashPlan.perOwnerMonthly}
-              min={defaults.rates.cashPlan.perOwnerMonthly}
-              onChange={(value) =>
-                setRate(
-                  'cashPlan',
-                  'perOwnerMonthly',
-                  value,
-                  defaults.rates.cashPlan.perOwnerMonthly
-                )
-              }
-            />
-          </div>
+          {input.cashPlan.enabled && (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <NumberField
+                  id="pricing-cash-employees"
+                  label="Employees enrolled"
+                  value={input.cashPlan.employees}
+                  max={200}
+                  onChange={(value) =>
+                    onInputChange({
+                      ...input,
+                      cashPlan: { ...input.cashPlan, employees: clampWholeNumber(value, 200) },
+                    })
+                  }
+                />
+                <NumberField
+                  id="pricing-cash-owners"
+                  label="Owners / shareholders"
+                  value={input.cashPlan.owners}
+                  max={99}
+                  onChange={(value) =>
+                    onInputChange({
+                      ...input,
+                      cashPlan: { ...input.cashPlan, owners: clampWholeNumber(value, 99) },
+                    })
+                  }
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <RateField
+                  label="Setup"
+                  value={input.rates.cashPlan.setup}
+                  onChange={(value) => setRate('cashPlan', 'setup', value)}
+                />
+                <RateField
+                  label="Per employee / mo"
+                  value={input.rates.cashPlan.perEmployeeMonthly}
+                  onChange={(value) => setRate('cashPlan', 'perEmployeeMonthly', value)}
+                />
+                <RateField
+                  label="Per owner / mo"
+                  value={input.rates.cashPlan.perOwnerMonthly}
+                  onChange={(value) => setRate('cashPlan', 'perOwnerMonthly', value)}
+                />
+              </div>
+            </>
+          )}
         </FormSection>
 
         <FormSection icon={ShieldCheck} title="Add-ons">
@@ -221,24 +191,20 @@ export function PricingCalculatorForm({
             checked={input.auditProtection}
             onCheckedChange={(auditProtection) => onInputChange({ ...input, auditProtection })}
           />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <RateField
-              label="Audit / mo"
-              value={input.rates.auditProtection.monthly}
-              min={defaults.rates.auditProtection.monthly}
-              onChange={(value) =>
-                setRate('auditProtection', 'monthly', value, defaults.rates.auditProtection.monthly)
-              }
-            />
-            <RateField
-              label="Audit setup"
-              value={input.rates.auditProtection.setup}
-              min={defaults.rates.auditProtection.setup}
-              onChange={(value) =>
-                setRate('auditProtection', 'setup', value, defaults.rates.auditProtection.setup)
-              }
-            />
-          </div>
+          {input.auditProtection && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <RateField
+                label="Audit / mo"
+                value={input.rates.auditProtection.monthly}
+                onChange={(value) => setRate('auditProtection', 'monthly', value)}
+              />
+              <RateField
+                label="Audit setup"
+                value={input.rates.auditProtection.setup}
+                onChange={(value) => setRate('auditProtection', 'setup', value)}
+              />
+            </div>
+          )}
         </FormSection>
 
         <FormSection icon={Store} title="One-time services">
@@ -254,28 +220,16 @@ export function PricingCalculatorForm({
                           compact
                           label="Federal"
                           value={input.rates.oneTime.businessTaxReturnFederal}
-                          min={defaults.rates.oneTime.businessTaxReturnFederal}
                           onChange={(value) =>
-                            setRate(
-                              'oneTime',
-                              'businessTaxReturnFederal',
-                              value,
-                              defaults.rates.oneTime.businessTaxReturnFederal
-                            )
+                            setRate('oneTime', 'businessTaxReturnFederal', value)
                           }
                         />
                         <RateField
                           compact
                           label="State"
                           value={input.rates.oneTime.businessTaxReturnState}
-                          min={defaults.rates.oneTime.businessTaxReturnState}
                           onChange={(value) =>
-                            setRate(
-                              'oneTime',
-                              'businessTaxReturnState',
-                              value,
-                              defaults.rates.oneTime.businessTaxReturnState
-                            )
+                            setRate('oneTime', 'businessTaxReturnState', value)
                           }
                         />
                       </>
@@ -284,10 +238,7 @@ export function PricingCalculatorForm({
                         compact
                         label="Rate"
                         value={input.rates.oneTime[row.key]}
-                        min={defaults.rates.oneTime[row.key]}
-                        onChange={(value) =>
-                          setRate('oneTime', row.key, value, defaults.rates.oneTime[row.key])
-                        }
+                        onChange={(value) => setRate('oneTime', row.key, value)}
                       />
                     )}
                     {row.hint && <span>{row.hint}</span>}
@@ -321,17 +272,12 @@ export function PricingCalculatorForm({
           <RateField
             label="Per shop / mo"
             value={input.rates.salesTaxMonitoringMonthly}
-            min={defaults.rates.salesTaxMonitoringMonthly}
             onChange={(value) =>
               onInputChange({
                 ...input,
                 rates: {
                   ...input.rates,
-                  salesTaxMonitoringMonthly: clampWholeNumber(
-                    value,
-                    1_000_000,
-                    defaults.rates.salesTaxMonitoringMonthly
-                  ),
+                  salesTaxMonitoringMonthly: clampWholeNumber(value, 1_000_000),
                 },
               })
             }
@@ -401,14 +347,12 @@ function NumberField({
 function RateField({
   label,
   value,
-  min,
   onChange,
   compact = false,
   disabled = false,
 }: {
   label: string
   value: number
-  min: number
   onChange: (value: string) => void
   compact?: boolean
   disabled?: boolean
@@ -423,9 +367,9 @@ function RateField({
       <Input
         aria-label={`${label} rate`}
         type="number"
-        min={min}
+        min={0}
         inputMode="numeric"
-        value={value}
+        value={value === 0 ? '' : value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         className={

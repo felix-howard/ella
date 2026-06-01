@@ -47,7 +47,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 └──────────────────────────────────────────────────┘
 ```
 
-`@ella/shared/constants` is the source of truth for pricing defaults; landing re-exports those constants so marketing cards and checkout quotes stay aligned.
+`@ella/shared/constants` is the source of truth for pricing defaults; `@ella/shared/pricing` owns calculator math so landing, workspace, and billing stay aligned.
 
 ## Frontend Layer
 
@@ -56,7 +56,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Apps:**
 - `apps/landing/` - Public-facing Astro site for Ella Tax Services LLC, with home, services, password-gated pricing calculator, get-started, why Ella, about, privacy, terms, and tax-advisory pages. Shared service primitives cover page heroes, service cards, process steps, trust strips, contact bands, FAQs, contact forms, and stats. `/try-now` redirects to `/get-started`, and `/features` redirects to `/services`.
 - `apps/portal/` - Client magic link upload portal
-- `apps/workspace/` - Staff dashboard with team management
+- `apps/workspace/` - Staff dashboard with team management and an admin-only pricing calculator/payment-link flow
 
 **Key Pages (Workspace):**
 - `/` - Dashboard with stats & quick actions
@@ -66,6 +66,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations
 - `/actions` - Action queue with priority filtering
+- `/pricing-calculator` - Admin-only pricing calculator with quote summary and Stripe payment-link creation through the staff Clerk session
 - `/team` - Team member management (Phase 3)
 - `/accept-invitation` - Clerk org invite acceptance (Phase 6)
 
@@ -113,6 +114,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Pagination: limit=20, max=100
 - **Client Types (Phase 10):** clientType: 'INDIVIDUAL' | 'BUSINESS'. GET /clients/:id returns einMasked (masked EIN) instead of encrypted version.
 - **Namespaces:** clients, cases, team, messages, leads, forms, contractors, clientGroups, sharedDocs (Phase 02, replaces draftReturns), businesses (deprecated in favor of clientGroups)
+- **Billing namespace:** `api.billing.createCheckoutSession(data)` posts shared pricing input plus optional customer fields to `/billing/checkout-sessions`. The workspace API client injects the Clerk JWT; the workspace pricing UI has no manual bearer-token field.
 - **Phase 02 API Client Changes (workspace):**
   - `api.draftReturns.*` renamed to `api.sharedDocs.*`
   - `DraftReturnData` → `ShareableDocumentData` (includes title field)
@@ -162,6 +164,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /billing/checkout-sessions` - Org-admin only. Persists a `PaymentQuote` first, then creates the Stripe Checkout session and stores the returned session URL, status, and expiry in `StripeCheckoutSession`. Uses `quoteId` as the Stripe idempotency key, keeps Stripe metadata free of internal notes and PII, and surfaces config errors as `STRIPE_NOT_CONFIGURED` or `STRIPE_RETURN_URLS_INVALID`.
 - `POST /webhooks/stripe` - Public Stripe webhook. Verifies `Stripe-Signature` with the raw request body and `STRIPE_WEBHOOK_SECRET`, then syncs local `PaymentQuote` and `StripeCheckoutSession` status for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `invoice.paid`, `invoice.payment_failed`, and `customer.subscription.deleted`. Completed unpaid checkouts map to `awaiting_payment`, and the existing local checkout-session quote association wins over Stripe metadata when both exist. Webhook updates persist `lastStripeEventId` and `lastStripeEventAt` on quote/session records, ignore older events, apply same-second status precedence, and keep canceled sessions terminal for later invoice events on the same subscription.
 - Pricing payment links are disabled for enterprise-sized quotes (>20 1099 workers); those quotes remain contact-sales only.
+- Workspace `/pricing-calculator` uses the same shared calculator domain as billing and creates payment links through the authenticated `api.billing` client. No-selection, enterprise-sized, unsafe quantity, and oversized checkout states disable link creation before the API call and are enforced again by billing before Stripe session creation.
 - Stripe config lives in the API process env: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `STRIPE_CURRENCY`. Local API dev loads `apps/api/.env`.
 - Landing payment-link calls require `PUBLIC_API_URL` in the landing process/build env so `/pricing` can reach the API. Local landing dev loads `apps/landing/.env`; deployed static builds need the same variable configured in build/deploy env.
 - Local webhook testing: `pnpm dev` starts Stripe CLI forwarding automatically when Stripe CLI plus `STRIPE_SECRET_KEY` and the matching local `STRIPE_WEBHOOK_SECRET` are available. Bootstrap or refresh the local `whsec_...` with `stripe listen --forward-to localhost:3002/webhooks/stripe`, then copy the printed signing secret into `apps/api/.env`. Do not reuse the live Dashboard webhook secret for local CLI forwarding.

@@ -16,6 +16,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Calculator,
   Megaphone,
 } from 'lucide-react'
 import { cn } from '@ella/ui'
@@ -25,7 +26,7 @@ import { useVoiceCallContext } from '../voice/voice-call-provider'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { useIsMobile } from '../../hooks'
 import { useRealtimeMessages } from '../../hooks/use-realtime-messages'
-import { SidebarContent } from './sidebar-content'
+import { SidebarContent, type NavItem } from './sidebar-content'
 
 // Navigation items
 const BASE_NAV_ITEMS = [
@@ -35,6 +36,11 @@ const BASE_NAV_ITEMS = [
 ] as const
 
 const LEADS_NAV_ITEM = { path: '/leads', i18nKey: 'nav.leads', icon: Megaphone } as const
+const PRICING_NAV_ITEM = {
+  path: '/pricing-calculator',
+  i18nKey: 'nav.pricingCalculator',
+  icon: Calculator,
+} as const
 const TEAM_NAV_ITEM = { path: '/team', i18nKey: 'nav.team', icon: UsersRound } as const
 const SETTINGS_NAV_ITEM = { path: '/settings', i18nKey: 'nav.settings', icon: Settings } as const
 
@@ -100,6 +106,7 @@ export function Sidebar() {
   const navItems = [
     ...BASE_NAV_ITEMS,
     ...(isAdmin ? [LEADS_NAV_ITEM] : []),
+    ...(isAdmin ? [PRICING_NAV_ITEM] : []),
     ...(isAdmin ? [TEAM_NAV_ITEM] : []),
     SETTINGS_NAV_ITEM,
   ]
@@ -132,7 +139,7 @@ export function Sidebar() {
     isMobile,
     showLabels,
     isCollapsedDesktop,
-    navItems: navItems as { path: string; i18nKey: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number }> }[],
+    navItems: navItems satisfies NavItem[],
     currentPath,
     unreadCount,
     userInitials,

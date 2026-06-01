@@ -5,6 +5,7 @@ import {
   calculateCheckoutQuote,
   CheckoutQuoteError,
 } from '../checkout'
+import { calculatePricing, MAX_CHECKOUT_LINE_AMOUNT } from '@ella/shared/pricing'
 import type {
   CheckoutPricingInput,
   CreateCheckoutSessionInput,
@@ -100,6 +101,29 @@ describe('Stripe checkout session params', () => {
     expect(params.metadata).toMatchObject({ quoteId: quote.quoteId, source: 'pricing_calculator' })
   })
 
+  it('keeps checkout quote totals aligned with the shared pricing calculator', () => {
+    const pricingInput = {
+      ...basePricingInput,
+      payrollEmployees: 5,
+      cashPlan: { enabled: true, employees: 5, owners: 1 },
+      auditProtection: true,
+      oneTime: { ...basePricingInput.oneTime, personalTaxReturn: 2 },
+      salesTaxShops: 2,
+    }
+
+    const checkoutQuote = calculateCheckoutQuote(pricingInput)
+    const sharedQuote = calculatePricing(pricingInput)
+
+    expect(checkoutQuote.monthlyTotal).toBe(sharedQuote.monthlyTotal)
+    expect(checkoutQuote.setupTotal).toBe(sharedQuote.setupTotal)
+    expect(checkoutQuote.monthlyItems.map((item) => item.label)).toEqual(
+      sharedQuote.monthlyItems.map((item) => item.label)
+    )
+    expect(checkoutQuote.setupItems.map((item) => item.label)).toEqual(
+      sharedQuote.setupItems.map((item) => item.label)
+    )
+  })
+
   it('builds subscription params for monthly-only totals', () => {
     const quote = {
       quoteId: 'quote_monthly',
@@ -157,9 +181,73 @@ describe('Stripe checkout session params', () => {
     expect(() => calculateCheckoutQuote(discounted)).toThrow(CheckoutQuoteError)
   })
 
+  it('rejects checkout without a billable selection', () => {
+    expect(() =>
+      calculateCheckoutQuote({
+        ...basePricingInput,
+        nec1099Count: 0,
+      })
+    ).toThrow('Select at least one billable service before checkout')
+  })
+
   it('rejects enterprise-sized payment links', () => {
     expect(() => calculateCheckoutQuote({ ...basePricingInput, nec1099Count: 21 })).toThrow(
       'Enterprise quotes require manual follow-up'
+    )
+  })
+
+  it('rejects unsafe direct checkout counts above workspace limits', () => {
+    expect(() =>
+      calculateCheckoutQuote({
+        ...basePricingInput,
+        nec1099Count: 11,
+        payrollEmployees: 201,
+      })
+    ).toThrow('Quantity limits exceeded')
+
+    expect(() =>
+      calculateCheckoutQuote({
+        ...basePricingInput,
+        cashPlan: { enabled: true, employees: 201, owners: 1 },
+      })
+    ).toThrow('Quantity limits exceeded')
+
+    expect(() =>
+      calculateCheckoutQuote({
+        ...basePricingInput,
+        cashPlan: { enabled: true, employees: 1, owners: 100 },
+      })
+    ).toThrow('Quantity limits exceeded')
+
+    expect(() =>
+      calculateCheckoutQuote({
+        ...basePricingInput,
+        oneTime: { ...basePricingInput.oneTime, personalTaxReturn: 100 },
+      })
+    ).toThrow('Quantity limits exceeded')
+
+    expect(() =>
+      calculateCheckoutQuote({
+        ...basePricingInput,
+        salesTaxShops: 201,
+      })
+    ).toThrow('Quantity limits exceeded')
+  })
+
+  it('rejects oversized checkout totals before Stripe session creation', () => {
+    const oversized = {
+      ...basePricingInput,
+      rates: {
+        ...basePricingInput.rates,
+        tiers: {
+          ...basePricingInput.rates.tiers,
+          proMonthly: MAX_CHECKOUT_LINE_AMOUNT + 1,
+        },
+      },
+    }
+
+    expect(() => calculateCheckoutQuote(oversized)).toThrow(
+      'Quote total is too large for checkout'
     )
   })
 

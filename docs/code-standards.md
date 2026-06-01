@@ -109,7 +109,7 @@ export type User = z.infer<typeof userSchema>
 - `/schemas` - Zod validators only
 - `/types` - TypeScript types & inferred types
 - Default export includes all
-- Pricing defaults live in `@ella/shared/constants` and are re-exported by landing config; do not duplicate tier prices in app-local config.
+- Pricing defaults live in `@ella/shared/constants`; calculator math, defaults, and tier detection live in `@ella/shared/pricing`. Landing keeps a compatibility re-export in `@/config/pricing`, so do not duplicate tier prices in app-local config.
 
 ## Condition Types & Evaluation
 

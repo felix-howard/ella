@@ -7,6 +7,39 @@
 
 ## 2026-06-01
 
+### Workspace: Pricing Calculator Payment Links
+**Status:** Complete
+
+**Changed:**
+- Completed admin-only workspace pricing calculator UI with shared pricing math, quote summary, and Stripe payment-link panel.
+- Removed manual bearer-token entry from the workspace flow; payment-link creation uses the Clerk-authenticated workspace API client.
+- Disabled link creation for empty selections, enterprise-sized quotes, unsafe counts, oversized checkout totals, and invalid customer email input.
+- Added focused workspace tests for calculator rendering, changed totals, disabled states, checkout URL actions, and token-free request payloads.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test -- billing` pass
+- `pnpm -F @ella/api test -- checkout` pass
+- `pnpm -F @ella/shared test -- pricing` pass
+- `pnpm -F @ella/shared type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- pricing` pass
+- `pnpm i18n:check` pass
+- Manual browser smoke not executed in this non-interactive session; requires org-admin Clerk login.
+
+### Workspace: Pricing Calculator Route Shell
+**Status:** Complete
+
+**Changed:**
+- Added admin-only `/pricing-calculator` workspace route shell.
+- Added Pricing Calculator to the sidebar for organization admins only.
+- Wired the shell to the existing billing client method `api.billing.createCheckoutSession(data)` with Clerk JWT auth and `retries: 0`.
+- Added EN/VI locale strings for the route title, subtitle, access states, and calculator/payment-link cards.
+- Kept the full calculator/payment-link form for phase 03.
+
+**Validation:**
+- Verified against the current route, sidebar, API client, and locale files.
+
 ### Billing: Stripe Checkout Validation And Rollout
 **Status:** Complete
 

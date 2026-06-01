@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api, type OrgRole } from '../lib/api-client'
 
 export function useOrgRole() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['staff-me'],
     queryFn: () => api.staff.me(),
     staleTime: 60000, // Cache for 1 min
@@ -18,6 +18,7 @@ export function useOrgRole() {
     orgRole,
     isAdmin: orgRole === 'org:admin' || data?.role === 'ADMIN',
     isLoading,
+    isError,
     staffId: data?.id ?? null,
     avatarUrl: data?.avatarUrl ?? null,
   }

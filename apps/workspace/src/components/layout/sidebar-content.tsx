@@ -13,8 +13,17 @@ import { useTheme } from '../../stores/ui-store'
 
 const BADGE_MAX_COUNT = 99
 
-interface NavItem {
-  path: string
+export type NavItemPath =
+  | '/'
+  | '/clients'
+  | '/messages'
+  | '/leads'
+  | '/pricing-calculator'
+  | '/team'
+  | '/settings'
+
+export interface NavItem {
+  path: NavItemPath
   i18nKey: string
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>
 }
@@ -93,7 +102,7 @@ export function SidebarContent({
           return (
             <Link
               key={item.path}
-              to={item.path as '/'}
+              to={item.path}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative',
                 isActive

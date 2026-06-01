@@ -2,7 +2,8 @@
 
 **Current Date:** 2026-06-01
 **Current Branch:** codex-work-20260528-fresh
-**Stripe Checkout Backend:** Phase 05 complete; admin-only `POST /billing/checkout-sessions` persists `PaymentQuote` and `StripeCheckoutSession` records, uses quote-based idempotency, and public `POST /webhooks/stripe` verifies `Stripe-Signature` against the raw body before syncing local quote/session status for checkout completion, async payment, invoice, and subscription lifecycle events. Webhook state changes persist the latest Stripe event id/timestamp, use same-second status precedence, and keep canceled checkout sessions terminal for later invoice events on the same subscription. Enterprise-sized calculator quotes are contact-sales only and cannot create payment links. Stripe metadata stays minimal, production return URLs must be HTTPS, pricing defaults come from `@ella/shared/constants`, local API dev can start Stripe CLI webhook forwarding automatically when Stripe env is configured, and local test-mode Checkout E2E has been verified through paid subscription checkout plus DB status sync.
+**Stripe Checkout Backend:** Phase 05 complete; admin-only `POST /billing/checkout-sessions` persists `PaymentQuote` and `StripeCheckoutSession` records, uses quote-based idempotency, and public `POST /webhooks/stripe` verifies `Stripe-Signature` against the raw body before syncing local quote/session status for checkout completion, async payment, invoice, and subscription lifecycle events. Webhook state changes persist the latest Stripe event id/timestamp, use same-second status precedence, and keep canceled checkout sessions terminal for later invoice events on the same subscription. Enterprise-sized calculator quotes are contact-sales only and cannot create payment links. Stripe metadata stays minimal, production return URLs must be HTTPS, pricing defaults come from `@ella/shared/constants`, calculator math lives in `@ella/shared/pricing`, landing keeps a compatibility re-export for the pricing helpers, local API dev can start Stripe CLI webhook forwarding automatically when Stripe env is configured, and local test-mode Checkout E2E has been verified through paid subscription checkout plus DB status sync.
+**Workspace Pricing Calculator Shell:** Phase 02 complete; workspace now has an admin-only `/pricing-calculator` route shell, the sidebar shows Pricing Calculator only for admins, `api.billing.createCheckoutSession(data)` uses the existing Clerk JWT request wrapper with `retries: 0`, and the full calculator/payment-link form is still deferred to phase 03.
 **Landing Reposition:** Phase 06 complete; the public site now presents Ella Tax Services LLC as an online tax services firm. Home/services/get-started/about/why pages use trust-first service positioning, `/pricing` is restored as the password-gated calculator page, `/get-started` is the canonical inquiry page, `/try-now` is a noindex redirect to it, `/features` redirects to `/services`, and `/tax-advisory` remains a noindex static preview with nonsensitive advisory content. All 6 phases are done, including validation, review, and docs sync.
 **Upload Portal Security Hardening:** Phase 10 complete; portal links now use 32-character random tokens, default 60-day expiry, revoke/extend/replace lifecycle, audit logging, token+IP rate limits, portal filename privacy, signature-based file validation, 900-second sensitive document signed URLs, and identity document retention after filed cases. Malware scanning is not implemented yet and remains future work.
 **Operational Filed Retention Workflow:** Phase 04 complete; `Mark return filed` is the manual business trigger for identity retention, review/verify are not prerequisites, filed header shows retention state, reopen clears pending schedules, and staff can extend scheduled identity retention 30/60/90 days.
@@ -245,12 +246,12 @@
   - pricing.astro rewrite (184 LOC): hero, 3-card grid, `#calculator` placeholder for phases 03-05, tax-themed FAQ, CTA
   - pricing-constants.ts: added `tagline` on all tiers + `marketingLabel: "VIP"` on ENTERPRISE
   - Responsive grid `md:grid-cols-3`; anchors `#pricing`, `#calculator`, `#faq` preserved
-- **Pricing Calculator (Phase 03–07 Rollout, 2026-04-21):** Two-column form + summary layout
+- **Pricing Calculator (Phase 03–07 Rollout, 2026-04-21):** Two-column form + summary layout, with calculator math extracted into `@ella/shared/pricing`
   - calculator-form.astro (phase 03): Worker count input, 1099 toggles, rate inputs; `[data-calc-input]` hooks for phase 05; `aria-describedby` on inputs (phase 07)
   - calculator-section.astro: Grid wrapper (`lg:grid-cols-[1fr_380px]`) holding form + summary side-by-side; `lg:items-start` sticky alignment
   - summary-panel.astro (phase 04): Dual-surface shell — desktop sticky right column + mobile fixed bottom `<details>` bar (phase 07). Imports reusable `SummaryPanelContent` partial.
   - summary-panel-content.astro (NEW, phase 07): Shared inner content (tier badge, empty/result/enterprise states, CTA, line-item template). Eliminates markup duplication; `pricing-calculator-render.ts` updates all copies via `querySelectorAll` arrays (phase 07).
-  - pricing-calculator.ts: Wires form inputs to `calculatePrice()` pure function; emits `renderResult()` DOM updates via single `.querySelector` resolver (phase 05).
+  - pricing-calculator.ts: Wires form inputs to `calculatePrice()` from `@ella/shared/pricing`; emits `renderResult()` DOM updates via single `.querySelector` resolver (phase 05).
   - pricing-calculator-render.ts (phase 07): Multi-copy aware rendering — `PanelRefs` contains arrays for desktop/mobile versions. All DOM writes via `textContent` (XSS-safe). `resolveRefs()` queries all markers, loops over arrays in `setText/populateList/toggleState`.
   - pricing-faq.ts (NEW, phase 07): Centralized 8-item FAQ data (How price calculated, tier differences, upgrade/downgrade, 1099 definition, audit protection, cash plan, deposit refundability, multistate service). Consumed by pricing.astro + `faqSchema()` JSON-LD.
 - **Why Ella Page (Phase 03 Updates):** Problem-solution narrative with proof points
@@ -269,6 +270,7 @@
 
 **Key Pages (Workspace):**
 - `/team` - Team member management (member table, invite dialog, bulk assign)
+- `/pricing-calculator` - Admin-only pricing shell with calculator/payment-link cards and admin gate fallback
 - `/clients`, `/clients/:id`, `/cases/:id`, `/messages`, `/actions` - Core workflows
 - `/accept-invitation` - Clerk org invite sign-in/sign-up flow
 

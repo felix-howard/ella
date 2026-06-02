@@ -101,6 +101,31 @@ export const homeAdvisors = [
     role: "Senior Account Advisor",
     bio: "Supports tax advisory conversations, business records, and compliance questions.",
   },
+  {
+    name: "Mr. Michael D. Sullivan",
+    role: "Former IRS Agent",
+    bio: "Founder of MD Sullivan Tax Group with 10 years at the Internal Revenue Service and over 42 years in private tax practice. He has helped individuals and businesses resolve complex IRS issues, served as an Offer in Compromise Tax Specialist and Large Dollar Case Specialist, collaborated with the U.S. Attorney's office on undercover operations, and received several awards for his IRS work and dedication.",
+  },
+  {
+    name: "Herb Cantor",
+    role: "CPA, Former IRS Revenue Agent / IRS Appeal Agent",
+    bio: "Supports tax resolution matters with CPA experience and former IRS Revenue Agent and IRS Appeal Agent perspective.",
+  },
+  {
+    name: "John S. Wood",
+    role: "CPA, IRS Tax Resolution Expert",
+    bio: "Helps clients approach IRS tax resolution questions with CPA guidance and tax controversy experience.",
+  },
+  {
+    name: "Peter Salinger",
+    role: "EA, Former IRS Revenue Officer / IRS Appeals Settlement Officer",
+    bio: "Supports IRS resolution work with enrolled agent credentials and former IRS Revenue Officer and Appeals Settlement Officer experience.",
+  },
+  {
+    name: "Julie Lynch",
+    role: "Former IRS Agent & Enrolled Agent",
+    bio: "Helps clients understand IRS issues with former IRS Agent experience and enrolled agent representation support.",
+  },
 ] as const;
 
 export const homeFaqs = [

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 740" role="img" aria-labelledby="title desc">
+  <title id="title">Authorized IRS e-file Provider</title>
+  <desc id="desc">Badge reading Authorized IRS e-file Provider.</desc>
+  <defs>
+    <radialGradient id="badgeGlow" cx="50%" cy="45%" r="52%">
+      <stop offset="0%" stop-color="#fff200"/>
+      <stop offset="44%" stop-color="#fff680"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="16" y="16" width="868" height="708" rx="68" fill="#ffffff"/>
+  <rect x="16" y="16" width="868" height="708" rx="68" fill="url(#badgeGlow)" opacity="0.9"/>
+  <rect x="16" y="16" width="868" height="708" rx="68" fill="none" stroke="#2d95d3" stroke-width="18"/>
+
+  <text x="450" y="104" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="72" font-weight="900" letter-spacing="7" fill="#160000">
+    AUTHORIZED
+  </text>
+
+  <text x="86" y="395" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="330" font-weight="900" letter-spacing="-14" fill="#160000">
+    IRS
+  </text>
+
+  <ellipse cx="450" cy="508" rx="392" ry="86" fill="#2d95d3"/>
+  <text x="112" y="532" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="54" font-style="italic" font-weight="900" letter-spacing="-2" fill="#f4f71c">
+    IRS
+  </text>
+  <text x="212" y="558" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="170" font-style="italic" font-weight="900" letter-spacing="-8" fill="#ffffff">
+    e
+  </text>
+  <path d="M379 529 L495 479 L481 519 L580 483 L450 571 L467 525 Z" fill="#f4f71c"/>
+  <text x="522" y="558" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="140" font-style="italic" font-weight="900" letter-spacing="-5" fill="#ffffff">
+    file
+  </text>
+
+  <text x="450" y="678" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="88" font-weight="900" letter-spacing="5" fill="#160000">
+    PROVIDER
+  </text>
+</svg>

@@ -6,8 +6,8 @@ export const homeTrustItems = [
     description: "Ella Tax Services LLC serves clients online from Houston, TX.",
   },
   {
-    label: "Secure online handling",
-    description: "Use a guided workflow for tax documents and follow-up items.",
+    label: "Authorized IRS e-file Provider",
+    description: "Electronically file eligible federal returns through Ella's online process.",
   },
   {
     label: "Individual and business support",

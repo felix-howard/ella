@@ -94,12 +94,44 @@ export const homeAdvisors = [
   {
     name: "Nancy Nguyen",
     role: "Senior Account Representative",
+    image: "/assets/team/nancy-nguyen.png",
     bio: "Helps clients start the process, coordinate records, and keep the next step clear.",
   },
   {
     name: "Tuyet Duong",
     role: "Senior Account Advisor",
+    image: "/assets/team/tuyet-duong.png",
     bio: "Supports tax advisory conversations, business records, and compliance questions.",
+  },
+  {
+    name: "Mr. Michael D. Sullivan",
+    role: "Former IRS Agent",
+    image: "/assets/team/michael-d-sullivan.png",
+    bio: "Brings former IRS agent experience and decades of private tax practice to complex IRS resolution matters.",
+  },
+  {
+    name: "Herb Cantor",
+    role: "CPA, Former IRS Revenue Agent / IRS Appeal Agent",
+    image: "/assets/team/herb-cantor.jpg",
+    bio: "Supports tax resolution matters with CPA experience and former IRS Revenue Agent and IRS Appeal Agent perspective.",
+  },
+  {
+    name: "John S. Wood",
+    role: "CPA, IRS Tax Resolution Expert",
+    image: "/assets/team/john-s-wood.png",
+    bio: "Helps clients approach IRS tax resolution questions with CPA guidance and tax controversy experience.",
+  },
+  {
+    name: "Peter Salinger",
+    role: "EA, Former IRS Revenue Officer / IRS Appeals Settlement Officer",
+    image: "/assets/team/peter-salinger.jpg",
+    bio: "Supports IRS resolution work with enrolled agent credentials and former IRS Revenue Officer and Appeals Settlement Officer experience.",
+  },
+  {
+    name: "Julie Lynch",
+    role: "Former IRS Agent & Enrolled Agent",
+    image: "/assets/team/julie-lynch.jpg",
+    bio: "Helps clients understand IRS issues with former IRS Agent experience and enrolled agent representation support.",
   },
 ] as const;
 

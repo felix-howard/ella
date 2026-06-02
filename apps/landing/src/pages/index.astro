@@ -53,6 +53,49 @@ const structuredData = [
 
     <TrustStrip items={homeTrustItems} />
 
+    <section class="bg-white py-12 sm:py-16" aria-labelledby="irs-efile-provider-title">
+      <div class="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:px-8">
+        <div class="flex justify-center lg:justify-start" data-animate="scale-in">
+          <img
+            src="/assets/irs-authorized-efile-provider.svg"
+            alt="Authorized IRS e-file Provider badge"
+            width="900"
+            height="740"
+            class="w-full max-w-[18rem] rounded-lg shadow-xl shadow-sky-900/10 sm:max-w-sm"
+            loading="eager"
+          />
+        </div>
+
+        <div class="max-w-2xl" data-animate="fade-up">
+          <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">
+            IRS e-file ready
+          </p>
+          <h2 id="irs-efile-provider-title" class="mt-2 text-3xl font-bold text-slate-950 sm:text-4xl font-heading">
+            Ella Tax Services is an Authorized IRS e-file Provider
+          </h2>
+          <p class="mt-4 text-base leading-7 text-slate-600">
+            Eligible federal returns can be prepared, reviewed with an advisor, signed, and electronically filed through Ella's secure online workflow.
+          </p>
+          <div class="mt-6 flex flex-col gap-3 sm:flex-row">
+            <a href={siteConfig.cta.primaryHref} class="btn-primary w-full sm:w-auto">
+              Start Online Filing
+            </a>
+            <a
+              href="https://www.irs.gov/e-file-providers/authorized-irs-e-file-providers-for-individuals"
+              class="btn-secondary w-full sm:w-auto"
+              target="_blank"
+              rel="noreferrer"
+            >
+              IRS Provider Locator
+            </a>
+          </div>
+          <p class="mt-4 text-xs leading-5 text-slate-500">
+            IRS provider locator listings identify accepted e-file providers and do not constitute IRS endorsement.
+          </p>
+        </div>
+      </div>
+    </section>
+
     <SoftwareShowcase />
 
     <HomeHowEllaWorks />

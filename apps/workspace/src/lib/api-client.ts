@@ -2772,6 +2772,11 @@ export interface Conversation {
     direction: 'INBOUND' | 'OUTBOUND'
     createdAt: string
     attachmentUrls?: string[]
+    sentBy?: {
+      id: string
+      name: string
+      avatarUrl: string | null
+    } | null
     callStatus?: string
     recordingDuration?: number
   } | null

@@ -133,6 +133,9 @@ messagesRoute.get(
               direction: true,
               createdAt: true,
               attachmentUrls: true,
+              sentBy: {
+                select: { id: true, name: true, avatarUrl: true },
+              },
             },
           },
         },
@@ -145,6 +148,14 @@ messagesRoute.get(
       where: { taxCase: { client: buildClientScopeFilter(user) } },
       _sum: { unreadCount: true },
     })
+
+    const avatarCache = new Map<string, string | null>()
+    for (const conv of conversations) {
+      const sentBy = conv.messages[0]?.sentBy
+      if (sentBy && !avatarCache.has(sentBy.id)) {
+        avatarCache.set(sentBy.id, await resolveAvatarUrl(sentBy.avatarUrl))
+      }
+    }
 
     return c.json({
       conversations: conversations.map((conv) => ({
@@ -171,6 +182,13 @@ messagesRoute.get(
         lastMessage: conv.messages[0]
           ? {
               ...conv.messages[0],
+              sentBy: conv.messages[0].sentBy
+                ? {
+                    id: conv.messages[0].sentBy.id,
+                    name: conv.messages[0].sentBy.name,
+                    avatarUrl: avatarCache.get(conv.messages[0].sentBy.id) ?? null,
+                  }
+                : null,
               createdAt: conv.messages[0].createdAt.toISOString(),
             }
           : null,

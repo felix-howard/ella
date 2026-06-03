@@ -38,6 +38,12 @@ vi.mock('../../../services/realtime/message-publisher', () => ({
   publishMessageEventFromLead: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('../../../services/storage', () => ({
+  resolveAvatarUrl: vi.fn(async (avatarUrl: string | null | undefined) =>
+    avatarUrl ? `signed:${avatarUrl}` : null
+  ),
+}))
+
 vi.mock('../../../services/activity-log', () => ({
   getAuditRequestContext: vi.fn(() => ({ route: '/leads/:id/messages/read', method: 'POST' })),
   logStaffActivity: vi.fn().mockResolvedValue(undefined),
@@ -68,6 +74,7 @@ import type { AuthVariables } from '../../../middleware/auth'
 import { prisma } from '../../../lib/db'
 import { sendSmsOnly } from '../../../services/sms'
 import { logStaffActivity } from '../../../services/activity-log'
+import { resolveAvatarUrl } from '../../../services/storage'
 import { leadMessagesRoute } from '../messages'
 
 const VALID_LEAD_CUID = 'cmnldqbqa0005gf6cuecae3x1'
@@ -128,6 +135,32 @@ describe('GET /leads/:id/messages', () => {
       where: { id: VALID_LEAD_CUID, organizationId: 'org_1' },
       select: { id: true },
     })
+  })
+
+  it('resolves staff avatar R2 keys before returning lead chat messages', async () => {
+    vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({ id: VALID_LEAD_CUID } as never)
+    vi.mocked(prisma.message.findMany).mockResolvedValueOnce([
+      {
+        id: 'm1',
+        leadId: VALID_LEAD_CUID,
+        direction: 'OUTBOUND',
+        channel: 'SMS',
+        content: 'hello',
+        createdAt: new Date('2026-04-24T10:00:00Z'),
+        updatedAt: new Date('2026-04-24T10:00:00Z'),
+        sentBy: { id: 'staff_1', name: 'Tester', avatarUrl: 'avatars/staff_1/photo.jpg' },
+      },
+    ] as never)
+    vi.mocked(prisma.message.count).mockResolvedValueOnce(1)
+
+    const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/messages`)
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      messages: Array<{ sentBy: { avatarUrl: string | null } | null }>
+    }
+    expect(body.messages[0]?.sentBy?.avatarUrl).toBe('signed:avatars/staff_1/photo.jpg')
+    expect(vi.mocked(resolveAvatarUrl)).toHaveBeenCalledWith('avatars/staff_1/photo.jpg')
   })
 
   it('backfills legacy SmsSendLog rows so prior bulk SMS appears in lead chat', async () => {

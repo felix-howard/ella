@@ -7,6 +7,17 @@
 
 ## 2026-06-03
 
+### Workspace: Schedule E Tab Load Resilience
+**Status:** Complete
+
+**Changed:**
+- Changed the client detail Schedule E tab from lazy-loaded chunk to static import, matching Schedule C.
+- Removed the intermittent production chunk-load failure path that left Schedule E stuck behind the route error boundary until page refresh.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass, 0 errors, 9 existing warnings
+
 ### Database: Multi-Staff Client Manager Migration
 **Status:** Complete
 

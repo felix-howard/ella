@@ -44,7 +44,7 @@ import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 // the client header during tab switches.
 import { SharedDocsTab } from '../../components/shared-docs'
 import { ScheduleCTab } from '../../components/cases/tabs/schedule-c-tab'
-const ScheduleETab = lazy(() => import('../../components/cases/tabs/schedule-e-tab').then(m => ({ default: m.ScheduleETab })))
+import { ScheduleETab } from '../../components/cases/tabs/schedule-e-tab'
 const Form1099NECTab = lazy(() => import('../../components/cases/tabs/form-1099-nec-tab').then(m => ({ default: m.Form1099NECTab })))
 import {
   ManualClassificationModal,
@@ -1156,8 +1156,7 @@ function ClientDetailPage() {
       )}
 
       {/* Shared Docs Tab - Multi-section document sharing per case */}
-      {/* Local Suspense boundary contains any suspending child (e.g. lazy PdfThumbnail) */}
-      {/* so the fallback never bubbles up and replaces the page header/tabs. */}
+      {/* Keep this boundary scoped to tab content so tab-level loading never replaces the header/tabs. */}
       {activeTab === 'shared-docs' && activeCaseId && (
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.sharedDocsError')}</div>}>
           <Suspense fallback={<div className="p-6 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>

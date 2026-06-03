@@ -1248,12 +1248,12 @@ CPA → Client Detail Page
 **File:** `apps/api/src/jobs/__tests__/notify-staff-upload.test.ts`
 - Job configuration validation (config, trigger, handler structure)
 - Batch event handling for client uploads
-- Prisma query integration (taxCase, clientAssignment, staff)
-- Recipient filtering based on staff assignment
+- Prisma query integration (taxCase, client managers, staff)
+- Recipient filtering based on client managers
 - Notification service invocation with correct parameters
 - Error handling (missing case, no assignments)
 - notifyOnUpload preference filtering (respects staff opt-out)
-- notifyAllClients admin logic (org-wide vs assigned clients)
+- Admin upload recipient logic (org admins plus assigned client managers)
 - Concurrent notification delivery
 - Edge cases (zero staff, unassigned clients)
 

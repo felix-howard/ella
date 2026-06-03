@@ -12,6 +12,7 @@ import { createMagicLink } from '../../services/magic-link'
 import { sendWelcomeMessage, isSmsEnabled } from '../../services/sms'
 import { resolveUploadLinkTemplateMessage } from '../../services/sms/upload-link-template-resolver'
 import { encryptSSN } from '../../services/crypto'
+import { syncClientManagers } from '../../services/clients/client-managers'
 import { rateLimiter } from '../../middleware/rate-limiter'
 import {
   getFormInfoParamsSchema,
@@ -202,6 +203,7 @@ formRoute.post(
               language: input.language as Language, source, organizationId: org.id, managedById: staffId,
             },
           })
+          await syncClientManagers(tx, { clientIds: [client.id], organizationId: org.id, staffIds: staffId ? [staffId] : [] })
           const { engagementId } = await findOrCreateEngagement(tx, client.id, input.taxYear)
           const taxCase = await tx.taxCase.create({
             data: { clientId: client.id, taxYear: input.taxYear, engagementId, taxTypes: ['FORM_1040'], status: 'INTAKE' },
@@ -241,6 +243,7 @@ formRoute.post(
               source, organizationId: org.id, managedById: staffId,
             },
           })
+          await syncClientManagers(tx, { clientIds: [client.id], organizationId: org.id, staffIds: staffId ? [staffId] : [] })
           const { engagementId } = await findOrCreateEngagement(tx, client.id, input.taxYear)
           const taxCase = await tx.taxCase.create({
             data: { clientId: client.id, taxYear: input.taxYear, engagementId, taxTypes: ['FORM_1120S'], status: 'INTAKE' },
@@ -269,6 +272,7 @@ formRoute.post(
             source, organizationId: org.id, managedById: staffId, clientGroupId: group.id,
           },
         })
+        await syncClientManagers(tx, { clientIds: [individual.id], organizationId: org.id, staffIds: staffId ? [staffId] : [] })
         const { engagementId: indEngId } = await findOrCreateEngagement(tx, individual.id, input.taxYear)
         const indCase = await tx.taxCase.create({
           data: { clientId: individual.id, taxYear: input.taxYear, engagementId: indEngId, taxTypes: ['FORM_1040'], status: 'INTAKE' },
@@ -292,6 +296,7 @@ formRoute.post(
               source, organizationId: org.id, managedById: staffId, clientGroupId: group.id,
             },
           })
+          await syncClientManagers(tx, { clientIds: [business.id], organizationId: org.id, staffIds: staffId ? [staffId] : [] })
           const { engagementId: bizEngId } = await findOrCreateEngagement(tx, business.id, input.taxYear)
           await tx.taxCase.create({
             data: { clientId: business.id, taxYear: input.taxYear, engagementId: bizEngId, taxTypes: ['FORM_1120S'], status: 'INTAKE' },

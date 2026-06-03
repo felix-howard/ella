@@ -175,6 +175,16 @@ export const listClientsQuerySchema = z.object({
   clientType: z.enum(['INDIVIDUAL', 'BUSINESS']).optional(),
 })
 
+// Compatible manager update input. `staffIds` replaces the full manager set;
+// `staffId` keeps the legacy single-manager caller working.
+export const updateManagedBySchema = z.object({
+  staffId: z.string().regex(/^c[a-z0-9]{24}$/, 'Invalid staff ID format').nullable().optional(),
+  staffIds: z.array(z.string().regex(/^c[a-z0-9]{24}$/, 'Invalid staff ID format')).max(50).optional(),
+}).refine(
+  (data) => data.staffId !== undefined || data.staffIds !== undefined,
+  { message: 'staffId or staffIds is required' }
+)
+
 // Cascade cleanup input
 export const cascadeCleanupSchema = z.object({
   changedKey: z.string().min(1, 'Changed key is required'),

@@ -6,7 +6,7 @@
 import { prisma } from '../../lib/db'
 import { sendSms, formatPhoneToE164, isTwilioConfigured } from './twilio-client'
 import { generateMissedCallTextbackMessage } from './templates/missed-call-textback'
-import { findConversationByPhone, createPlaceholderConversation, findDefaultOrganizationId, isValidE164Phone } from '../voice'
+import { findConversationByPhone, createPlaceholderConversation, isValidE164Phone } from '../voice'
 import type { SmsLanguage } from './templates'
 import { publishMessageEventFromConversation } from '../realtime/message-publisher'
 
@@ -55,11 +55,10 @@ export async function sendMissedCallTextBack(
     const body = generateMissedCallTextbackMessage({ language })
 
     // Find or create conversation for recording the outbound SMS
-    let conversation = await findConversationByPhone(callerPhone)
+    let conversation = await findConversationByPhone(callerPhone, organizationId)
 
     if (!conversation) {
-      const defaultOrgId = organizationId || await findDefaultOrganizationId()
-      conversation = await createPlaceholderConversation(callerPhone, defaultOrgId, 'INCOMING_CALL')
+      conversation = await createPlaceholderConversation(callerPhone, organizationId, 'INCOMING_CALL')
     }
 
     // Send SMS

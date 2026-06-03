@@ -300,10 +300,15 @@ export const api = {
         method: 'DELETE',
       }),
 
-    updateManagedBy: (clientId: string, staffId: string | null) =>
-      request<{ data: { managedBy: { id: string; name: string; avatarUrl?: string | null } | null } }>(
+    updateManagedBy: (clientId: string, staffIdOrIds: string | string[] | null) =>
+      request<{ data: { managedBy: StaffManagerSummary | null; managedByStaff: StaffManagerSummary[] } }>(
         `/clients/${clientId}/managed-by`,
-        { method: 'PATCH', body: JSON.stringify({ staffId }) }
+        {
+          method: 'PATCH',
+          body: JSON.stringify(Array.isArray(staffIdOrIds)
+            ? { staffIds: staffIdOrIds }
+            : { staffId: staffIdOrIds }),
+        }
       ),
 
     resendSms: (id: string) =>
@@ -1498,7 +1503,7 @@ export const api = {
     convertCheck: (id: string) =>
       request<{ success: boolean; hasDuplicate: boolean; existingClient?: { id: string; firstName: string; lastName: string; phone: string } }>(`/leads/${id}/convert-check`),
 
-    convert: (id: string, data: { managedById?: string; language: 'VI' | 'EN'; taxYear: number; sendWelcomeSms?: boolean; customMessage?: string; firstName?: string; lastName?: string; email?: string | null }) =>
+    convert: (id: string, data: { managedById?: string; staffIds?: string[]; language: 'VI' | 'EN'; taxYear: number; sendWelcomeSms?: boolean; customMessage?: string; firstName?: string; lastName?: string; email?: string | null }) =>
       request<{ success: boolean; clientId: string; engagementId: string }>(`/leads/${id}/convert`, { method: 'POST', body: JSON.stringify(data) }),
 
     bulkSms: (data: { leadIds: string[]; message: string; formLinkType: 'org' | 'staff'; staffSlug?: string }) =>
@@ -2071,6 +2076,12 @@ export interface ClientUploads {
   latestAt: string | null
 }
 
+export interface StaffManagerSummary {
+  id: string
+  name: string
+  avatarUrl?: string | null
+}
+
 // Client with computed status and action counts for list view
 export interface ClientWithActions {
   id: string
@@ -2091,7 +2102,9 @@ export interface ClientWithActions {
   computedStatus: TaxCaseStatus | null
   actionCounts: ActionCounts | null
   /** Staff managing this client */
-  managedBy?: { id: string; name: string; avatarUrl?: string | null } | null
+  managedBy?: StaffManagerSummary | null
+  /** Complete manager list */
+  managedByStaff?: StaffManagerSummary[]
   /** Staff who created this client */
   createdBy?: { id: string; name: string } | null
   /** Upload counts per CPA (new uploads they haven't viewed) */
@@ -2135,7 +2148,8 @@ export interface ClientDetail extends Client {
   smsEnabled: boolean
   notes: string | null
   avatarUrl: string | null
-  managedBy?: { id: string; name: string; avatarUrl?: string | null } | null
+  managedBy?: StaffManagerSummary | null
+  managedByStaff?: StaffManagerSummary[]
   createdBy?: { id: string; name: string } | null
   updatedBy?: { id: string; name: string } | null
   /** Source leads that converted INTO this client (newest first). */

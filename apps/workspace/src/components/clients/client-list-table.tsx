@@ -11,7 +11,7 @@ import { cn } from '@ella/ui'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, maskPhone, getInitials, getAvatarColor, formatShortRelativeTime } from '../../lib/formatters'
 import { ActionBadge } from './action-badge'
-import type { ClientWithActions } from '../../lib/api-client'
+import type { ClientWithActions, StaffManagerSummary } from '../../lib/api-client'
 
 interface ClientListTableProps {
   clients: ClientWithActions[]
@@ -165,9 +165,13 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
   const isBusiness = client.clientType === 'BUSINESS'
   // Memoize avatar colors to prevent recalculation on every render
   const avatarColor = useMemo(() => getAvatarColor(client.name), [client.name])
-  const managedByAvatarColor = useMemo(
-    () => client.managedBy ? getAvatarColor(client.managedBy.name) : null,
-    [client.managedBy]
+  const managers = useMemo(
+    () => client.managedByStaff && client.managedByStaff.length > 0
+      ? client.managedByStaff
+      : client.managedBy
+        ? [client.managedBy]
+        : [],
+    [client.managedByStaff, client.managedBy]
   )
 
   return (
@@ -271,27 +275,8 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
       {/* Managed by column (admin only) */}
       {isAdmin && (
         <td className="px-4 py-3 align-middle">
-          {client.managedBy ? (
-            <div className="flex items-center gap-2">
-              {client.managedBy.avatarUrl ? (
-                <img
-                  src={client.managedBy.avatarUrl}
-                  alt={client.managedBy.name}
-                  className="w-6 h-6 rounded-full object-cover flex-shrink-0"
-                />
-              ) : (
-                <div className={cn(
-                  'w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0',
-                  managedByAvatarColor?.bg,
-                  managedByAvatarColor?.text
-                )}>
-                  <span className="font-semibold text-[10px]">
-                    {getInitials(client.managedBy.name)}
-                  </span>
-                </div>
-              )}
-              <span className="text-sm">{client.managedBy.name}</span>
-            </div>
+          {managers.length > 0 ? (
+            <ManagerCell managers={managers} />
           ) : (
             <span className="text-muted-foreground">—</span>
           )}
@@ -394,6 +379,56 @@ function SourceBadge({ source }: { source?: string }) {
   )
 }
 
+function ManagerCell({ managers }: { managers: StaffManagerSummary[] }) {
+  const visibleManagers = managers.slice(0, 2)
+  const overflowCount = managers.length - visibleManagers.length
+  const names = managers.map((manager) => manager.name).join(', ')
+
+  return (
+    <div className="flex min-w-[150px] max-w-[220px] items-center gap-2" title={names}>
+      <div className="flex -space-x-2">
+        {visibleManagers.map((manager) => (
+          <ManagerAvatar key={manager.id} manager={manager} />
+        ))}
+      </div>
+      <span className="min-w-0 truncate text-sm text-foreground">
+        {visibleManagers[0].name}
+      </span>
+      {overflowCount > 0 && (
+        <span className="inline-flex h-5 min-w-5 flex-shrink-0 items-center justify-center rounded-full bg-muted px-1.5 text-xs font-medium text-muted-foreground">
+          +{overflowCount}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function ManagerAvatar({ manager }: { manager: StaffManagerSummary }) {
+  const avatarColor = getAvatarColor(manager.name)
+
+  if (manager.avatarUrl) {
+    return (
+      <img
+        src={manager.avatarUrl}
+        alt={manager.name}
+        className="h-6 w-6 flex-shrink-0 rounded-full object-cover ring-2 ring-card"
+      />
+    )
+  }
+
+  return (
+    <div className={cn(
+      'h-6 w-6 flex-shrink-0 rounded-full ring-2 ring-card flex items-center justify-center',
+      avatarColor.bg,
+      avatarColor.text
+    )}>
+      <span className="text-[10px] font-semibold">
+        {getInitials(manager.name)}
+      </span>
+    </div>
+  )
+}
+
 /**
  * Skeleton loader for table - accepts isAdmin to match live table column layout
  */
@@ -421,7 +456,7 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
               </th>
               {isAdmin && (
                 <th className="text-left font-medium text-muted-foreground px-4 py-3">
-                  <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                  <div className="h-4 w-[150px] bg-muted rounded animate-pulse" />
                 </th>
               )}
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
@@ -462,7 +497,7 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
                 </td>
                 {isAdmin && (
                   <td className="px-4 py-3">
-                    <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                    <div className="h-4 w-[150px] bg-muted rounded animate-pulse" />
                   </td>
                 )}
                 <td className="px-4 py-3 hidden lg:table-cell">

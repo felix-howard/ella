@@ -15,7 +15,6 @@ import { processTapbackReaction } from './tapback-reaction-handler'
 import {
   isValidE164Phone,
   createPlaceholderConversation,
-  findDefaultOrganizationId,
   sanitizePhone,
 } from '../voice/voicemail-helpers'
 import { findLeadByPhone, processLeadInbound } from './lead-inbound-handler'
@@ -133,6 +132,25 @@ function sanitizeMessageContent(content: string): string {
   return sanitized.trim()
 }
 
+async function resolveIncomingMessageOrganizationId(toPhone: string): Promise<string | null> {
+  if (!isValidE164Phone(toPhone)) {
+    return null
+  }
+
+  const organizations = await prisma.organization.findMany({
+    where: {
+      isActive: true,
+      firmPhone: toPhone,
+    },
+    select: { id: true },
+    take: 2,
+  })
+
+  if (organizations.length === 1) return organizations[0].id
+  if (organizations.length > 1) return null
+  return null
+}
+
 /**
  * Process incoming SMS message
  * Finds associated case by phone number and records message
@@ -162,6 +180,12 @@ export async function processIncomingMessage(
     }
   }
 
+  const recipientOrgId = await resolveIncomingMessageOrganizationId(incomingMsg.To)
+  if (!recipientOrgId) {
+    console.warn('[Webhook] Unable to resolve organization for inbound SMS recipient')
+    return { success: false, error: 'ORG_NOT_RESOLVED' }
+  }
+
   // Normalize phone for lookup - use exact matches with normalized format
   const normalizedPhone = normalizePhoneForLookup(fromPhone)
   const e164Phone = '+1' + normalizedPhone // US format
@@ -170,6 +194,7 @@ export async function processIncomingMessage(
   const [client, lead] = await Promise.all([
     prisma.client.findFirst({
       where: {
+        organizationId: recipientOrgId,
         OR: [
           { phone: fromPhone },        // Exact match original
           { phone: e164Phone },        // E.164 format
@@ -183,7 +208,7 @@ export async function processIncomingMessage(
         },
       },
     }),
-    findLeadByPhone(fromPhone),
+    findLeadByPhone(fromPhone, recipientOrgId),
   ])
 
   // Schema has no Client.status ARCHIVED or TaxCase archival state, so "active case"
@@ -228,8 +253,7 @@ export async function processIncomingMessage(
     isUnknownCaller = true
 
     // Create placeholder client + tax case + conversation (atomic transaction)
-    const defaultOrgId = await findDefaultOrganizationId()
-    const placeholderConversation = await createPlaceholderConversation(fromPhone, defaultOrgId, 'INCOMING_SMS')
+    const placeholderConversation = await createPlaceholderConversation(fromPhone, recipientOrgId, 'INCOMING_SMS')
     conversationId = placeholderConversation.id
 
     // Get the case ID from the conversation
@@ -249,7 +273,11 @@ export async function processIncomingMessage(
     // If inbound SMS from a business phone in a group, redirect to individual's case
     if (isBizWithGroup(client)) {
       const individual = await prisma.client.findFirst({
-        where: { clientGroupId: client.clientGroupId!, clientType: 'INDIVIDUAL' },
+        where: {
+          organizationId: recipientOrgId,
+          clientGroupId: client.clientGroupId!,
+          clientType: 'INDIVIDUAL',
+        },
         include: { taxCases: { orderBy: { createdAt: 'desc' }, take: 1 } },
       })
       if (individual?.taxCases[0]) {

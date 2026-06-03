@@ -347,13 +347,13 @@ export function MyComponent() {
 
 **Data Isolation:**
 - All queries scoped by `organizationId`
-- `buildClientScopeFilter(user)` applies Admin vs Staff filtering
-- Client.managedById FK enforces single-manager relationship
+- `buildClientScopeFilter(user)` applies Admin vs Staff filtering through `ClientManager` membership checks
+- `ClientManager` join model is canonical; `Client.managedById` stays transitional for rollout compatibility and legacy writes
 - Audit logging tracks all org-scoped changes
 
 **Permission Model:**
 - **ADMIN:** Full org access, manage team + assign clients
-- **STAFF:** Managed clients only (Client.managedById = staffId), no team management
+- **STAFF:** Managed clients only via matching `ClientManager` links (legacy `managedById` still mirrors the primary manager during rollout), no team management
 - **CPA:** Future role for CPA firm integrations
 
 **Role-Based Middleware:**

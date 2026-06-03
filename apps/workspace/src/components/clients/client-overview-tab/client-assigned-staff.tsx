@@ -1,29 +1,38 @@
 /**
- * Client Managed By - Shows and allows changing the managing staff member
- * Admin: custom dropdown with avatars to select/change manager
- * Member: read-only label
+ * Client Managed By - Shows and allows changing managing staff members.
+ * Admin: checklist dropdown with avatars to select managers.
+ * Member: read-only manager list.
  */
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Users, Loader2, ChevronDown, Check } from 'lucide-react'
 import { cn } from '@ella/ui'
-import { api } from '../../../lib/api-client'
+import { api, type StaffManagerSummary } from '../../../lib/api-client'
 import { toast } from '../../../stores/toast-store'
 import { useOrgRole } from '../../../hooks/use-org-role'
 import { getInitials, getAvatarColor } from '../../../lib/formatters'
 
 interface ClientManagedByProps {
   clientId: string
-  managedBy?: { id: string; name: string } | null
+  managedByStaff?: StaffManagerSummary[]
+  managedBy?: StaffManagerSummary | null
 }
 
-export function ClientAssignedStaff({ clientId, managedBy }: ClientManagedByProps) {
+export function ClientAssignedStaff({ clientId, managedByStaff, managedBy }: ClientManagedByProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { isAdmin } = useOrgRole()
   const [isOpen, setIsOpen] = useState(false)
+  const [localSelection, setLocalSelection] = useState<{ clientId: string; staffIds: string[] } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const assignedStaff = useMemo(
+    () => managedByStaff && managedByStaff.length > 0 ? managedByStaff : managedBy ? [managedBy] : [],
+    [managedByStaff, managedBy]
+  )
+  const serverStaffIds = useMemo(() => assignedStaff.map((staff) => staff.id), [assignedStaff])
+  const selectedStaffIds = localSelection?.clientId === clientId ? localSelection.staffIds : serverStaffIds
 
   const { data: membersData } = useQuery({
     queryKey: ['team-members'],
@@ -31,16 +40,30 @@ export function ClientAssignedStaff({ clientId, managedBy }: ClientManagedByProp
     enabled: isAdmin,
   })
 
-  const members = membersData?.data ?? []
+  const members = (membersData?.data ?? []).filter((member) => member.isActive !== false)
+  const selectedStaff = selectedStaffIds
+    .map((id) => members.find((member) => member.id === id) ?? assignedStaff.find((staff) => staff.id === id))
+    .filter((staff): staff is StaffManagerSummary => Boolean(staff))
 
   const changeMutation = useMutation({
-    mutationFn: (staffId: string) => api.clients.updateManagedBy(clientId, staffId),
-    onSuccess: () => {
-      toast.success(t('clientOverview.managedByUpdated'))
-      queryClient.invalidateQueries({ queryKey: ['client', clientId] })
-      queryClient.invalidateQueries({ queryKey: ['clients'] })
+    mutationFn: (staffIds: string[]) => api.clients.updateManagedBy(clientId, staffIds),
+    onMutate: (nextStaffIds) => {
+      const previousStaffIds = selectedStaffIds
+      setLocalSelection({ clientId, staffIds: nextStaffIds })
+      return { previousStaffIds }
     },
-    onError: () => {
+    onSuccess: async (_data, nextStaffIds, context) => {
+      toast.success(t('clientOverview.managedByUpdated'))
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['client'] }),
+        queryClient.invalidateQueries({ queryKey: ['clients'] }),
+        ...Array.from(new Set([...(context?.previousStaffIds ?? []), ...nextStaffIds]))
+          .map((staffId) => queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })),
+      ])
+      setLocalSelection(null)
+    },
+    onError: (_error, _nextStaffIds, context) => {
+      setLocalSelection(context ? { clientId, staffIds: context.previousStaffIds } : null)
       toast.error(t('clientOverview.managedByUpdateFailed'))
     },
   })
@@ -65,7 +88,12 @@ export function ClientAssignedStaff({ clientId, managedBy }: ClientManagedByProp
     return () => document.removeEventListener('keydown', handleEscape)
   }, [])
 
-  const selectedMember = members.find((m) => m.id === managedBy?.id)
+  function handleToggle(staffId: string) {
+    const nextStaffIds = selectedStaffIds.includes(staffId)
+      ? selectedStaffIds.filter((id) => id !== staffId)
+      : [...selectedStaffIds, staffId]
+    changeMutation.mutate(nextStaffIds)
+  }
 
   return (
     <div className="bg-card rounded-xl border border-border p-4">
@@ -79,26 +107,21 @@ export function ClientAssignedStaff({ clientId, managedBy }: ClientManagedByProp
         <div ref={containerRef} className="relative">
           <button
             type="button"
+            aria-haspopup="menu"
+            aria-expanded={isOpen}
+            aria-controls="client-manager-menu"
             onClick={() => !changeMutation.isPending && setIsOpen(!isOpen)}
             disabled={changeMutation.isPending}
             className={cn(
               'w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-left',
-              'flex items-center justify-between',
-              'focus:outline-none transition-colors',
+              'flex items-center justify-between gap-3 min-h-11',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card transition-colors',
               changeMutation.isPending && 'opacity-50 cursor-not-allowed'
             )}
           >
-            <span className="flex items-center gap-2">
-              {selectedMember ? (
-                <>
-                  <StaffAvatar name={selectedMember.name} avatarUrl={selectedMember.avatarUrl} size="sm" />
-                  <span className="text-sm">{selectedMember.name}</span>
-                </>
-              ) : managedBy ? (
-                <>
-                  <StaffAvatar name={managedBy.name} avatarUrl={null} size="sm" />
-                  <span className="text-sm">{managedBy.name}</span>
-                </>
+            <span className="flex min-w-0 flex-1 items-center gap-2">
+              {selectedStaff.length > 0 ? (
+                <ManagerSummary managers={selectedStaff} />
               ) : (
                 <span className="text-sm text-muted-foreground">{t('clientOverview.changeManagedBy')}</span>
               )}
@@ -110,32 +133,39 @@ export function ClientAssignedStaff({ clientId, managedBy }: ClientManagedByProp
           </button>
 
           {isOpen && (
-            <div className="absolute z-[9999] w-full mt-1 py-1 rounded-lg border bg-card border-border shadow-lg max-h-60 overflow-auto">
+            <div
+              id="client-manager-menu"
+              role="menu"
+              className="absolute z-[9999] w-full mt-1 py-1 rounded-lg border bg-card border-border shadow-lg max-h-60 overflow-auto"
+            >
               <div className="px-3 py-1.5 text-xs text-muted-foreground font-medium">
                 {t('clientOverview.changeManagedBy')}
               </div>
               {members.map((m) => {
-                const isSelected = m.id === managedBy?.id
+                const isSelected = selectedStaffIds.includes(m.id)
                 return (
                   <button
                     key={m.id}
                     type="button"
                     onClick={() => {
-                      if (!isSelected) changeMutation.mutate(m.id)
-                      setIsOpen(false)
+                      if (!changeMutation.isPending) handleToggle(m.id)
                     }}
+                    disabled={changeMutation.isPending}
+                    role="menuitemcheckbox"
+                    aria-checked={isSelected}
                     className={cn(
                       'w-full px-3 py-2 text-left text-sm',
-                      'hover:bg-muted transition-colors',
-                      'flex items-center justify-between',
-                      isSelected && 'bg-primary/10'
+                      'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary transition-colors',
+                      'flex items-center justify-between gap-2',
+                      isSelected && 'bg-primary/10',
+                      changeMutation.isPending && 'cursor-not-allowed opacity-60'
                     )}
                   >
-                    <span className="flex items-center gap-2">
+                    <span className="flex min-w-0 items-center gap-2">
                       <StaffAvatar name={m.name} avatarUrl={m.avatarUrl} size="sm" />
-                      <span className="text-foreground">{m.name}</span>
+                      <span className="truncate text-foreground">{m.name}</span>
                     </span>
-                    {isSelected && <Check className="w-4 h-4 text-primary" />}
+                    {isSelected && <Check className="h-4 w-4 flex-shrink-0 text-primary" />}
                   </button>
                 )
               })}
@@ -144,17 +174,48 @@ export function ClientAssignedStaff({ clientId, managedBy }: ClientManagedByProp
         </div>
       ) : (
         // Non-admin: read-only display
-        <div className="flex items-center gap-2">
-          {managedBy ? (
-            <>
-              <StaffAvatar name={managedBy.name} avatarUrl={null} size="sm" />
-              <span className="text-sm text-foreground">{managedBy.name}</span>
-            </>
+        <div>
+          {assignedStaff.length > 0 ? (
+            <ManagerList managers={assignedStaff} />
           ) : (
             <span className="text-sm text-muted-foreground">{t('clientOverview.noManagedBy')}</span>
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function ManagerSummary({ managers }: { managers: StaffManagerSummary[] }) {
+  const visibleManagers = managers.slice(0, 2)
+  const overflowCount = managers.length - visibleManagers.length
+
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <span className="flex -space-x-2">
+        {visibleManagers.map((manager) => (
+          <StaffAvatar key={manager.id} name={manager.name} avatarUrl={manager.avatarUrl ?? null} size="sm" />
+        ))}
+      </span>
+      <span className="min-w-0 truncate text-sm">
+        {visibleManagers.map((manager) => manager.name).join(', ')}
+        {overflowCount > 0 && (
+          <span className="text-muted-foreground"> +{overflowCount}</span>
+        )}
+      </span>
+    </span>
+  )
+}
+
+function ManagerList({ managers }: { managers: StaffManagerSummary[] }) {
+  return (
+    <div className="space-y-2">
+      {managers.map((manager) => (
+        <div key={manager.id} className="flex items-center gap-2">
+          <StaffAvatar name={manager.name} avatarUrl={manager.avatarUrl ?? null} size="sm" />
+          <span className="min-w-0 truncate text-sm text-foreground">{manager.name}</span>
+        </div>
+      ))}
     </div>
   )
 }

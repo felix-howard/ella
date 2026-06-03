@@ -2,7 +2,7 @@
  * SharedDocCard - Per-section card: thumbnail, rename, link bar, version history, delete
  * Orchestrates sub-components. Upload/delete via compact icon actions.
  */
-import { useState, useCallback, lazy, Suspense } from 'react'
+import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Trash2, Upload, FileText } from 'lucide-react'
 import { cn, Button } from '@ella/ui'
@@ -14,9 +14,8 @@ import { RenameSectionInline } from './rename-section-inline'
 import { SharedDocLinkBar } from './shared-doc-link-bar'
 import { SharedDocVersionHistory } from './shared-doc-version-history'
 import { DeleteSectionConfirm } from './delete-section-confirm'
+import { SharedDocPdfThumbnail } from './shared-doc-pdf-thumbnail'
 import type { SharedDocListItem } from '../../lib/api-client'
-
-const PdfThumbnail = lazy(() => import('../documents/pdf-thumbnail'))
 
 interface SharedDocCardProps {
   document: SharedDocListItem
@@ -82,13 +81,9 @@ export function SharedDocCard({ document, caseId }: SharedDocCardProps) {
             {isLoadingUrl ? (
               <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
             ) : signedUrlData?.url ? (
-              <Suspense
-                fallback={<Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />}
-              >
-                <div className="w-full h-full bg-white">
-                  <PdfThumbnail url={signedUrlData.url} width={80} />
-                </div>
-              </Suspense>
+              <div className="w-full h-full bg-white">
+                <SharedDocPdfThumbnail url={signedUrlData.url} />
+              </div>
             ) : (
               <FileText className="w-8 h-8 text-muted-foreground" />
             )}

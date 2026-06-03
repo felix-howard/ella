@@ -132,9 +132,12 @@ export const ConversationListItem = memo(function ConversationListItem({
 
         {/* Message preview */}
         <div className="flex items-center gap-1.5">
+          {lastMessage?.direction === 'OUTBOUND' && lastMessage.sentBy && (
+            <SenderAvatar sentBy={lastMessage.sentBy} />
+          )}
           <p
             className={cn(
-              'text-xs truncate',
+              'min-w-0 flex-1 truncate text-xs',
               isActive
                 ? 'text-foreground'
                 : hasUnread
@@ -142,7 +145,7 @@ export const ConversationListItem = memo(function ConversationListItem({
                   : 'text-muted-foreground'
             )}
           >
-            {lastMessage?.direction === 'OUTBOUND' && (
+            {lastMessage?.direction === 'OUTBOUND' && !lastMessage.sentBy && (
               <span className={isActive ? 'text-foreground/70' : 'text-muted-foreground'}>{t('messages.you')} </span>
             )}
             {messagePreview}
@@ -153,3 +156,31 @@ export const ConversationListItem = memo(function ConversationListItem({
     </Link>
   )
 })
+
+function SenderAvatar({ sentBy }: { sentBy: NonNullable<NonNullable<Conversation['lastMessage']>['sentBy']> }) {
+  if (sentBy.avatarUrl) {
+    return (
+      <img
+        src={sentBy.avatarUrl}
+        alt={sentBy.name}
+        title={sentBy.name}
+        className="h-4 w-4 flex-shrink-0 rounded-full object-cover"
+      />
+    )
+  }
+
+  const colors = getAvatarColor(sentBy.name)
+
+  return (
+    <span
+      title={sentBy.name}
+      className={cn(
+        'flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[8px] font-semibold leading-none',
+        colors.bg,
+        colors.text
+      )}
+    >
+      {getInitials(sentBy.name)}
+    </span>
+  )
+}

@@ -25,6 +25,7 @@ import {
   updateNotesSchema,
   createWithBusinessSchema,
   linkBusinessSchema,
+  updateManagedBySchema,
 } from './schemas'
 import { generateChecklist, cascadeCleanupOnFalse, refreshChecklist } from '../../services/checklist-generator'
 import {
@@ -40,6 +41,14 @@ import {
   deleteBusinessWithScheduleC,
   DeleteBusinessError,
 } from '../../services/clients/delete-business-with-schedule-c'
+import {
+  getPrimaryManager,
+  mapClientManagerDtos,
+  normalizeManagerIds,
+  orderManagerIdsWithPrimary,
+  syncClientManagers,
+  validateActiveOrgStaff,
+} from '../../services/clients/client-managers'
 import { computeStatus, calculateStaleDays } from '@ella/shared'
 import type { ActionCounts, ClientWithActions } from '@ella/shared'
 import { Prisma } from '@ella/db'
@@ -243,7 +252,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
 
   // Managed By filter (admin only — non-admins already scoped by buildClientScopeFilter)
   if (managedById && isAdmin) {
-    where.managedById = managedById
+    where.managers = { some: { staffId: managedById } }
   }
 
   if (tag) {
@@ -270,6 +279,12 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
         // Include managing staff for list view
         managedBy: {
           select: { id: true, name: true, avatarUrl: true },
+        },
+        managers: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            staff: { select: { id: true, name: true, avatarUrl: true } },
+          },
         },
         createdBy: {
           select: { id: true, name: true },
@@ -384,9 +399,8 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
     }
 
     // Map managed by staff
-    const managedBy = client.managedBy
-      ? { id: client.managedBy.id, name: client.managedBy.name, avatarUrl: await resolveAvatarUrl(client.managedBy.avatarUrl) }
-      : null
+    const managedByStaff = await mapClientManagerDtos(client.managers, client.managedBy)
+    const managedBy = getPrimaryManager(managedByStaff)
 
     // Map created by staff
     const createdBy = client.createdBy
@@ -413,6 +427,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       updatedAt: client.updatedAt.toISOString(),
       computedStatus: computedStatusValue,
       managedBy,
+      managedByStaff,
       createdBy,
       actionCounts,
       uploads,
@@ -555,6 +570,13 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
       },
       include: { profile: true },
     })
+    if (user.organizationId) {
+      await syncClientManagers(tx, {
+        clientIds: [client.id],
+        organizationId: user.organizationId,
+        staffIds: user.staffId ? [user.staffId] : [],
+      })
+    }
 
     // Find or create engagement for this client + year
     const { engagementId } = await findOrCreateEngagement(
@@ -686,6 +708,12 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
     include: {
       profile: true,
       managedBy: { select: { id: true, name: true, avatarUrl: true } },
+      managers: {
+        orderBy: { createdAt: 'asc' },
+        select: {
+          staff: { select: { id: true, name: true, avatarUrl: true } },
+        },
+      },
       createdBy: { select: { id: true, name: true } },
       updatedBy: { select: { id: true, name: true } },
       // Include client group with sibling clients for cross-linking (excludes self)
@@ -797,8 +825,10 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
   // Keep top-level portalUrl for backwards compatibility (latest case)
   const portalUrl = taxCasesWithPortal[0]?.portalUrl ?? null
 
+  const managedByStaff = await mapClientManagerDtos(client.managers, client.managedBy)
+
   // Strip encrypted EIN — send masked version only
-  const { einEncrypted, ...clientSafe } = client
+  const { einEncrypted, managers: _managers, ...clientSafe } = client
 
   // Mask EIN and build portalUrl/latestCaseId for sibling clients in the group
   const clientGroupSafe = clientSafe.clientGroup
@@ -841,9 +871,8 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
     name: computeDisplayName(client.firstName, client.lastName),
     avatarUrl: await resolveAvatarUrl(client.avatarUrl),
     clientGroup: clientGroupSafe,
-    managedBy: client.managedBy
-      ? { ...client.managedBy, avatarUrl: await resolveAvatarUrl(client.managedBy.avatarUrl) }
-      : null,
+    managedBy: getPrimaryManager(managedByStaff),
+    managedByStaff,
     createdAt: client.createdAt.toISOString(),
     updatedAt: client.updatedAt.toISOString(),
     taxCases: taxCasesWithPortal,
@@ -1731,61 +1760,78 @@ clientsRoute.patch(
   '/:id/managed-by',
   requireOrgAdmin,
   zValidator('param', clientIdParamSchema),
-  zValidator('json', z.object({ staffId: z.string().nullable() })),
+  zValidator('json', updateManagedBySchema),
   async (c) => {
     const { id } = c.req.valid('param')
-    const { staffId } = c.req.valid('json')
+    const managerInput = c.req.valid('json')
     const user = c.get('user')
+    const staffIds = normalizeManagerIds(managerInput)
+    const organizationId = user.organizationId
+
+    if (!organizationId) {
+      return c.json({ error: 'ORG_REQUIRED', message: 'Organization required' }, 403)
+    }
 
     // Verify client belongs to org
     const client = await prisma.client.findFirst({
-      where: { id, organizationId: user.organizationId },
-      select: { id: true, clientGroupId: true },
+      where: { id, organizationId },
+      select: { id: true, clientGroupId: true, name: true },
     })
     if (!client) {
       return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
     }
 
-    // If assigning to a staff, verify they belong to org and are active
-    if (staffId) {
-      const staff = await prisma.staff.findFirst({
-        where: { id: staffId, organizationId: user.organizationId, isActive: true },
-      })
-      if (!staff) {
-        return c.json({ error: 'NOT_FOUND', message: 'Staff not found' }, 404)
-      }
-    }
-
     // Use transaction for atomic group update
     const updated = await prisma.$transaction(async (tx) => {
-      const result = await tx.client.update({
-        where: { id },
-        data: { managedById: staffId },
-        include: { managedBy: { select: { id: true, name: true, avatarUrl: true } } },
-      })
+      const staffValid = await validateActiveOrgStaff(tx, organizationId, staffIds)
+      if (!staffValid) {
+        return null
+      }
 
-      // Propagate to all group members if client belongs to a group
+      let clientIds = [id]
       if (client.clientGroupId) {
-        const propagateResult = await tx.client.updateMany({
+        const groupClients = await tx.client.findMany({
           where: {
             clientGroupId: client.clientGroupId,
-            id: { not: id },
-            organizationId: user.organizationId,
+            organizationId,
           },
-          data: { managedById: staffId },
+          select: { id: true },
         })
+        clientIds = groupClients.map((groupClient) => groupClient.id)
+      }
 
+      await syncClientManagers(tx, {
+        clientIds,
+        organizationId,
+        staffIds,
+      })
+
+      if (client.clientGroupId) {
         console.log(
-          `[managedById sync] Propagated managedById=${staffId ?? 'null'} to ${propagateResult.count} members (group: ${client.clientGroupId})`
+          `[client managers sync] Propagated staffIds=${staffIds.join(',') || 'none'} to ${clientIds.length} members (group: ${client.clientGroupId})`
         )
       }
 
-      return result
+      return tx.client.findUnique({
+        where: { id },
+        include: {
+          managedBy: { select: { id: true, name: true, avatarUrl: true } },
+          managers: {
+            orderBy: { createdAt: 'asc' },
+            select: {
+              staff: { select: { id: true, name: true, avatarUrl: true } },
+            },
+          },
+        },
+      })
     })
 
-    const managedBy = updated.managedBy
-      ? { ...updated.managedBy, avatarUrl: await resolveAvatarUrl(updated.managedBy.avatarUrl) }
-      : null
+    if (!updated) {
+      return c.json({ error: 'NOT_FOUND', message: 'Staff not found' }, 404)
+    }
+
+    const managedByStaff = await mapClientManagerDtos(updated.managers, updated.managedBy)
+    const managedBy = getPrimaryManager(managedByStaff)
 
     await logClientMutation(c, user, {
       clientId: id,
@@ -1794,13 +1840,14 @@ clientsRoute.patch(
       action: ACTIVITY_ACTIONS.CLIENT.MANAGER_CHANGED,
       riskLevel: ActivityRiskLevel.MEDIUM,
       metadata: {
-        changedFields: ['managedById'],
-        managedById: staffId,
+        changedFields: ['managedById', 'managedByStaff'],
+        managedById: staffIds[0] ?? null,
+        managedByStaffIds: staffIds,
         propagatedToGroup: Boolean(client.clientGroupId),
       },
     })
 
-    return c.json({ data: { managedBy } })
+    return c.json({ data: { managedBy, managedByStaff } })
   }
 )
 
@@ -2142,6 +2189,11 @@ clientsRoute.post(
 
         // Link all clients to the group
         const allClientIds = [individualClient.id, ...businessClients.map((b) => b.id)]
+        await syncClientManagers(tx, {
+          clientIds: allClientIds,
+          organizationId: user.organizationId!,
+          staffIds: [user.staffId!],
+        })
         await tx.client.updateMany({
           where: { id: { in: allClientIds } },
           data: { clientGroupId: group.id },
@@ -2251,7 +2303,13 @@ clientsRoute.post(
     // Verify client exists and belongs to org
     const client = await prisma.client.findFirst({
       where: { id: clientId, ...scopeFilter },
-      include: { clientGroup: true },
+      include: {
+        clientGroup: true,
+        managers: {
+          orderBy: { createdAt: 'asc' },
+          select: { staffId: true },
+        },
+      },
     })
 
     if (!client) {
@@ -2261,6 +2319,11 @@ clientsRoute.post(
     if (client.clientType !== 'INDIVIDUAL') {
       throw new HTTPException(400, { message: 'Only individual clients can have linked businesses' })
     }
+
+    const managerIds = orderManagerIdsWithPrimary(
+      client.managers.map((manager) => manager.staffId),
+      client.managedById
+    )
 
     const result = await prisma.$transaction(async (tx) => {
       // Create business client
@@ -2289,6 +2352,11 @@ clientsRoute.post(
             },
           },
           include: { profile: true },
+        })
+        await syncClientManagers(tx, {
+          clientIds: [businessClient.id],
+          organizationId: user.organizationId!,
+          staffIds: managerIds,
         })
 
         // Create engagement + tax case

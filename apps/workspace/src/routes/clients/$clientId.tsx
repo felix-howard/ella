@@ -681,6 +681,11 @@ function ClientDetailPage() {
 
   const { clients: clientsText } = UI_TEXT
   const avatarColor = getAvatarColor(client.name)
+  const managerNames = client.managedByStaff && client.managedByStaff.length > 0
+    ? client.managedByStaff.map((manager) => manager.name)
+    : client.managedBy
+      ? [client.managedBy.name]
+      : []
 
   // Schedule C/E tabs: always visible (no More dropdown).
   const scheduleCTab = { id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }
@@ -839,10 +844,15 @@ function ClientDetailPage() {
                         : t('clientDetail.filed')}
                     </span>
                   )}
-                  {client.managedBy && (
+                  {managerNames.length > 0 && (
                     <span className="flex items-center gap-1">
                       <Users className="w-3.5 h-3.5" aria-hidden="true" />
-                      {client.managedBy.name}
+                      <span className="max-w-[220px] truncate">
+                        {managerNames.slice(0, 2).join(', ')}
+                      </span>
+                      {managerNames.length > 2 && (
+                        <span className="text-muted-foreground">+{managerNames.length - 2}</span>
+                      )}
                     </span>
                   )}
                 </div>

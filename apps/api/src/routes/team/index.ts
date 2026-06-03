@@ -88,7 +88,7 @@ teamRoute.get('/members', async (c) => {
       isActive: true,
       isContractorAgent: true,
       formSlug: true,
-      _count: { select: { managedClients: true } },
+      _count: { select: { managedClientLinks: true } },
     },
     orderBy: { name: 'asc' },
   })
@@ -97,6 +97,7 @@ teamRoute.get('/members', async (c) => {
   const data = await Promise.all(
     members.map(async (m) => ({
       ...m,
+      _count: { managedClients: m._count.managedClientLinks },
       avatarUrl: await resolveAvatarUrl(m.avatarUrl),
     }))
   )
@@ -536,7 +537,7 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
       defaultUploadLinkTemplateId: true,
       isActive: true,
       deactivatedAt: true,
-      _count: { select: { managedClients: true } },
+      _count: { select: { managedClientLinks: true } },
     },
   })
 
@@ -549,9 +550,12 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
   const firstName = nameParts[0] || ''
   const lastName = nameParts.slice(1).join(' ') || ''
 
-  // Always show only clients managed by this staff member (based on managedById)
+  // Always show only clients managed by this staff member.
   const clients = await prisma.client.findMany({
-    where: { managedById: targetStaffId },
+    where: {
+      organizationId: user.organizationId,
+      managers: { some: { staffId: targetStaffId } },
+    },
     select: { id: true, name: true, phone: true, avatarUrl: true },
     take: 50,
     orderBy: { name: 'asc' },
@@ -559,12 +563,18 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
   const managedClientsList = await Promise.all(
     clients.map(async (c) => ({ ...c, avatarUrl: await resolveAvatarUrl(c.avatarUrl) }))
   )
-  const managedCount = staff._count.managedClients
+  const managedCount = staff._count.managedClientLinks
 
   const canEdit = canEditStaff(user, targetStaffId)
 
   return c.json({
-    staff: { ...staff, firstName, lastName, avatarUrl: await resolveAvatarUrl(staff.avatarUrl) },
+    staff: {
+      ...staff,
+      _count: { managedClients: staff._count.managedClientLinks },
+      firstName,
+      lastName,
+      avatarUrl: await resolveAvatarUrl(staff.avatarUrl),
+    },
     managedClients: managedClientsList,
     managedCount: managedCount,
     canEdit,
@@ -726,7 +736,7 @@ teamRoute.get('/members/:staffId/notification-subscriptions', async (c) => {
       name: true,
       avatarUrl: true,
       role: true,
-      _count: { select: { managedClients: true } },
+      _count: { select: { managedClientLinks: true } },
     },
     orderBy: { name: 'asc' },
   })
@@ -734,6 +744,7 @@ teamRoute.get('/members/:staffId/notification-subscriptions', async (c) => {
   const membersWithAvatars = await Promise.all(
     members.map(async (m) => ({
       ...m,
+      _count: { managedClients: m._count.managedClientLinks },
       avatarUrl: await resolveAvatarUrl(m.avatarUrl),
     }))
   )

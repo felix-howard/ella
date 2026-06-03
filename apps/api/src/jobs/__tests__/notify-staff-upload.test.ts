@@ -33,6 +33,7 @@ vi.mock('../../services/sms/notification-service', () => ({
 // Import mocked modules
 import { prisma } from '../../lib/db'
 import { notifyStaffUpload } from '../../services/sms/notification-service'
+import { notifyStaffOnUploadJob } from '../notify-staff-upload'
 
 // Type the mocks
 const mockPrismaTaxCase = vi.mocked(prisma.taxCase)
@@ -203,7 +204,7 @@ describe('notifyStaffOnUploadJob workflow', () => {
       expect(staff[0].phoneNumber).toBe('+15555551234')
     })
 
-    it('queries all admins (admins get ALL client uploads)', async () => {
+    it('queries subscribers for manager upload notifications', async () => {
 
       const mockStaff = [
         {
@@ -215,7 +216,6 @@ describe('notifyStaffOnUploadJob workflow', () => {
       ]
       mockPrismaStaff.findMany.mockResolvedValue(mockStaff as never)
 
-      // New logic: Admins get notified for ALL client uploads
       const staff = await prisma.staff.findMany({
         where: {
           organizationId: testOrgId,
@@ -224,13 +224,111 @@ describe('notifyStaffOnUploadJob workflow', () => {
           isActive: true,
           OR: [
             { role: 'ADMIN' },
-            { id: testClientId },  // managedById filter
+            { id: { in: ['staff-1'] } },
+            {
+              notificationSubscriptions: {
+                some: { targetStaffId: { in: ['staff-1'] }, type: 'UPLOAD' },
+              },
+            },
           ],
         },
         select: { id: true, name: true, phoneNumber: true, language: true },
       })
 
       expect(staff).toHaveLength(1)
+    })
+
+    it('queries upload recipients using all client manager links', async () => {
+      mockPrismaTaxCase.findUnique.mockResolvedValue({
+        id: testCaseId,
+        clientId: testClientId,
+        client: {
+          id: testClientId,
+          firstName: 'Test',
+          lastName: 'Client',
+          name: 'Test Client',
+          organizationId: testOrgId,
+          managedById: 'staff-primary',
+          managers: [{ staffId: 'staff-secondary' }],
+        },
+      } as never)
+      mockPrismaStaff.findMany.mockResolvedValue([
+        {
+          id: 'staff-secondary',
+          name: 'Staff B',
+          phoneNumber: '+15555552222',
+          language: 'EN',
+        },
+      ] as never)
+      mockNotifyStaffUpload.mockResolvedValue({ success: true })
+
+      const step = {
+        run: vi.fn((_: string, callback: () => unknown) => callback()),
+      }
+
+      const job = notifyStaffOnUploadJob as unknown as {
+        handler: (input: { events: ReturnType<typeof createTestEvents>; step: typeof step }) => Promise<unknown>
+      }
+
+      await job.handler({ events: createTestEvents(1), step })
+
+      expect(mockPrismaStaff.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { role: 'ADMIN' },
+            { id: { in: ['staff-secondary', 'staff-primary'] } },
+            {
+              notificationSubscriptions: {
+                some: { targetStaffId: { in: ['staff-secondary', 'staff-primary'] }, type: 'UPLOAD' },
+              },
+            },
+          ],
+        }),
+      }))
+    })
+
+    it('keeps admins eligible when a client has no managers', async () => {
+      mockPrismaTaxCase.findUnique.mockResolvedValue({
+        id: testCaseId,
+        clientId: testClientId,
+        client: {
+          id: testClientId,
+          firstName: 'Unassigned',
+          lastName: 'Client',
+          name: 'Unassigned Client',
+          organizationId: testOrgId,
+          managedById: null,
+          managers: [],
+        },
+      } as never)
+      mockPrismaStaff.findMany.mockResolvedValue([
+        {
+          id: 'admin-1',
+          name: 'Admin',
+          phoneNumber: '+15555559999',
+          language: 'EN',
+        },
+      ] as never)
+      mockNotifyStaffUpload.mockResolvedValue({ success: true })
+
+      const step = {
+        run: vi.fn((_: string, callback: () => unknown) => callback()),
+      }
+      const job = notifyStaffOnUploadJob as unknown as {
+        handler: (input: { events: ReturnType<typeof createTestEvents>; step: typeof step }) => Promise<unknown>
+      }
+
+      await job.handler({ events: createTestEvents(1), step })
+
+      expect(mockPrismaStaff.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ role: 'ADMIN' }],
+        }),
+      }))
+      expect(mockNotifyStaffUpload).toHaveBeenCalledWith(expect.objectContaining({
+        staffId: 'admin-1',
+        clientName: 'Unassigned Client',
+      }))
     })
 
     it('skips staff without phone number', async () => {

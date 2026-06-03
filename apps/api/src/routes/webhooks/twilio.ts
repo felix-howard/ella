@@ -3,6 +3,7 @@
  * Handles incoming SMS messages and voice call webhooks from Twilio
  */
 import { Hono } from 'hono'
+import type { Context } from 'hono'
 import {
   processIncomingMessage,
   validateTwilioSignature,
@@ -19,7 +20,6 @@ import {
   generateVoicemailCompleteTwiml,
   findConversationByPhone,
   createPlaceholderConversation,
-  findDefaultOrganizationId,
   formatVoicemailDuration,
   isValidE164Phone,
   sanitizeRecordingDuration,
@@ -34,6 +34,37 @@ const twilioWebhookRoute = new Hono()
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
 const RATE_LIMIT_WINDOW_MS = 60000 // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 60 // 60 requests per minute per IP
+
+async function resolveIncomingCallOrganizationId(toPhone: string): Promise<string | null> {
+  if (!isValidE164Phone(toPhone)) return null
+
+  const orgsByFirmPhone = await prisma.organization.findMany({
+    where: { isActive: true, firmPhone: toPhone },
+    select: { id: true },
+    take: 2,
+  })
+  if (orgsByFirmPhone.length === 1) return orgsByFirmPhone[0].id
+  if (orgsByFirmPhone.length > 1) return null
+  return null
+}
+
+function getWebhookRequestUrl(c: Context, forwardedProto: string, forwardedHost: string): string {
+  const requestUrl = new URL(c.req.url)
+  return `${forwardedProto}://${forwardedHost}${requestUrl.pathname}${requestUrl.search}`
+}
+
+function buildVoiceWebhookUrl(path: string, calledNumber?: string): string {
+  const url = new URL(path, config.twilio.webhookBaseUrl)
+  if (calledNumber) {
+    url.searchParams.set('calledNumber', calledNumber)
+  }
+  return url.toString()
+}
+
+function getCalledNumber(c: Context, formData: Record<string, unknown>): string {
+  const queryCalledNumber = new URL(c.req.url).searchParams.get('calledNumber')
+  return queryCalledNumber || (formData.To || formData.Called || '') as string
+}
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now()
@@ -81,8 +112,7 @@ twilioWebhookRoute.post('/sms', async (c) => {
   // Twilio signs using the configured webhook URL, not the internal server URL
   const forwardedProto = c.req.header('x-forwarded-proto') || 'http'
   const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || 'localhost:3002'
-  const urlPath = new URL(c.req.url).pathname
-  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+  const requestUrl = getWebhookRequestUrl(c, forwardedProto, forwardedHost)
 
   console.log(`[Twilio Webhook] Incoming request - Original URL: ${c.req.url}, Reconstructed URL: ${requestUrl}`)
 
@@ -174,8 +204,7 @@ twilioWebhookRoute.post('/status', async (c) => {
   const twilioSignature = c.req.header('X-Twilio-Signature') || ''
   const forwardedProto = c.req.header('x-forwarded-proto') || 'http'
   const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || 'localhost:3002'
-  const urlPath = new URL(c.req.url).pathname
-  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+  const requestUrl = getWebhookRequestUrl(c, forwardedProto, forwardedHost)
 
   const formData = await c.req.parseBody()
 
@@ -282,8 +311,7 @@ twilioWebhookRoute.post('/voice', async (c) => {
   const twilioSignature = c.req.header('X-Twilio-Signature') || ''
   const forwardedProto = c.req.header('x-forwarded-proto') || 'https'
   const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || ''
-  const urlPath = new URL(c.req.url).pathname
-  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+  const requestUrl = getWebhookRequestUrl(c, forwardedProto, forwardedHost)
 
   const formData = await c.req.parseBody()
 
@@ -342,8 +370,7 @@ twilioWebhookRoute.post('/voice/recording', async (c) => {
   const twilioSignature = c.req.header('X-Twilio-Signature') || ''
   const forwardedProto = c.req.header('x-forwarded-proto') || 'https'
   const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || ''
-  const urlPath = new URL(c.req.url).pathname
-  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+  const requestUrl = getWebhookRequestUrl(c, forwardedProto, forwardedHost)
 
   const formData = await c.req.parseBody()
 
@@ -424,8 +451,7 @@ twilioWebhookRoute.post('/voice/status', async (c) => {
   const twilioSignature = c.req.header('X-Twilio-Signature') || ''
   const forwardedProto = c.req.header('x-forwarded-proto') || 'https'
   const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || ''
-  const urlPath = new URL(c.req.url).pathname
-  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+  const requestUrl = getWebhookRequestUrl(c, forwardedProto, forwardedHost)
 
   const formData = await c.req.parseBody()
 
@@ -499,7 +525,7 @@ const RING_TIMEOUT_SECONDS = 30
 
 /**
  * POST /webhooks/twilio/voice/incoming - Handle incoming call from customer
- * Routes to last-contact staff or all online staff, then voicemail if no answer
+ * Routes to org-scoped client managers/admins, then no-staff/missed-call handling if no answer
  */
 twilioWebhookRoute.post('/voice/incoming', async (c) => {
   const clientIp = c.req.header('x-forwarded-for')?.split(',')[0] || 'unknown'
@@ -511,8 +537,7 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
   const twilioSignature = c.req.header('X-Twilio-Signature') || ''
   const forwardedProto = c.req.header('x-forwarded-proto') || 'https'
   const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || ''
-  const urlPath = new URL(c.req.url).pathname
-  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+  const requestUrl = getWebhookRequestUrl(c, forwardedProto, forwardedHost)
 
   const formData = await c.req.parseBody()
 
@@ -534,27 +559,31 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
   console.log(`[Incoming Webhook] Call ${callSid}: ${from} -> ${to}`)
 
   try {
+    const resolvedOrgId = await resolveIncomingCallOrganizationId(to)
+
     // 1. Find caller's client and conversation
-    const client = await prisma.client.findFirst({
-      where: { phone: from, clientType: 'INDIVIDUAL' },
-      include: {
-        taxCases: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-          include: { conversation: true },
+    const client = resolvedOrgId
+      ? await prisma.client.findFirst({
+        where: { phone: from, organizationId: resolvedOrgId, clientType: 'INDIVIDUAL' },
+        include: {
+          taxCases: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            include: { conversation: true },
+          },
         },
-      },
-    })
+      })
+      : null
 
     // 2. Determine routing based on client assignment
     let staffIdentities: string[] = []
 
-    // Get client's organization for scoping
-    const clientOrgId = client?.organizationId
+    // Get client's organization for scoping.
+    const clientOrgId = client?.organizationId ?? resolvedOrgId
 
     if (clientOrgId) {
-      // Get online staff: managing staff + org admins
-      const managedById = client!.managedById
+      // Get online staff: linked client managers + org admins for known callers,
+      // or org admins only for unknown callers.
       const onlineStaff = await prisma.staffPresence.findMany({
         where: {
           isOnline: true,
@@ -562,7 +591,7 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
             organizationId: clientOrgId,
             isActive: true,
             OR: [
-              ...(managedById ? [{ id: managedById }] : []),
+              ...(client ? [{ managedClientLinks: { some: { clientId: client.id } } }] : []),
               { role: 'ADMIN' },
             ],
           },
@@ -575,25 +604,20 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
         .filter((id): id is string => Boolean(id))
 
       console.log(
-        `[Incoming Webhook] Org ${clientOrgId} - ManagedBy: ${managedById || 'none'}, Online eligible: ${staffIdentities.length}`
+        `[Incoming Webhook] Org ${clientOrgId} - Client ${client?.id || 'unknown'}, Online eligible: ${staffIdentities.length}`
       )
     } else {
-      // Unknown caller (no client record or no org) - route to all online staff as fallback
-      console.log(`[Incoming Webhook] Unknown caller ${from}, routing to all online staff`)
-      const onlineStaff = await prisma.staffPresence.findMany({
-        where: { isOnline: true },
-      })
-      staffIdentities = onlineStaff
-        .map((s) => s.deviceId)
-        .filter((id): id is string => Boolean(id))
+      console.warn(`[Incoming Webhook] Could not resolve org for called number ${to}, using no-staff handling`)
     }
 
     // 3. Check if any eligible staff online
     if (staffIdentities.length === 0) {
-      console.log(`[Incoming Webhook] No eligible staff online, routing to voicemail`)
+      console.log(`[Incoming Webhook] No eligible staff online, using no-staff handling`)
 
       // Fire-and-forget: send missed call text-back SMS
-      sendMissedCallTextBack(from, clientOrgId || null).catch(() => {})
+      if (clientOrgId) {
+        sendMissedCallTextBack(from, clientOrgId).catch(() => {})
+      }
 
       const twiml = generateNoStaffTwiml({
         voicemailCallbackUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/voicemail-recording`,
@@ -639,8 +663,7 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
     } else if (isValidE164Phone(from)) {
       // Unknown caller or known client without conversation — create placeholder
       console.log(`[Incoming Webhook] Creating placeholder conversation for unknown caller ${from}`)
-      const defaultOrgId = clientOrgId || await findDefaultOrganizationId()
-      const placeholderConv = await createPlaceholderConversation(from, defaultOrgId, 'INCOMING_CALL')
+      const placeholderConv = await createPlaceholderConversation(from, clientOrgId, 'INCOMING_CALL')
 
       const unknownCallTxResult = await prisma.$transaction(async (tx) => {
         const msg = await tx.message.create({
@@ -672,19 +695,20 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
     }
 
     // 5. Generate TwiML to ring staff browsers with recording enabled
+    const calledNumber = to
     const twiml = generateIncomingTwiml({
       staffIdentities,
       callerId: from,
       timeout: RING_TIMEOUT_SECONDS,
-      dialCompleteUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/dial-complete`,
+      dialCompleteUrl: buildVoiceWebhookUrl('/webhooks/twilio/voice/dial-complete', calledNumber),
       record: true,
-      recordingStatusCallback: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/inbound-recording`,
+      recordingStatusCallback: buildVoiceWebhookUrl('/webhooks/twilio/voice/inbound-recording', calledNumber),
     })
 
     return c.text(twiml, 200, { 'Content-Type': 'application/xml' })
   } catch (error) {
     console.error('[Incoming Webhook] Error:', error)
-    // Return voicemail as fallback on error
+    // Return no-staff hangup fallback on error.
     const twiml = generateNoStaffTwiml({
       voicemailCallbackUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/voicemail-recording`,
       voicemailCompleteUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/voicemail-complete`,
@@ -696,7 +720,7 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
 /**
  * POST /webhooks/twilio/voice/dial-complete - Handle dial completion
  * Called after ring timeout or when call is answered/ended
- * Routes to voicemail if no-answer, busy, or failed
+ * Returns no-staff/missed-call TwiML if no-answer, busy, or failed
  */
 twilioWebhookRoute.post('/voice/dial-complete', async (c) => {
   const clientIp = c.req.header('x-forwarded-for')?.split(',')[0] || 'unknown'
@@ -708,8 +732,7 @@ twilioWebhookRoute.post('/voice/dial-complete', async (c) => {
   const twilioSignature = c.req.header('X-Twilio-Signature') || ''
   const forwardedProto = c.req.header('x-forwarded-proto') || 'https'
   const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || ''
-  const urlPath = new URL(c.req.url).pathname
-  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+  const requestUrl = getWebhookRequestUrl(c, forwardedProto, forwardedHost)
 
   const formData = await c.req.parseBody()
 
@@ -744,8 +767,8 @@ twilioWebhookRoute.post('/voice/dial-complete', async (c) => {
     return c.text(generateEmptyTwimlResponse(), 200, { 'Content-Type': 'application/xml' })
   }
 
-  // No answer, busy, or failed - route to voicemail
-  console.log(`[Dial Complete] Call ${callSid} not answered, routing to voicemail`)
+  // No answer, busy, or failed - send missed-call textback and hang up.
+  console.log(`[Dial Complete] Call ${callSid} not answered, sending missed-call handling`)
 
   // Update call message status
   try {
@@ -764,16 +787,20 @@ twilioWebhookRoute.post('/voice/dial-complete', async (c) => {
   // Twilio provides original caller phone in From field of the action callback
   const callerPhone = formData.From as string
   if (callerPhone) {
-    const callerClient = await prisma.client.findFirst({
-      where: { phone: callerPhone, clientType: 'INDIVIDUAL' },
-      select: { organizationId: true },
-    })
-    sendMissedCallTextBack(callerPhone, callerClient?.organizationId || null).catch(() => {})
+    try {
+      const callbackOrgId = await resolveIncomingCallOrganizationId(getCalledNumber(c, formData))
+      if (callbackOrgId) {
+        sendMissedCallTextBack(callerPhone, callbackOrgId).catch(() => {})
+      }
+    } catch (error) {
+      console.error('[Dial Complete] Failed to resolve org for missed-call textback:', error)
+    }
   }
 
+  const calledNumber = getCalledNumber(c, formData)
   const twiml = generateVoicemailTwiml({
-    voicemailCallbackUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/voicemail-recording`,
-    voicemailCompleteUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/voicemail-complete`,
+    voicemailCallbackUrl: buildVoiceWebhookUrl('/webhooks/twilio/voice/voicemail-recording', calledNumber),
+    voicemailCompleteUrl: buildVoiceWebhookUrl('/webhooks/twilio/voice/voicemail-complete', calledNumber),
   })
 
   return c.text(twiml, 200, { 'Content-Type': 'application/xml' })
@@ -793,8 +820,7 @@ twilioWebhookRoute.post('/voice/voicemail-complete', async (c) => {
   const twilioSignature = c.req.header('X-Twilio-Signature') || ''
   const forwardedProto = c.req.header('x-forwarded-proto') || 'https'
   const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || ''
-  const urlPath = new URL(c.req.url).pathname
-  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+  const requestUrl = getWebhookRequestUrl(c, forwardedProto, forwardedHost)
 
   const formData = await c.req.parseBody()
 
@@ -834,8 +860,7 @@ twilioWebhookRoute.post('/voice/inbound-recording', async (c) => {
   const twilioSignature = c.req.header('X-Twilio-Signature') || ''
   const forwardedProto = c.req.header('x-forwarded-proto') || 'https'
   const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || ''
-  const urlPath = new URL(c.req.url).pathname
-  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+  const requestUrl = getWebhookRequestUrl(c, forwardedProto, forwardedHost)
 
   const formData = await c.req.parseBody()
 
@@ -911,8 +936,7 @@ twilioWebhookRoute.post('/voice/voicemail-recording', async (c) => {
   const twilioSignature = c.req.header('X-Twilio-Signature') || ''
   const forwardedProto = c.req.header('x-forwarded-proto') || 'https'
   const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || ''
-  const urlPath = new URL(c.req.url).pathname
-  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+  const requestUrl = getWebhookRequestUrl(c, forwardedProto, forwardedHost)
 
   const formData = await c.req.parseBody()
 
@@ -932,6 +956,7 @@ twilioWebhookRoute.post('/voice/voicemail-recording', async (c) => {
   const callSid = formData.CallSid as string
   const recordingStatus = formData.RecordingStatus as string
   const callerPhone = formData.From as string // Original caller's phone number
+  const callbackOrgId = await resolveIncomingCallOrganizationId(getCalledNumber(c, formData))
   const recordingDuration = sanitizeRecordingDuration(formData.RecordingDuration as string | undefined, MAX_RECORDING_DURATION)
 
   console.log(`[Voicemail Recording] ${recordingSid}: status=${recordingStatus}, duration=${recordingDuration}s, from=${callerPhone}`)
@@ -991,13 +1016,17 @@ twilioWebhookRoute.post('/voice/voicemail-recording', async (c) => {
       return c.json({ received: true, processed: false, warning: 'INVALID_PHONE_FORMAT' })
     }
 
-    // Find existing conversation or create placeholder
-    let conversation = await findConversationByPhone(callerPhone)
+    if (!callbackOrgId) {
+      console.warn('[Voicemail Recording] Could not resolve org for voicemail callback')
+      return c.json({ received: true, processed: false, warning: 'ORG_NOT_RESOLVED' })
+    }
+
+    // Find existing conversation or create placeholder in the resolved org.
+    let conversation = await findConversationByPhone(callerPhone, callbackOrgId)
 
     if (!conversation) {
       console.log(`[Voicemail Recording] Unknown caller ${callerPhone}, creating placeholder conversation`)
-      const defaultOrgId = await findDefaultOrganizationId()
-      conversation = await createPlaceholderConversation(callerPhone, defaultOrgId, 'INCOMING_CALL')
+      conversation = await createPlaceholderConversation(callerPhone, callbackOrgId, 'INCOMING_CALL')
     }
 
     // Create new voicemail message

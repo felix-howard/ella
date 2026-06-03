@@ -35,7 +35,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 │ - Lightweight event notifications + cache      │
 │     Data Layer (Org-Scoped)                      │                                     │
 │  - Organizations, Staff, Clients, Cases         │
-│  - Client.managedById (single manager FK)       │
+│  - ClientManager join model + legacy managedById│
 │  - Documents, Messages, Audit logs              │
 └──────────────────────────────────────────────────┘
 
@@ -56,13 +56,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Apps:**
 - `apps/landing/` - Public-facing Astro site for Ella Tax Services LLC, with home, services, password-gated pricing calculator, get-started, why Ella, about, privacy, terms, and tax-advisory pages. Shared service primitives cover page heroes, service cards, process steps, trust strips, contact bands, FAQs, contact forms, and stats. `/try-now` redirects to `/get-started`, and `/features` redirects to `/services`.
 - `apps/portal/` - Client magic link upload portal
-- `apps/workspace/` - Staff dashboard with team management and an admin-only pricing calculator/payment-link flow
+- `apps/workspace/` - Staff dashboard with team management, multi-manager client UI, and an admin-only pricing calculator/payment-link flow
 
 **Key Pages (Workspace):**
 - `/` - Dashboard with stats & quick actions
-- `/clients` - Client list with Kanban/list views
+- `/clients` - Client list with Kanban/list views and a compact multi-manager Managed By column
 - `/clients/new` - Multi-path client creation wizard (Phase 12: INDIVIDUAL | BUSINESS | INDIVIDUAL_WITH_BUSINESS). INDIVIDUAL_WITH_BUSINESS path includes accordion UI for managing up to 10 business entities per individual client, with per-business validation, add/remove, and batch submit to create ClientGroup (Phase 2 multi-business enhancement)
-- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Schedule C, Schedule E, Draft Return. Tab layout varies by clientType (Phase 15)
+- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Schedule C, Schedule E, Draft Return. Overview includes the admin multi-select manager editor and read-only fallback. Tab layout varies by clientType (Phase 15)
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations
 - `/actions` - Action queue with priority filtering
@@ -270,11 +270,11 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Similar for invitations & staff assignments
 
 **Clients (16+ with Tag Support, Phase 10 Entity Separation):**
-- `GET /clients` - List with org scoping + sort + tag filters (Phase 2: supports `sort=recentUploads`, returns `uploads: { newCount, totalCount, latestAt }` per client. Tag filtering: hasSome, hasAll operators). Returns tags + source enum.
+- `GET /clients` - List with org scoping + sort + tag filters (Phase 2: supports `sort=recentUploads`, returns `uploads: { newCount, totalCount, latestAt }` per client. Tag filtering: hasSome, hasAll operators). Admin manager filters now match any linked `ClientManager` row. Returns tags + source enum plus manager display fields (`managedBy`, `managedByStaff`).
 - `GET /clients/tags` - Get distinct tags (admin required). Returns array of unique tag strings across all org clients, sorted alphabetically. Used for tag filter dropdowns.
 - `POST /clients` - Create with organization. Accepts tags array + source enum (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED). Phase 10: Supports clientType (INDIVIDUAL|BUSINESS), businessType, ein (encrypted as einEncrypted), businessAddress/City/State/Zip for BUSINESS clients.
 - `POST /clients/create-with-business` - Combo endpoint (Phase 10). Creates individual client + business client + ClientGroup in one transaction. Body: individual{firstName, lastName, phone, email, language}, business{name, type, ein, address, city, state, zip}, case{taxTypes, taxYear}, groupName. Returns {individual, business, group, taxCase, magicLink}.
-- `GET /clients/:id` - Detail with org verification (Phase 10: returns clientType, einMasked instead of einEncrypted, clientGroupId, business fields for BUSINESS clients). Returns tags array + source enum + conversion metadata.
+- `GET /clients/:id` - Detail with org verification (Phase 10: returns clientType, einMasked instead of einEncrypted, clientGroupId, business fields for BUSINESS clients). Returns tags array + source enum + conversion metadata, plus manager compatibility fields (`managedById`, `managedBy`, `managedByStaff`).
 - `PATCH /clients/:id` - Update profile/intakeAnswers/tags. Tags support add/remove/replace mutations. Phase 10: Can update clientType, ein (re-encrypted), businessType, business address fields.
 - `DELETE /clients/:id` - Deactivate
 - `GET /clients/:id/resend-sms` - Resend welcome link
@@ -297,7 +297,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `DELETE /client-groups/:id` - Delete group. Org-scoped. Returns 200. No cascade—client relationships preserved (clientGroupId set to null).
 - **Auth Pattern:** All routes org-scoped via buildClientScopeFilter. POST requires valid clientIds that exist in org.
 - **Data Model:** ClientGroup (id, name, organizationId, clients array relation, createdAt, updatedAt). Index: organizationId for fast lookups. Supports flexible grouping (family businesses, partnerships, multi-entity arrangements).
-- **Manager Propagation:** `PATCH /clients/:id/managed-by` atomically updates client manager (managedById) and syncs to all group members via transaction for consistency.
+- **Manager Propagation:** `PATCH /clients/:id/managed-by` accepts compatible `{ staffId?: string | null, staffIds?: string[] }`, normalizes to a unique manager set, syncs `ClientManager` rows in a transaction, and keeps legacy `managedById` / `managedBy` mirrors aligned for rollout compatibility.
 
 **Cases & Engagements (14+):**
 - `GET /engagements` - List org engagements
@@ -374,13 +374,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Webhooks:**
 - `POST /webhooks/clerk` - Clerk event sync (user/org/membership lifecycle). Signed with Svix. Handlers: user.updated (sync email/name/avatar), user.deleted (deactivate staff), organization.created/updated (upsert org), organizationMembership.created/updated/deleted (sync staff member, handle out-of-order events). Uses upserts for idempotency. Returns 500 on handler error for Clerk retry.
-- `POST /webhooks/twilio/sms` - Twilio incoming SMS webhook. Processes inbound messages to staff phone number, creates conversation + message record, publishes realtime events
+- `POST /webhooks/twilio/sms` - Twilio incoming SMS webhook. Resolves exactly one active org from recipient Twilio number before client/lead lookup, routes known callers within that org, creates resolved-org placeholder conversations for unknown callers, and publishes realtime events. Unresolved or ambiguous recipient org returns `ORG_NOT_RESOLVED` without cross-tenant phone lookup; there is no global single-org fallback.
 - `POST /webhooks/twilio/status` - Twilio SMS delivery status updates (queued, sent, delivered, undelivered, failed). Updates Message.twilioStatus + SmsSendLog.status. **Atomic transaction:** Updates Lead status (NEW→CONTACTED) on confirmed delivery (messageStatus='delivered') if SmsSendLog exists
 - `POST /webhooks/twilio/voice` - Twilio outbound call connection. Returns TwiML for recording setup
 - `POST /webhooks/twilio/voice/recording` - Twilio outbound call recording completion. Stores recording URL + duration in Message
-- `POST /webhooks/twilio/voice/incoming` - Twilio incoming call from customer. Routes to managing staff or all online admins, creates inbound call message, routes to voicemail if no answer
+- `POST /webhooks/twilio/voice/incoming` - Twilio incoming call from customer. Resolves exactly one active org from called number, routes known callers to linked client managers plus org admins, routes unknown callers to resolved-org admins only, and uses no-staff hangup/missed-call handling if org cannot be resolved, org mapping is ambiguous, or no eligible staff are online. There is no global single-org fallback. Voice callbacks carry called-number context and require resolved org context before missed-call textback or placeholder persistence.
 - `POST /webhooks/twilio/voice/status` - Twilio call status updates (terminal states). Updates Message.callStatus + content
-- `POST /webhooks/twilio/voice/dial-complete` - Twilio dial completion (after ring timeout). Routes to voicemail if unanswered
+- `POST /webhooks/twilio/voice/dial-complete` - Twilio dial completion (after ring timeout). Returns missed-call/no-staff hangup TwiML when unanswered
 - `POST /webhooks/twilio/voice/voicemail-recording` - Twilio voicemail recording completion. Creates voicemail message for known/unknown callers, increments conversation.unreadCount
 - `POST /webhooks/twilio/voice/inbound-recording` - Twilio inbound call recording completion. Stores recording URL + duration for answered inbound calls
 
@@ -393,14 +393,14 @@ Organization (root entity)
 ├── name, slug, logoUrl, isActive
 └── Relations:
     ├── Staff[] (organization members)
-    ├── Client[] (org clients, each with managedById FK)
+    ├── Client[] (org clients, ClientManager links; managedById retained for compatibility)
     └── Audit[] (all changes)
 ```
 
 **Data Scoping:**
 - `buildClientScopeFilter(user)` - Core scoping function
 - **Admin:** See all org clients
-- **Staff:** See only managed clients (Client.managedById = staffId)
+- **Staff:** See only clients with any matching `ClientManager` link for the current staff member; legacy `managedById` remains a compatibility mirror during rollout
 - Applied to: Clients, Cases, Engagements, Messages, Documents, Images, Actions
 
 **Permission Model:**
@@ -422,8 +422,9 @@ Organization (root entity)
 
 **Key Models (Multi-Tenant):**
 - **Organization** - Org root with Clerk integration, autoSendFormClientUploadLink (bool, Phase 02 Intake Form - auto-send SMS to staff on form submission)
-- **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), notifyAllClients (default: false), isContractorAgent (default: false), title, signaturePngKey, formSlug (auto-generated six-digit unique slug per org for public form routing, editable by staff/admin). Notification preferences for client upload alerts and contractor-agent compliance.
-- **Client** - organizationId FK, managedById FK (Staff, single manager), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form), clientType (enum: INDIVIDUAL|BUSINESS, default INDIVIDUAL). For clientType=BUSINESS: businessType (BusinessType enum, required), einEncrypted (encrypted, required), businessAddress, businessCity, businessState, businessZip (all required). Database stores einEncrypted; API returns einMasked (XX-XXX####). clientGroupId FK (optional, links related clients like individual+business or partnerships). Relations: contractors, filingBatches, intakeTokens (all BUSINESS-type specific).
+- **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), isContractorAgent (default: false), title, signaturePngKey, formSlug (auto-generated six-digit unique slug per org for public form routing, editable by staff/admin). Notification preferences for client upload alerts and contractor-agent compliance.
+- **Client** - organizationId FK, managedById FK (legacy primary manager during rollout; `ClientManager` is canonical), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form), clientType (enum: INDIVIDUAL|BUSINESS, default INDIVIDUAL). For clientType=BUSINESS: businessType (BusinessType enum, required), einEncrypted (encrypted, required), businessAddress, businessCity, businessState, businessZip (all required). Database stores einEncrypted; API returns einMasked (XX-XXX####). clientGroupId FK (optional, links related clients like individual+business or partnerships). Relations: contractors, filingBatches, intakeTokens (all BUSINESS-type specific).
+- **ClientManager** - tenant-scoped canonical join row between Client and Staff. Backfilled from legacy managedById, unique on `[clientId, staffId]`, with org-scoped guards and tenant-scoped foreign keys.
 - **ClientGroup** - organizationId FK (optional, org-scoped grouping), name (group name), clients array relation. Phase 01 Entity Separation: new entity enables flexible grouping of related clients (e.g., family businesses, partnerships, multi-entity tax arrangements). Indexed on organizationId for fast group lookups.
 - **Business** - REMOVED in Phase 15. Business model deleted from schema. All business information now stored directly on Client(clientType=BUSINESS) records.
 - **TaxCase** - Year-specific tax case, engagementId FK
@@ -449,14 +450,14 @@ Organization (root entity)
 - **SmsSendLog** - Audit trail for SMS to leads. Fields: id (cuid), message, status (SENT|FAILED), twilioSid (optional), error (optional), sentAt timestamp, createdAt/updatedAt. Relations: leadId FK, sentById FK (Staff), organizationId FK. Used by bulk-sms endpoint to track per-message delivery. Phase 02 Marketing API Complete.
 
 **Phase 02 Types (Document Upload Notification & Intake Form):**
-- **ClientUploads** - Type: `{ newCount: number, totalCount: number, latestAt?: Date }`. Per-client upload tracking based on DocumentView records. `newCount` = images without DocumentView record (unviewed). `totalCount` = all images in client's cases. `latestAt` = most recent image createdAt. Included in GET /clients response via aggregation query.
+- **ClientUploads** - Type: `{ newCount: number, totalCount: number, latestAt: string | null }`. Per-client upload tracking based on DocumentView records. `newCount` = images without DocumentView record (unviewed). `totalCount` = all images in client's cases. `latestAt` = most recent image createdAt serialized for API clients. Included in GET /clients response via aggregation query.
 - **ClientSource** - Enum: `MANUAL | FORM | GENERIC_FORM | STAFF_FORM | CONVERTED`. Tracks client origin: MANUAL = created via staff portal, FORM = deprecated (phase 02), GENERIC_FORM = created via public intake form, STAFF_FORM = created by staff via form link, CONVERTED = converted from Lead. Phase 01 Tag-Based Categorization extended enum.
 - **Client Tags** - Phase 01 addition. String[] field for flexible categorization beyond source. Indexed via GIN for fast filtering.
 
 **Indexes:**
 - Organization: clerkOrgId (unique), name
 - Staff: organizationId + clerkId (compound unique)
-- Client: organizationId + status, managedById (FK index)
+- Client: organizationId + status, managedById (legacy FK index kept for compatibility)
 - ShareableDocument: taxCaseId (single), taxCaseId + status + deletedAt (compound), status (single) - optimize case-to-documents + status filtering with soft-delete awareness
 - Messages: conversationId + createdAt (ordering)
 
@@ -525,7 +526,8 @@ npm run migrate:business-to-client -- --dry-run --org-id <orgId>
 
 **Org Verification:**
 - All endpoints verify orgId from JWT matches resource org
-- Staff see only managed clients (Client.managedById = staffId)
+- Staff see only managed clients via matching `ClientManager` rows; `managedById` mirrors the primary manager only for compatibility during rollout
+- Upload notifications and incoming voice-call routing use `ClientManager` links so secondary managers are included in operational workflows. Upload notifications also include org admins who keep `notifyOnUpload` enabled.
 - Admins see all org clients
 
 ## Clerk Webhook Sync (Event-Driven User/Org Sync)
@@ -2018,12 +2020,12 @@ The "(via Name)" hint is semantic text (no screen reader override), helping CPAs
 
 ---
 
-## Phase 4: Unified Conversation & Business UX - Auto-Propagate managedById (2026-04-10)
+## Phase 4: Unified Conversation & Business UX - Manager Propagation (2026-04-10, updated 2026-06-03)
 
 **Location:** `apps/api/src/lib/client-helpers.ts` (NEW), `apps/api/src/routes/clients/index.ts` (PATCH /clients/:id/managed-by), test files
 
 **Overview:**
-Staff assignment (managedById) now propagates atomically to all ClientGroup members. When assigning staff to individual or business client, all linked clients receive same manager for unified client list visibility.
+Manager assignment now propagates atomically to all ClientGroup members. Since 2026-06-03, `ClientManager` rows are canonical for client visibility and linked clients receive the same full manager set. `managedById` remains a primary-manager mirror during rollout.
 
 **Helper Library** (`apps/api/src/lib/client-helpers.ts`):
 
@@ -2062,50 +2064,34 @@ export async function findGroupIndividual(clientGroupId: string, organizationId?
 
 **Endpoint: PATCH /clients/:id/managed-by**
 
-Old behavior: Update single client's managedById.
-
-New behavior:
+Current behavior:
 ```
 1. Query client with clientGroupId
 2. If client.clientGroupId exists:
-   - updateMany all group members with same managedById (atomic $transaction)
-   - Log: "Updated X staff assignments in group"
+   - sync ClientManager rows for all group members with same manager set (atomic $transaction)
+   - keep managedById mirror aligned to the primary manager
+   - Log: "Propagated staffIds=... to X members"
 3. If orphan (no clientGroupId):
-   - Update single client only (backward compatible)
+   - Sync ClientManager rows for single client only
 4. Filter by organizationId for security
 ```
 
 **Code Pattern:**
 
 ```typescript
-// Before: simple update
-await prisma.client.update({
-  where: { id: clientId },
-  data: { managedById },
-})
-
-// After: group-aware with transaction
+// Group-aware manager sync
 const client = await prisma.client.findUnique({
   where: { id: clientId },
   select: { clientGroupId: true },
 })
 
-if (client?.clientGroupId) {
-  await prisma.$transaction([
-    prisma.client.updateMany({
-      where: {
-        clientGroupId: client.clientGroupId,
-        organizationId, // security filter
-      },
-      data: { managedById },
-    }),
-  ])
-} else {
-  await prisma.client.update({
-    where: { id: clientId, organizationId },
-    data: { managedById },
-  })
-}
+const clientIds = client?.clientGroupId
+  ? await findOrgScopedGroupClientIds(client.clientGroupId, organizationId)
+  : [clientId]
+
+await prisma.$transaction((tx) =>
+  syncClientManagers(tx, { clientIds, organizationId, staffIds })
+)
 ```
 
 **Verification Tests:**
@@ -2117,9 +2103,9 @@ if (client?.clientGroupId) {
 - Standalone business clients unchanged (backward compatible)
 
 `managed-by-propagation.test.ts` (13 tests):
-- Assign staff to individual → business also updated atomically
-- Assign staff to business → individual also updated atomically
-- Unassign (managedById = null) → all group members unaffected
+- Assign staff to individual -> business manager set also updated atomically
+- Assign staff to business -> individual manager set also updated atomically
+- Clear all managers -> linked clients clear manager rows and legacy mirror
 - Non-grouped clients remain independent (no cross-org leakage)
 - Orphan client updates don't affect other groups
 
@@ -2190,8 +2176,7 @@ Enables CPAs to add linked businesses to existing individual clients directly fr
 Staff notification preferences UI enabling staff to control SMS alerts for document uploads via profile settings. Integrates with Phase 01 (schema) and Phase 02-03 (backend services).
 
 **Features:**
-- `notifyOnUpload` toggle: Receive SMS when clients upload documents (default: true)
-- `notifyAllClients` toggle: Admin-only flag to receive notifications for all clients, not just assigned (default: false)
+- `notifyOnUpload` toggle: Receive SMS when managed clients upload documents; admins receive org-wide upload alerts while this is enabled.
 
 **UI Integration:**
 
@@ -2199,11 +2184,10 @@ Staff notification preferences UI enabling staff to control SMS alerts for docum
 ```typescript
 // State management
 const [editNotifyOnUpload, setEditNotifyOnUpload] = useState(staff.notifyOnUpload)
-const [editNotifyAllClients, setEditNotifyAllClients] = useState(staff.notifyAllClients)
 
 // Update mutation includes notification fields
 api.team.updateProfile(staffId, {
-  name, phoneNumber, notifyOnUpload, notifyAllClients
+  name, phoneNumber, notifyOnUpload
 })
 
 // Switch components for toggle UI
@@ -2230,7 +2214,6 @@ export const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   phoneNumber: z.string().regex(/^\+[1-9]\d{6,14}$/).optional().nullable(),
   notifyOnUpload: z.boolean().optional(),
-  notifyAllClients: z.boolean().optional(),
 })
 ```
 
@@ -2246,7 +2229,6 @@ interface StaffProfile {
   email: string
   phoneNumber: string | null
   notifyOnUpload: boolean        // NEW
-  notifyAllClients: boolean      // NEW (admin-only)
   // ... other fields
 }
 
@@ -2254,7 +2236,6 @@ interface UpdateStaffProfileInput {
   name?: string
   phoneNumber?: string | null
   notifyOnUpload?: boolean       // NEW
-  notifyAllClients?: boolean     // NEW
 }
 ```
 
@@ -2262,9 +2243,7 @@ interface UpdateStaffProfileInput {
 ```json
 {
   "profile.notifyOnUpload": "Document upload notifications",
-  "profile.notifyOnUploadDesc": "Receive SMS when clients upload documents",
-  "profile.notifyAllClients": "Notify for all clients",
-  "profile.notifyAllClientsDesc": "Receive notifications for all clients, not just assigned ones"
+  "profile.notifyOnUploadDesc": "Receive SMS when clients upload documents"
 }
 ```
 
@@ -2272,15 +2251,12 @@ interface UpdateStaffProfileInput {
 ```json
 {
   "profile.notifyOnUpload": "Thông báo tải tài liệu",
-  "profile.notifyOnUploadDesc": "Nhận tin nhắn SMS khi khách hàng tải tài liệu",
-  "profile.notifyAllClients": "Thông báo cho tất cả khách hàng",
-  "profile.notifyAllClientsDesc": "Nhận thông báo cho tất cả khách hàng, không chỉ những khách hàng được gán"
+  "profile.notifyOnUploadDesc": "Nhận tin nhắn SMS khi khách hàng tải tài liệu"
 }
 ```
 
 **Access Control:**
 - Self-only editing via JWT context validation
-- `notifyAllClients` admin-only (flag presence, not enforced in UI)
 - Team page already restricts admin users
 
 **Data Flow:**
@@ -2289,11 +2265,11 @@ ProfileForm renders
   ↓
 User toggles Switch component
   ↓
-State updates (editNotifyOnUpload/editNotifyAllClients)
+State updates (editNotifyOnUpload)
   ↓
 User clicks Save
   ↓
-useMutation calls api.team.updateProfile(staffId, { notifyOnUpload, notifyAllClients })
+useMutation calls api.team.updateProfile(staffId, { notifyOnUpload })
   ↓
 Backend PATCH /team/members/:staffId/profile validates + updates Staff
   ↓
@@ -2307,7 +2283,7 @@ Success toast: "Profile updated"
 **Backward Compatibility:**
 - New fields optional in schema (updateProfileSchema)
 - Notification fields nullable in UpdateStaffProfileInput
-- Database defaults: notifyOnUpload=true, notifyAllClients=false (set at schema)
+- Database defaults: notifyOnUpload=true (set at schema)
 - Graceful fallback for existing staff without preferences
 
 **Code Quality:** 9.2/10
@@ -2515,7 +2491,7 @@ All avatar/notes UI will need i18n keys in workspace:
 
 **Data Isolation:**
 - Org-scoped queries at middleware & service layer
-- Client.managedById FK enforces single-manager relationship
+- ClientManager links enforce multi-staff manager membership; Client.managedById is a legacy primary-manager mirror during rollout
 - ActivityLog is the canonical user/system timeline for meaningful mutations; route instrumentation records actor, org scope, target, request context, risk, and redacted metadata.
 - Audit logging remains for legacy field-level snapshots and specialized destructive snapshots.
 - `/admin/*` configuration routes require org admin access, and voice caller lookup is org-scoped.

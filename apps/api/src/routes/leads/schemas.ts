@@ -63,6 +63,7 @@ export const updateLeadSchema = z.object({
 /** Convert lead to client */
 export const convertLeadSchema = z.object({
   managedById: z.string().cuid().optional(),
+  staffIds: z.array(z.string().cuid()).max(50).optional(),
   language: z.enum(['VI', 'EN']).default('VI'),
   taxYear: z.number().int().min(2020).max(new Date().getFullYear() + 1),
   sendWelcomeSms: z.boolean().default(true),

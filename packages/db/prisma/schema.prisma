@@ -462,6 +462,7 @@ model Staff {
   organizationId       String?
   organization         Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   managedClients       Client[]            @relation("ManagedClients")
+  managedClientLinks   ClientManager[]
   createdClients       Client[]            @relation("CreatedClients")
   updatedClients       Client[]            @relation("UpdatedClients")
   documentViews        DocumentView[]
@@ -484,6 +485,7 @@ model Staff {
   updatedAt DateTime @updatedAt
 
   @@unique([organizationId, formSlug])
+  @@unique([id, organizationId])
   @@index([clerkId])
   @@index([organizationId])
 }
@@ -591,6 +593,7 @@ model Organization {
 
   staff                          Staff[]
   clients                        Client[]
+  clientManagers                 ClientManager[]
   clientGroups                   ClientGroup[]
   leads                          Lead[]
   paymentQuotes                  PaymentQuote[]
@@ -664,6 +667,7 @@ model Client {
 
   managedById String?
   managedBy   Staff?  @relation("ManagedClients", fields: [managedById], references: [id], onDelete: SetNull)
+  managers    ClientManager[]
 
   createdById String?
   createdBy   Staff?  @relation("CreatedClients", fields: [createdById], references: [id], onDelete: SetNull)
@@ -676,6 +680,7 @@ model Client {
   @@index([phone])
   @@index([name])
   @@index([source])
+  @@unique([id, organizationId])
   @@index([organizationId])
   @@index([managedById])
   @@index([createdById])
@@ -683,6 +688,23 @@ model Client {
   @@index([tags], type: Gin)
   @@index([clientType])
   @@index([clientGroupId])
+}
+
+model ClientManager {
+  id             String       @id @default(cuid())
+  clientId       String
+  client         Client       @relation(fields: [clientId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  staffId        String
+  staff          Staff        @relation(fields: [staffId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([clientId, staffId])
+  @@index([staffId])
+  @@index([clientId])
+  @@index([organizationId, staffId])
 }
 
 /// @deprecated Use TaxEngagement for year-specific profile data.

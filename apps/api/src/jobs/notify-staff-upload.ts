@@ -5,7 +5,7 @@
  * Key behaviors:
  * - Batches by caseId (each client case batched independently)
  * - 1-minute timeout OR 100 events (whichever first) - reduced for testing
- * - Queries assigned staff + admins with notification prefs
+ * - Queries all linked managers and upload subscribers with notification prefs
  * - Skips staff without phone number (silent)
  * - Sends SMS via notifyStaffUpload()
  */
@@ -25,7 +25,7 @@ interface CaseInfoSuccess {
   clientId: string
   clientName: string
   organizationId: string
-  managedById: string | null
+  managerIds: string[]
 }
 
 type CaseInfoResult = CaseInfoSkip | CaseInfoSuccess
@@ -58,6 +58,9 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
               name: true,
               organizationId: true,
               managedById: true,
+              managers: {
+                select: { staffId: true },
+              },
             },
           },
         },
@@ -78,7 +81,10 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
           taxCase.client.name ||
           `${taxCase.client.firstName} ${taxCase.client.lastName || ''}`.trim(),
         organizationId: taxCase.client.organizationId,
-        managedById: taxCase.client.managedById,
+        managerIds: Array.from(new Set([
+          ...taxCase.client.managers.map((manager) => manager.staffId),
+          ...(taxCase.client.managedById ? [taxCase.client.managedById] : []),
+        ])),
       }
     })
 
@@ -87,10 +93,10 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
     }
 
     // TypeScript narrowing - after skip check, caseInfo is CaseInfoSuccess
-    const { clientName, organizationId, managedById } = caseInfo
+    const { clientName, organizationId, managerIds } = caseInfo
 
     // Step 2: Query recipients
-    // Managing staff gets own clients, subscribers get via NotificationSubscription table
+    // Managing staff get own clients; subscribers get uploads for any manager they follow.
     const recipients = await step.run('get-recipients', async () => {
       const staff = await prisma.staff.findMany({
         where: {
@@ -99,14 +105,17 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
           notifyOnUpload: true,
           isActive: true,
           OR: [
-            // Direct manager of the client
-            ...(managedById ? [{ id: managedById }] : []),
-            // Staff who subscribed to the managing staff's client uploads
-            ...(managedById ? [{
-              notificationSubscriptions: {
-                some: { targetStaffId: managedById, type: 'UPLOAD' as const },
-              },
-            }] : []),
+            { role: 'ADMIN' },
+            ...(managerIds.length > 0
+              ? [
+                { id: { in: managerIds } },
+                {
+                  notificationSubscriptions: {
+                    some: { targetStaffId: { in: managerIds }, type: 'UPLOAD' as const },
+                  },
+                },
+              ]
+              : []),
           ],
         },
         select: {

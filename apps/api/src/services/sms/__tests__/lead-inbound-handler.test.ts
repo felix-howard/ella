@@ -55,6 +55,18 @@ describe('findLeadByPhone', () => {
     expect(where.status).toEqual({ not: 'CONVERTED' })
   })
 
+  it('scopes lookup to organization when provided', async () => {
+    vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce(null)
+    await findLeadByPhone('+15551234567', 'org_1')
+    expect(vi.mocked(prisma.lead.findFirst)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: 'org_1',
+        }),
+      })
+    )
+  })
+
   it('returns the matched lead (most-recently-updated first)', async () => {
     const lead = { id: 'lead_1', phone: '+15551234567', status: 'NEW' } as unknown as Lead
     vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce(lead)

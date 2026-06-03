@@ -1,8 +1,8 @@
 # Ella - Project Overview & Product Development Requirements
 
-**Current Phase:** Stripe Checkout Validation Phase 05 - Blocked on local Stripe E2E | Landing Pricing Restore - Complete | Landing Reposition Phase 06 - Complete | Multi-Tenancy & Permission System - Complete | Voice Calls - Complete | Schedule C Phase 4 - Complete
-**Last Updated:** 2026-05-31
-**Branch:** codex-work-20260528-fresh
+**Current Phase:** Multi-Staff Client Management - Complete | Stripe Checkout Validation Phase 05 - Complete | Landing Pricing Restore - Complete | Landing Reposition Phase 06 - Complete | Multi-Tenancy & Permission System - Complete | Voice Calls - Complete | Schedule C Phase 4 - Complete
+**Last Updated:** 2026-06-03
+**Branch:** codex-work-20260602-next-dev
 
 ## Project Vision
 
@@ -10,7 +10,7 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 
 **Public-facing Positioning:** The marketing site now presents Ella Tax Services LLC as an online tax services firm with shared service-page primitives, green brand tokens, service-led home/services/about/why pages, the canonical `/get-started` inquiry flow, password-gated `/pricing` calculator, and resilient contact paths with legacy redirects that preserve route continuity. The internal app remains the tax document management SaaS platform.
 
-**Rollout Status:** Stripe Checkout payment-link code is implemented through webhook status sync, stale/same-second event guards, enterprise quote blocking, and green automated validation. Phase 05 remains blocked for manual local E2E until Stripe CLI is installed and test-mode `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` are configured. Landing Reposition is fully closed out.
+**Rollout Status:** Stripe Checkout payment-link code is implemented through webhook status sync, stale/same-second event guards, enterprise quote blocking, green automated validation, and local test-mode Stripe CLI E2E. Landing Reposition is fully closed out. Multi-staff client management is complete: `ClientManager` is canonical, while legacy `Client.managedById` stays in place for staged rollout compatibility.
 
 ## High-Level Goals
 
@@ -333,22 +333,22 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 
 **Status:** Completed 2026-03-25 (Phase 3 Frontend UI Update)
 
-**Objective:** Enable organization-scoped multi-tenancy with Clerk org integration, team management, single-manager client assignment, and permission-based data access
+**Objective:** Enable organization-scoped multi-tenancy with Clerk org integration, team management, client assignment, and permission-based data access
 
 **Requirements Met:**
 
 - [x] Organization model with Clerk integration (clerkOrgId, name, slug, logoUrl, isActive)
-- [x] Client.managedById FK for single-manager staff-client relationship (replaces N:N ClientAssignment, org-scoped)
+- [x] ClientManager join model for multi-staff client management, with legacy Client.managedById retained during rollout
 - [x] Staff enhanced with organizationId FK and clerkId (unique) for Clerk sync
-- [x] Client enhanced with organizationId FK + managedById FK for org-scoped queries and manager assignment
+- [x] Client enhanced with organizationId FK, ClientManager links, and legacy managedById compatibility for org-scoped queries and manager assignment
 - [x] AuditLog model for complete field-level change tracking
 - [x] 7 team management API endpoints (members list, invite, role update, deactivate, revoke)
-- [x] Client management endpoints with managedBy relation (GET /clients with managedBy, PATCH /clients/:id)
+- [x] Client management endpoints with manager relations (GET /clients with managedBy/managedByStaff, PATCH /clients/:id)
 - [x] Clerk Backend SDK integration with JWT parsing
 - [x] Org-scoped filtering via buildClientScopeFilter() for all entities
 - [x] Admin vs Staff role-based access control (RBAC)
 - [x] Frontend multi-tenancy UI: Team page, org name sidebar, role badges
-- [x] Frontend Phase 3: Client list "Managed By" column (admin-only), client overview single-manager display, team member managedClients
+- [x] Frontend Phase 3: Client list "Managed By" column, client overview multi-manager editor, team member managed clients
 - [x] useAutoOrgSelection hook for auto-org selection on sign-in
 - [x] useOrgRole hook for RBAC checks
 - [x] Accept invitation flow with Clerk org invite tickets
@@ -359,7 +359,7 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 
 - Organization CRUD with Clerk org sync
 - Team member management (list, invite, role update, deactivate)
-- Client manager assignment via Client.managedById FK (single manager per client)
+- Client manager assignment via ClientManager links (multiple managers per client), with managedById legacy mirror during rollout
 - Invitation lifecycle (send, revoke, accept)
 - Role-based access control (ADMIN vs STAFF)
 - Org-scoped data isolation for all entities (Clients, Cases, Engagements, Messages, Docs, Images, Actions)
@@ -368,8 +368,8 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 
 **Deliverables:**
 
-- Database schema: Organization with Client.managedById FK (N:1), enhanced Staff/Client, AuditLog (migrations complete)
-- API: Team + client endpoints with managedBy/managedClients relations, Clerk Backend SDK integration, org-scoped middleware
+- Database schema: Organization with ClientManager links, legacy Client.managedById mirror, enhanced Staff/Client, AuditLog (migrations complete)
+- API: Team + client endpoints with managedBy/managedByStaff relations, Clerk Backend SDK integration, org-scoped middleware
 - Frontend Phase 3: Deleted 3 components (client-assignment-section, bulk-assign-dialog, member-assignments-panel), updated client list/overview/team UIs, i18n keys updated
 - Hooks: useAutoOrgSelection, useOrgRole for React integration
 - Tests: 26 comprehensive API tests, full type coverage

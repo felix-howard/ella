@@ -33,40 +33,41 @@ function makeUser(overrides: Partial<AuthUser> = {}): AuthUser {
 }
 
 describe('buildClientScopeFilter', () => {
-  it('admin: filters by org only, no managedById filter', () => {
+  it('admin: filters by org only, no manager filter', () => {
     const user = makeUser({ orgRole: 'org:admin' })
     const where = buildClientScopeFilter(user)
 
     expect(where).toEqual({ organizationId: 'org_1' })
     expect(where).not.toHaveProperty('managedById')
+    expect(where).not.toHaveProperty('managers')
   })
 
-  it('member: filters by org + managedById', () => {
+  it('member: filters by org + manager relation', () => {
     const user = makeUser({ orgRole: 'org:member' })
     const where = buildClientScopeFilter(user)
 
     expect(where).toEqual({
       organizationId: 'org_1',
-      managedById: 'staff_1',
+      managers: { some: { staffId: 'staff_1' } },
     })
   })
 
-  it('null orgRole (non-admin): filters by org + managedById', () => {
+  it('null orgRole (non-admin): filters by org + manager relation', () => {
     const user = makeUser({ orgRole: null })
     const where = buildClientScopeFilter(user)
 
     expect(where).toEqual({
       organizationId: 'org_1',
-      managedById: 'staff_1',
+      managers: { some: { staffId: 'staff_1' } },
     })
   })
 
-  it('no org: still has managedById filter if staffId exists', () => {
+  it('no org: still has manager relation filter if staffId exists', () => {
     const user = makeUser({ organizationId: null, orgRole: null })
     const where = buildClientScopeFilter(user)
 
     expect(where).toEqual({
-      managedById: 'staff_1',
+      managers: { some: { staffId: 'staff_1' } },
     })
   })
 
@@ -108,14 +109,14 @@ describe('buildNestedClientScope', () => {
     })
   })
 
-  it('member: nested filter includes managedById scope', () => {
+  it('member: nested filter includes manager relation scope', () => {
     const user = makeUser({ orgRole: 'org:member' })
     const where = buildNestedClientScope(user)
 
     expect(where).toEqual({
       client: {
         organizationId: 'org_1',
-        managedById: 'staff_1',
+        managers: { some: { staffId: 'staff_1' } },
       },
     })
   })
@@ -145,7 +146,7 @@ describe('verifyClientAccess', () => {
       where: {
         id: 'client_1',
         organizationId: 'org_1',
-        managedById: 'staff_1',
+        managers: { some: { staffId: 'staff_1' } },
       },
       select: { id: true },
     })
@@ -181,7 +182,7 @@ describe('verifyBusinessClient', () => {
         id: 'client_biz_1',
         clientType: 'BUSINESS',
         organizationId: 'org_1',
-        managedById: 'staff_1',
+        managers: { some: { staffId: 'staff_1' } },
       },
       select: { id: true, clientType: true },
     })

@@ -1,9 +1,66 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-01 ICT
+> **Last Updated:** 2026-06-03 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+## 2026-06-03
+
+### Database: Multi-Staff Client Manager Migration
+**Status:** Complete
+
+**Changed:**
+- Added `ClientManager` join model for multi-staff client ownership.
+- Kept legacy `Client.managedById` and `Client.managedBy` for staged rollout compatibility.
+- Backfilled existing manager links, added org/tenant guards, and synced legacy updates into join rows during transition.
+
+**Validation:**
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma validate --schema prisma/schema.prisma` pass
+- `pnpm -F @ella/db type-check` pass
+
+### API: Multi-Staff Client Scope And Contract Migration
+**Status:** Complete
+
+**Changed:**
+- Updated client scope filters, admin list filters, and manager mutation paths to use `ClientManager` as the canonical relation.
+- Preserved legacy `managedById`/`managedBy` compatibility in API responses and added `managedByStaff` for the full manager list.
+- Kept org and tenant guards intact while group propagation continues to mirror the full manager set across linked clients.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test -- org-scope clients team activity` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass
+
+### Workspace: Multi-Staff Client Manager UI
+**Status:** Complete
+
+**Changed:**
+- Updated the client list Managed By column to render compact multi-manager state.
+- Switched the client overview manager control to a checklist-style multi-select for admins.
+- Kept the non-admin overview read-only and preserved the legacy single-manager fallback path in the UI.
+
+### Docs: Multi-Staff Client Management Final Validation
+**Status:** Complete
+
+**Changed:**
+- Updated architecture, code standards, roadmap, README, PDR, and codebase summary references from single-manager/ClientAssignment language to ClientManager-based multi-staff management.
+- Included secondary managers in upload notifications and incoming voice-call routing, while preserving admin upload recipients.
+- Tenant-scoped incoming voice routing and voicemail callback persistence by resolving the called Twilio number before client lookup, staff ringing, or placeholder conversation creation.
+- Voice dial-complete and voicemail callback URLs now carry called-number context explicitly so callbacks can resolve tenant context even when Twilio callback bodies omit the original `To`.
+- Tenant-scoped inbound SMS routing by resolving the recipient Twilio number before client lookup, lead lookup, or unknown-caller placeholder creation.
+- Twilio webhook org resolution now fails closed when zero or multiple active orgs match a recipient/called firm phone; org settings normalizes firm phone to E.164, rejects duplicates, and the database enforces unique active firm-phone ownership through `Organization_active_firmPhone_key`.
+- Closed the five-phase multi-staff client management rollout.
+
+**Validation:**
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass, 74 migrations
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test -- src/jobs/__tests__/notify-staff-upload.test.ts src/routes/webhooks/__tests__/twilio-voice-incoming.test.ts src/services/sms/__tests__/webhook-handler-routing.test.ts src/services/sms/__tests__/lead-inbound-handler.test.ts src/routes/org-settings/__tests__/activity-logging.test.ts` pass, 50 tests
+- `pnpm -F @ella/api test -- clients team activity` pass, 110 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass
 
 ## 2026-06-01
 

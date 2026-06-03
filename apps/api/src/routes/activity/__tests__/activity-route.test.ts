@@ -154,7 +154,7 @@ describe('activity route', () => {
 
     expect(res.status).toBe(200)
     expect(mockClientFindMany).toHaveBeenCalledWith({
-      where: { organizationId: 'org_1', managedById: 'staff_1' },
+      where: { organizationId: 'org_1', managers: { some: { staffId: 'staff_1' } } },
       select: { id: true },
     })
     expect(mockActivityFindMany).toHaveBeenCalledWith(expect.objectContaining({

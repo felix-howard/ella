@@ -98,10 +98,11 @@ Authentication: Twilio credentials used server-side (never exposed to client)
 - Triggered: Incoming call from customer
 - Input: From (caller phone), To (Twilio number), CallSid
 - Flow:
-  1. Lookup customer by phone number
-  2. Get online staff via StaffPresence.isOnline=true
-  3. If no staff online: Return voicemail TwiML
-  4. If staff online: Create INBOUND call message with status='ringing', return TwiML to ring staff browsers
+  1. Resolve organization from called Twilio number
+  2. Lookup customer by phone number within resolved organization
+  3. Get online eligible staff via StaffPresence.isOnline=true
+  4. If no staff online: Return no-staff hangup/missed-call TwiML
+  5. If staff online: Create INBOUND call message with status='ringing', return TwiML to ring staff browsers
 - Returns: TwiML with `<Dial>` containing `<Client>` nouns for staff device IDs (max 10 parallel)
 - Staff device format: "staff_{staffId}" (from StaffPresence.deviceId)
 - Ring timeout: 30 seconds (RING_TIMEOUT_SECONDS constant)

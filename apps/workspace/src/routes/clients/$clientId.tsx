@@ -44,7 +44,7 @@ import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 // the client header during tab switches.
 import { SharedDocsTab } from '../../components/shared-docs'
 import { ScheduleCTab } from '../../components/cases/tabs/schedule-c-tab'
-const ScheduleETab = lazy(() => import('../../components/cases/tabs/schedule-e-tab').then(m => ({ default: m.ScheduleETab })))
+import { ScheduleETab } from '../../components/cases/tabs/schedule-e-tab'
 const Form1099NECTab = lazy(() => import('../../components/cases/tabs/form-1099-nec-tab').then(m => ({ default: m.Form1099NECTab })))
 import {
   ManualClassificationModal,

@@ -52,7 +52,7 @@ const caseId = 'c123456789012345678901234'
 const now = new Date('2026-05-20T09:05:00.000Z')
 const scopedCaseWhere = {
   id: caseId,
-  client: { organizationId: 'org_1', managedById: 'staff_1' },
+  client: { organizationId: 'org_1', managers: { some: { staffId: 'staff_1' } } },
 }
 
 async function requestJson(path: string, init?: RequestInit) {

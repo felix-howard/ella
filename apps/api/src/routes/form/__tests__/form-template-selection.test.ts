@@ -5,6 +5,9 @@ const {
   staffFindFirstMock,
   clientFindFirstMock,
   txClientCreateMock,
+  txClientUpdateManyMock,
+  txClientManagerDeleteManyMock,
+  txClientManagerCreateManyMock,
   txTaxCaseCreateMock,
   txConversationCreateMock,
   transactionMock,
@@ -13,6 +16,9 @@ const {
   staffFindFirstMock: vi.fn(),
   clientFindFirstMock: vi.fn(),
   txClientCreateMock: vi.fn(),
+  txClientUpdateManyMock: vi.fn(),
+  txClientManagerDeleteManyMock: vi.fn(),
+  txClientManagerCreateManyMock: vi.fn(),
   txTaxCaseCreateMock: vi.fn(),
   txConversationCreateMock: vi.fn(),
   transactionMock: vi.fn(),
@@ -76,10 +82,17 @@ beforeEach(() => {
 
   clientFindFirstMock.mockResolvedValue(null)
   txClientCreateMock.mockResolvedValue({ id: 'client_1' })
+  txClientUpdateManyMock.mockResolvedValue({ count: 1 })
+  txClientManagerDeleteManyMock.mockResolvedValue({ count: 0 })
+  txClientManagerCreateManyMock.mockResolvedValue({ count: 1 })
   txTaxCaseCreateMock.mockResolvedValue({ id: 'case_1' })
   txConversationCreateMock.mockResolvedValue({ id: 'conv_1' })
   transactionMock.mockImplementation((cb: (tx: unknown) => unknown) => cb({
-    client: { create: txClientCreateMock },
+    client: { create: txClientCreateMock, updateMany: txClientUpdateManyMock },
+    clientManager: {
+      deleteMany: txClientManagerDeleteManyMock,
+      createMany: txClientManagerCreateManyMock,
+    },
     taxCase: { create: txTaxCaseCreateMock },
     conversation: { create: txConversationCreateMock },
   }))

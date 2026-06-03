@@ -16,12 +16,20 @@ const {
   agreementUpdateManyMock,
   clientCreateMock,
   clientFindFirstMock,
+  clientUpdateManyMock,
+  clientManagerDeleteManyMock,
+  clientManagerCreateManyMock,
+  staffFindManyMock,
 } = vi.hoisted(() => ({
   updateManyMock: vi.fn(),
   messageCreateMock: vi.fn(),
   agreementUpdateManyMock: vi.fn(),
   clientCreateMock: vi.fn(),
   clientFindFirstMock: vi.fn(),
+  clientUpdateManyMock: vi.fn(),
+  clientManagerDeleteManyMock: vi.fn(),
+  clientManagerCreateManyMock: vi.fn(),
+  staffFindManyMock: vi.fn(),
 }))
 
 vi.mock('../../../lib/db', () => {
@@ -29,6 +37,14 @@ vi.mock('../../../lib/db', () => {
     client: {
       findFirst: clientFindFirstMock,
       create: clientCreateMock,
+      updateMany: clientUpdateManyMock,
+    },
+    clientManager: {
+      deleteMany: clientManagerDeleteManyMock,
+      createMany: clientManagerCreateManyMock,
+    },
+    staff: {
+      findMany: staffFindManyMock,
     },
     taxEngagement: {
       create: vi.fn().mockResolvedValue({ id: 'eng_1' }),
@@ -164,6 +180,14 @@ beforeEach(() => {
   })
   clientFindFirstMock.mockReset()
   clientFindFirstMock.mockResolvedValue(null)
+  clientUpdateManyMock.mockReset()
+  clientUpdateManyMock.mockResolvedValue({ count: 1 })
+  clientManagerDeleteManyMock.mockReset()
+  clientManagerDeleteManyMock.mockResolvedValue({ count: 0 })
+  clientManagerCreateManyMock.mockReset()
+  clientManagerCreateManyMock.mockResolvedValue({ count: 0 })
+  staffFindManyMock.mockReset()
+  staffFindManyMock.mockResolvedValue([])
 })
 
 describe('POST /leads/:id/convert — message history migration', () => {

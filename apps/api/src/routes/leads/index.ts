@@ -11,6 +11,11 @@ import { sanitizeSearchInput, sanitizeTextInput } from '../../lib/validation'
 import { formatPhoneToE164, sendSmsOnly, isTwilioConfigured } from '../../services/sms'
 import { createMagicLink } from '../../services/magic-link'
 import { sendWelcomeMessage } from '../../services/sms'
+import {
+  normalizeManagerIds,
+  syncClientManagers,
+  validateActiveOrgStaff,
+} from '../../services/clients/client-managers'
 import { publishMessageEvent } from '../../services/realtime/message-publisher'
 import { rateLimiter } from '../../middleware/rate-limiter'
 import { authMiddleware, requireOrgAdmin } from '../../middleware/auth'
@@ -456,7 +461,8 @@ leadsRoute.post(
   async (c) => {
     const { orgId, staffId } = getVerifiedAuth(c.get('user'))
     const { id } = c.req.valid('param')
-    const { managedById, language, taxYear, sendWelcomeSms, customMessage, firstName, lastName, email } = c.req.valid('json')
+    const { managedById, staffIds, language, taxYear, sendWelcomeSms, customMessage, firstName, lastName, email } = c.req.valid('json')
+    const managerIds = normalizeManagerIds({ staffId: managedById ?? null, staffIds })
 
     const lead = await prisma.lead.findFirst({
       where: { id, organizationId: orgId },
@@ -492,6 +498,11 @@ leadsRoute.post(
         return { duplicate: true as const, existingClient }
       }
 
+      const staffValid = await validateActiveOrgStaff(tx, orgId, managerIds)
+      if (!staffValid) {
+        return { duplicate: false as const, staffNotFound: true as const }
+      }
+
       const client = await tx.client.create({
         data: {
           firstName: finalFirstName,
@@ -504,10 +515,11 @@ leadsRoute.post(
           tags: lead.tags || [],
           notes: lead.notes,
           organizationId: orgId,
-          managedById: managedById || null,
+          managedById: managerIds[0] || null,
           createdById: staffId,
         },
       })
+      await syncClientManagers(tx, { clientIds: [client.id], organizationId: orgId, staffIds: managerIds })
 
       const engagement = await tx.taxEngagement.create({
         data: {
@@ -578,6 +590,10 @@ leadsRoute.post(
         error: 'Client with this phone already exists',
         existingClient: result.existingClient,
       }, 409)
+    }
+
+    if ('staffNotFound' in result) {
+      return c.json({ success: false, error: 'Staff not found' }, 404)
     }
 
     console.info('[LeadConvert] migration counts', {

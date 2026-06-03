@@ -28,6 +28,12 @@ export interface ActionCounts {
   hasNewActivity: boolean
 }
 
+export interface ClientManagerSummary {
+  id: string
+  name: string
+  avatarUrl?: string | null
+}
+
 export interface ClientWithActions {
   id: string
   firstName: string
@@ -44,8 +50,10 @@ export interface ClientWithActions {
   uploads?: ClientUploads
   /** Staff who created this client */
   createdBy?: { id: string; name: string } | null
-  /** Staff assigned to this client (admin-only, for list view) */
-  assignedStaff?: { id: string; name: string }[]
+  /** Primary manager retained for backward compatibility */
+  managedBy?: ClientManagerSummary | null
+  /** Complete manager list */
+  managedByStaff?: ClientManagerSummary[]
   latestCase: {
     id: string
     taxYear: number

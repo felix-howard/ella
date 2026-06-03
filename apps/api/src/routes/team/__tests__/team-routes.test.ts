@@ -152,7 +152,7 @@ describe('Team Routes', () => {
           isActive: true,
           isContractorAgent: false,
           formSlug: null,
-          _count: { managedClients: 3 },
+          _count: { managedClientLinks: 3 },
         },
         {
           id: 's2',
@@ -165,10 +165,9 @@ describe('Team Routes', () => {
           isActive: true,
           isContractorAgent: true,
           formSlug: null,
-          _count: { managedClients: 1 },
+          _count: { managedClientLinks: 1 },
         },
       ]
-      vi.mocked(prisma.client.count).mockResolvedValueOnce(5)
       vi.mocked(prisma.staff.findMany).mockResolvedValueOnce(mockMembers as never)
 
       const app = createApp()
@@ -178,13 +177,16 @@ describe('Team Routes', () => {
       const body = await res.json()
       expect(body.data).toHaveLength(2)
       expect(body.data).toEqual([
-        expect.objectContaining({ id: 's1', isContractorAgent: false }),
-        expect.objectContaining({ id: 's2', isContractorAgent: true }),
+        expect.objectContaining({ id: 's1', isContractorAgent: false, _count: { managedClients: 3 } }),
+        expect.objectContaining({ id: 's2', isContractorAgent: true, _count: { managedClients: 1 } }),
       ])
       expect(vi.mocked(prisma.staff.findMany)).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { organizationId: 'org_db_1', isActive: true },
-          select: expect.objectContaining({ isContractorAgent: true }),
+          select: expect.objectContaining({
+            isContractorAgent: true,
+            _count: { select: { managedClientLinks: true } },
+          }),
         })
       )
     })
@@ -464,7 +466,7 @@ describe('Team Routes', () => {
       notifyOnChat: false, title: null, formSlug: null, autoSendUploadLink: false,
       defaultUploadLinkTemplateId: null, deactivatedAt: null, isContractorAgent: true,
       organizationId: 'org_db_1', isActive: true, clerkId: 'c2',
-      _count: { managedClients: 2 },
+      _count: { managedClientLinks: 2 },
     }
 
     it('GET profile returns canEdit=true for admin viewing another member', async () => {
@@ -478,11 +480,25 @@ describe('Team Routes', () => {
       const body = await res.json()
       expect(body.canEdit).toBe(true)
       expect(body.staff.isContractorAgent).toBe(true)
+      expect(body.staff._count).toEqual({ managedClients: 2 })
+      expect(body.managedCount).toBe(2)
       expect(vi.mocked(prisma.staff.findFirst)).toHaveBeenCalledWith(
         expect.objectContaining({
-          select: expect.objectContaining({ isContractorAgent: true }),
+          select: expect.objectContaining({
+            isContractorAgent: true,
+            _count: { select: { managedClientLinks: true } },
+          }),
         })
       )
+      expect(vi.mocked(prisma.client.findMany)).toHaveBeenCalledWith({
+        where: {
+          organizationId: 'org_db_1',
+          managers: { some: { staffId: 'staff_2' } },
+        },
+        select: { id: true, name: true, phone: true, avatarUrl: true },
+        take: 50,
+        orderBy: { name: 'asc' },
+      })
     })
 
     it('GET profile returns canEdit=false for non-admin viewing another member', async () => {

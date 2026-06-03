@@ -20,6 +20,14 @@ vi.mock('../../../lib/clerk-client', () => ({
   },
 }))
 
+vi.mock('../../../services/sms', () => ({
+  formatPhoneToE164: vi.fn((phone: string) => {
+    const digits = phone.replace(/\D/g, '')
+    return digits.length === 10 ? `+1${digits}` : phone.replace(/[^\d+]/g, '')
+  }),
+  isValidPhoneNumber: vi.fn((phone: string) => /^\+[1-9]\d{9,14}$/.test(phone)),
+}))
+
 vi.mock('../../../services/activity-log', () => ({
   getAuditRequestContext: vi.fn(() => ({
     ipAddress: '127.0.0.1',
@@ -38,6 +46,8 @@ vi.mock('../../../services/activity-log', () => ({
 import { prisma } from '../../../lib/db'
 import { logStaffActivity } from '../../../services/activity-log'
 import { orgSettingsRoute } from '../index'
+import { formatPhoneToE164 } from '../../../services/sms'
+import { Prisma } from '@ella/db'
 
 function createApp() {
   const app = new Hono<{ Variables: AuthVariables }>()
@@ -107,5 +117,75 @@ describe('org settings activity logging', () => {
     const metadata = vi.mocked(logStaffActivity).mock.calls[0][0].metadata as Record<string, unknown>
     expect(JSON.stringify(metadata)).not.toContain('private@example.com')
     expect(JSON.stringify(metadata)).not.toContain('Firm')
+  })
+
+  it('rejects duplicate active firm phone numbers', async () => {
+    vi.mocked(prisma.organization.findFirst).mockResolvedValueOnce({ id: 'org_2' } as never)
+
+    const res = await createApp().request('/org-settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        firmPhone: '+15550001111',
+      }),
+    })
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: 'FIRM_PHONE_TAKEN' })
+    expect(vi.mocked(prisma.organization.update)).not.toHaveBeenCalled()
+  })
+
+  it('normalizes firm phone before duplicate check and update', async () => {
+    const res = await createApp().request('/org-settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        firmPhone: '(555) 000-1111',
+      }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(formatPhoneToE164).toHaveBeenCalledWith('(555) 000-1111')
+    expect(prisma.organization.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ firmPhone: '+15550001111' }),
+    }))
+    expect(prisma.organization.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ firmPhone: '+15550001111' }),
+    }))
+  })
+
+  it('rejects invalid normalized firm phone numbers', async () => {
+    const res = await createApp().request('/org-settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        firmPhone: '555',
+      }),
+    })
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'INVALID_FIRM_PHONE' })
+    expect(prisma.organization.update).not.toHaveBeenCalled()
+  })
+
+  it('maps database firm phone unique conflicts to FIRM_PHONE_TAKEN', async () => {
+    vi.mocked(prisma.organization.update).mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: 'test',
+        meta: { target: ['firmPhone'] },
+      })
+    )
+
+    const res = await createApp().request('/org-settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        firmPhone: '+15550001111',
+      }),
+    })
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: 'FIRM_PHONE_TAKEN' })
   })
 })

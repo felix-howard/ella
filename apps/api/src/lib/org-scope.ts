@@ -1,6 +1,6 @@
 /**
  * Organization scope utilities for multi-tenancy client filtering
- * Builds Prisma where clauses that scope queries by org + managedBy
+ * Builds Prisma where clauses that scope queries by org + client managers
  * - Admin: sees all clients in their org
  * - Member/Staff: sees only their managed clients
  */
@@ -9,7 +9,7 @@ import type { AuthUser } from '../services/auth'
 import { prisma } from './db'
 
 /**
- * Build Prisma where clause that scopes Client queries by org + managedBy.
+ * Build Prisma where clause that scopes Client queries by org + managers.
  * Admin: sees all clients in org.
  * Member: sees only their managed clients.
  * No org + no staffId: returns impossible filter to prevent data leak.
@@ -25,16 +25,16 @@ export function buildClientScopeFilter(user: AuthUser): Record<string, unknown> 
   const isAdmin = user.orgRole === 'org:admin' || user.role === 'ADMIN'
   if (!isAdmin) {
     if (user.staffId) {
-      where.managedById = user.staffId
+      where.managers = { some: { staffId: user.staffId } }
     } else {
       // Non-admin without staffId: block all access
       where.id = '__NO_ACCESS__'
     }
   }
 
-  // Failsafe: if no org AND no managedBy filter, return impossible match
+  // Failsafe: if no org AND no manager filter, return impossible match
   // to prevent leaking all clients (covers admin with no org edge case)
-  if (!user.organizationId && !where.managedById) {
+  if (!user.organizationId && !where.managers) {
     where.id = '__NO_ACCESS__'
   }
 

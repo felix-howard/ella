@@ -22,7 +22,7 @@ export interface LeadInboundResult {
  * Excludes CONVERTED leads — those are now clients and should take the client flow.
  * Returns most recently updated match to break ties across orgs.
  */
-export async function findLeadByPhone(fromPhone: string): Promise<Lead | null> {
+export async function findLeadByPhone(fromPhone: string, organizationId?: string): Promise<Lead | null> {
   const digits = fromPhone.replace(/\D/g, '')
   const normalized =
     digits.startsWith('1') && digits.length === 11 ? digits.substring(1) : digits
@@ -30,6 +30,7 @@ export async function findLeadByPhone(fromPhone: string): Promise<Lead | null> {
 
   return await prisma.lead.findFirst({
     where: {
+      ...(organizationId ? { organizationId } : {}),
       status: { not: 'CONVERTED' },
       OR: [
         { phone: fromPhone },

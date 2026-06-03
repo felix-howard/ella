@@ -279,7 +279,7 @@ pnpm dev
 ## Security
 
 - **Authentication:** Clerk OAuth with JWT
-- **Data Isolation:** Org-scoped queries, ClientAssignment enforcement
+- **Data Isolation:** Org-scoped queries with ClientManager staff access enforcement
 - **Validation:** Zod schemas for all inputs
 - **Encryption:** HTTPS only, sensitive fields encrypted at-rest
 - **Audit Logging:** Complete change trail for compliance

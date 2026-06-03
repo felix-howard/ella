@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { ActivityRiskLevel, Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { clerkClient } from '../../lib/clerk-client'
+import { formatPhoneToE164, isValidPhoneNumber } from '../../services/sms'
 import { UPLOAD_LINK_TEMPLATE_IDS } from '../../services/sms/upload-link-template-resolver'
 import type { AuthVariables } from '../../middleware/auth'
 import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
@@ -129,6 +130,12 @@ orgSettingsRoute.patch(
     }
 
     const changedFields = getChangedFieldNames(data)
+    const updateData = {
+      ...data,
+      ...(data.firmPhone !== undefined
+        ? { firmPhone: data.firmPhone?.trim() ? formatPhoneToE164(data.firmPhone) : null }
+        : {}),
+    }
 
     // Validate slug uniqueness if provided
     if (data.slug) {
@@ -140,11 +147,29 @@ orgSettingsRoute.patch(
       }
     }
 
+    if (updateData.firmPhone && !isValidPhoneNumber(updateData.firmPhone)) {
+      return c.json({ error: 'INVALID_FIRM_PHONE' }, 400)
+    }
+
+    if (updateData.firmPhone) {
+      const existing = await prisma.organization.findFirst({
+        where: {
+          isActive: true,
+          firmPhone: updateData.firmPhone,
+          id: { not: user.organizationId },
+        },
+        select: { id: true },
+      })
+      if (existing) {
+        return c.json({ error: 'FIRM_PHONE_TAKEN' }, 409)
+      }
+    }
+
     let updated
     try {
       updated = await prisma.organization.update({
         where: { id: user.organizationId },
-        data,
+        data: updateData,
         select: {
           name: true,
           smsLanguage: true,
@@ -166,6 +191,11 @@ orgSettingsRoute.patch(
       })
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const target = error.meta?.target
+        const targetText = Array.isArray(target) ? target.join(',') : String(target ?? '')
+        if (targetText.includes('firmPhone') || targetText.includes('Organization_active_firmPhone_key')) {
+          return c.json({ error: 'FIRM_PHONE_TAKEN' }, 409)
+        }
         return c.json({ error: 'SLUG_TAKEN' }, 409)
       }
       throw error

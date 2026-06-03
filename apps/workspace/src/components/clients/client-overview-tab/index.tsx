@@ -69,7 +69,11 @@ export function ClientOverviewTab({ client, parentScheduleC, onDeleteClick }: Cl
         </div>
 
         {/* Managed By (1/3 width) */}
-        <ClientAssignedStaff clientId={client.id} managedBy={client.managedBy} />
+        <ClientAssignedStaff
+          clientId={client.id}
+          managedBy={client.managedBy}
+          managedByStaff={client.managedByStaff}
+        />
       </div>
 
       {/* Activity Timeline - Full width */}

@@ -10,23 +10,6 @@ import { findOrCreateEngagement } from '../engagement-helpers'
 type TransactionClient = Prisma.TransactionClient
 
 // ============================================
-// ORGANIZATION HELPERS
-// ============================================
-
-/**
- * Find the default organization for associating unknown callers
- * Returns the first active organization (single-org setup)
- */
-export async function findDefaultOrganizationId(): Promise<string | null> {
-  const org = await prisma.organization.findFirst({
-    where: { isActive: true },
-    select: { id: true },
-    orderBy: { createdAt: 'asc' },
-  })
-  return org?.id ?? null
-}
-
-// ============================================
 // VALIDATION HELPERS
 // ============================================
 
@@ -96,7 +79,8 @@ export function formatVoicemailDuration(seconds: number): string {
  * @throws Error if phone format is invalid
  */
 export async function findConversationByPhone(
-  phone: string
+  phone: string,
+  organizationId?: string | null
 ): Promise<{ id: string } | null> {
   // SECURITY: Validate phone format BEFORE database query
   if (!isValidE164Phone(phone)) {
@@ -104,7 +88,11 @@ export async function findConversationByPhone(
   }
 
   const client = await prisma.client.findFirst({
-    where: { phone, clientType: 'INDIVIDUAL' },
+    where: {
+      phone,
+      clientType: 'INDIVIDUAL',
+      ...(organizationId ? { organizationId } : {}),
+    },
     include: {
       taxCases: {
         orderBy: { createdAt: 'desc' },
@@ -137,7 +125,11 @@ export async function createPlaceholderConversation(
   const result = await prisma.$transaction(async (tx: TransactionClient) => {
     // Find existing individual client by phone, or create placeholder
     let client = await tx.client.findFirst({
-      where: { phone, clientType: 'INDIVIDUAL' },
+      where: {
+        phone,
+        clientType: 'INDIVIDUAL',
+        ...(organizationId ? { organizationId } : {}),
+      },
       include: {
         taxCases: {
           orderBy: { createdAt: 'desc' },

@@ -107,6 +107,33 @@ describe('ClientAssignedStaff', () => {
     expect(mocks.updateManagedBy).toHaveBeenCalledWith('client-1', ['staff-1', 'staff-2'])
   })
 
+  it('shows every selected manager name in the closed admin selector', () => {
+    mocks.isAdmin = true
+    mocks.membersData = {
+      data: [
+        { id: 'staff-1', name: 'Amber Tran', avatarUrl: null, isActive: true },
+        { id: 'staff-2', name: 'Felix Huynh', avatarUrl: null, isActive: true },
+        { id: 'staff-3', name: 'Jessie Nguyen', avatarUrl: null, isActive: true },
+      ],
+    }
+
+    const markup = renderToStaticMarkup(
+      <ClientAssignedStaff
+        clientId="client-1"
+        managedByStaff={[
+          { id: 'staff-1', name: 'Amber Tran', avatarUrl: null },
+          { id: 'staff-2', name: 'Felix Huynh', avatarUrl: null },
+          { id: 'staff-3', name: 'Jessie Nguyen', avatarUrl: null },
+        ]}
+      />,
+    )
+
+    expect(markup).toContain('Amber Tran')
+    expect(markup).toContain('Felix Huynh')
+    expect(markup).toContain('Jessie Nguyen')
+    expect(markup).not.toContain('+1')
+  })
+
   it('supports clearing all managers and invalidates affected profile caches', async () => {
     mocks.isAdmin = true
     mocks.membersData = {

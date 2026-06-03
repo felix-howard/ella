@@ -114,7 +114,7 @@ export function ClientAssignedStaff({ clientId, managedByStaff, managedBy }: Cli
             disabled={changeMutation.isPending}
             className={cn(
               'w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-left',
-              'flex items-center justify-between gap-3 min-h-11',
+              'flex items-start justify-between gap-3 min-h-11',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card transition-colors',
               changeMutation.isPending && 'opacity-50 cursor-not-allowed'
             )}
@@ -126,7 +126,7 @@ export function ClientAssignedStaff({ clientId, managedByStaff, managedBy }: Cli
                 <span className="text-sm text-muted-foreground">{t('clientOverview.changeManagedBy')}</span>
               )}
             </span>
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 pt-1">
               {changeMutation.isPending && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
               <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
             </span>
@@ -187,22 +187,17 @@ export function ClientAssignedStaff({ clientId, managedByStaff, managedBy }: Cli
 }
 
 function ManagerSummary({ managers }: { managers: StaffManagerSummary[] }) {
-  const visibleManagers = managers.slice(0, 2)
-  const overflowCount = managers.length - visibleManagers.length
-
   return (
-    <span className="flex min-w-0 items-center gap-2">
-      <span className="flex -space-x-2">
-        {visibleManagers.map((manager) => (
-          <StaffAvatar key={manager.id} name={manager.name} avatarUrl={manager.avatarUrl ?? null} size="sm" />
-        ))}
-      </span>
-      <span className="min-w-0 truncate text-sm">
-        {visibleManagers.map((manager) => manager.name).join(', ')}
-        {overflowCount > 0 && (
-          <span className="text-muted-foreground"> +{overflowCount}</span>
-        )}
-      </span>
+    <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+      {managers.map((manager) => (
+        <span
+          key={manager.id}
+          className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted/70 px-2 py-1 text-sm font-medium text-foreground"
+        >
+          <StaffAvatar name={manager.name} avatarUrl={manager.avatarUrl ?? null} size="sm" />
+          <span className="min-w-0 whitespace-normal break-words leading-snug">{manager.name}</span>
+        </span>
+      ))}
     </span>
   )
 }

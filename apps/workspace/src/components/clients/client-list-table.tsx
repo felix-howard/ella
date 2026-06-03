@@ -185,7 +185,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
       )}
     >
       {/* Name column */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 align-middle">
         <div className={cn('flex items-center gap-3', isGroupedBusiness && 'pl-4 sm:pl-8')}>
           {/* Connector for grouped business */}
           {isGroupedBusiness && (
@@ -380,25 +380,21 @@ function SourceBadge({ source }: { source?: string }) {
 }
 
 function ManagerCell({ managers }: { managers: StaffManagerSummary[] }) {
-  const visibleManagers = managers.slice(0, 2)
-  const overflowCount = managers.length - visibleManagers.length
   const names = managers.map((manager) => manager.name).join(', ')
 
   return (
-    <div className="flex min-w-[150px] max-w-[220px] items-center gap-2" title={names}>
-      <div className="flex -space-x-2">
-        {visibleManagers.map((manager) => (
-          <ManagerAvatar key={manager.id} manager={manager} />
-        ))}
-      </div>
-      <span className="min-w-0 truncate text-sm text-foreground">
-        {visibleManagers[0].name}
-      </span>
-      {overflowCount > 0 && (
-        <span className="inline-flex h-5 min-w-5 flex-shrink-0 items-center justify-center rounded-full bg-muted px-1.5 text-xs font-medium text-muted-foreground">
-          +{overflowCount}
+    <div className="flex min-w-[180px] max-w-[300px] flex-wrap items-center gap-1.5" title={names}>
+      {managers.map((manager) => (
+        <span
+          key={manager.id}
+          className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted/70 px-2 py-1 text-sm font-medium text-foreground"
+        >
+          <ManagerAvatar manager={manager} />
+          <span className="min-w-0 whitespace-normal break-words leading-snug">
+            {manager.name}
+          </span>
         </span>
-      )}
+      ))}
     </div>
   )
 }

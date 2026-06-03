@@ -18,6 +18,7 @@ import { authMiddleware, requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import { sendSmsOnly, isSmsEnabled } from '../../services/sms'
 import { publishMessageEventFromLead } from '../../services/realtime/message-publisher'
+import { resolveAvatarUrl } from '../../services/storage'
 import { leadIdParamSchema } from './schemas'
 import {
   sendLeadMessageSchema,
@@ -111,9 +112,19 @@ leadMessagesRoute.get(
       prisma.message.count({ where: { leadId: id } }),
     ])
 
+    const avatarCache = new Map<string, string | null>()
+    for (const m of messages) {
+      if (m.sentBy && !avatarCache.has(m.sentBy.id)) {
+        avatarCache.set(m.sentBy.id, await resolveAvatarUrl(m.sentBy.avatarUrl))
+      }
+    }
+
     return c.json({
       messages: messages.map((m) => ({
         ...m,
+        sentBy: m.sentBy
+          ? { id: m.sentBy.id, name: m.sentBy.name, avatarUrl: avatarCache.get(m.sentBy.id) ?? null }
+          : null,
         createdAt: m.createdAt.toISOString(),
         updatedAt: m.updatedAt.toISOString(),
       })),
@@ -225,6 +236,13 @@ leadMessagesRoute.post(
       {
         message: {
           ...message,
+          sentBy: message.sentBy
+            ? {
+                id: message.sentBy.id,
+                name: message.sentBy.name,
+                avatarUrl: await resolveAvatarUrl(message.sentBy.avatarUrl),
+              }
+            : null,
           createdAt: message.createdAt.toISOString(),
           updatedAt: message.updatedAt.toISOString(),
         },

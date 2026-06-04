@@ -92,18 +92,18 @@ export const homeAudienceSegments = [
 
 export const homeAdvisors = [
   {
-    name: "Nancy Nguyen",
-    headlineRole: "Former IRS Examiner",
-    role: "Former IRS Examiner",
-    image: "/assets/team/nancy-nguyen.png",
-    bio: "Helps clients start the process, coordinate records, and keep the next step clear.",
-  },
-  {
     name: "Tuyet Duong",
     headlineRole: "EA",
     role: "EA",
     image: "/assets/team/tuyet-duong.png",
     bio: "Supports tax advisory conversations, business records, and compliance questions.",
+  },
+  {
+    name: "Nancy Nguyen",
+    headlineRole: "Former IRS Examiner",
+    role: "Former IRS Examiner",
+    image: "/assets/team/nancy-nguyen.png",
+    bio: "Helps clients start the process, coordinate records, and keep the next step clear.",
   },
   {
     name: "Mr. Michael D. Sullivan",
@@ -135,8 +135,8 @@ export const homeAdvisors = [
   },
   {
     name: "Julie Lynch",
-    headlineRole: "Enrolled Agent",
-    role: "Former IRS Agent & Enrolled Agent",
+    headlineRole: "EA",
+    role: "Former IRS Agent & Trust Fund Recovery Specialist",
     image: "/assets/team/julie-lynch.jpg",
     bio: "Helps clients understand IRS issues with former IRS Agent experience and enrolled agent representation support.",
   },

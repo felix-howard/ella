@@ -1,9 +1,23 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-03 ICT
+> **Last Updated:** 2026-06-04 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+## 2026-06-04
+
+### Workspace: Recent Activity Notification Subscription Noise Fix
+**Status:** Complete
+
+**Changed:**
+- Coalesced repeated team notification subscription updates into one Recent Activity row per edited staff member within a 10-minute window.
+- Added service and route regression coverage so notification subscription updates keep passing and using a stable activity coalesce key.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/__tests__/activity-log.test.ts src/routes/team/__tests__/team-routes.test.ts` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass
 
 ## 2026-06-03
 

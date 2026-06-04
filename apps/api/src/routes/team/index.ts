@@ -31,6 +31,7 @@ import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 
 const teamRoute = new Hono<{ Variables: AuthVariables }>()
+const NOTIFICATION_SUBSCRIPTION_ACTIVITY_WINDOW_MS = 10 * 60 * 1000
 
 /** Check if requester can edit target staff (self or org admin) */
 function canEditStaff(user: { staffId: string | null; orgRole: string | null }, targetStaffId: string): boolean {
@@ -45,6 +46,8 @@ async function logTeamMemberActivity(
     summary: string
     action: string
     riskLevel?: ActivityRiskLevel
+    coalesceKey?: string
+    coalesceWindowMs?: number
     metadata?: Record<string, unknown>
   }
 ) {
@@ -59,6 +62,8 @@ async function logTeamMemberActivity(
     summary: input.summary,
     action: input.action,
     riskLevel: input.riskLevel ?? ActivityRiskLevel.LOW,
+    coalesceKey: input.coalesceKey,
+    coalesceWindowMs: input.coalesceWindowMs,
     metadata: input.metadata,
     request: getAuditRequestContext(c),
   })
@@ -826,6 +831,8 @@ teamRoute.put(
       summary: 'Updated notification subscriptions',
       action: ACTIVITY_ACTIONS.TEAM.NOTIFICATION_SUBSCRIPTIONS_UPDATED,
       riskLevel: ActivityRiskLevel.LOW,
+      coalesceKey: `${ACTIVITY_ACTIONS.TEAM.NOTIFICATION_SUBSCRIPTIONS_UPDATED}:${targetStaffId}`,
+      coalesceWindowMs: NOTIFICATION_SUBSCRIPTION_ACTIVITY_WINDOW_MS,
       metadata: {
         changedFields: ['notificationSubscriptions'],
         subscriptionType: type,

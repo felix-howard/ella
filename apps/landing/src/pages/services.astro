@@ -22,22 +22,22 @@ import BaseLayout from "@/layouts/base-layout.astro";
 
 const serviceGroups = [
   {
-    id: "individuals-families",
-    label: "Individuals & families",
-    description: "Annual filings, planning questions, and household tax complexity.",
-    audiences: ["Individual tax", "Advisory"],
+    id: "tax-resolution",
+    label: "Tax resolution",
+    description: "IRS and state notices, balances, penalties, and response deadlines.",
+    audiences: ["Tax resolution"],
   },
   {
-    id: "business-operations",
-    label: "Business operations",
-    description: "Entity returns, books, cleanup, and owner-level decisions.",
-    audiences: ["Business tax", "Bookkeeping", "Business advisory"],
+    id: "audit-protection",
+    label: "Audit protection",
+    description: "Audit-ready records, return support, and advisor coordination.",
+    audiences: ["Audit protection"],
   },
   {
-    id: "compliance-notices",
-    label: "Compliance & notices",
-    description: "Payroll records, state obligations, IRS letters, and deadline response.",
-    audiences: ["Compliance", "Notice help"],
+    id: "compliance",
+    label: "Compliance",
+    description: "Tax preparation, payroll records, state obligations, and recurring deadlines.",
+    audiences: ["Compliance"],
   },
 ] as const;
 
@@ -55,8 +55,8 @@ const structuredData = [
 <BaseLayout>
   <HeadSEO
     slot="head"
-    title="Services - Online Tax Preparation, Bookkeeping, and Advisory"
-    description="Explore Ella Tax Services for individual tax preparation, business tax, tax planning, bookkeeping, payroll coordination, sales tax, franchise tax, notices, and business advisory."
+    title="Services - Tax Resolution, Audit Protection, and Compliance"
+    description="Explore Ella Tax Services for tax resolution, audit protection, compliance, tax preparation, bookkeeping cleanup, payroll coordination, sales tax, franchise tax, notices, and business advisory."
     canonicalUrl={`${siteConfig.url}/services`}
     structuredData={structuredData}
   />
@@ -64,8 +64,8 @@ const structuredData = [
   <main>
     <PageHero
       eyebrow="Services"
-      title="Tax services for individuals and businesses, delivered online"
-      subtitle="Ella Tax Services helps clients prepare returns, organize books, coordinate compliance records, respond to notices, and make tax decisions with advisor support."
+      title="Tax resolution, audit protection, and compliance support"
+      subtitle="Ella Tax Services helps clients resolve tax notices, protect audit positions, coordinate compliance records, and prepare filings with advisor support."
       primaryCta={{ label: siteConfig.cta.primaryLabel, href: siteConfig.cta.primaryHref }}
       secondaryCta={{ label: siteConfig.cta.secondaryLabel, href: siteConfig.cta.secondaryHref }}
       align="center"
@@ -79,11 +79,11 @@ const structuredData = [
               Service catalog
             </p>
             <h2 class="mt-2 text-3xl font-bold text-slate-950 sm:text-4xl font-heading">
-              Find the right lane before you start
+              Start with the right tax problem
             </h2>
           </div>
           <p class="max-w-2xl text-base leading-7 text-slate-600 lg:ml-auto">
-            Choose the service family that matches your tax situation. Ella confirms records, timing, and next steps before work begins, so the first conversation stays focused.
+            Choose the service family that matches your tax risk. Ella confirms records, timing, and next steps before work begins, so the first conversation stays focused.
           </p>
         </div>
 
@@ -133,13 +133,13 @@ const structuredData = [
         <div class="grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
           <div class="service-card bg-white p-6 sm:p-8" data-animate="fade-up">
             <p class="text-sm font-semibold uppercase tracking-widest text-primary-700">
-              Online filing support
+              Online tax support
             </p>
             <h2 class="mt-2 text-3xl font-bold text-slate-950 sm:text-4xl font-heading">
-              Convenient online filing with advisor support
+              Resolution, audit protection, and compliance can start online
             </h2>
             <p class="mt-4 text-base leading-7 text-slate-600">
-              Ella keeps the service path online where it should be simple: intake, document upload, review questions, filing steps, and follow-up.
+              Ella keeps the service path online where it should be simple: intake, document upload, review questions, response steps, filing steps, and follow-up.
             </p>
             <a class="btn-primary mt-7 w-full sm:w-auto" href={siteConfig.cta.primaryHref}>
               {siteConfig.cta.primaryLabel}
@@ -159,7 +159,7 @@ const structuredData = [
     </section>
 
     <ServiceProcess
-      title="From intake to filing and follow-up"
+      title="From intake to response, filing, and follow-up"
       steps={servicesProcessSteps}
     />
 
@@ -167,7 +167,7 @@ const structuredData = [
 
     <ContactBand
       title="Talk with Ella about your tax service need"
-      description="Start with a filing, bookkeeping, notice, compliance, or advisory request. Ella will confirm the right next step."
+      description="Start with tax resolution, audit protection, compliance, filing, bookkeeping cleanup, or advisory. Ella will confirm the right next step."
     />
   </main>
 </BaseLayout>

@@ -24,8 +24,8 @@ const structuredData = [
 <BaseLayout>
   <HeadSEO
     slot="head"
-    title="Pricing — Ella Tax | Transparent Plans for Salons & Small Businesses"
-    description="Transparent pricing for nail salons, small shops, and LLCs. Pick a tier, then use our calculator to get an exact monthly + setup quote."
+    title="Pricing - Ella Tax | Resolution, Audit Protection, and Compliance"
+    description="Transparent pricing for tax resolution, audit protection, compliance, filings, payroll coordination, sales tax, franchise tax, and small business support."
     structuredData={structuredData}
   />
 
@@ -105,15 +105,15 @@ const structuredData = [
           class="text-4xl font-extrabold leading-tight text-slate-950 sm:text-5xl font-heading"
           data-animate="fade-up"
         >
-          Packages designed to fit your business
+          Packages for tax resolution, audit protection, and compliance
         </h1>
         <p
           class="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600"
           data-animate="fade-up"
         >
-          Transparent pricing built for nail salons, small shops, and LLCs.
-          Each tier shows the typical monthly bundle with the exact formula —
-          then dial in your numbers with the calculator below.
+          Transparent pricing built for clients who need clearer tax help,
+          stronger audit-ready records, and practical compliance support. Each
+          tier shows a typical monthly bundle, then lets you dial in details below.
         </p>
         <div class="mt-8 flex flex-col justify-center gap-3 sm:flex-row" data-animate="fade-up">
           <a class="btn-primary w-full sm:w-auto" href="#pricing">Compare packages</a>
@@ -127,8 +127,8 @@ const structuredData = [
       <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           eyebrow="Packages"
-          title="Start with the plan that matches your operation"
-          subtitle="Every package can be adjusted in the calculator below. The cards show common monthly bundles, setup fees, and included support."
+          title="Start with the plan that matches your tax risk"
+          subtitle="Every package can be adjusted in the calculator below. The cards show common monthly bundles, setup fees, audit protection, and included compliance support."
         />
         <div class="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3" data-stagger>
           {pricingTierCards.map((tier) => <TierCard {...tier} />)}
@@ -148,8 +148,8 @@ const structuredData = [
       <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           eyebrow="Calculator"
-          title="Calculate Your Exact Price"
-          subtitle="Enter your business details and we'll compute monthly + one-time setup instantly."
+          title="Calculate your exact compliance package"
+          subtitle="Enter your business details and we will compute monthly support plus one-time setup instantly."
         />
         <div id="calculator-root" class="mt-12" data-animate="fade-up">
           <CalculatorSection />

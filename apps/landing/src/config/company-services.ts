@@ -11,63 +11,74 @@ export interface ServiceCategory {
 
 export const serviceCategories: ServiceCategory[] = [
   {
-    audience: "Individual tax services",
+    audience: "Tax resolution",
     description:
-      "Online filing support for annual returns, tax notices, and planning questions.",
+      "IRS and state notice support for clients who need a clear response path.",
     services: [
       {
-        name: "Individual tax preparation",
-        description: "Federal and state return preparation with secure online document collection.",
+        name: "IRS and state notice help",
+        description: "Review notices, deadlines, account facts, and response options.",
       },
       {
-        name: "Tax notice help",
-        description: "Review and response guidance for IRS and state tax notices.",
+        name: "Back tax and balance support",
+        description: "Organize prior-year filings, payment history, penalties, and next steps.",
       },
       {
-        name: "Tax planning",
-        description: "Year-round planning for withholding, estimated taxes, and household changes.",
+        name: "Resolution document preparation",
+        description: "Build the record package needed for advisor review and response work.",
       },
     ],
   },
   {
-    audience: "Business tax services",
+    audience: "Audit protection",
     description:
-      "Tax, books, and compliance support for owners who need practical online service.",
+      "Return support, records, and advisor coordination before and during audit questions.",
     services: [
       {
-        name: "Business tax preparation",
-        description: "Entity and owner return coordination for small business filings.",
+        name: "Audit-ready return review",
+        description: "Review tax positions, deductions, credits, and supporting records.",
       },
       {
-        name: "Bookkeeping",
-        description: "Recurring bookkeeping and cleanup support for tax-ready records.",
+        name: "Record organization",
+        description: "Prepare books, receipts, payroll reports, and source documents for review.",
       },
       {
-        name: "Payroll coordination",
-        description: "Payroll tax coordination with existing providers and records.",
-      },
-      {
-        name: "Sales tax and franchise tax",
-        description: "Filing support for state sales tax and franchise tax obligations.",
-      },
-      {
-        name: "Compliance review",
-        description: "Review of filing requirements, deadlines, and missing records.",
+        name: "Audit response coordination",
+        description: "Coordinate facts, documents, and advisor follow-up for IRS or state inquiries.",
       },
     ],
   },
   {
-    audience: "Advisory services",
+    audience: "Compliance",
     description:
-      "Planning conversations for business structure, tax decisions, and operating questions.",
+      "Ongoing filing and record support for individuals and business owners.",
+    services: [
+      {
+        name: "Individual and business tax preparation",
+        description: "Federal and state return support with compliance-focused document review.",
+      },
+      {
+        name: "Payroll, sales tax, and franchise tax",
+        description: "Coordinate recurring obligations, reports, filing support, and deadlines.",
+      },
+      {
+        name: "Bookkeeping cleanup",
+        description: "Clean up records so filings, notices, and audit questions are easier to support.",
+      },
+    ],
+  },
+  {
+    audience: "Advisory support",
+    description:
+      "Planning conversations tied to compliance, resolution risk, and operating decisions.",
     services: [
       {
         name: "Tax advisory",
-        description: "Advisor-led guidance for business tax strategy and decision support.",
+        description: "Advisor-led guidance for tax strategy, documentation, and decision support.",
       },
       {
         name: "Entity structure consultation",
-        description: "Practical consultation on entity setup and tax considerations.",
+        description: "Practical consultation on entity setup, tax considerations, and compliance responsibilities.",
       },
       {
         name: "Business advisory",

@@ -4,8 +4,8 @@
  * Isolated in separate file for code-splitting (~150KB savings)
  */
 
-import { useState } from 'react'
-import { Document, Page, pdfjs } from 'react-pdf'
+import { useCallback, useState } from 'react'
+import { Document, Page, pdfjs, type DocumentProps } from 'react-pdf'
 import { FileText, Loader2 } from 'lucide-react'
 
 // Set up PDF.js worker - using unpkg which serves npm packages directly
@@ -27,6 +27,15 @@ export interface PdfThumbnailProps {
 export default function PdfThumbnail({ url, width = 180, onError }: PdfThumbnailProps) {
   const [hasError, setHasError] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+
+  const handlePasswordProtected = useCallback<NonNullable<DocumentProps['onPassword']>>(
+    (callback) => {
+      setHasError(true)
+      setIsLoading(false)
+      callback(null)
+    },
+    []
+  )
 
   if (hasError) {
     return (
@@ -52,6 +61,7 @@ export default function PdfThumbnail({ url, width = 180, onError }: PdfThumbnail
           setIsLoading(false)
           onError?.()
         }}
+        onPassword={handlePasswordProtected}
         loading={null}
         className="flex items-center justify-center"
       >

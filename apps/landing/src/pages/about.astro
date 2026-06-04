@@ -35,17 +35,17 @@ const structuredData = [
 <BaseLayout>
   <HeadSEO
     slot="head"
-    title="About Ella Tax Services LLC - Online Tax Services"
-    description="Learn about Ella Tax Services LLC, a Houston-based online tax services company supporting individuals, families, and small businesses."
+    title="About Ella Tax Services LLC - Tax Resolution and Compliance"
+    description="Learn about Ella Tax Services LLC, a Houston-based tax services company focused on tax resolution, audit protection, and compliance support."
     structuredData={structuredData}
   />
 
   <main>
     <PageHero
       eyebrow="About Ella Tax Services"
-      title="Online tax service with advisor support"
-      subtitle="Ella Tax Services LLC helps individuals, families, and small businesses file taxes online, organize records, plan ahead, and handle tax questions with a clearer process."
-      primaryCta={{ label: "Start Online Tax Filing", href: siteConfig.cta.primaryHref }}
+      title="Advisor-supported help for tax problems, audits, and compliance"
+      subtitle="Ella Tax Services LLC helps individuals, families, and small businesses resolve notices, protect records, prepare filings, and manage compliance through a clearer online process."
+      primaryCta={{ label: siteConfig.cta.primaryLabel, href: siteConfig.cta.primaryHref }}
       secondaryCta={{ label: siteConfig.cta.secondaryLabel, href: siteConfig.cta.secondaryHref }}
     />
 
@@ -54,16 +54,16 @@ const structuredData = [
     <section class="bg-white py-16 sm:py-24" aria-label="Company story">
       <div class="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:px-8">
         <div class="max-w-3xl">
-          <SectionHeading eyebrow="Our company" title="A clearer way to get tax help online" align="left" />
+          <SectionHeading eyebrow="Our company" title="A clearer way to handle tax risk online" align="left" />
           <div class="mt-6 space-y-5 border-l-2 border-primary-200 pl-6 text-base leading-8 text-slate-600">
             <p>
-              Tax clients deserve more than scattered email threads and last-minute document requests.
-              Ella Tax Services brings tax preparation, planning, bookkeeping, and advisory support into
+              Tax clients deserve more than scattered email threads, confusing IRS notices, and last-minute document requests.
+              Ella Tax Services brings tax resolution, audit protection, compliance, preparation, and advisory support into
               an organized online service experience.
             </p>
             <p>
               We are Houston-based and digital-first, so clients can start online, share records
-              securely, and receive practical guidance from a tax service team.
+              securely, and receive practical guidance from a tax service team focused on clear next steps.
             </p>
           </div>
         </div>
@@ -91,7 +91,7 @@ const structuredData = [
 
     <section class="service-section py-16 sm:py-24" aria-label="What we do">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <SectionHeading eyebrow="What we do" title="Tax services for real filing and business situations" />
+        <SectionHeading eyebrow="What we do" title="Tax services for resolution, audit readiness, and compliance" />
         <div class="mt-10 grid gap-6 lg:grid-cols-3" data-stagger>
           {serviceHighlights.map((service) => (
             <div data-animate="fade-up">
@@ -104,13 +104,13 @@ const structuredData = [
 
     <ServiceProcess
       eyebrow="How we work"
-      title="Digital-first, advisor-supported tax service"
+      title="Digital-first tax support with advisor review"
       steps={howWeWorkSteps}
     />
 
     <section class="bg-primary-50 py-16 sm:py-24" aria-label="Advisor support">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <SectionHeading eyebrow="Team support" title="Support from people who understand tax service" />
+        <SectionHeading eyebrow="Team support" title="Support from people who understand IRS and state tax work" />
         <div class="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {advisors.map((advisor) => <AdvisorCard {...advisor} />)}
         </div>
@@ -132,6 +132,6 @@ const structuredData = [
     </section>
 
     <FAQSection title="About Ella Tax Services" items={aboutFaq} includeSchema={true} />
-    <ContactBand description="Start online tax filing, ask about advisory, or contact the team about bookkeeping and notices." />
+    <ContactBand description="Start tax resolution, ask about audit protection, or contact the team about compliance, bookkeeping, filings, and notices." />
   </main>
 </BaseLayout>

@@ -238,6 +238,10 @@ export function ImageViewer({
     setError(t('viewer.pdfLoadFileError'))
   }, [t])
 
+  const handlePdfPasswordRequired = useCallback(() => {
+    setError(t('viewer.pdfPasswordProtected'))
+  }, [t])
+
   const handlePrevPage = useCallback(() => {
     setCurrentPage((p) => Math.max(1, p - 1))
   }, [])
@@ -364,6 +368,7 @@ export function ImageViewer({
                   currentPage={currentPage}
                   onLoadSuccess={handlePdfLoadSuccess}
                   onLoadError={handlePdfLoadError}
+                  onPasswordRequired={handlePdfPasswordRequired}
                   fitToWidth
                 />
               ) : (

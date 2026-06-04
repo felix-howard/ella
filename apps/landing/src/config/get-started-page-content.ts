@@ -2,7 +2,7 @@ export const getStartedProcess = [
   {
     title: "Tell us what you need",
     description:
-      "Send a brief inquiry with your contact information, client type, service need, and timing.",
+      "Send a brief inquiry with your contact information, client type, tax issue, service need, and timing.",
   },
   {
     title: "Ella confirms scope",
@@ -26,6 +26,7 @@ export const inquiryCards = [
     title: "What to include",
     items: [
       "Service you need",
+      "Tax resolution, audit protection, or compliance concern",
       "Tax year or deadline",
       "Individual, family, or business context",
       "Best phone and email",
@@ -46,6 +47,7 @@ export const inquiryCards = [
       "Book a consultation",
       "Prepare prior-year returns",
       "Gather IRS or state notices",
+      "List audit or compliance deadlines",
       "List bookkeeping cleanup needs",
     ],
   },
@@ -55,7 +57,7 @@ export const getStartedFaqItems = [
   {
     question: "Can I start online if I am not in Houston?",
     answer:
-      "Yes. Ella Tax Services supports online tax service workflows. We confirm state-specific filing needs before starting work.",
+      "Yes. Ella Tax Services supports online tax resolution, audit protection, compliance, and filing workflows. We confirm state-specific needs before starting work.",
   },
   {
     question: "Should I upload tax documents through this page?",

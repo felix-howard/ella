@@ -4,10 +4,10 @@
  * Uses FileViewerModal for full-screen viewing with PDF support
  */
 
-import { useState, memo } from 'react'
+import { useCallback, useState, memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
-import { Document, Page, pdfjs } from 'react-pdf'
+import { Document, Page, pdfjs, type DocumentProps } from 'react-pdf'
 import {
   Image as ImageIcon,
   Eye,
@@ -381,6 +381,15 @@ function PdfThumbnail({ url }: { url: string }) {
   const [hasError, setHasError] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
+  const handlePasswordProtected = useCallback<NonNullable<DocumentProps['onPassword']>>(
+    (callback) => {
+      setHasError(true)
+      setIsLoading(false)
+      callback(null)
+    },
+    []
+  )
+
   if (hasError) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center gap-1 bg-muted">
@@ -404,6 +413,7 @@ function PdfThumbnail({ url }: { url: string }) {
           setHasError(true)
           setIsLoading(false)
         }}
+        onPassword={handlePasswordProtected}
         loading={null}
         className="flex items-center justify-center"
       >

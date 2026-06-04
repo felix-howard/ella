@@ -239,6 +239,46 @@ describe('Activity Log', () => {
     })
   })
 
+  it('coalesces repeated non-message activity with the provided summary', async () => {
+    mockFindFirst.mockResolvedValueOnce({
+      id: 'activity_team',
+      metadata: {
+        coalesceKey: 'team.notification_subscriptions_updated:staff_2',
+        activityCount: 1,
+      },
+    } as never)
+    mockUpdate.mockResolvedValueOnce({ id: 'activity_team' } as never)
+
+    await logStaffActivity({
+      organizationId: 'org_1',
+      actorStaffId: 'staff_1',
+      category: ACTIVITY_CATEGORIES.TEAM,
+      targetType: ACTIVITY_TARGET_TYPES.STAFF,
+      targetId: 'staff_2',
+      summary: 'Updated notification subscriptions',
+      action: ACTIVITY_ACTIONS.TEAM.NOTIFICATION_SUBSCRIPTIONS_UPDATED,
+      coalesceKey: 'team.notification_subscriptions_updated:staff_2',
+      metadata: {
+        subscriptionType: 'CHAT',
+      },
+    })
+
+    expect(mockCreate).not.toHaveBeenCalled()
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'activity_team' },
+      data: expect.objectContaining({
+        targetType: ACTIVITY_TARGET_TYPES.STAFF,
+        targetId: 'staff_2',
+        summary: 'Updated notification subscriptions',
+        metadata: expect.objectContaining({
+          coalesceKey: 'team.notification_subscriptions_updated:staff_2',
+          activityCount: 2,
+          subscriptionType: 'CHAT',
+        }),
+      }),
+    })
+  })
+
   it('supports system activity with strict mode', async () => {
     mockCreate.mockResolvedValueOnce({ id: 'activity_2' } as never)
 

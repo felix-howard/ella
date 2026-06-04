@@ -10,25 +10,25 @@ export const companyFacts = [
 
 export const serviceHighlights = [
   {
-    title: "Tax preparation",
+    title: "Tax resolution",
     description:
-      "Online individual and business tax filing with document review, organized requests, and clear filing steps.",
-    audience: "Individuals and businesses",
-    bullets: ["Individual returns", "Business returns", "Schedule C support"],
+      "IRS and state notice support with document review, deadline tracking, and response next steps.",
+    audience: "Resolution support",
+    bullets: ["IRS and state notices", "Balance and penalty review", "Response preparation"],
   },
   {
-    title: "Planning and advisory",
+    title: "Audit protection",
     description:
-      "Year-round tax planning conversations for income changes, entity questions, estimates, and business decisions.",
-    audience: "Planning support",
-    bullets: ["Tax projections", "Entity consultation", "Compliance review"],
+      "Return support review, audit-ready record organization, and advisor coordination for tax agency questions.",
+    audience: "Protection support",
+    bullets: ["Return support review", "Record organization", "Advisor coordination"],
   },
   {
-    title: "Bookkeeping and cleanup",
+    title: "Compliance",
     description:
-      "Support for tax-ready books, cleanup work, payroll coordination, sales tax, franchise tax, and notice response.",
-    audience: "Business records",
-    bullets: ["Bookkeeping cleanup", "Payroll coordination", "Notice help"],
+      "Support for tax preparation, books, payroll coordination, sales tax, franchise tax, and filing deadlines.",
+    audience: "Filing and records",
+    bullets: ["Tax preparation", "Payroll coordination", "Sales and franchise tax"],
   },
 ] as const;
 
@@ -36,7 +36,7 @@ export const howWeWorkSteps = [
   {
     title: "Start online",
     description:
-      "Begin with the service path that fits your tax situation and share basic details with Ella Tax Services.",
+      "Begin with the path that fits your tax resolution, audit protection, compliance, or filing need.",
   },
   {
     title: "Organize records",
@@ -51,7 +51,7 @@ export const howWeWorkSteps = [
   {
     title: "File and follow up",
     description:
-      "We help complete the filing, planning, bookkeeping, or notice response and keep support available after.",
+      "We help complete the filing, compliance, audit-support, or notice response work and keep support available after.",
   },
 ] as const;
 
@@ -64,7 +64,7 @@ export const values = [
   },
   {
     label: "Compliance",
-    description: "Recommendations depend on the facts, records, deadlines, and signed engagement scope.",
+    description: "Service recommendations depend on facts, records, deadlines, and signed engagement scope.",
   },
   {
     label: "Responsiveness",
@@ -72,7 +72,7 @@ export const values = [
   },
   {
     label: "Year-round support",
-    description: "Tax service should support filing season and the decisions that happen outside filing season.",
+    description: "Tax service should support resolution, audit readiness, and compliance decisions outside filing season.",
   },
 ] as const;
 
@@ -85,12 +85,12 @@ export const aboutFaq = [
   {
     question: "Can I work with Ella Tax Services without visiting the office?",
     answer:
-      "Yes. The service is built for online tax filing, secure document sharing, calls, email, and advisor-supported follow-up.",
+      "Yes. The service is built for online tax resolution, audit protection, compliance, secure document sharing, calls, email, filing, and advisor-supported follow-up.",
   },
   {
     question: "What services does Ella Tax Services provide?",
     answer:
-      "Ella Tax Services supports individual tax prep, business tax prep, tax planning, advisory, bookkeeping, cleanup, payroll coordination, sales tax, franchise tax, notices, and business advisory.",
+      "Ella Tax Services focuses on tax resolution, audit protection, and compliance, with support for individual tax prep, business tax prep, advisory, bookkeeping cleanup, payroll coordination, sales tax, franchise tax, notices, and business advisory.",
   },
 ] as const;
 

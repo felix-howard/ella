@@ -10,13 +10,13 @@ import {
   <div class="mx-auto max-w-7xl px-5 sm:px-6">
     <div class="max-w-3xl" data-animate="fade-up">
       <p class="text-xs font-semibold uppercase tracking-[0.2em] text-primary-800">
-        Tax advisory services
+        Tax advisory, protection, and compliance services
       </p>
       <h2 class="mt-4 font-heading text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
         Client experience
       </h2>
       <p class="mt-4 text-base leading-7 text-slate-600">
-        Each step narrows the work from discovery to implementation, estimates, and filing.
+        Each step narrows the work from discovery to implementation, audit-ready documentation, estimates, compliance, and filing.
       </p>
     </div>
 
@@ -32,7 +32,7 @@ import {
       ))}
     </div>
 
-    <div class="mt-20 grid gap-5 lg:grid-cols-3" data-stagger>
+    <div class="mt-20 grid gap-5 md:grid-cols-2 lg:grid-cols-4" data-stagger>
       {serviceDeliverables.map((deliverable) => (
         <article class="rounded-lg border border-primary-100 bg-primary-50/70 p-6 shadow-sm" data-animate="fade-up">
           <h3 class="font-heading text-2xl font-bold text-slate-950">{deliverable.title}</h3>
@@ -55,7 +55,7 @@ import {
       <p class="mt-3 text-base font-semibold uppercase tracking-[0.16em] text-red-700">
         Common planning gaps
       </p>
-      <div class="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div class="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {overpaymentReasons.map((reason) => (
           <article class="rounded-lg border border-slate-200 bg-white p-4">
             <h4 class="font-heading text-base font-bold leading-6 text-slate-950">

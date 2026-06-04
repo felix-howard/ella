@@ -111,6 +111,11 @@ export const homeAdvisors = [
     role: "Former IRS Agent",
     image: "/assets/team/michael-d-sullivan.png",
     bio: "Brings former IRS agent experience and decades of private tax practice to complex IRS resolution matters.",
+    details: [
+      "Michael D. Sullivan is the founder of MD Sullivan Tax Group and spent 10 years with the Internal Revenue Service before building more than 42 years of private tax practice experience.",
+      "As a former IRS Revenue Officer and Agent, he handled Offer in Compromise matters, large-dollar cases, and complex audit and collection issues for individuals and businesses.",
+      "He also served as a certified IRS teaching instructor, trained new IRS agents, earned multiple IRS awards, and has appeared on national tax and business news programs.",
+    ],
   },
   {
     name: "Herb Cantor",
@@ -118,6 +123,11 @@ export const homeAdvisors = [
     role: "Former IRS Revenue Agent / IRS Appeal Agent",
     image: "/assets/team/herb-cantor.jpg",
     bio: "Supports tax resolution matters with CPA experience and former IRS Revenue Agent and IRS Appeal Agent perspective.",
+    details: [
+      "Herb Cantor is a CPA, CGMA, and tax professional with a master's degree in taxation and deep IRS examination and appeals experience.",
+      "He worked in the IRS Small Business Division, Appeals Division, and Large Case Division, including hundreds of appeal matters and major corporate examinations.",
+      "His background covers individual and corporate examinations, Offers in Compromise, Tax Court-bound matters, penalty issues, and IRS negotiation strategy.",
+    ],
   },
   {
     name: "John S. Wood",
@@ -125,6 +135,11 @@ export const homeAdvisors = [
     role: "IRS Tax Resolution Expert",
     image: "/assets/team/john-s-wood.png",
     bio: "Helps clients approach IRS tax resolution questions with CPA guidance and tax controversy experience.",
+    details: [
+      "John S. Wood brings more than 29 years of tax and accounting experience and has held his CPA license since 1997.",
+      "He has helped thousands of individuals and businesses resolve IRS issues, including liens, levies, audits, collections, and tax controversy matters.",
+      "Before his own firm, he served as Assistant Controller at Outback Steakhouse's headquarters, bringing corporate accounting discipline to resolution work.",
+    ],
   },
   {
     name: "Peter Salinger",
@@ -132,6 +147,11 @@ export const homeAdvisors = [
     role: "Former IRS Revenue Officer / IRS Appeals Settlement Officer",
     image: "/assets/team/peter-salinger.jpg",
     bio: "Supports IRS resolution work with enrolled agent credentials and former IRS Revenue Officer and Appeals Settlement Officer experience.",
+    details: [
+      "Peter Salinger began his IRS career in 1986 as a Revenue Officer and later managed Revenue Officers, training groups, and Offer in Compromise work.",
+      "He became a Collection Branch Chief overseeing multiple managers and approximately 75 employees before moving into IRS Appeals.",
+      "As an Appeals Settlement Officer, he handled collection due process, penalties, rejected offers, trust fund recovery issues, and reviewed several thousand offers over his career.",
+    ],
   },
   {
     name: "Julie Lynch",
@@ -139,6 +159,11 @@ export const homeAdvisors = [
     role: "Former IRS Agent & Trust Fund Recovery Specialist",
     image: "/assets/team/julie-lynch.jpg",
     bio: "Helps clients understand IRS issues with former IRS Agent experience and enrolled agent representation support.",
+    details: [
+      "Julie Lynch retired after a 38-year career as an IRS Revenue Officer in the Collection Division, working cases for both individuals and businesses.",
+      "Her IRS work included Offers in Compromise, installment agreements, currently-not-collectible cases, abatements, and trust fund recovery concerns.",
+      "She taught IRS classes, mentored newer employees, worked with IRS Counsel and the U.S. Attorney's Office, and received major IRS service awards.",
+    ],
   },
 ] as const;
 

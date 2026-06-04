@@ -2645,6 +2645,7 @@
   "viewer.pageNavigationPdf": "PDF page navigation",
   "viewer.pdfLoadError": "Could not load PDF",
   "viewer.pdfLoadFileError": "Could not load PDF file",
+  "viewer.pdfPasswordProtected": "This PDF is password protected. Download it, remove the password, then upload it again.",
   "viewer.previousPage": "Previous page",
   "viewer.previousPageTitle": "Previous page (←)",
   "viewer.reset": "Reset",

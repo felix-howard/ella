@@ -6,7 +6,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Document, Page, pdfjs } from 'react-pdf'
+import { Document, Page, pdfjs, type DocumentProps } from 'react-pdf'
 import { cn } from '@ella/ui'
 import {
   X,
@@ -69,6 +69,7 @@ export function FileViewerModal({
   const [currentPage, setCurrentPage] = useState(1)
   const [pdfError, setPdfError] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const passwordBlockedRef = useRef(false)
 
   const fileType = getFileType(filename)
 
@@ -82,6 +83,7 @@ export function FileViewerModal({
       setCurrentPage(1)
       setNumPages(null)
       setPdfError(null)
+      passwordBlockedRef.current = false
     }
   }, [isOpen, url])
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -154,9 +156,19 @@ export function FileViewerModal({
   }
 
   const handlePdfLoadError = (error: Error) => {
+    if (passwordBlockedRef.current) return
     console.error('PDF load error:', error)
     setPdfError(t('viewer.pdfLoadFileError'))
   }
+
+  const handlePasswordProtected = useCallback<NonNullable<DocumentProps['onPassword']>>(
+    (callback) => {
+      passwordBlockedRef.current = true
+      setPdfError(t('viewer.pdfPasswordProtected'))
+      callback(null)
+    },
+    [t]
+  )
 
   const handleDownload = () => {
     if (url) {
@@ -262,6 +274,7 @@ export function FileViewerModal({
                 file={url}
                 onLoadSuccess={handlePdfLoadSuccess}
                 onLoadError={handlePdfLoadError}
+                onPassword={handlePasswordProtected}
                 loading={
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="w-8 h-8 text-white animate-spin" />

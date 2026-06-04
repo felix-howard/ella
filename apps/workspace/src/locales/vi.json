@@ -2645,6 +2645,7 @@
   "viewer.pageNavigationPdf": "Điều hướng trang PDF",
   "viewer.pdfLoadError": "Không thể tải PDF",
   "viewer.pdfLoadFileError": "Không thể tải file PDF",
+  "viewer.pdfPasswordProtected": "PDF này có mật khẩu. Tải xuống, gỡ mật khẩu, rồi tải lên lại.",
   "viewer.previousPage": "Trang trước",
   "viewer.previousPageTitle": "Trang trước (←)",
   "viewer.reset": "Đặt lại",

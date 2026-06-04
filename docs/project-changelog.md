@@ -7,6 +7,19 @@
 
 ## 2026-06-04
 
+### Workspace: Password-Protected PDF Prompt Fix
+**Status:** Complete
+
+**Changed:**
+- Disabled React PDF's native browser password prompt for password-protected PDFs.
+- Files tab PDF thumbnails and PDF viewers now show app-level unavailable/error state instead of `app.ella.tax says` dialogs.
+- Added localized password-protected PDF guidance for staff viewers.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass, 0 errors, 9 existing warnings
+- `pnpm i18n:check` pass
+
 ### Workspace: Recent Activity Notification Subscription Noise Fix
 **Status:** Complete
 

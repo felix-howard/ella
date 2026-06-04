@@ -5,7 +5,7 @@
  * Lazy loaded to avoid bundling react-pdf (~150KB) for non-PDF users
  */
 
-import { Document, Page, pdfjs } from 'react-pdf'
+import { Document, Page, pdfjs, type DocumentProps } from 'react-pdf'
 import { Loader2 } from 'lucide-react'
 import { useState, useRef, useEffect, useCallback } from 'react'
 
@@ -25,6 +25,8 @@ export interface PdfViewerProps {
   onLoadSuccess: (numPages: number) => void
   /** Callback when PDF fails to load */
   onLoadError: () => void
+  /** Callback when PDF.js asks for a password */
+  onPasswordRequired?: () => void
   /** Enable fit-to-width mode (calculates scale from container) */
   fitToWidth?: boolean
   /** Callback with calculated fit scale */
@@ -40,12 +42,14 @@ export default function PdfViewer({
   currentPage,
   onLoadSuccess,
   onLoadError,
+  onPasswordRequired,
   fitToWidth = false,
   onFitScaleCalculated,
   renderAllPages = false,
 }: PdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const containerWidthRef = useRef<number>(0)
+  const passwordBlockedRef = useRef(false)
   const [fitScale, setFitScale] = useState<number>(1)
   const [isCalculatingFit, setIsCalculatingFit] = useState(fitToWidth)
   const [loadedNumPages, setLoadedNumPages] = useState<number | null>(null)
@@ -53,6 +57,7 @@ export default function PdfViewer({
 
   // Track container width via ref (avoids race condition)
   useEffect(() => {
+    passwordBlockedRef.current = false
     if (!containerRef.current) return
 
     const updateWidth = () => {
@@ -65,7 +70,7 @@ export default function PdfViewer({
     const observer = new ResizeObserver(updateWidth)
     observer.observe(containerRef.current)
     return () => observer.disconnect()
-  }, [])
+  }, [fileUrl])
 
   // Calculate fit-to-width scale using Page's onRenderSuccess
   const handlePageRenderSuccess = useCallback(() => {
@@ -97,10 +102,24 @@ export default function PdfViewer({
 
   const handleLoadError = useCallback(
     (error: Error) => {
+      if (passwordBlockedRef.current) return
       console.error('PDF load error:', error.message)
       onLoadError()
     },
     [onLoadError]
+  )
+
+  const handlePasswordProtected = useCallback<NonNullable<DocumentProps['onPassword']>>(
+    (callback) => {
+      passwordBlockedRef.current = true
+      if (onPasswordRequired) {
+        onPasswordRequired()
+      } else {
+        onLoadError()
+      }
+      callback(null)
+    },
+    [onLoadError, onPasswordRequired]
   )
 
   // DPI multiplier for crisp rendering on retina displays
@@ -124,6 +143,7 @@ export default function PdfViewer({
         file={fileUrl}
         onLoadSuccess={handleLoadSuccess}
         onLoadError={handleLoadError}
+        onPassword={handlePasswordProtected}
         loading={
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />

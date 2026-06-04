@@ -1,9 +1,36 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-03 ICT
+> **Last Updated:** 2026-06-04 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+## 2026-06-04
+
+### Workspace: Password-Protected PDF Prompt Fix
+**Status:** Complete
+
+**Changed:**
+- Disabled React PDF's native browser password prompt for password-protected PDFs.
+- Files tab PDF thumbnails and PDF viewers now show app-level unavailable/error state instead of `app.ella.tax says` dialogs.
+- Added localized password-protected PDF guidance for staff viewers.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass, 0 errors, 9 existing warnings
+- `pnpm i18n:check` pass
+
+### Workspace: Recent Activity Notification Subscription Noise Fix
+**Status:** Complete
+
+**Changed:**
+- Coalesced repeated team notification subscription updates into one Recent Activity row per edited staff member within a 10-minute window.
+- Added service and route regression coverage so notification subscription updates keep passing and using a stable activity coalesce key.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/__tests__/activity-log.test.ts src/routes/team/__tests__/team-routes.test.ts` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass
 
 ## 2026-06-03
 

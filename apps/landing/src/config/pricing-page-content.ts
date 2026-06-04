@@ -68,49 +68,49 @@ export const pricingTierCards = [
 
 export const pricingPackages = [
   {
-    title: "Individual Tax Preparation",
+    title: "Tax Resolution",
     price: "Starting at $150",
     description:
-      "Federal and state return preparation for individuals and families with online document collection and advisor review.",
+      "Notice review and response planning for IRS and state tax issues, balances, penalties, and unfiled-year questions.",
     bullets: [
-      "W-2 and 1099 income support",
-      "Credits and deduction review",
-      "State filing coordination",
+      "IRS and state notice review",
+      "Deadline and document checklist",
+      "Resolution next-step plan",
     ],
     featured: false,
   },
   {
-    title: "Business Tax Preparation",
+    title: "Audit Protection",
     price: "Starting at $700",
     description:
-      "Entity return preparation and owner coordination for small businesses, contractors, and multi-state considerations.",
+      "Audit-ready record review and advisor coordination for individuals and businesses with complex return positions.",
     bullets: [
-      "Federal and state business returns",
-      "Owner tax coordination",
-      "Bookkeeping readiness review",
+      "Return support review",
+      "Records and receipt organization",
+      "Agency response coordination",
     ],
     featured: true,
   },
   {
-    title: "Bookkeeping and Cleanup",
+    title: "Compliance Support",
     price: "Quoted after review",
     description:
-      "Monthly bookkeeping, catch-up cleanup, and tax-ready record organization for owners who need practical support.",
+      "Recurring and catch-up support for filings, books, payroll records, sales tax, franchise tax, and deadline management.",
     bullets: [
-      "Record cleanup planning",
-      "Monthly bookkeeping options",
-      "Tax filing handoff support",
+      "Compliance requirement review",
+      "Bookkeeping cleanup planning",
+      "State and payroll record support",
     ],
     featured: false,
   },
   {
-    title: "Tax Advisory and Planning",
+    title: "Tax Preparation and Advisory",
     price: "By consultation",
     description:
-      "Advisor-led planning for withholding, estimated payments, entity structure, compliance questions, and owner decisions.",
+      "Federal and state return preparation with advisor-led planning for withholding, estimates, entities, and owner decisions.",
     bullets: [
+      "Individual and business filings",
       "Planning calls",
-      "Tax notice review",
       "Entity structure consultation",
     ],
     featured: false,
@@ -118,6 +118,8 @@ export const pricingPackages = [
 ] as const;
 
 export const complianceServices = [
+  "Tax resolution",
+  "Audit protection",
   "Payroll coordination",
   "Sales tax filing support",
   "Franchise tax support",

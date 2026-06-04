@@ -14,10 +14,15 @@ vi.mock('../../../lib/db', () => ({
       count: vi.fn(),
       update: vi.fn(),
     },
+    notificationSubscription: {
+      deleteMany: vi.fn(),
+      createMany: vi.fn(),
+    },
     client: {
       count: vi.fn(),
       findMany: vi.fn(),
     },
+    $transaction: vi.fn((operations: unknown[]) => Promise.resolve(operations)),
   },
 }))
 
@@ -453,6 +458,41 @@ describe('Team Routes', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.success).toBe(true)
+    })
+  })
+
+  // ============================================
+  // PUT /team/members/:staffId/notification-subscriptions
+  // ============================================
+  describe('PUT /team/members/:staffId/notification-subscriptions', () => {
+    it('logs subscription updates with activity coalescing to avoid recent activity spam', async () => {
+      vi.mocked(prisma.staff.count).mockResolvedValueOnce(2)
+
+      const app = createApp()
+      const res = await app.request('/team/members/staff_2/notification-subscriptions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetStaffIds: ['staff_3', 'staff_4'],
+          type: 'CHAT',
+        }),
+      })
+
+      expect(res.status).toBe(200)
+      expect(logStaffActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organizationId: 'org_db_1',
+          actorStaffId: 'staff_1',
+          action: 'team.notification_subscriptions_updated',
+          coalesceKey: 'team.notification_subscriptions_updated:staff_2',
+          coalesceWindowMs: 10 * 60 * 1000,
+          metadata: expect.objectContaining({
+            subscriptionType: 'CHAT',
+            count: 2,
+            editedSelf: false,
+          }),
+        })
+      )
     })
   })
 

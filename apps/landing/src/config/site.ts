@@ -5,7 +5,7 @@ export const siteConfig = {
   name: "Ella Tax Services",
   legalName: "Ella Tax Services LLC",
   description:
-    "Online tax preparation, advisory, bookkeeping, and compliance support for individuals, families, and small businesses.",
+    "Tax resolution, audit protection, and compliance support for individuals, families, and small businesses.",
   url: "https://ella.tax",
   ogImage: "/og-default.png",
   locale: "en_US",
@@ -28,7 +28,7 @@ export const siteConfig = {
   },
 
   cta: {
-    primaryLabel: "Start Online Tax Filing",
+    primaryLabel: "Start Tax Help",
     secondaryLabel: "Book Consultation",
     contactLabel: "Contact Ella Tax Services",
     navLabel: "Get Started",

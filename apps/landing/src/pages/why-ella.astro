@@ -29,33 +29,33 @@ const structuredData = [
 <BaseLayout>
   <HeadSEO
     slot="head"
-    title="Why Choose Ella Tax Services - Online Tax Help"
-    description="See why individuals, families, and small businesses choose Ella Tax Services for online tax filing, planning, bookkeeping, and advisory support."
+    title="Why Choose Ella Tax Services - Tax Resolution and Compliance Help"
+    description="See why individuals, families, and small businesses choose Ella Tax Services for tax resolution, audit protection, compliance, online filing, bookkeeping, and advisory support."
     structuredData={structuredData}
   />
 
   <main>
     <PageHero
       eyebrow="Why Ella Tax Services"
-      title="Online tax help for clients who want clarity"
-      subtitle="Ella Tax Services combines secure online document sharing with advisor review, practical tax support, and clear next steps for individuals and small businesses."
-      primaryCta={{ label: "Start Online Tax Filing", href: siteConfig.cta.primaryHref }}
+      title="Tax help for clients who want clarity before problems grow"
+      subtitle="Ella Tax Services combines secure online document sharing with advisor review, practical resolution support, audit-ready records, and compliance next steps."
+      primaryCta={{ label: siteConfig.cta.primaryLabel, href: siteConfig.cta.primaryHref }}
       secondaryCta={{ label: siteConfig.cta.secondaryLabel, href: siteConfig.cta.secondaryHref }}
     />
 
     <TrustStrip items={trustItems} />
 
     <SoftwareFeatureGrid
-      eyebrow="Online filing workflow"
-      title="Convenient online tax filing with real support"
-      subtitle="Ella Tax Services gives clients a secure online path for intake, document upload, advisor review, and follow-up."
+      eyebrow="Online tax workflow"
+      title="Convenient online tax support with real advisor review"
+      subtitle="Ella Tax Services gives clients a secure online path for intake, document upload, notice review, audit-ready records, compliance follow-up, and filing."
       cards={whySoftwareCards}
       variant="proof"
     />
 
     <section class="bg-white py-16 sm:py-24" aria-label="Common tax service challenges">
       <div class="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-start lg:px-8">
-        <SectionHeading eyebrow="The challenge" title="Tax help gets stressful when context is missing" align="left" />
+        <SectionHeading eyebrow="The challenge" title="Tax risk grows when context is missing" align="left" />
         <div class="grid gap-4" data-stagger>
           {clientProblems.map((problem, index) => (
             <article class="rounded-lg border border-orange-100 bg-orange-50/50 p-5" data-animate="fade-up">
@@ -79,7 +79,7 @@ const structuredData = [
 
     <section class="service-section py-16 sm:py-24" aria-label="Ella Tax Services approach">
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <SectionHeading eyebrow="The Ella approach" title="Advisor-supported filing, planning, and business tax support" />
+        <SectionHeading eyebrow="The Ella approach" title="Advisor-supported resolution, audit protection, and compliance" />
         <div class="mx-auto mt-10 grid max-w-5xl gap-6 md:grid-cols-2" data-stagger>
           {ellaApproach.map((item) => (
             <article class="service-card h-full p-6 sm:p-8" data-animate="fade-up">
@@ -100,8 +100,8 @@ const structuredData = [
       <div class="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start lg:px-8">
         <SectionHeading
           eyebrow="Online convenience"
-          title="Convenient online tax filing with Ella Tax Services"
-          subtitle="Start online, upload documents securely, and get advisor-supported next steps while the main workflow stays simple."
+          title="Convenient online tax help with Ella Tax Services"
+          subtitle="Start online, upload documents securely, and get advisor-supported next steps while resolution, audit protection, compliance, and filing workflows stay simple."
           align="left"
         />
         <div class="grid gap-4" data-stagger>
@@ -125,6 +125,6 @@ const structuredData = [
     </section>
 
     <FAQSection title="Why clients choose Ella" items={whyEllaFaq} includeSchema={true} />
-    <ContactBand title="Get online tax help with a clear next step" />
+    <ContactBand title="Get tax resolution, audit protection, or compliance help with a clear next step" />
   </main>
 </BaseLayout>

@@ -9,9 +9,9 @@ export const heroMetrics = [
 ];
 
 export const helpPromises = [
-  "Understand which tax planning topics fit your facts",
+  "Understand which tax planning, resolution, and compliance topics fit your facts",
   "Review records before recommending implementation steps",
-  "Coordinate tax planning, bookkeeping, payroll, and compliance needs",
+  "Coordinate tax planning, audit protection, bookkeeping, payroll, and compliance needs",
   "Prepare estimated tax conversations before deadlines",
   "Document agreed next steps for filing and follow-up",
   "Keep planning recommendations tied to eligibility and records",
@@ -59,6 +59,10 @@ export const overpaymentReasons = [
     description: "The return, books, payroll, and supporting records need to align.",
   },
   {
+    title: "Audit support is reactive",
+    description: "Audit protection is weaker when records are gathered only after an agency request arrives.",
+  },
+  {
     title: "Weak documentation",
     description: "Planning positions need support from facts, records, and retained documentation.",
   },
@@ -83,6 +87,11 @@ export const serviceDeliverables = [
     title: "Strategy report",
     highlights: ["Support"],
     description: "Keep planning recommendations tied to documents, eligibility, and compliance notes.",
+  },
+  {
+    title: "Audit protection checklist",
+    highlights: ["Records"],
+    description: "Identify records, substantiation, and follow-up needed if IRS or state questions arise.",
   },
 ];
 

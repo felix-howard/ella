@@ -16,6 +16,7 @@
 import sharp from 'sharp'
 import { inngest } from '../lib/inngest'
 import { prisma } from '../lib/db'
+import { config } from '../lib/config'
 import { fetchImageBuffer, renameFile, deleteFile } from '../services/storage'
 import { getCategoryFromDocType, getDisplayNameFromKey } from '@ella/shared'
 import { classifyDocument, requiresOcrExtraction, generateSmartFilename } from '../services/ai'
@@ -50,7 +51,7 @@ const LOW_CONFIDENCE = 0.60
 
 // Image size thresholds
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024 // 4MB - trigger resize
-const HARD_SIZE_LIMIT = 20 * 1024 * 1024 // 20MB - reject outright
+const HARD_SIZE_LIMIT = config.upload.maxFileSize
 
 // Gemini service unavailability patterns
 const SERVICE_UNAVAILABLE_PATTERNS = [
@@ -273,10 +274,11 @@ export const classifyDocumentJob = inngest.createFunction(
         throw new Error(`Failed to fetch file from R2: ${r2Key}`)
       }
 
-      // Hard size limit - reject files over 20MB to prevent DoS
+      // Hard size limit - reject files above the portal upload cap to prevent DoS
       if (result.buffer.length > HARD_SIZE_LIMIT) {
         const sizeMB = (result.buffer.length / 1024 / 1024).toFixed(2)
-        throw new Error(`File too large (${sizeMB}MB). Maximum allowed: 20MB`)
+        const maxMB = Math.round(HARD_SIZE_LIMIT / 1024 / 1024)
+        throw new Error(`File too large (${sizeMB}MB). Maximum allowed: ${maxMB}MB`)
       }
 
       let buffer = result.buffer

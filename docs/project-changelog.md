@@ -5,6 +5,22 @@
 
 ---
 
+## 2026-06-05
+
+### Portal: Document Upload Size Limit Increase
+**Status:** Complete
+
+**Changed:**
+- Increased portal document upload default file size limit from 10MB to 500MB per file.
+- Updated client-side portal validation, API validation default, and upload-too-large messages.
+- Kept API-side `UPLOAD_MAX_FILE_SIZE` override for deployments that need a different limit.
+- Aligned classification job hard cap with the portal upload cap so oversized processing failures stay controlled.
+
+**Validation:**
+- `pnpm -F @ella/api test -- file-signature-validation` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+
 ## 2026-06-04
 
 ### Workspace: Password-Protected PDF Prompt Fix

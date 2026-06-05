@@ -99,7 +99,7 @@ export const homeAdvisors = [
     bio: "Over 10 years of experience serving the nail salon industry, specializing in tax planning, compliance, business structuring, audit representation, and regulatory compliance.",
   },
   {
-    name: "Nancy Nguyen - Tax Examiner",
+    name: "Nancy Nguyen, Former IRS Tax Examiner",
     role: "Senior Tax Accountant & Former IRS Tax Examiner",
     image: "/assets/team/nancy-nguyen.png",
     bio: "With over a decade of experience in tax accounting and over 5 years of expertise in examining small business tax matters for the IRS.",
@@ -108,7 +108,7 @@ export const homeAdvisors = [
     ],
   },
   {
-    name: "Michael D. Sullivan - Revenue Officer",
+    name: "Michael D. Sullivan, Former IRS Revenue Officer",
     role: "Senior Tax Resolution Consultant & Former IRS Revenue Officer",
     image: "/assets/team/michael-d-sullivan.png",
     bio: "Former IRS Revenue Officer with 10 years of government service and 42 years in private tax practice. Specializes in Offer in Compromise cases, large-dollar tax liabilities, complex audits, and collection matters.",

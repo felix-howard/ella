@@ -11,6 +11,7 @@ import {
   validateMagicLink,
   type MagicLinkValidationResult,
 } from '../../services/magic-link'
+import { config } from '../../lib/config'
 import { validateUploadedFileContent, validateUploadedFiles } from '../../lib/validation'
 import { isGeminiConfigured } from '../../services/ai'
 import { uploadFile, generateFileKey } from '../../services/storage'
@@ -314,12 +315,13 @@ portalRoute.post('/:token/upload', async (c) => {
   // Validate uploaded files (type, size, count)
   const validation = validateUploadedFiles(files)
   if (!validation.valid) {
+    const maxFileSizeMB = Math.round(config.upload.maxFileSize / 1024 / 1024)
     const errorMessages: Record<string, string> = {
       NO_FILES: 'Please choose at least one file',
       TOO_MANY_FILES: 'Too many files. Upload at most 50 files at a time',
       EMPTY_FILE:
         'This file has no content. Please open it on your device, download it if it is in iCloud/Drive, then upload it again',
-      FILE_TOO_LARGE: 'File is too large. Maximum size is 10MB per file',
+      FILE_TOO_LARGE: `File is too large. Maximum size is ${maxFileSizeMB}MB per file`,
       INVALID_TYPE: 'Unsupported file type. Only images (JPEG, PNG, WebP, HEIC) and PDF are accepted',
       INVALID_FILE_CONTENT:
         'File content does not match a supported format. Please upload a valid PDF or image',

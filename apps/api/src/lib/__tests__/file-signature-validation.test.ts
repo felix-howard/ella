@@ -13,6 +13,10 @@ function fileWithType(type: string, buffer: Buffer): { file: File; buffer: Buffe
   }
 }
 
+function fileLike(name: string, type: string, size: number): File {
+  return { name, type, size } as File
+}
+
 function heifBuffer(majorBrand: string, compatibleBrand = majorBrand): Buffer {
   return Buffer.concat([
     Buffer.from([0x00, 0x00, 0x00, 0x18]),
@@ -32,6 +36,22 @@ describe('file signature validation', () => {
       valid: false,
       error: 'File "empty.pdf" is empty',
       errorCode: 'EMPTY_FILE',
+    })
+  })
+
+  it('allows document uploads larger than the previous 10MB limit', () => {
+    const elevenMbPdf = fileLike('large.pdf', 'application/pdf', 11 * 1024 * 1024)
+
+    expect(validateUploadedFiles([elevenMbPdf])).toEqual({ valid: true })
+  })
+
+  it('rejects files above the configured 500MB default limit', () => {
+    const oversizedPdf = fileLike('oversized.pdf', 'application/pdf', 500 * 1024 * 1024 + 1)
+
+    expect(validateUploadedFiles([oversizedPdf])).toEqual({
+      valid: false,
+      error: 'File "oversized.pdf" exceeds maximum size of 500MB',
+      errorCode: 'FILE_TOO_LARGE',
     })
   })
 

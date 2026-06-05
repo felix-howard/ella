@@ -22,7 +22,7 @@ Enhanced document upload interface for portal with mobile-first design, real-tim
 
 ### Upload Capabilities
 - **File Types:** JPEG, PNG, GIF, WebP, PDF
-- **Max File Size:** 10MB per file
+- **Max File Size:** 500MB per file by default (`UPLOAD_MAX_FILE_SIZE` can override API-side)
 - **Max Files:** 20 files per upload session (configurable)
 - **Validation:**
   - MIME type check (strict: requires both valid type + extension)
@@ -95,9 +95,9 @@ Uses XMLHttpRequest for:
 | `dragDropHere` | Kéo thả file vào đây |
 | `clickToBrowse` | hoặc click để chọn |
 | `selectedFiles` | file đã chọn |
-| `maxFileSize` | Tối đa 10MB mỗi file |
+| `maxFileSize` | Tối đa 500MB mỗi file |
 | `supportedFormats` | Chấp nhận: JPEG, PNG, PDF |
-| `fileTooLarge` | File quá lớn (tối đa 10MB) |
+| `fileTooLarge` | File quá lớn (tối đa 500MB) |
 | `invalidFileType` | Chỉ chấp nhận ảnh (JPEG, PNG) và PDF |
 | `maxFilesReached` | Chỉ có thể thêm {count} file nữa |
 | `errorUploading` | Không thể tải lên |
@@ -244,7 +244,7 @@ Route: `apps/portal/src/routes/u/$token/index.tsx` (Phase 1: Route Consolidation
 - [ ] Mobile: Gallery picker selects multiple files
 - [ ] Desktop: Drag & drop zone accepts files
 - [ ] Desktop: Click zone opens file picker
-- [ ] Validation: Rejects files > 10MB
+- [ ] Validation: Rejects files > 500MB by default
 - [ ] Validation: Rejects non-image/PDF files
 - [ ] Validation: Shows error message for invalid files
 - [ ] Validation: Shows error when maxFiles exceeded

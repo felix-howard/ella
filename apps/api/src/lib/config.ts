@@ -19,7 +19,7 @@ export const config = {
 
   // File upload limits
   upload: {
-    maxFileSize: parseInt(process.env.UPLOAD_MAX_FILE_SIZE || '10485760', 10), // 10MB default
+    maxFileSize: parseInt(process.env.UPLOAD_MAX_FILE_SIZE || '524288000', 10), // 500MB default
     allowedMimeTypes: [
       'image/jpeg',
       'image/png',

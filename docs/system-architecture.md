@@ -90,9 +90,16 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Authentication (Clerk + Multi-Tenancy):**
 - `ClerkAuthProvider` - Wraps root, sets JWT token getter
 - `useAutoOrgSelection()` - Auto-selects first org on sign-in
-- `useOrgRole()` - Returns `{ isAdmin, role }` for RBAC
+- `useOrgRole()` - Returns `{ isAdmin, isManager, canManageClients, canViewPhone, canManageTeam, ...role booleans }` for RBAC (Phase 4)
 - Zero-org fallback: Localized UI (org.noOrg)
-- Sidebar: Displays org name, role badge, conditional Team nav
+- Sidebar: Displays org name, role badge, conditional Team nav (gated by `canManageTeam`)
+
+**Frontend Capability Flags (Phase 4 - MANAGER Role UI + Server Phone Masking):**
+- `useOrgRole()` hook in `apps/workspace/src/hooks/use-org-role.ts` provides semantic capability flags; components consume these, never compare role string literals for permissions.
+- **Flags:** (1) `isManager` - user has Staff.role='MANAGER'. (2) `canManageClients` - isAdmin || isManager (mirrors server admin-or-manager gate); enables leads list, pricing-calculator nav, clients CRUD UI. (3) `canViewPhone` - isAdmin only (server masks for others via `serializePhone()`). (4) `canManageTeam` - isAdmin only; gates /team nav, invite/role-change/deactivate UI.
+- **App-Level Roles (Phase 4):** `AppRole` union type ('ADMIN' | 'MANAGER' | 'MEMBER') used in team invite dialog + profile role select, mirrors `apps/api/src/lib/staff-role-mapping.ts APP_ROLES` for JSON payloads (TeamInvitation.staffRole, team/members/:staffId/role endpoint).
+- **Phone Masking Convention:** `formatPhone()` in `apps/workspace/src/lib/formatters.ts` passes through server-masked values containing '*' unchanged (e.g., `*** *** 1234`). Frontend never re-masks; server is authoritative source via `serializePhone()` middleware.
+- **UI Contract:** Nav items (leads, pricing-calculator, /team) gated by capability flags. Team invite dialog + profile role select offer ADMIN/MANAGER/MEMBER app-level roles for mutations. Code never checks org:admin literal; instead uses `canManageTeam` or `canManageClients` flags.
 
 **State Management:**
 - React Query: Server state, auto cache invalidation

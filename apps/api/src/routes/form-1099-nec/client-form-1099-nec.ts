@@ -9,7 +9,7 @@ import { verifyBusinessClient } from '../../lib/org-scope'
 import { taxbanditsClient } from '../../services/taxbandits-client'
 import { getBusinessClientForFiling, createFormsInTaxBandits, fetchDraftPdfs } from './shared-helpers'
 import type { AuthVariables } from '../../middleware/auth'
-import { requireOrgAdmin } from '../../middleware/auth'
+import { requireAdminOrManager } from '../../middleware/auth'
 import type { Form1099Status } from '@ella/db'
 
 const clientForm1099NecRoute = new Hono<{ Variables: AuthVariables }>()
@@ -46,7 +46,7 @@ clientForm1099NecRoute.get('/:clientId/1099-nec/status', async (c) => {
 })
 
 /** POST /clients/:clientId/1099-nec/create */
-clientForm1099NecRoute.post('/:clientId/1099-nec/create', requireOrgAdmin, async (c) => {
+clientForm1099NecRoute.post('/:clientId/1099-nec/create', requireAdminOrManager, async (c) => {
   const user = c.get('user')
   const { clientId } = c.req.param()
 
@@ -86,7 +86,7 @@ clientForm1099NecRoute.post('/:clientId/1099-nec/create', requireOrgAdmin, async
 })
 
 /** POST /clients/:clientId/1099-nec/fetch-pdfs */
-clientForm1099NecRoute.post('/:clientId/1099-nec/fetch-pdfs', requireOrgAdmin, async (c) => {
+clientForm1099NecRoute.post('/:clientId/1099-nec/fetch-pdfs', requireAdminOrManager, async (c) => {
   const user = c.get('user')
   const { clientId } = c.req.param()
 

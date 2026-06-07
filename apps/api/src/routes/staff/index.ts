@@ -7,6 +7,7 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { ActivityRiskLevel, Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
+import { isAdminOrManager } from '../../lib/org-scope'
 import { resolveAvatarUrl } from '../../services/storage'
 import { UPLOAD_LINK_TEMPLATE_IDS } from '../../services/sms/upload-link-template-resolver'
 import type { AuthVariables } from '../../middleware/auth'
@@ -100,7 +101,7 @@ staffRoute.patch(
 )
 
 // PATCH /staff/:staffId/form-slug - Update form slug for a specific staff member
-// Admins can update any member's slug; non-admins can only update their own
+// Admins/managers can update any member's slug; others can only update their own
 staffRoute.patch(
   '/:staffId/form-slug',
   zValidator('json', updateFormSlugSchema),
@@ -116,7 +117,7 @@ staffRoute.patch(
     const resolvedStaffId = targetStaffId === 'me' ? user.staffId : targetStaffId
 
     // Non-admins can only update their own slug
-    const isAdmin = user.orgRole === 'org:admin' || user.role === 'ADMIN'
+    const isAdmin = isAdminOrManager(user)
     if (!isAdmin && resolvedStaffId !== user.staffId) {
       return c.json({ error: 'Forbidden' }, 403)
     }

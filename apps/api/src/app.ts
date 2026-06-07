@@ -78,9 +78,9 @@ app.route('/webhooks/stripe', stripeWebhookRoute)
 app.route('/api/inngest', inngestRoute)
 app.route('/auth', authSignupRoute)
 app.route('/form', formRoute)
-app.route('/leads', leadsRoute) // Mixed: POST / is public, rest use inline authMiddleware+requireOrgAdmin
-app.route('/leads', agreementsStaffRoute) // Agreement staff endpoints: /leads/:leadId/agreements/* (inline auth+requireOrgAdmin)
-app.route('/leads', leadMessagesRoute) // Lead messages: /leads/:id/messages* (inline auth+requireOrgAdmin)
+app.route('/leads', leadsRoute) // Mixed: POST / is public, rest use inline authMiddleware+requireAdminOrManager
+app.route('/leads', agreementsStaffRoute) // Agreement staff endpoints: /leads/:leadId/agreements/* (inline auth+requireAdminOrManager)
+app.route('/leads', leadMessagesRoute) // Lead messages: /leads/:id/messages* (inline auth+requireAdminOrManager)
 app.route('/public/agreements', agreementsPublicRoute) // Public signing endpoints (token-based, no auth) — canonical path
 app.route('/public/nda', agreementsPublicRoute) // Alias retained for back-compat with existing customer SMS links
 app.route('/contractor-intake', contractorIntakeRoute)

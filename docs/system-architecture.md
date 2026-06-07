@@ -161,7 +161,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Data model: `Staff.isContractorAgent` gates the workspace compliance flow; `ContractorAgreementAcceptance` stores the signed PDF, source template, SHA-256, signer snapshots, IP/User-Agent, and firm signer snapshot.
 
 **Billing (Stripe Checkout Foundation):**
-- `POST /billing/checkout-sessions` - Org-admin only. Persists a `PaymentQuote` first, then creates the Stripe Checkout session and stores the returned session URL, status, and expiry in `StripeCheckoutSession`. Uses `quoteId` as the Stripe idempotency key, keeps Stripe metadata free of internal notes and PII, and surfaces config errors as `STRIPE_NOT_CONFIGURED` or `STRIPE_RETURN_URLS_INVALID`.
+- `POST /billing/checkout-sessions` - Admin/manager only. Persists a `PaymentQuote` first, then creates the Stripe Checkout session and stores the returned session URL, status, and expiry in `StripeCheckoutSession`. Uses `quoteId` as the Stripe idempotency key, keeps Stripe metadata free of internal notes and PII, and surfaces config errors as `STRIPE_NOT_CONFIGURED` or `STRIPE_RETURN_URLS_INVALID`.
 - `POST /webhooks/stripe` - Public Stripe webhook. Verifies `Stripe-Signature` with the raw request body and `STRIPE_WEBHOOK_SECRET`, then syncs local `PaymentQuote` and `StripeCheckoutSession` status for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `invoice.paid`, `invoice.payment_failed`, and `customer.subscription.deleted`. Completed unpaid checkouts map to `awaiting_payment`, and the existing local checkout-session quote association wins over Stripe metadata when both exist. Webhook updates persist `lastStripeEventId` and `lastStripeEventAt` on quote/session records, ignore older events, apply same-second status precedence, and keep canceled sessions terminal for later invoice events on the same subscription.
 - Pricing payment links are disabled for enterprise-sized quotes (>20 1099 workers); those quotes remain contact-sales only.
 - Workspace `/pricing-calculator` uses the same shared calculator domain as billing and creates payment links through the authenticated `api.billing` client. No-selection, enterprise-sized, unsafe quantity, and oversized checkout states disable link creation before the API call and are enforced again by billing before Stripe session creation.
@@ -239,24 +239,24 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Lead Management (9 - Phase 02 API Endpoints + Tag-Based Categorization Complete):**
 - `POST /leads` - Create lead from registration form (public, rate-limited 5/min). P2002 duplicate phone+org returns success (idempotent). Accepts `tags` string array for flexible categorization.
-- `GET /leads` - List org leads (org-scoped, admin required). Supports pagination (limit 1-100), status filter (NEW|CONTACTED|CONVERTED|LOST), tag filters (hasSome, hasAll operators), full-text search (firstName, lastName, phone, businessName)
-- `GET /leads/tags` - Get distinct tags (admin required). Returns array of unique tag strings across all org leads, sorted alphabetically. Used for tag filter dropdowns + tag management UI.
+- `GET /leads` - List org leads (org-scoped, admin/manager required). Supports pagination (limit 1-100), status filter (NEW|CONTACTED|CONVERTED|LOST), tag filters (hasSome, hasAll operators), full-text search (firstName, lastName, phone, businessName)
+- `GET /leads/tags` - Get distinct tags (admin/manager required). Returns array of unique tag strings across all org leads, sorted alphabetically. Used for tag filter dropdowns + tag management UI.
 - `GET /leads/:id` - Get lead detail with SMS send history (last 20 SMS logs ordered by sentAt desc). Returns tags array + campaignTag (original source)
 - `PATCH /leads/:id` - Update lead (status, notes, firstName, lastName, email, businessName, tags). All text fields + tags sanitized. Tags support add/remove mutations.
-- `GET /leads/:id/convert-check` - Check for duplicate client by phone (admin required). Returns hasDuplicate + existingClient data
+- `GET /leads/:id/convert-check` - Check for duplicate client by phone (admin/manager required). Returns hasDuplicate + existingClient data
 - `POST /leads/:id/convert` - Convert lead to Client with transaction (create Client + TaxEngagement + TaxCase). Carries over tags to new Client. Optional welcome SMS with magic link. Server enforces phone uniqueness (409 if duplicate)
 - `POST /leads/bulk-sms` - Send bulk SMS to leads with form link personalization. Supports tag-based filtering + batched concurrency (default 5 concurrent). SMS templates: `{{firstName}}` and `{{formLink}}` replacement. Tracks SmsSendLog per message. Lead status (NEW→CONTACTED) updated atomically on Twilio delivery webhook confirmation, not on send
-- `DELETE /leads/:id` - Delete lead (org-scoped, admin required)
-- Rate limiter on public create (5/min), authMiddleware + requireOrgAdmin on all protected endpoints. Phone normalized to E.164 format. Tags: flexible string array (1-100 chars each), stored with GIN index for fast containment queries. SMS integration via Twilio with optional staff form routing
+- `DELETE /leads/:id` - Delete lead (org-scoped, admin/manager required)
+- Rate limiter on public create (5/min), authMiddleware + requireAdminOrManager on all protected endpoints (except team management). Phone normalized to E.164 format. Tags: flexible string array (1-100 chars each), stored with GIN index for fast containment queries. SMS integration via Twilio with optional staff form routing
 
 **Team & Organization (19 - Phase 3 + Phase 02 Profile API + Phase 04 Navigation + Phase 02 Intake Form):**
 - `GET /org-settings` - Get org profile + autoSendFormClientUploadLink toggle (Phase 02 Intake Form)
-- `PATCH /org-settings` - Update org profile + autoSendFormClientUploadLink (Phase 02 Intake Form)
+- `PATCH /org-settings` - Update org profile + autoSendFormClientUploadLink (admin/manager only, Phase 02 Intake Form)
 - `GET /team/members` - List org staff (reads from DB)
-- `POST /team/invite` - Send Clerk org invitation via Backend API (webhook syncs results to DB)
-- `PATCH /team/members/:staffId/role` - Update role via Clerk Backend API (webhook syncs to DB)
-- `DELETE /team/members/:staffId` - Deactivate staff via Clerk Backend API (webhook syncs to DB)
-- `PATCH /team/members/:staffId/contractor-agent` - Toggle `Staff.isContractorAgent` via admin-only backend API (webhook-independent, DB-backed)
+- `POST /team/invite` - Send Clerk org invitation via Backend API (admin only, webhook syncs results to DB)
+- `PATCH /team/members/:staffId/role` - Update role via Clerk Backend API (admin only, webhook syncs to DB)
+- `DELETE /team/members/:staffId` - Deactivate staff via Clerk Backend API (admin only, webhook syncs to DB)
+- `PATCH /team/members/:staffId/contractor-agent` - Toggle `Staff.isContractorAgent` via admin-only backend API (admin only, webhook-independent, DB-backed)
 - `GET /team/members/:staffId/profile` - Get member profile with assigned clients (Phase 02)
 - `PATCH /team/members/:staffId/profile` - Update name/phone (self only, Phase 02)
 - `POST /team/members/:staffId/avatar/presigned-url` - Get R2 upload URL (self only, Phase 02)
@@ -270,21 +270,21 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Similar for invitations & staff assignments
 
 **Clients (16+ with Tag Support, Phase 10 Entity Separation):**
-- `GET /clients` - List with org scoping + sort + tag filters (Phase 2: supports `sort=recentUploads`, returns `uploads: { newCount, totalCount, latestAt }` per client. Tag filtering: hasSome, hasAll operators). Admin manager filters now match any linked `ClientManager` row. Returns tags + source enum plus manager display fields (`managedBy`, `managedByStaff`).
-- `GET /clients/tags` - Get distinct tags (admin required). Returns array of unique tag strings across all org clients, sorted alphabetically. Used for tag filter dropdowns.
-- `POST /clients` - Create with organization. Accepts tags array + source enum (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED). Phase 10: Supports clientType (INDIVIDUAL|BUSINESS), businessType, ein (encrypted as einEncrypted), businessAddress/City/State/Zip for BUSINESS clients.
-- `POST /clients/create-with-business` - Combo endpoint (Phase 10). Creates individual client + business client + ClientGroup in one transaction. Body: individual{firstName, lastName, phone, email, language}, business{name, type, ein, address, city, state, zip}, case{taxTypes, taxYear}, groupName. Returns {individual, business, group, taxCase, magicLink}.
+- `GET /clients` - List with org scoping + sort + tag filters (Phase 2: supports `sort=recentUploads`, returns `uploads: { newCount, totalCount, latestAt }` per client. Tag filtering: hasSome, hasAll operators). Admin/manager filters now match any linked `ClientManager` row. Returns tags + source enum plus manager display fields (`managedBy`, `managedByStaff`).
+- `GET /clients/tags` - Get distinct tags (admin/manager required). Returns array of unique tag strings across all org clients, sorted alphabetically. Used for tag filter dropdowns.
+- `POST /clients` - Create with organization (admin/manager only). Accepts tags array + source enum (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED). Phase 10: Supports clientType (INDIVIDUAL|BUSINESS), businessType, ein (encrypted as einEncrypted), businessAddress/City/State/Zip for BUSINESS clients.
+- `POST /clients/create-with-business` - Combo endpoint (Phase 10, admin/manager only). Creates individual client + business client + ClientGroup in one transaction. Body: individual{firstName, lastName, phone, email, language}, business{name, type, ein, address, city, state, zip}, case{taxTypes, taxYear}, groupName. Returns {individual, business, group, taxCase, magicLink}.
 - `GET /clients/:id` - Detail with org verification (Phase 10: returns clientType, einMasked instead of einEncrypted, clientGroupId, business fields for BUSINESS clients). Returns tags array + source enum + conversion metadata, plus manager compatibility fields (`managedById`, `managedBy`, `managedByStaff`).
-- `PATCH /clients/:id` - Update profile/intakeAnswers/tags. Tags support add/remove/replace mutations. Phase 10: Can update clientType, ein (re-encrypted), businessType, business address fields.
-- `DELETE /clients/:id` - Deactivate
+- `PATCH /clients/:id` - Update profile/intakeAnswers/tags (admin/manager only). Tags support add/remove/replace mutations. Phase 10: Can update clientType, ein (re-encrypted), businessType, business address fields.
+- `DELETE /clients/:id` - Deactivate (admin/manager only)
 - `GET /clients/:id/resend-sms` - Resend welcome link
 - `POST /clients/:id/send-upload-link` - Send upload link SMS to client with random expiring `/upload/:token` URL. Reuses active unexpired links and supports lifecycle controls through Files tab. For business clients with clientGroupId, resolves individual client's taxCase for same year and creates magic link on individual's case—uploads go to individual. Falls back to business case with warning if individual has no taxCase for year. Adds organizationId filter for security.
 - `POST /clients/:id/avatar/presigned-url` - Get R2 upload URL for client avatar (Phase 02 Backend)
 - `PATCH /clients/:id/avatar` - Confirm avatar upload + return signed download URL (Phase 02 Backend)
 - `DELETE /clients/:id/avatar` - Remove client avatar (Phase 02 Backend)
 - `PATCH /clients/:id/notes` - Update client notes/internal comments (Phase 02 Backend)
-- `GET /activity/recent` - Get org-scoped recent activity timeline with safe DTOs, cursor pagination, and filters (`limit`, `category`, `actorStaffId`, `riskLevel`). Invalid cursors return 400 `INVALID_CURSOR`.
-- `GET /activity/clients/:clientId` - Get client-scoped activity timeline with safe DTOs and cursor pagination. Access stays org-scoped; inaccessible clients return 404.
+- `GET /activity/recent` - Get org-scoped recent activity timeline with safe DTOs, cursor pagination, and filters (`limit`, `category`, `actorStaffId`, `riskLevel`) (admin/manager only). Invalid cursors return 400 `INVALID_CURSOR`.
+- `GET /activity/clients/:clientId` - Get client-scoped activity timeline with safe DTOs and cursor pagination (admin/manager only). Access stays org-scoped; inaccessible clients return 404.
 - `GET /clients/:id/activity` - Legacy client overview timeline kept during the workspace migration; sanitized message rows do not include message body snippets.
 - `GET /clients/:id/stats` - Get quick stats (totalFiles, taxYears, verifiedPercent, lastMessageAt, Phase 02 Backend)
 - Status endpoints for action tracking. Client.source expanded to 5 values: MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED.
@@ -292,9 +292,9 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Client Groups (5 - Phase 10 Entity Separation):**
 - `GET /client-groups` - List org client groups with pagination (limit 1-100, default 20). Supports full-text search by group name. Returns group id, name, client count, timestamps.
 - `GET /client-groups/:id` - Get group detail with nested clients array (id, name, clientType, phone). Returns _count.clients for stats.
-- `POST /client-groups` - Create group. Body: name (required), clientIds (optional array). Org-scoped, no special permissions. Returns 201 with created group.
-- `PATCH /client-groups/:id` - Update group. Body: name (optional), addClientIds (add clients to group), removeClientIds (remove clients). Org-scoped. Returns 200 with updated group.
-- `DELETE /client-groups/:id` - Delete group. Org-scoped. Returns 200. No cascade—client relationships preserved (clientGroupId set to null).
+- `POST /client-groups` - Create group (admin/manager only). Body: name (required), clientIds (optional array). Org-scoped. Returns 201 with created group.
+- `PATCH /client-groups/:id` - Update group (admin/manager only). Body: name (optional), addClientIds (add clients to group), removeClientIds (remove clients). Org-scoped. Returns 200 with updated group.
+- `DELETE /client-groups/:id` - Delete group (admin/manager only). Org-scoped. Returns 200. No cascade—client relationships preserved (clientGroupId set to null).
 - **Auth Pattern:** All routes org-scoped via buildClientScopeFilter. POST requires valid clientIds that exist in org.
 - **Data Model:** ClientGroup (id, name, organizationId, clients array relation, createdAt, updatedAt). Index: organizationId for fast lookups. Supports flexible grouping (family businesses, partnerships, multi-entity arrangements).
 - **Manager Propagation:** `PATCH /clients/:id/managed-by` accepts compatible `{ staffId?: string | null, staffIds?: string[] }`, normalizes to a unique manager set, syncs `ClientManager` rows in a transaction, and keeps legacy `managedById` / `managedBy` mirrors aligned for rollout compatibility.
@@ -324,14 +324,14 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Contractor Management (8 - Phase 08 Client Re-Parent Routes):**
 - `GET /clients/:clientId/contractors` - List contractors for business client. Enforces clientType=BUSINESS + org-scope via verifyBusinessClient. Returns contractor list with latest 1099-NEC form per contractor if available (id, firstName, lastName, ssnLast4, address, city, state, zip, email, phone, formId, formStatus, hasCopyA, hasCopyB).
-- `POST /clients/:clientId/contractors` - Create contractor. Body: firstName, lastName, address, city, state, zip, email, phone, tinType (SSN|EIN), ssn. Enforces clientType=BUSINESS. Directly links to Client(clientType=BUSINESS). Returns 201 with created contractor.
-- `PATCH /clients/:clientId/contractors/:id` - Update contractor details. Body: all fields optional. Org-scoped with verifyBusinessClient. Returns 200 with updated contractor.
-- `DELETE /clients/:clientId/contractors/:id` - Delete contractor. Org-scoped with verifyBusinessClient. Returns 204.
-- `POST /clients/:clientId/contractors/upload-excel` - Parse nail salon Excel file (2 contractors per row block: columns A-C left, E-G right). Returns array of parsed contractors with address parsing (regex + AI fallback for ambiguous cities). Org-scoped with verifyBusinessClient.
-- `POST /clients/:clientId/contractors/bulk-save` - Batch save parsed contractors to DB. Body: contractors array with parsed fields. Org-scoped with verifyBusinessClient. Returns 201 with created contractors.
-- `DELETE /clients/:clientId/contractors/all` - Delete all contractors for business client. Org-scoped with verifyBusinessClient. Returns 204.
+- `POST /clients/:clientId/contractors` - Create contractor (admin/manager only). Body: firstName, lastName, address, city, state, zip, email, phone, tinType (SSN|EIN), ssn. Enforces clientType=BUSINESS. Directly links to Client(clientType=BUSINESS). Returns 201 with created contractor.
+- `PATCH /clients/:clientId/contractors/:id` - Update contractor details (admin/manager only). Body: all fields optional. Org-scoped with verifyBusinessClient. Returns 200 with updated contractor.
+- `DELETE /clients/:clientId/contractors/:id` - Delete contractor (admin/manager only). Org-scoped with verifyBusinessClient. Returns 204.
+- `POST /clients/:clientId/contractors/upload-excel` - Parse nail salon Excel file (admin/manager only). Returns array of parsed contractors with address parsing (regex + AI fallback for ambiguous cities). Org-scoped with verifyBusinessClient.
+- `POST /clients/:clientId/contractors/bulk-save` - Batch save parsed contractors to DB (admin/manager only). Body: contractors array with parsed fields. Org-scoped with verifyBusinessClient. Returns 201 with created contractors.
+- `DELETE /clients/:clientId/contractors/all` - Delete all contractors for business client (admin/manager only). Org-scoped with verifyBusinessClient. Returns 204.
 - `GET /clients/:clientId/contractors/all` - Alternative list endpoint (same as GET /clients/:clientId/contractors).
-- **Auth Pattern**: All routes use verifyBusinessClient(clientId, user) enforcing both clientType=BUSINESS + org-scope. Audit logging via logProfileChanges(clientId, ...) now uses clientId directly (is business client).
+- **Auth Pattern**: All routes use verifyBusinessClient(clientId, user) + requireAdminOrManager for mutations, enforcing both clientType=BUSINESS + org-scope + role. Audit logging via logProfileChanges(clientId, ...) now uses clientId directly (is business client).
 - **Data Model** (Phase 15 Complete): Contractor.clientId is now the sole parent FK (Cascade delete). Contractor.businessId FK removed. All contractors directly linked to Client with clientType=BUSINESS.
 
 **1099-NEC Tax Form Integration (15 routes - TaxBandits API, Phase 09 Client-Scoped Routes):**
@@ -349,7 +349,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - `GET /clients/:clientId/1099-nec/batches` - List filing batches for client.
   - `GET /clients/:clientId/1099-nec/batches/:batchId` - Batch details with form statuses.
   - `POST /clients/:clientId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits API.
-- **Auth Pattern:** All client routes use verifyBusinessClient(clientId, user) + requireOrgAdmin for mutations. Validates clientType=BUSINESS + org-scope.
+- **Auth Pattern:** All client routes use verifyBusinessClient(clientId, user) + requireAdminOrManager for mutations. Validates clientType=BUSINESS + org-scope.
 - **Models:** Form1099NEC (status enum, validation errors, eFile tracking, contractorId FK, batchId FK), FilingBatch (groups forms by tax year + submission, status + timestamps for lifecycle tracking, clientId FK, Cascade delete).
 - **TaxBandits Client** (`apps/api/src/services/taxbandits-client.ts`): OAuth 2.0 JWT-based e-filing (form creation, status, PDF request, IRS transmission). Token caching (55-min default), retry with exponential backoff, 30s request timeout.
 - **Shared Helpers** (`apps/api/src/routes/form-1099-nec/shared-helpers.ts`, Phase 09):
@@ -399,18 +399,21 @@ Organization (root entity)
 
 **Data Scoping:**
 - `buildClientScopeFilter(user)` - Core scoping function
-- **Admin:** See all org clients
+- **Admin/Manager:** See all org clients
 - **Staff:** See only clients with any matching `ClientManager` link for the current staff member; legacy `managedById` remains a compatibility mirror during rollout
 - Applied to: Clients, Cases, Engagements, Messages, Documents, Images, Actions
+- **Predicates:** `isAdminOrManager(user)` returns true for org:admin, ADMIN, or MANAGER roles; `canSeeAllClients(user)` wraps same logic for scope filter
 
 **Permission Model:**
-- **ADMIN:** Manage org, team, client assignments
-- **STAFF:** View assigned clients only, no admin functions
+- **ADMIN:** Full org management: team (invite/role/deactivate), all clients, billing, admin config
+- **MANAGER:** Client/operational mgmt: admin config, clients (create/assign), leads, cases, campaigns, agreements, 1099-NEC, billing checkout, org settings, activity timeline. Blocked: team management, full client phone (masked)
+- **STAFF:** View assigned clients only via `ClientManager` links; no admin functions
 - **CPA:** Future role for CPA firm integrations
 
 **Middleware:**
 - `requireOrg` - Verify orgId in JWT, all protected endpoints
-- `requireOrgAdmin` - Verify org:admin role from Clerk, team endpoints only
+- `requireOrgAdmin` - Verify org:admin role (Clerk or app ADMIN), team endpoints only (invite/role/deactivate)
+- `requireAdminOrManager` - Verify org:admin, app ADMIN, or app MANAGER, non-team admin-gated endpoints
 
 **Audit Logging:**
 - AuditLog tracks: entity type, id, field, old/new values, changedBy, timestamp

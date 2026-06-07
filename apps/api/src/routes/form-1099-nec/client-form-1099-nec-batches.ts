@@ -9,13 +9,13 @@ import { verifyBusinessClient } from '../../lib/org-scope'
 import { taxbanditsClient } from '../../services/taxbandits-client'
 import { fetchRecipientPdfs, mapTaxBanditsFormStatus, deriveBatchStatus } from './shared-helpers'
 import type { AuthVariables } from '../../middleware/auth'
-import { requireOrgAdmin } from '../../middleware/auth'
+import { requireAdminOrManager } from '../../middleware/auth'
 import type { Form1099Status } from '@ella/db'
 
 const clientForm1099NecBatchesRoute = new Hono<{ Variables: AuthVariables }>()
 
 /** POST /clients/:clientId/1099-nec/transmit */
-clientForm1099NecBatchesRoute.post('/:clientId/1099-nec/transmit', requireOrgAdmin, async (c) => {
+clientForm1099NecBatchesRoute.post('/:clientId/1099-nec/transmit', requireAdminOrManager, async (c) => {
   const user = c.get('user')
   const { clientId } = c.req.param()
 
@@ -122,7 +122,7 @@ clientForm1099NecBatchesRoute.get('/:clientId/1099-nec/batches/:batchId', async 
 })
 
 /** POST /clients/:clientId/1099-nec/batches/:batchId/refresh */
-clientForm1099NecBatchesRoute.post('/:clientId/1099-nec/batches/:batchId/refresh', requireOrgAdmin, async (c) => {
+clientForm1099NecBatchesRoute.post('/:clientId/1099-nec/batches/:batchId/refresh', requireAdminOrManager, async (c) => {
   const user = c.get('user')
   const { clientId, batchId } = c.req.param()
 

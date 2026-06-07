@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
 import { verifyBusinessClient } from '../../lib/org-scope'
-import { requireOrgAdmin } from '../../middleware/auth'
+import { requireAdminOrManager } from '../../middleware/auth'
 import { encryptSSN } from '../../services/crypto'
 import { logProfileChanges } from '../../services/audit-logger'
 import { parseNailSalonExcel } from '../../services/excel-parser'
@@ -335,7 +335,7 @@ clientContractorsRoute.get('/:clientId/intake-token', async (c) => {
 /** POST /clients/:clientId/intake-token */
 clientContractorsRoute.post(
   '/:clientId/intake-token',
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('json', z.object({ taxYear: z.number().int().min(2000).max(2099).optional() })),
   async (c) => {
     const user = c.get('user')
@@ -363,7 +363,7 @@ clientContractorsRoute.post(
 )
 
 /** DELETE /clients/:clientId/intake-token */
-clientContractorsRoute.delete('/:clientId/intake-token', requireOrgAdmin, async (c) => {
+clientContractorsRoute.delete('/:clientId/intake-token', requireAdminOrManager, async (c) => {
   const user = c.get('user')
   const { clientId } = c.req.param()
 

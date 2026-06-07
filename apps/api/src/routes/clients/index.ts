@@ -55,9 +55,9 @@ import { Prisma } from '@ella/db'
 import type { TaxType, Language, ClientType, BusinessType } from '@ella/db'
 import { encryptSSN, maskEIN } from '../../services/crypto'
 import type { ClientUploads } from '@ella/shared'
-import { buildClientScopeFilter } from '../../lib/org-scope'
+import { buildClientScopeFilter, canSeeAllClients } from '../../lib/org-scope'
 import { rateLimiter } from '../../middleware/rate-limiter'
-import { requireOrgAdmin } from '../../middleware/auth'
+import { requireAdminOrManager } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import { ActivityRiskLevel } from '@ella/db'
 import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
@@ -118,7 +118,7 @@ function summarizeIdentityRetention(
 }
 
 // Sub-routes (paths relative to /clients, e.g. /:clientId/agreements)
-// Read-only listing first; staff mutations layer requireOrgAdmin internally.
+// Read-only listing first; staff mutations layer requireAdminOrManager internally.
 // Hono dispatches by method+path so the GET listing in `clientsAgreementsRoute`
 // and the POST/PATCH mutations here coexist without collision.
 clientsRoute.route('/', clientsAgreementsRoute)
@@ -211,7 +211,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
 
   // Build where clause with org + assignment scope
   const user = c.get('user')
-  const isAdmin = user.orgRole === 'org:admin' || user.role === 'ADMIN'
+  const isAdmin = canSeeAllClients(user)
   const where: Record<string, unknown> = { ...buildClientScopeFilter(user) }
 
   if (search) {
@@ -1755,10 +1755,10 @@ clientsRoute.delete('/:id', zValidator('param', clientIdParamSchema), async (c) 
   })
 })
 
-// PATCH /clients/:id/managed-by - Change client manager (admin only)
+// PATCH /clients/:id/managed-by - Change client manager (admin/manager only)
 clientsRoute.patch(
   '/:id/managed-by',
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', clientIdParamSchema),
   zValidator('json', updateManagedBySchema),
   async (c) => {

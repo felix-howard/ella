@@ -6,7 +6,7 @@
  * the entityType passed to the entity-agnostic service layer.
  *
  * Auth: parent app already attaches `authMiddleware` for `/clients/*`
- * (`app.ts:82`); this sub-route layers `requireOrgAdmin` on top because
+ * (`app.ts:82`); this sub-route layers `requireAdminOrManager` on top because
  * agreement mutations are legally sensitive (org-admin only).
  *
  * Read-only listing of agreements for a client lives in `./agreements.ts` and
@@ -17,7 +17,7 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-import { requireOrgAdmin } from '../../middleware/auth'
+import { requireAdminOrManager } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import type { AuthUser } from '../../services/auth'
 import {
@@ -59,7 +59,7 @@ function getAuth(user: AuthUser): { orgId: string; staffId: string } {
 // POST /:clientId/agreements — create agreement, generate token, send SMS.
 clientsAgreementsStaffRoute.post(
   '/:clientId/agreements',
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', clientIdParamSchema),
   zValidator('json', createAgreementBodySchema),
   async (c) => {
@@ -86,7 +86,7 @@ clientsAgreementsStaffRoute.post(
 // GET /:clientId/agreements/default-html — built-in type-specific HTML for editor seed.
 clientsAgreementsStaffRoute.get(
   '/:clientId/agreements/default-html',
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', clientIdParamSchema),
   zValidator('query', defaultHtmlQuerySchema),
   async (c) => {
@@ -106,7 +106,7 @@ clientsAgreementsStaffRoute.get(
 // POST /:clientId/agreements/preview-pdf — in-memory preview render. No DB write.
 clientsAgreementsStaffRoute.post(
   '/:clientId/agreements/preview-pdf',
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', clientIdParamSchema),
   zValidator('json', previewAgreementBodySchema),
   async (c) => {
@@ -135,7 +135,7 @@ clientsAgreementsStaffRoute.post(
 // PATCH /:clientId/agreements/:id/deposit — update deposit state + note
 clientsAgreementsStaffRoute.patch(
   '/:clientId/agreements/:id/deposit',
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', clientAndAgreementIdParamSchema),
   zValidator('json', updateDepositBodySchema),
   async (c) => {
@@ -158,7 +158,7 @@ clientsAgreementsStaffRoute.patch(
 // GET /:clientId/agreements/:id/pdf — presigned R2 URL (15-min TTL)
 clientsAgreementsStaffRoute.get(
   '/:clientId/agreements/:id/pdf',
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', clientAndAgreementIdParamSchema),
   async (c) => {
     const { orgId } = getAuth(c.get('user'))
@@ -176,7 +176,7 @@ clientsAgreementsStaffRoute.get(
 // POST /:clientId/agreements/:id/resend — reuse token if active, rotate if expired
 clientsAgreementsStaffRoute.post(
   '/:clientId/agreements/:id/resend',
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', clientAndAgreementIdParamSchema),
   async (c) => {
     const { orgId, staffId } = getAuth(c.get('user'))
@@ -201,7 +201,7 @@ clientsAgreementsStaffRoute.post(
 // the token or sending SMS.
 clientsAgreementsStaffRoute.post(
   '/:clientId/agreements/:id/extend',
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', clientAndAgreementIdParamSchema),
   zValidator('json', extendAgreementBodySchema),
   async (c) => {

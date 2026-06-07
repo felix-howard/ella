@@ -6,7 +6,7 @@ import type { AuthUser } from '../../middleware/auth'
 
 /**
  * Extract verified orgId and staffId from auth user.
- * Belt-and-braces: `requireOrgAdmin` middleware guarantees these, but we still
+ * Belt-and-braces: `requireAdminOrManager` middleware guarantees these, but we still
  * guard to keep downstream code non-nullable.
  */
 export function getVerifiedAuth(user: AuthUser): { orgId: string; staffId: string } {

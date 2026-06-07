@@ -17,10 +17,12 @@ vi.mock('../../../middleware/auth', () => ({
   authMiddleware: async (_c: any, next: () => Promise<void>) => next(),
   clerkMiddleware: async (_c: any, next: () => Promise<void>) => next(),
   requireOrgAdmin: async (_c: any, next: () => Promise<void>) => next(),
+  requireAdminOrManager: async (_c: any, next: () => Promise<void>) => next(),
 }))
 
 vi.mock('../../../lib/org-scope', () => ({
   buildClientScopeFilter: vi.fn().mockReturnValue({ organizationId: 'org-1' }),
+  canSeeAllClients: vi.fn().mockReturnValue(true),
 }))
 
 import { Hono } from 'hono'

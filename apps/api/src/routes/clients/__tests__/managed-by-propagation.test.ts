@@ -36,7 +36,7 @@ vi.mock('../../../services/storage', () => ({
 
 vi.mock('../../../middleware/auth', () => ({
   requireOrg: async (_c: unknown, next: () => Promise<void>) => next(),
-  requireOrgAdmin: async (
+  requireAdminOrManager: async (
     c: {
       get: (key: string) => { orgRole?: string | null; role?: string | null }
       json: (body: unknown, status?: number) => Response
@@ -44,7 +44,7 @@ vi.mock('../../../middleware/auth', () => ({
     next: () => Promise<void>
   ) => {
     const user = c.get('user')
-    if (user?.orgRole !== 'org:admin' && user?.role !== 'ADMIN') {
+    if (!(user?.orgRole === 'org:admin' || user?.role === 'ADMIN' || user?.role === 'MANAGER')) {
       return c.json({ error: 'Admin access required' }, 403)
     }
     return next()
@@ -57,6 +57,7 @@ vi.mock('../../../middleware/rate-limiter', () => ({
 
 vi.mock('../../../lib/org-scope', () => ({
   buildClientScopeFilter: vi.fn().mockReturnValue({ organizationId: 'org_1' }),
+  canSeeAllClients: vi.fn().mockReturnValue(true),
 }))
 
 vi.mock('../../../services/checklist-generator', () => ({

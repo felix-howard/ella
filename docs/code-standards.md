@@ -352,13 +352,15 @@ export function MyComponent() {
 - Audit logging tracks all org-scoped changes
 
 **Permission Model:**
-- **ADMIN:** Full org access, manage team + assign clients
-- **STAFF:** Managed clients only via matching `ClientManager` links (legacy `managedById` still mirrors the primary manager during rollout), no team management
+- **ADMIN:** Full org access: team management (invite/role/deactivate), all clients, admin config, billing, leads, cases, campaigns, agreements, 1099-NEC, org settings, activity timeline
+- **MANAGER:** Client/operational management: admin config, clients (create/assign), leads, cases, campaigns, agreements, 1099-NEC, billing checkout, org settings, activity timeline. Blocked: team management endpoints, full client phone (masked only)
+- **STAFF:** Managed clients only via matching `ClientManager` links (legacy `managedById` still mirrors the primary manager during rollout), no admin functions
 - **CPA:** Future role for CPA firm integrations
 
 **Role-Based Middleware:**
-- `requireOrg` - All protected endpoints
-- `requireOrgAdmin` - Team management endpoints only
+- `requireOrg` - All protected endpoints (verify orgId in JWT)
+- `requireOrgAdmin` - Team management endpoints only (invite/role/deactivate staff)
+- `requireAdminOrManager` - All admin-gated endpoints except team management (org:admin, ADMIN, or MANAGER role)
 
 ## Document Classification & AI
 

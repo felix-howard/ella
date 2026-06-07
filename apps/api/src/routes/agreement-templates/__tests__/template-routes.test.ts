@@ -42,7 +42,7 @@ vi.mock('../../../middleware/auth', () => {
     }
     return next()
   }
-  return { authMiddleware, requireOrgAdmin, clerkMiddleware: authMiddleware }
+  return { authMiddleware, requireOrgAdmin, requireAdminOrManager: requireOrgAdmin, clerkMiddleware: authMiddleware }
 })
 
 import { Hono } from 'hono'

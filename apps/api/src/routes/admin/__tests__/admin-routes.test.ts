@@ -47,9 +47,9 @@ vi.mock('../../../services/activity-log', () => ({
 }))
 
 vi.mock('../../../middleware/auth', () => ({
-  requireOrgAdmin: async (c: { get: (key: string) => { orgRole?: string | null; role?: string | null }; json: (body: unknown, status?: number) => Response }, next: () => Promise<void>) => {
+  requireAdminOrManager: async (c: { get: (key: string) => { orgRole?: string | null; role?: string | null }; json: (body: unknown, status?: number) => Response }, next: () => Promise<void>) => {
     const user = c.get('user')
-    if (user?.orgRole !== 'org:admin' && user?.role !== 'ADMIN') {
+    if (!(user?.orgRole === 'org:admin' || user?.role === 'ADMIN' || user?.role === 'MANAGER')) {
       return c.json({ error: 'Chỉ admin mới có quyền' }, 403)
     }
     return next()

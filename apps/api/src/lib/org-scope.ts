@@ -9,8 +9,26 @@ import type { AuthUser } from '../services/auth'
 import { prisma } from './db'
 
 /**
+ * Central admin-or-manager predicate — the ONLY place (besides
+ * `requireAdminOrManager` consuming it) that encodes the MANAGER tier.
+ * MANAGER = owner's assistant: near-admin, blocked only from team
+ * management and full client phone numbers.
+ */
+export function isAdminOrManager(user: AuthUser): boolean {
+  return user.orgRole === 'org:admin' || user.role === 'ADMIN' || user.role === 'MANAGER'
+}
+
+/**
+ * Whether the user sees ALL org clients (vs. only assigned ones).
+ * ADMIN and MANAGER see everything; STAFF/CPA see managed clients only.
+ */
+export function canSeeAllClients(user: AuthUser): boolean {
+  return isAdminOrManager(user)
+}
+
+/**
  * Build Prisma where clause that scopes Client queries by org + managers.
- * Admin: sees all clients in org.
+ * Admin/Manager: sees all clients in org.
  * Member: sees only their managed clients.
  * No org + no staffId: returns impossible filter to prevent data leak.
  */
@@ -21,9 +39,8 @@ export function buildClientScopeFilter(user: AuthUser): Record<string, unknown> 
     where.organizationId = user.organizationId
   }
 
-  // Scope for non-admin: only see managed clients
-  const isAdmin = user.orgRole === 'org:admin' || user.role === 'ADMIN'
-  if (!isAdmin) {
+  // Scope for non-admin/manager: only see managed clients
+  if (!canSeeAllClients(user)) {
     if (user.staffId) {
       where.managers = { some: { staffId: user.staffId } }
     } else {

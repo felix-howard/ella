@@ -10,7 +10,7 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-import { authMiddleware, requireOrgAdmin } from '../../middleware/auth'
+import { authMiddleware, requireAdminOrManager } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import type { AuthUser } from '../../services/auth'
 import {
@@ -35,7 +35,7 @@ import {
 
 const staffRoute = new Hono<{ Variables: AuthVariables }>()
 
-staffRoute.use('*', authMiddleware, requireOrgAdmin)
+staffRoute.use('*', authMiddleware, requireAdminOrManager)
 
 function getAuth(user: AuthUser): { orgId: string; staffId: string } {
   if (!user.organizationId) {

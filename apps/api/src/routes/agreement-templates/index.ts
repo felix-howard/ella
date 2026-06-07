@@ -10,7 +10,7 @@
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { zValidator } from '@hono/zod-validator'
-import { authMiddleware, requireOrgAdmin } from '../../middleware/auth'
+import { authMiddleware, requireAdminOrManager } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import type { AuthUser } from '../../services/auth'
 import {
@@ -72,7 +72,7 @@ agreementTemplatesRoute.get(
 // POST /agreement-templates — create a new template (org-admin only).
 agreementTemplatesRoute.post(
   '/',
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('json', createTemplateBodySchema),
   async (c) => {
     const { orgId, staffId } = getAuth(c.get('user'))
@@ -92,7 +92,7 @@ agreementTemplatesRoute.post(
 // PATCH /agreement-templates/:id — partial update (org-admin only).
 agreementTemplatesRoute.patch(
   '/:id',
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', idParamSchema),
   zValidator('json', updateTemplateBodySchema),
   async (c) => {
@@ -108,7 +108,7 @@ agreementTemplatesRoute.patch(
 // Soft-archive preserves Agreement.templateId FKs on historical sends.
 agreementTemplatesRoute.post(
   '/:id/archive',
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', idParamSchema),
   async (c) => {
     const { orgId } = getAuth(c.get('user'))
@@ -121,7 +121,7 @@ agreementTemplatesRoute.post(
 // POST /agreement-templates/:id/unarchive — restore (org-admin only).
 agreementTemplatesRoute.post(
   '/:id/unarchive',
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', idParamSchema),
   async (c) => {
     const { orgId } = getAuth(c.get('user'))

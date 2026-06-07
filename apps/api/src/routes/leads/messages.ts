@@ -14,7 +14,7 @@ import { zValidator } from '@hono/zod-validator'
 import { ActivityRiskLevel } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { getPaginationParams, buildPaginationResponse } from '../../lib/constants'
-import { authMiddleware, requireOrgAdmin } from '../../middleware/auth'
+import { authMiddleware, requireAdminOrManager } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import { sendSmsOnly, isSmsEnabled } from '../../services/sms'
 import { publishMessageEventFromLead } from '../../services/realtime/message-publisher'
@@ -32,8 +32,8 @@ import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '..
 const leadMessagesRoute = new Hono<{ Variables: AuthVariables }>()
 
 // All lead-message routes require authenticated staff in an org.
-leadMessagesRoute.use('/:id/messages', authMiddleware, requireOrgAdmin)
-leadMessagesRoute.use('/:id/messages/*', authMiddleware, requireOrgAdmin)
+leadMessagesRoute.use('/:id/messages', authMiddleware, requireAdminOrManager)
+leadMessagesRoute.use('/:id/messages/*', authMiddleware, requireAdminOrManager)
 
 async function backfillLeadMessagesFromSmsLogs(leadId: string, organizationId: string) {
   const smsLogs = await prisma.smsSendLog.findMany({

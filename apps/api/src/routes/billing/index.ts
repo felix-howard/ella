@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { strictRateLimit } from '../../middleware/rate-limiter'
-import { authMiddleware, requireOrg, requireOrgAdmin, type AuthVariables } from '../../middleware/auth'
+import { authMiddleware, requireOrg, requireAdminOrManager, type AuthVariables } from '../../middleware/auth'
 import { CheckoutQuoteError, createCheckoutSession } from '../../services/stripe'
 import { createCheckoutSessionSchema } from './schemas'
 
@@ -11,7 +11,7 @@ billingRoute.post(
   '/checkout-sessions',
   authMiddleware,
   requireOrg,
-  requireOrgAdmin,
+  requireAdminOrManager,
   strictRateLimit,
   zValidator('json', createCheckoutSessionSchema),
   async (c) => {

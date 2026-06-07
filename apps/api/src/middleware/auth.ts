@@ -8,6 +8,7 @@ import { HTTPException } from 'hono/http-exception'
 import { clerkMiddleware, getAuth } from '@hono/clerk-auth'
 import { syncStaffFromClerkMembership, type AuthUser } from '../services/auth'
 import { prisma } from '../lib/db'
+import { isAdminOrManager } from '../lib/org-scope'
 
 export type { AuthUser }
 
@@ -167,6 +168,20 @@ export const requireOrgAdmin = createMiddleware<{ Variables: AuthVariables }>(as
   if (!user) throw new HTTPException(401, { message: 'Not authenticated' })
   if (user.orgRole !== 'org:admin' && user.role !== 'ADMIN') {
     throw new HTTPException(403, { message: 'Admin access required' })
+  }
+  await next()
+})
+
+/**
+ * Requires admin OR manager tier: Clerk org:admin, app ADMIN, or app MANAGER.
+ * Use for everything formerly admin-gated EXCEPT team management
+ * (invite / role change / deactivate), which stays on `requireOrgAdmin`.
+ */
+export const requireAdminOrManager = createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
+  const user = c.get('user')
+  if (!user) throw new HTTPException(401, { message: 'Not authenticated' })
+  if (!isAdminOrManager(user)) {
+    throw new HTTPException(403, { message: 'Admin or manager access required' })
   }
   await next()
 })

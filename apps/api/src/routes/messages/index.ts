@@ -29,7 +29,7 @@ import {
   SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS,
 } from '../../services/storage'
 import { ActivityRiskLevel, type MessageChannel, type MessageDirection } from '@ella/db'
-import { buildClientScopeFilter } from '../../lib/org-scope'
+import { buildClientScopeFilter, isAdminOrManager } from '../../lib/org-scope'
 import { isBizWithGroup } from '../../lib/client-helpers'
 import { inngest } from '../../lib/inngest'
 import type { AuthVariables } from '../../middleware/auth'
@@ -673,7 +673,7 @@ messagesRoute.post('/remind/:caseId', async (c) => {
 messagesRoute.post('/remind-batch', async (c) => {
   const user = c.get('user')
 
-  if (user.orgRole !== 'org:admin' && user.role !== 'ADMIN') {
+  if (!isAdminOrManager(user)) {
     return c.json({ error: 'Admin access required' }, 403)
   }
 

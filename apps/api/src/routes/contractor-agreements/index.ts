@@ -9,6 +9,7 @@ import { zValidator } from '@hono/zod-validator'
 import { Prisma } from '@ella/db'
 import { CURRENT_CONTRACTOR_AGREEMENT_VERSION } from '@ella/shared'
 import { prisma } from '../../lib/db'
+import { isAdminOrManager } from '../../lib/org-scope'
 import { requireOrg } from '../../middleware/auth'
 import {
   uploadFile,
@@ -415,7 +416,7 @@ contractorAgreementsRoute.get(
     }
 
     if (staffId !== user.staffId) {
-      if (user.orgRole !== 'org:admin' && user.role !== 'ADMIN') {
+      if (!isAdminOrManager(user)) {
         return c.json({ error: 'FORBIDDEN', message: 'Not authorized' }, 403)
       }
 
@@ -476,7 +477,7 @@ contractorAgreementsRoute.get(
     }
 
     const isOwner = acceptance.staffId === user.staffId
-    const isOrgAdmin = user.orgRole === 'org:admin' || user.role === 'ADMIN'
+    const isOrgAdmin = isAdminOrManager(user)
     if (!isOwner && !isOrgAdmin) {
       return c.json({ error: 'FORBIDDEN', message: 'Not authorized to download this PDF' }, 403)
     }

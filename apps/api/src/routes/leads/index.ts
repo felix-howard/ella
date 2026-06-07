@@ -18,7 +18,7 @@ import {
 } from '../../services/clients/client-managers'
 import { publishMessageEvent } from '../../services/realtime/message-publisher'
 import { rateLimiter } from '../../middleware/rate-limiter'
-import { authMiddleware, requireOrgAdmin } from '../../middleware/auth'
+import { authMiddleware, requireAdminOrManager } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import {
   createLeadSchema,
@@ -140,7 +140,7 @@ leadsRoute.post(
 leadsRoute.post(
   '/admin',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('json', adminCreateLeadSchema),
   async (c) => {
     const { orgId, staffId } = getVerifiedAuth(c.get('user'))
@@ -195,7 +195,7 @@ leadsRoute.post(
 leadsRoute.get(
   '/',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('query', listLeadsQuerySchema),
   async (c) => {
     const { orgId } = getVerifiedAuth(c.get('user'))
@@ -262,7 +262,7 @@ leadsRoute.get(
 leadsRoute.get(
   '/tags',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   async (c) => {
     const { orgId } = getVerifiedAuth(c.get('user'))
     const result = await prisma.$queryRaw<Array<{ tag: string }>>`
@@ -281,7 +281,7 @@ leadsRoute.get(
 leadsRoute.get(
   '/stats',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   async (c) => {
     const { orgId } = getVerifiedAuth(c.get('user'))
     const grouped = await prisma.lead.groupBy({
@@ -320,7 +320,7 @@ leadsRoute.get(
 leadsRoute.get(
   '/:id',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', leadIdParamSchema),
   async (c) => {
     const { orgId } = getVerifiedAuth(c.get('user'))
@@ -366,7 +366,7 @@ leadsRoute.get(
 leadsRoute.patch(
   '/:id',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', leadIdParamSchema),
   zValidator('json', updateLeadSchema),
   async (c) => {
@@ -421,7 +421,7 @@ leadsRoute.patch(
 leadsRoute.get(
   '/:id/convert-check',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', leadIdParamSchema),
   async (c) => {
     const { orgId } = getVerifiedAuth(c.get('user'))
@@ -455,7 +455,7 @@ leadsRoute.get(
 leadsRoute.post(
   '/:id/convert',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', leadIdParamSchema),
   zValidator('json', convertLeadSchema),
   async (c) => {
@@ -657,7 +657,7 @@ leadsRoute.post(
 leadsRoute.post(
   '/bulk-sms',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('json', bulkSmsSchema),
   async (c) => {
     const { orgId, staffId } = getVerifiedAuth(c.get('user'))
@@ -835,7 +835,7 @@ leadsRoute.post(
 leadsRoute.delete(
   '/:id',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', leadIdParamSchema),
   async (c) => {
     const { orgId, staffId } = getVerifiedAuth(c.get('user'))

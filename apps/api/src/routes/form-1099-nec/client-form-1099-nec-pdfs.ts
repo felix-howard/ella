@@ -9,12 +9,12 @@ import { verifyBusinessClient } from '../../lib/org-scope'
 import { getSignedDownloadUrl } from '../../services/storage'
 import { fetchRecipientPdfs } from './shared-helpers'
 import type { AuthVariables } from '../../middleware/auth'
-import { requireOrgAdmin } from '../../middleware/auth'
+import { requireAdminOrManager } from '../../middleware/auth'
 
 const clientForm1099NecPdfsRoute = new Hono<{ Variables: AuthVariables }>()
 
 /** POST /clients/:clientId/1099-nec/fetch-recipient-pdfs */
-clientForm1099NecPdfsRoute.post('/:clientId/1099-nec/fetch-recipient-pdfs', requireOrgAdmin, async (c) => {
+clientForm1099NecPdfsRoute.post('/:clientId/1099-nec/fetch-recipient-pdfs', requireAdminOrManager, async (c) => {
   const user = c.get('user')
   const { clientId } = c.req.param()
 

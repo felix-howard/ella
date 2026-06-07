@@ -40,6 +40,7 @@ import type { TaxType, TaxCaseStatus, RawImageStatus, DocType } from '@ella/db'
 import type { AuthVariables } from '../../middleware/auth'
 import { isValidStatusTransition, getValidNextStatuses } from '@ella/shared'
 import { buildNestedClientScope, buildClientScopeFilter } from '../../lib/org-scope'
+import { serializePhone } from '../../lib/phone-privacy'
 import { isBizWithGroup } from '../../lib/client-helpers'
 
 const casesRoute = new Hono<{ Variables: AuthVariables }>()
@@ -119,6 +120,7 @@ casesRoute.get('/', zValidator('query', listCasesQuerySchema), async (c) => {
   return c.json({
     data: cases.map((tc) => ({
       ...tc,
+      client: { ...tc.client, phone: serializePhone(user, tc.client.phone) },
       createdAt: tc.createdAt.toISOString(),
       updatedAt: tc.updatedAt.toISOString(),
     })),
@@ -260,6 +262,7 @@ casesRoute.get('/:id', zValidator('param', caseIdParamSchema), async (c) => {
 
   return c.json({
     ...taxCase,
+    client: { ...taxCase.client, phone: serializePhone(user, taxCase.client.phone) },
     // Ensure both clientId and engagementId are in response for dual-field support
     clientId: taxCase.clientId,
     engagementId: taxCase.engagementId,

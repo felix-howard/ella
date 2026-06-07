@@ -30,6 +30,7 @@ import {
 } from '../../services/storage'
 import { ActivityRiskLevel, type MessageChannel, type MessageDirection } from '@ella/db'
 import { buildClientScopeFilter, isAdminOrManager } from '../../lib/org-scope'
+import { serializePhone } from '../../lib/phone-privacy'
 import { isBizWithGroup } from '../../lib/client-helpers'
 import { inngest } from '../../lib/inngest'
 import type { AuthVariables } from '../../middleware/auth'
@@ -168,7 +169,7 @@ messagesRoute.get(
         client: {
           id: conv.taxCase.client.id,
           name: conv.taxCase.client.name,
-          phone: conv.taxCase.client.phone,
+          phone: serializePhone(user, conv.taxCase.client.phone),
           language: conv.taxCase.client.language,
           clientType: conv.taxCase.client.clientType,
           clientGroupId: conv.taxCase.client.clientGroupId,

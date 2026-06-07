@@ -56,6 +56,7 @@ import type { TaxType, Language, ClientType, BusinessType } from '@ella/db'
 import { encryptSSN, maskEIN } from '../../services/crypto'
 import type { ClientUploads } from '@ella/shared'
 import { buildClientScopeFilter, canSeeAllClients } from '../../lib/org-scope'
+import { serializePhone } from '../../lib/phone-privacy'
 import { rateLimiter } from '../../middleware/rate-limiter'
 import { requireAdminOrManager } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
@@ -415,7 +416,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       firstName: client.firstName,
       lastName: client.lastName,
       name: computeDisplayName(client.firstName, client.lastName),
-      phone: client.phone,
+      phone: serializePhone(user, client.phone),
       email: client.email,
       language: client.language as 'VI' | 'EN',
       source: client.source as ClientSource,
@@ -664,7 +665,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         firstName: result.client.firstName,
         lastName: result.client.lastName,
         name: computeDisplayName(result.client.firstName, result.client.lastName),
-        phone: result.client.phone,
+        phone: serializePhone(user, result.client.phone),
         email: result.client.email,
         language: result.client.language,
         clientType: result.client.clientType,
@@ -840,6 +841,7 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
           const siblingSC = siblingCase?.scheduleCExpense
           return {
             ...sibling,
+            phone: serializePhone(user, sibling.phone),
             einMasked: maskEIN(siblingEin),
             latestCaseId: siblingCase?.id ?? null,
             latestCaseTaxYear: siblingCase?.taxYear ?? null,
@@ -867,6 +869,7 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
 
   return c.json({
     ...clientSafe,
+    phone: serializePhone(user, client.phone),
     einMasked: maskEIN(einEncrypted),
     name: computeDisplayName(client.firstName, client.lastName),
     avatarUrl: await resolveAvatarUrl(client.avatarUrl),
@@ -1062,6 +1065,7 @@ clientsRoute.patch(
 
     return c.json({
       ...client,
+      phone: serializePhone(user, client.phone),
       name: computeDisplayName(client.firstName, client.lastName),
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),

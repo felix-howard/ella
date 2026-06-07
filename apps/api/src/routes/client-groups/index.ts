@@ -9,6 +9,7 @@ import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
 import { getPaginationParams, buildPaginationResponse } from '../../lib/constants'
 import { buildClientScopeFilter } from '../../lib/org-scope'
+import { serializePhone } from '../../lib/phone-privacy'
 import type { AuthVariables } from '../../middleware/auth'
 import type { AuthUser } from '../../services/auth'
 import {
@@ -45,6 +46,18 @@ const clientPreviewSelect = {
   phone: true,
   email: true,
   avatarUrl: true,
+}
+
+/** Mask client phones in group payload based on viewer role (full phone = ADMIN only) */
+function serializeGroupPhones<T extends { clients: Array<{ phone: string | null }> } | null>(
+  user: AuthUser,
+  group: T
+): T {
+  if (!group) return group
+  return {
+    ...group,
+    clients: group.clients.map((cl) => ({ ...cl, phone: serializePhone(user, cl.phone) })),
+  }
 }
 
 // ============================================
@@ -93,7 +106,7 @@ clientGroupsRoute.post(
       })
     })
 
-    return c.json({ success: true, data: group }, 201)
+    return c.json({ success: true, data: serializeGroupPhones(user, group) }, 201)
   }
 )
 
@@ -130,7 +143,7 @@ clientGroupsRoute.get(
 
     return c.json({
       success: true,
-      data: groups,
+      data: groups.map((group) => serializeGroupPhones(user, group)),
       pagination: buildPaginationResponse(page, limit, total),
     })
   }
@@ -158,7 +171,7 @@ clientGroupsRoute.get(
       throw new HTTPException(404, { message: 'Client group not found' })
     }
 
-    return c.json({ success: true, data: group })
+    return c.json({ success: true, data: serializeGroupPhones(user, group) })
   }
 )
 
@@ -240,7 +253,7 @@ clientGroupsRoute.patch(
       })
     })
 
-    return c.json({ success: true, data: group })
+    return c.json({ success: true, data: serializeGroupPhones(user, group) })
   }
 )
 

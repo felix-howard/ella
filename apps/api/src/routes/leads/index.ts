@@ -30,6 +30,7 @@ import {
   bulkSmsSchema,
 } from './schemas'
 import { getVerifiedAuth } from './auth-helpers'
+import { serializePhone } from '../../lib/phone-privacy'
 import {
   getAuditRequestContext,
   getChangedFieldNames,
@@ -143,7 +144,8 @@ leadsRoute.post(
   requireAdminOrManager,
   zValidator('json', adminCreateLeadSchema),
   async (c) => {
-    const { orgId, staffId } = getVerifiedAuth(c.get('user'))
+    const user = c.get('user')
+    const { orgId, staffId } = getVerifiedAuth(user)
     const { firstName, lastName, phone, email, notes } = c.req.valid('json')
 
     const normalizedPhone = formatPhoneToE164(phone)
@@ -178,7 +180,7 @@ leadsRoute.post(
         request: getAuditRequestContext(c),
       })
 
-      return c.json({ success: true, data: lead })
+      return c.json({ success: true, data: { ...lead, phone: serializePhone(user, lead.phone) } })
     } catch (err: unknown) {
       // Handle duplicate phone+org unique constraint violation
       if (err && typeof err === 'object' && 'code' in err && err.code === 'P2002') {
@@ -198,7 +200,8 @@ leadsRoute.get(
   requireAdminOrManager,
   zValidator('query', listLeadsQuerySchema),
   async (c) => {
-    const { orgId } = getVerifiedAuth(c.get('user'))
+    const user = c.get('user')
+    const { orgId } = getVerifiedAuth(user)
     const { page, limit, status, search, tag, includeConverted } = c.req.valid('query')
     const { skip } = getPaginationParams(page, limit)
 
@@ -250,7 +253,7 @@ leadsRoute.get(
 
     return c.json({
       success: true,
-      data: leads,
+      data: leads.map((lead) => ({ ...lead, phone: serializePhone(user, lead.phone) })),
       pagination: buildPaginationResponse(page, limit, total),
     })
   }
@@ -323,7 +326,8 @@ leadsRoute.get(
   requireAdminOrManager,
   zValidator('param', leadIdParamSchema),
   async (c) => {
-    const { orgId } = getVerifiedAuth(c.get('user'))
+    const user = c.get('user')
+    const { orgId } = getVerifiedAuth(user)
     const { id } = c.req.valid('param')
 
     const lead = await prisma.lead.findFirst({
@@ -356,7 +360,7 @@ leadsRoute.get(
       campaignName = campaign?.name || null
     }
 
-    return c.json({ success: true, data: { ...lead, campaignName } })
+    return c.json({ success: true, data: { ...lead, phone: serializePhone(user, lead.phone), campaignName } })
   }
 )
 
@@ -370,7 +374,8 @@ leadsRoute.patch(
   zValidator('param', leadIdParamSchema),
   zValidator('json', updateLeadSchema),
   async (c) => {
-    const { orgId, staffId } = getVerifiedAuth(c.get('user'))
+    const user = c.get('user')
+    const { orgId, staffId } = getVerifiedAuth(user)
     const { id } = c.req.valid('param')
     const updates = c.req.valid('json')
 
@@ -411,7 +416,7 @@ leadsRoute.patch(
       request: getAuditRequestContext(c),
     })
 
-    return c.json({ success: true, data: updated })
+    return c.json({ success: true, data: { ...updated, phone: serializePhone(user, updated.phone) } })
   }
 )
 
@@ -424,7 +429,8 @@ leadsRoute.get(
   requireAdminOrManager,
   zValidator('param', leadIdParamSchema),
   async (c) => {
-    const { orgId } = getVerifiedAuth(c.get('user'))
+    const user = c.get('user')
+    const { orgId } = getVerifiedAuth(user)
     const { id } = c.req.valid('param')
 
     const lead = await prisma.lead.findFirst({
@@ -444,7 +450,9 @@ leadsRoute.get(
     return c.json({
       success: true,
       hasDuplicate: !!existingClient,
-      existingClient: existingClient || undefined,
+      existingClient: existingClient
+        ? { ...existingClient, phone: serializePhone(user, existingClient.phone) }
+        : undefined,
     })
   }
 )

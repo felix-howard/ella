@@ -28,6 +28,7 @@ import {
   resolveAvatarUrl,
 } from '../../services/storage'
 import { APP_ROLE_TO_CLERK_ROLE, APP_ROLE_TO_STAFF_ROLE } from '../../lib/staff-role-mapping'
+import { serializePhone } from '../../lib/phone-privacy'
 import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 
@@ -579,7 +580,11 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
     orderBy: { name: 'asc' },
   })
   const managedClientsList = await Promise.all(
-    clients.map(async (c) => ({ ...c, avatarUrl: await resolveAvatarUrl(c.avatarUrl) }))
+    clients.map(async (cl) => ({
+      ...cl,
+      phone: serializePhone(user, cl.phone),
+      avatarUrl: await resolveAvatarUrl(cl.avatarUrl),
+    }))
   )
   const managedCount = staff._count.managedClientLinks
 

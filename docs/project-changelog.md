@@ -7,6 +7,26 @@
 
 ## 2026-06-07
 
+### Deposit Payment Flow After Agreement Signing — Complete (Phases 1–6)
+**Status:** Complete
+
+**Added:**
+- Prisma `Payment` model: `type='DEPOSIT'`, status enum (PENDING|PAID|FAILED|CANCELED|REFUNDED), `payToken` (unique), FKs to org/client/lead/agreement (SetNull), amount, Stripe session ID, paid/failed timestamps
+- Staff notification toggles: `notifyOnAgreementSigned` / `notifyOnClientPayment` (ADMIN-only, default OFF)
+- Post-sign hook: Admin SMS fan-out + auto-Payment creation + client pay-link SMS (via `agreement-post-sign-notifications.ts`, `deposit-payment-service.ts`, `signer-sms-delivery.ts`)
+- Public pay API `/public/pay/:payToken` (GET token view, POST fresh Stripe Checkout session, per-token rate limit 3/hour with auto-refund on server failure)
+- Stripe webhook deposit handler: Idempotent claim guard, agreement depositStatus sync, admin+client SMS on success (via `deposit-checkout-service.ts`)
+- Portal page `/pay/:payToken` (public checkout flow)
+- Workspace: Payments tab + Overview payments card + Settings toggles (ADMIN-only) + Resend link button (ADMIN/MANAGER, throttled 1/60s)
+- Staff endpoints: `POST /clients/:clientId/payments/resend` (ADMIN/MANAGER, rate-limited), `GET /clients/:clientId/payments`
+- Migration: `packages/db/prisma/migrations/20260607133402_add_payment_model_and_staff_notify_toggles`
+- Tests: ~75 service + route level (full suite 2633 passing)
+
+**Validation:**
+- `pnpm -F @ella/api test` — 2633 tests pass (zero skips)
+- `pnpm -F @ella/workspace test` — 76 tests pass
+- `type-check` + `lint` clean on api and workspace
+
 ### MANAGER Role (Assistant Tier) — Complete (Phases 1–5)
 **Status:** Complete
 

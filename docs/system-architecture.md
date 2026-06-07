@@ -2437,6 +2437,43 @@ All avatar/notes UI will need i18n keys in workspace:
 - `profile.notesPlaceholder` - Editor hint text
 - Error keys for validation failures
 
+## Deposit Payment Flow (Post-Agreement Signing)
+
+**Overview:** After client signs agreement with deposit amount, system auto-creates Payment record + SMS to client with portal pay link + Stripe checkout session. Webhook marks payment PAID → SMS admins + client receipt. Staff can resend links + view payment status on client profile.
+
+**Models & Data:**
+- **Payment** - `organizationId, clientId, leadId, agreementId` (FKs with SetNull), `type='DEPOSIT'`, `status` (PENDING|PAID|FAILED|CANCELED|REFUNDED), `payToken` (unique per-token rate limit 3/hour with auto-refund on server failure), `amount` (cents), `stripeCheckoutSessionId`, `paidAt`, `failedAt`
+- **Staff Notifications** - ADMIN-only toggles: `notifyOnAgreementSigned` (SMS to admins when client signs), `notifyOnClientPayment` (SMS to admins when client pays)
+
+**Post-Sign Hook** (`agreement-signing-service.ts`):
+Fire-and-forget after signing commit — isolated try/catch per step (no transaction impact):
+1. Admin SMS fan-out: Query staff with `notifyOnAgreementSigned=true` → send SMS via `agreement-post-sign-notifications.ts`
+2. Payment creation: Create Payment(type=DEPOSIT, status=PENDING, payToken) via `deposit-payment-service.ts`
+3. Client SMS: Send pay-link SMS with `portal/pay/:payToken` URL via `signer-sms-delivery.ts` (SMSTemplate: `payment-sms-templates.ts`)
+
+**Public Payment API** (`/public/pay`):
+- `GET /:payToken` - Public view Payment (no auth required). Returns amount, client name, agreement details. Returns 404 if token invalid/payment already paid
+- `POST /:payToken/checkout` - Fresh Stripe Checkout session (mode=payment). Amount always from DB (never client-supplied). Per-token rate limit 3/hour with auto-slot-refund on server failure (idempotent). Returns session.url. Returns 410 if already PAID, 404 if invalid token
+- Shared Stripe webhook (`webhook-handler.ts`) — discriminates deposit sessions via `metadata.payToken` → `markDepositPaymentPaid` in `deposit-checkout-service.ts`. Idempotent claim guard (status !== PAID before mutate). Syncs agreement depositStatus. Admin SMS + client receipt SMS on success
+
+**Workspace UI:**
+- **Payments Tab** (new `/clients/:id` tab): Client Payment list, status badges (PENDING, PAID, FAILED), created date, amount
+- **Overview Payments Card**: Quick summary (total collected, pending, overdue count)
+- **Settings → Notifications**: 2 ADMIN-only toggles (`notifyOnAgreementSigned`, `notifyOnClientPayment`), default OFF. PATCH endpoint rejects toggles for non-ADMIN targets (403)
+- **Resend Payment Link**: Staff button (ADMIN/MANAGER only, throttled 1/60s), triggers `POST /clients/:clientId/payments/resend` → admin SMS + new client SMS with fresh link
+
+**Portal Pay Page** (`/pay/:payToken`):
+React/TanStack Router public checkout flow. Validates token → displays amount + pay CTA → redirects to Stripe Checkout session.url → webhook marks paid.
+
+**Staff Payments Endpoint** (`/clients/payments-staff.ts`):
+- `POST /clients/:clientId/payments/resend` - ADMIN/MANAGER only. Throttled 1/60s per client. Creates fresh Payment + sends new SMS to client. Returns 429 if throttled
+- Query `GET /clients/:clientId/payments` - List client payments with status filtering + pagination
+
+**Webhook Idempotency:**
+- Per-session: Check if status !== PAID before state mutation
+- Per-org: lastStripeEventId + lastStripeEventAt guard against duplicate processing
+- Graceful degradation: SMS failures don't rollback payment mark (post-commit fire-and-forget)
+
 ---
 
 ## Voice & SMS

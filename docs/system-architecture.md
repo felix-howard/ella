@@ -406,8 +406,8 @@ Organization (root entity)
 
 **Permission Model:**
 - **ADMIN:** Full org management: team (invite/role/deactivate), all clients, billing, admin config
-- **MANAGER:** Client/operational mgmt: admin config, clients (create/assign), leads, cases, campaigns, agreements, 1099-NEC, billing checkout, org settings, activity timeline. Blocked: team management, full client phone (masked)
-- **STAFF:** View assigned clients only via `ClientManager` links; no admin functions
+- **MANAGER:** Client/operational mgmt: admin config, clients (create/assign), leads, cases, campaigns, agreements, 1099-NEC, billing checkout, org settings, activity timeline. Blocked: team management. **Phone Privacy (Phase 3):** Server enforces masking on all workspace-facing responses (clients, leads, messages, engagements, cases, actions, managed-clients)—`serializePhone()` at response layer returns `*** *** {last4}` except for ADMIN. Internal SMS/lead-convert/voice logic uses raw numbers.
+- **STAFF:** View assigned clients only via `ClientManager` links; no admin functions. Receives masked phone numbers.
 - **CPA:** Future role for CPA firm integrations
 
 **Middleware:**

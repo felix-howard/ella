@@ -353,8 +353,8 @@ export function MyComponent() {
 
 **Permission Model:**
 - **ADMIN:** Full org access: team management (invite/role/deactivate), all clients, admin config, billing, leads, cases, campaigns, agreements, 1099-NEC, org settings, activity timeline
-- **MANAGER:** Client/operational management: admin config, clients (create/assign), leads, cases, campaigns, agreements, 1099-NEC, billing checkout, org settings, activity timeline. Blocked: team management endpoints, full client phone (masked only)
-- **STAFF:** Managed clients only via matching `ClientManager` links (legacy `managedById` still mirrors the primary manager during rollout), no admin functions
+- **MANAGER:** Client/operational management: admin config, clients (create/assign), leads, cases, campaigns, agreements, 1099-NEC, billing checkout, org settings, activity timeline. Blocked: team management endpoints. **Phone Privacy (Phase 3):** Server enforces masking via `serializePhone()` on all workspace-facing API responses—returns `*** *** {last4}` for MANAGER/STAFF/CPA across clients, leads, engagements, messages, cases, managed-clients, and team profiles. Internal logic (SMS send, lead-convert phone match, voice lookup) uses raw numbers.
+- **STAFF:** Managed clients only via matching `ClientManager` links (legacy `managedById` still mirrors the primary manager during rollout), no admin functions. Receives masked phone in all responses.
 - **CPA:** Future role for CPA firm integrations
 
 **Role-Based Middleware:**

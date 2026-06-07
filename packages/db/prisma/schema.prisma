@@ -440,6 +440,8 @@ model Staff {
   // Notification preferences
   notifyOnUpload              Boolean @default(true) // Enable/disable SMS on client uploads
   notifyOnChat                Boolean @default(false) // Enable/disable SMS when monitored staff sends messages
+  notifyOnAgreementSigned     Boolean @default(false) // ADMIN-only: SMS when a client signs an agreement
+  notifyOnClientPayment       Boolean @default(false) // ADMIN-only: SMS when a client completes a payment
   autoSendUploadLink          Boolean @default(false) // Per-staff auto-send upload link on personal form
   defaultUploadLinkTemplateId String? // Default SMS template for personal form auto-send
 
@@ -598,6 +600,7 @@ model Organization {
   clientGroups                   ClientGroup[]
   leads                          Lead[]
   paymentQuotes                  PaymentQuote[]
+  payments                       Payment[]
   smsSendLogs                    SmsSendLog[]
   campaigns                      Campaign[]
   agreements                     Agreement[]
@@ -657,6 +660,7 @@ model Client {
   convertedLeads Lead[]          @relation("ConvertedLead")
   agreements     Agreement[]
   paymentQuotes  PaymentQuote[]
+  payments       Payment[]
 
   // Business-type client relations (for clientType = BUSINESS)
   contractors   Contractor[]
@@ -1634,6 +1638,7 @@ model Lead {
   agreements    Agreement[]
   messages      Message[]
   paymentQuotes PaymentQuote[]
+  payments      Payment[]
 
   // Staff-side "last read" marker for inbound SMS unread count
   messagesLastReadAt DateTime?
@@ -1703,6 +1708,55 @@ model StripeCheckoutSession {
   @@index([stripeCustomerId])
   @@index([stripeSubscriptionId])
   @@index([stripePaymentIntentId])
+}
+
+enum PaymentType {
+  DEPOSIT
+  BALANCE
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELED
+}
+
+// Deposit/balance payments collected from clients or leads (e.g. after agreement signing).
+// Distinct from PaymentQuote (pricing-calculator checkouts) — keep names separate.
+model Payment {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientId       String?
+  client         Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  leadId         String?
+  lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  agreementId    String?
+  agreement      Agreement?   @relation(fields: [agreementId], references: [id], onDelete: SetNull)
+
+  type     PaymentType   @default(DEPOSIT)
+  status   PaymentStatus @default(PENDING)
+  amount   Decimal       @db.Decimal(10, 2)
+  currency String        @default("usd")
+
+  // Public pay-link token (portal/pay/:payToken). Separate lifecycle from agreement signing token.
+  payToken              String  @unique
+  stripeSessionId       String?
+  stripePaymentIntentId String?
+
+  paidAt      DateTime?
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([leadId])
+  @@index([agreementId])
+  @@index([organizationId, status])
 }
 
 model SmsSendLog {
@@ -1794,6 +1848,8 @@ model Agreement {
   // Audit
   createdByUserId String
   createdBy       Staff  @relation("AgreementCreatedBy", fields: [createdByUserId], references: [id])
+
+  payments Payment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

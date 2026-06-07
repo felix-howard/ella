@@ -3,14 +3,17 @@
  * Zod schemas for team member management endpoints
  */
 import { z } from 'zod'
+import { APP_ROLES } from '../../lib/staff-role-mapping'
 
+// App-level roles (NOT Clerk roles): ADMIN -> org:admin, MANAGER/MEMBER -> org:member.
+// Mapping to Clerk role + Staff.role happens in the handlers via staff-role-mapping.
 export const inviteMemberSchema = z.object({
   emailAddress: z.string().email(),
-  role: z.enum(['org:admin', 'org:member']).default('org:member'),
+  role: z.enum(APP_ROLES).default('MEMBER'),
 })
 
 export const updateMemberRoleSchema = z.object({
-  role: z.enum(['org:admin', 'org:member']),
+  role: z.enum(APP_ROLES),
 })
 
 export const updateContractorAgentSchema = z.object({

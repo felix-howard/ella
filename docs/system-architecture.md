@@ -422,7 +422,7 @@ Organization (root entity)
 
 **Key Models (Multi-Tenant):**
 - **Organization** - Org root with Clerk integration, autoSendFormClientUploadLink (bool, Phase 02 Intake Form - auto-send SMS to staff on form submission)
-- **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), isContractorAgent (default: false), title, signaturePngKey, formSlug (auto-generated six-digit unique slug per org for public form routing, editable by staff/admin). Notification preferences for client upload alerts and contractor-agent compliance.
+- **Staff** - organizationId FK, clerkId (unique), role (ADMIN|MANAGER|STAFF|CPA), notifyOnUpload (default: true), isContractorAgent (default: false), title, signaturePngKey, formSlug (auto-generated six-digit unique slug per org for public form routing, editable by staff/admin). Notification preferences for client upload alerts and contractor-agent compliance.
 - **Client** - organizationId FK, managedById FK (legacy primary manager during rollout; `ClientManager` is canonical), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form), clientType (enum: INDIVIDUAL|BUSINESS, default INDIVIDUAL). For clientType=BUSINESS: businessType (BusinessType enum, required), einEncrypted (encrypted, required), businessAddress, businessCity, businessState, businessZip (all required). Database stores einEncrypted; API returns einMasked (XX-XXX####). clientGroupId FK (optional, links related clients like individual+business or partnerships). Relations: contractors, filingBatches, intakeTokens (all BUSINESS-type specific).
 - **ClientManager** - tenant-scoped canonical join row between Client and Staff. Backfilled from legacy managedById, unique on `[clientId, staffId]`, with org-scoped guards and tenant-scoped foreign keys.
 - **ClientGroup** - organizationId FK (optional, org-scoped grouping), name (group name), clients array relation. Phase 01 Entity Separation: new entity enables flexible grouping of related clients (e.g., family businesses, partnerships, multi-entity tax arrangements). Indexed on organizationId for fast group lookups.
@@ -539,8 +539,8 @@ Webhooks from Clerk sync user, organization, and membership changes to DB in rea
 - **user.updated** - Sync email, name, avatar to Staff (updateMany by clerkId)
 - **user.deleted** - Deactivate staff (isActive=false, set deactivatedAt)
 - **organization.created/updated** - Upsert Organization (handles out-of-order events)
-- **organizationMembership.created** - Link user to org: (1) ensure org exists (upsert), (2) check if staff exists by email (pre-existing), (3) upsert/update staff with clerkId, role (ADMIN|STAFF), org assignment
-- **organizationMembership.updated** - Update staff role (maps org:admin → ADMIN, org:member → STAFF)
+- **organizationMembership.created** - Link user to org: (1) ensure org exists (upsert), (2) check if staff exists by email (pre-existing), (3) upsert/update staff with clerkId, resolve role via preserve rule (org:admin→ADMIN; org:member→respect metadata.staffRole or preserve existing MANAGER/STAFF/CPA, default STAFF), org assignment
+- **organizationMembership.updated** - Update staff role using preserve rule: org:admin→ADMIN, org:member→demote ADMIN to STAFF only, preserve MANAGER/STAFF/CPA on re-sync
 - **organizationMembership.deleted** - Deactivate staff for that org (scope by organizationId + clerkId)
 
 **Route Handler (POST /webhooks/clerk):**

@@ -2,9 +2,10 @@
  * Auth Service - Clerk integration
  * Webhooks handle normal sync; auth middleware can bootstrap pending memberships.
  */
-import type { Prisma } from '@ella/db'
+import type { Prisma, StaffRole } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { clerkClient } from '../../lib/clerk-client'
+import { resolveStaffRoleFromClerk } from '../../lib/staff-role-mapping'
 import { getStaffFormSlugData } from '../staff-form-slug'
 
 export interface AuthUser {
@@ -21,10 +22,6 @@ export interface AuthUser {
 }
 
 type StaffWithOrganization = Prisma.StaffGetPayload<{ include: { organization: true } }>
-
-function mapClerkRole(clerkRole: string | null | undefined): 'ADMIN' | 'STAFF' {
-  return clerkRole === 'org:admin' ? 'ADMIN' : 'STAFF'
-}
 
 function buildName(firstName: string | null | undefined, lastName: string | null | undefined): string {
   return [firstName, lastName].filter(Boolean).join(' ') || 'Unknown'
@@ -100,13 +97,30 @@ export async function syncStaffFromClerkMembership(
   })
 
   const name = buildName(firstName, lastName)
-  const role = mapClerkRole(orgRole || membership.role)
   const existingByEmail = await prisma.staff.findUnique({ where: { email } })
 
   if (existingByEmail?.clerkId && existingByEmail.clerkId !== clerkId) {
     console.warn(`[Auth] Refusing to relink Staff email ${email} from ${existingByEmail.clerkId} to ${clerkId}`)
     return null
   }
+
+  const existingByClerk = existingByEmail
+    ? null
+    : await prisma.staff.findUnique({ where: { clerkId } })
+  const existing = existingByEmail ?? existingByClerk
+
+  // Preserve app-level roles (MANAGER/CPA) on re-sync; Clerk only drives ADMIN transitions.
+  // Invite metadata (publicMetadata.staffRole) is only trusted on fresh joins (no record,
+  // or record not yet an active member of this org) - for an active member, DB role is
+  // source of truth and invite metadata may be stale after in-app role changes.
+  const isActiveMember = !!existing && existing.organizationId === org.id && existing.isActive
+  const role = resolveStaffRoleFromClerk(
+    orgRole || membership.role,
+    existing?.role ?? null,
+    isActiveMember
+      ? undefined
+      : (membership.publicMetadata as Record<string, unknown> | null | undefined)?.staffRole
+  )
 
   const staffData = {
     clerkId,
@@ -125,7 +139,6 @@ export async function syncStaffFromClerkMembership(
       data: { ...staffData, ...formSlugData },
     })
   } else {
-    const existingByClerk = await prisma.staff.findUnique({ where: { clerkId } })
     const formSlugData = await getStaffFormSlugData(prisma, org.id, existingByClerk)
     await prisma.staff.upsert({
       where: { clerkId },
@@ -154,7 +167,7 @@ export async function getStaffByClerkId(clerkId: string) {
  */
 export async function updateStaffRole(
   staffId: string,
-  role: 'ADMIN' | 'STAFF' | 'CPA'
+  role: StaffRole
 ) {
   return prisma.staff.update({
     where: { id: staffId },

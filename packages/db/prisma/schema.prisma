@@ -339,6 +339,7 @@ enum MessageDirection {
 
 enum StaffRole {
   ADMIN
+  MANAGER
   STAFF
   CPA
 }

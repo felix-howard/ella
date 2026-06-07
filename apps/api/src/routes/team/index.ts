@@ -27,6 +27,7 @@ import {
   generateAvatarKey,
   resolveAvatarUrl,
 } from '../../services/storage'
+import { APP_ROLE_TO_CLERK_ROLE, APP_ROLE_TO_STAFF_ROLE } from '../../lib/staff-role-mapping'
 import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 
@@ -124,12 +125,15 @@ teamRoute.post(
     }
 
     try {
+      // MANAGER is org:member in Clerk; intended Staff.role travels via invitation
+      // publicMetadata so the membership.created webhook assigns it on accept
       const invitation = await clerkClient.organizations.createOrganizationInvitation({
         organizationId: user.clerkOrgId,
         emailAddress,
-        role,
+        role: APP_ROLE_TO_CLERK_ROLE[role],
         inviterUserId: user.id,
         redirectUrl: `${config.workspaceUrl}/accept-invitation`,
+        publicMetadata: { staffRole: APP_ROLE_TO_STAFF_ROLE[role] },
       })
 
       if (user.staffId) {
@@ -196,7 +200,7 @@ teamRoute.patch(
     }
 
     // Prevent demoting the last admin in the org
-    if (role === 'org:member' && staff.role === 'ADMIN') {
+    if (role !== 'ADMIN' && staff.role === 'ADMIN') {
       const adminCount = await prisma.staff.count({
         where: { organizationId: user.organizationId, role: 'ADMIN', isActive: true },
       })
@@ -210,18 +214,22 @@ teamRoute.patch(
       await clerkClient.organizations.updateOrganizationMembership({
         organizationId: user.clerkOrgId,
         userId: staff.clerkId,
-        role,
+        role: APP_ROLE_TO_CLERK_ROLE[role],
       })
 
-      // Sync role to DB immediately (don't wait for webhook)
-      const dbRole = role === 'org:admin' ? 'ADMIN' : 'STAFF'
+      // Sync role to DB immediately (don't wait for webhook). The membership.updated
+      // webhook preserve rule never downgrades MANAGER/CPA, so this write is durable.
+      // Known tiny race (ADMIN->MANAGER): if the webhook reads the old ADMIN role before
+      // this write commits but applies its STAFF demotion after it, MANAGER could be lost.
+      // Window is ms-scale; admin can re-apply. Revisit if it ever surfaces in practice.
+      const dbRole = APP_ROLE_TO_STAFF_ROLE[role]
       await prisma.staff.update({
         where: { id: staffId },
         data: { role: dbRole },
       })
 
       // Audit log (async, non-blocking)
-      logTeamAction('ROLE_CHANGED', staffId, user.staffId, { oldValue: oldRole, newValue: role })
+      logTeamAction('ROLE_CHANGED', staffId, user.staffId, { oldValue: oldRole, newValue: dbRole })
       await logTeamMemberActivity(c, user, staffId, {
         summary: 'Updated team member role',
         action: ACTIVITY_ACTIONS.TEAM.MEMBER_UPDATED,
@@ -452,6 +460,11 @@ teamRoute.get(
         id: inv.id,
         emailAddress: inv.emailAddress,
         role: inv.role,
+        // Intended Staff.role carried in invitation metadata (distinguishes MANAGER invites).
+        // Fallback is for legacy invites created before staffRole metadata existed.
+        staffRole:
+          (inv.publicMetadata as Record<string, unknown> | null | undefined)?.staffRole ??
+          (inv.role === 'org:admin' ? 'ADMIN' : 'STAFF'),
         status: inv.status,
         createdAt: inv.createdAt,
       }))

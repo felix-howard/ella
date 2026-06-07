@@ -1,9 +1,30 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-04 ICT
+> **Last Updated:** 2026-06-07 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+## 2026-06-07
+
+### MANAGER Role (Assistant Tier) — Complete (Phases 1–5)
+**Status:** Complete
+
+**Added:**
+- New `StaffRole.MANAGER`: near-admin assistant tier. Gets everything ADMIN-gated EXCEPT team management (`requireOrgAdmin` stays ADMIN-only) and full client phone numbers (server-side masked `*** *** {last4}` via `serializePhone()`, ADMIN-only full view — also fixes prior STAFF DevTools phone leak).
+- Central helpers: `isAdminOrManager`/`canSeeAllClients` (org-scope), `canViewFullPhone`/`maskPhone`/`serializePhone` (phone-privacy), `requireAdminOrManager` middleware.
+- Clerk sync preserve rule: MANAGER stays `org:member` in Clerk; `Staff.role` is source of truth; re-sync never downgrades MANAGER→STAFF; ADMIN demoted via Clerk → STAFF.
+- Workspace capability flags (`useOrgRole()`: isManager, canManageClients, canViewPhone, canManageTeam); `formatPhone()` passes masked values through.
+
+**Phase 5 (this entry): Tests, Docs, Validation:**
+- Unit tests: `org-scope.test.ts` (MANAGER org-wide scope + failsafes), `phone-privacy.test.ts` (mask format, null/short input, per-role serialization), `auth.test.ts` (sync preserves MANAGER, demotes ADMIN→STAFF).
+- Route integration tests: `manager-role-authorization.test.ts` — MANAGER 200 on /clients (org-wide where clause), /admin/intake-questions, /leads; 403 on /team invite/role/deactivate; STAFF 403 on admin-gated routes; raw-body scans prove no unmasked phone for MANAGER/STAFF, full phone for ADMIN.
+- Docs updated: codebase-summary (role matrix), system-architecture (RBAC + regression test map), code-standards (mandatory role-check helper rule).
+
+**Validation:**
+- `pnpm -F @ella/api test` — 122 files / 2575 tests pass (zero skips)
+- `pnpm -F @ella/workspace test` — 21 files / 76 tests pass
+- `type-check` + `lint` clean on api and workspace
 
 ## 2026-06-05
 

@@ -412,7 +412,7 @@ Organization (root entity)
 - **Predicates:** `isAdminOrManager(user)` returns true for org:admin, ADMIN, or MANAGER roles; `canSeeAllClients(user)` wraps same logic for scope filter
 
 **Permission Model:**
-- **ADMIN:** Full org management: team (invite/role/deactivate), all clients, billing, admin config
+- **ADMIN:** Full org management: team (invite/role/deactivate), all clients, admin config, billing, leads, cases, campaigns, agreements, 1099-NEC, org settings, activity timeline
 - **MANAGER:** Client/operational mgmt: admin config, clients (create/assign), leads, cases, campaigns, agreements, 1099-NEC, billing checkout, org settings, activity timeline. Blocked: team management. **Phone Privacy (Phase 3):** Server enforces masking on all workspace-facing responses (clients, leads, messages, engagements, cases, actions, managed-clients)—`serializePhone()` at response layer returns `*** *** {last4}` except for ADMIN. Internal SMS/lead-convert/voice logic uses raw numbers.
 - **STAFF:** View assigned clients only via `ClientManager` links; no admin functions. Receives masked phone numbers.
 - **CPA:** Future role for CPA firm integrations
@@ -421,6 +421,12 @@ Organization (root entity)
 - `requireOrg` - Verify orgId in JWT, all protected endpoints
 - `requireOrgAdmin` - Verify org:admin role (Clerk or app ADMIN), team endpoints only (invite/role/deactivate)
 - `requireAdminOrManager` - Verify org:admin, app ADMIN, or app MANAGER, non-team admin-gated endpoints
+
+**RBAC Regression Tests (Phase 5 - MANAGER Role):**
+- `apps/api/src/lib/__tests__/org-scope.test.ts` - MANAGER org-wide scope filter, STAFF/CPA assigned-only, no-staffId/no-org failsafes
+- `apps/api/src/lib/__tests__/phone-privacy.test.ts` - `canViewFullPhone` (ADMIN-only), `maskPhone` null/short/format, `serializePhone` per role
+- `apps/api/src/lib/__tests__/staff-role-mapping.test.ts` + `apps/api/src/services/auth/__tests__/auth.test.ts` - Clerk sync preserve rule: org:member + existing MANAGER stays MANAGER (no downgrade), org:admin→ADMIN, ADMIN demoted via Clerk→STAFF
+- `apps/api/src/routes/__tests__/manager-role-authorization.test.ts` - Route-level matrix through real middleware: MANAGER 200 on /clients (org-wide where clause), /admin, /leads; 403 on /team mutations; raw response-body scan proves no unmasked phone for MANAGER/STAFF, full phone for ADMIN
 
 **Audit Logging:**
 - AuditLog tracks: entity type, id, field, old/new values, changedBy, timestamp

@@ -2,6 +2,21 @@
 
 **Current Date:** 2026-06-07
 **Current Branch:** codex-work-20260605-fresh-dev
+**MANAGER Role (Assistant Tier):** COMPLETE (all 5 phases). New `StaffRole.MANAGER`: owner's assistant with near-admin access. Single source of truth: MANAGER gets everything ADMIN-gated EXCEPT (1) team management (invite/role/deactivate — `requireOrgAdmin` only) and (2) full client phone numbers (masked server-side via `serializePhone()`, ADMIN-only). Clerk stays `org:member` for MANAGER; app-level `Staff.role` is source of truth with preserve rule on re-sync (no MANAGER→STAFF downgrade).
+
+**Role Matrix (server-enforced):**
+
+| Feature | ADMIN | MANAGER | STAFF/CPA |
+|---------|-------|---------|-----------|
+| See all org clients | ✓ | ✓ | assigned only |
+| Create/edit clients, assign managers | ✓ | ✓ | ✗ |
+| Leads, pricing calculator, campaigns | ✓ | ✓ | ✗ |
+| Admin config (intake Qs, templates, doc library) | ✓ | ✓ | ✗ |
+| Team mgmt (invite/role/deactivate) | ✓ | ✗ | ✗ |
+| Full phone numbers | ✓ | ✗ (masked `*** *** {last4}`) | ✗ (masked) |
+
+**Phase 5 Tests/Docs/Validation:** COMPLETE. Regression coverage: `apps/api/src/lib/__tests__/org-scope.test.ts` (MANAGER org-wide scope, failsafes), `apps/api/src/lib/__tests__/phone-privacy.test.ts` (canViewFullPhone/maskPhone/serializePhone per role), `apps/api/src/lib/__tests__/staff-role-mapping.test.ts` + `apps/api/src/services/auth/__tests__/auth.test.ts` (Clerk sync preserve rule, ADMIN demotion), `apps/api/src/routes/__tests__/manager-role-authorization.test.ts` (route-level matrix: MANAGER 200 on clients/admin/leads, 403 on team mutations, raw-body scan proves no unmasked phone for MANAGER/STAFF).
+
 **Phase 4 Frontend Role Flags & UI:** COMPLETE. Workspace frontend implements capability-flag convention: `useOrgRole()` returns semantic flags (isManager, canManageClients, canViewPhone, canManageTeam) instead of role strings. Components gate nav (leads, pricing-calculator by canManageClients; /team by canManageTeam) and never compare org:admin literals. `formatPhone()` passes through server-masked values (*) unchanged. Team invite dialog + profile role select offer app-level roles (ADMIN|MANAGER|MEMBER) mirroring backend APP_ROLES constant. Frontend enforces: no role string literal comparisons in components, all permission checks via flags, server phone masking is authoritative (no client re-masking).
 **Stripe Checkout Backend:** Phase 05 complete; admin-only `POST /billing/checkout-sessions` persists `PaymentQuote` and `StripeCheckoutSession` records, uses quote-based idempotency, and public `POST /webhooks/stripe` verifies `Stripe-Signature` against the raw body before syncing local quote/session status for checkout completion, async payment, invoice, and subscription lifecycle events. Webhook state changes persist the latest Stripe event id/timestamp, use same-second status precedence, and keep canceled checkout sessions terminal for later invoice events on the same subscription. Enterprise-sized calculator quotes are contact-sales only and cannot create payment links. Stripe metadata stays minimal, production return URLs must be HTTPS, pricing defaults come from `@ella/shared/constants`, calculator math lives in `@ella/shared/pricing`, landing keeps a compatibility re-export for the pricing helpers, local API dev can start Stripe CLI webhook forwarding automatically when Stripe env is configured, and local test-mode Checkout E2E has been verified through paid subscription checkout plus DB status sync.
 **Workspace Pricing Calculator Shell:** Phase 02 complete; workspace now has an admin-only `/pricing-calculator` route shell, the sidebar shows Pricing Calculator only for admins, `api.billing.createCheckoutSession(data)` uses the existing Clerk JWT request wrapper with `retries: 0`, and the full calculator/payment-link form is still deferred to phase 03.

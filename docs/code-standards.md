@@ -370,6 +370,14 @@ export function MyComponent() {
 - `requireOrgAdmin` - Team management endpoints only (invite/role/deactivate staff)
 - `requireAdminOrManager` - All admin-gated endpoints except team management (org:admin, ADMIN, or MANAGER role)
 
+**Role-Check Helper Rule (MANDATORY):**
+- Backend role checks MUST use the central helpers — never inline role literals (`user.role === 'MANAGER'`, `orgRole === 'org:admin'`) in routes/services:
+  - `isAdminOrManager(user)` / `canSeeAllClients(user)` (`apps/api/src/lib/org-scope.ts`) — admin-or-manager tier predicate / org-wide client visibility
+  - `canViewFullPhone(user)` / `serializePhone(user, phone)` (`apps/api/src/lib/phone-privacy.ts`) — phone privacy (ADMIN-only full numbers); apply `serializePhone` at response-build points only, internal logic (SMS, lead-convert matching, voice lookup) keeps raw values
+  - `requireAdminOrManager` / `requireOrgAdmin` middleware (`apps/api/src/middleware/auth.ts`) — route gating
+- Rationale: the MANAGER tier is encoded in exactly one place (`isAdminOrManager`); inline literals silently drift when roles change
+- Regression tests enforce the matrix: `apps/api/src/routes/__tests__/manager-role-authorization.test.ts`
+
 ## Document Classification & AI
 
 **Gemini Integration Pattern:**

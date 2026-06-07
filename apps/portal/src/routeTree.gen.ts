@@ -18,6 +18,7 @@ import { Route as UploadTokenIndexRouteImport } from './routes/upload/$token/ind
 import { Route as UTokenIndexRouteImport } from './routes/u/$token/index'
 import { Route as RentalTokenIndexRouteImport } from './routes/rental/$token/index'
 import { Route as RegisterOrgSlugIndexRouteImport } from './routes/register/$orgSlug/index'
+import { Route as PayPayTokenIndexRouteImport } from './routes/pay/$payToken/index'
 import { Route as NdaTokenIndexRouteImport } from './routes/nda/$token/index'
 import { Route as FormOrgSlugIndexRouteImport } from './routes/form/$orgSlug/index'
 import { Route as ExpenseTokenIndexRouteImport } from './routes/expense/$token/index'
@@ -72,6 +73,11 @@ const RentalTokenIndexRoute = RentalTokenIndexRouteImport.update({
 const RegisterOrgSlugIndexRoute = RegisterOrgSlugIndexRouteImport.update({
   id: '/register/$orgSlug/',
   path: '/register/$orgSlug/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PayPayTokenIndexRoute = PayPayTokenIndexRouteImport.update({
+  id: '/pay/$payToken/',
+  path: '/pay/$payToken/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NdaTokenIndexRoute = NdaTokenIndexRouteImport.update({
@@ -140,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/expense/$token/': typeof ExpenseTokenIndexRoute
   '/form/$orgSlug': typeof FormOrgSlugIndexRoute
   '/nda/$token': typeof NdaTokenIndexRoute
+  '/pay/$payToken': typeof PayPayTokenIndexRoute
   '/register/$orgSlug': typeof RegisterOrgSlugIndexRoute
   '/rental/$token/': typeof RentalTokenIndexRoute
   '/u/$token/': typeof UTokenIndexRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/expense/$token': typeof ExpenseTokenIndexRoute
   '/form/$orgSlug': typeof FormOrgSlugIndexRoute
   '/nda/$token': typeof NdaTokenIndexRoute
+  '/pay/$payToken': typeof PayPayTokenIndexRoute
   '/register/$orgSlug': typeof RegisterOrgSlugIndexRoute
   '/rental/$token': typeof RentalTokenIndexRoute
   '/u/$token': typeof UTokenIndexRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/expense/$token/': typeof ExpenseTokenIndexRoute
   '/form/$orgSlug/': typeof FormOrgSlugIndexRoute
   '/nda/$token/': typeof NdaTokenIndexRoute
+  '/pay/$payToken/': typeof PayPayTokenIndexRoute
   '/register/$orgSlug/': typeof RegisterOrgSlugIndexRoute
   '/rental/$token/': typeof RentalTokenIndexRoute
   '/u/$token/': typeof UTokenIndexRoute
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
     | '/expense/$token/'
     | '/form/$orgSlug'
     | '/nda/$token'
+    | '/pay/$payToken'
     | '/register/$orgSlug'
     | '/rental/$token/'
     | '/u/$token/'
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/expense/$token'
     | '/form/$orgSlug'
     | '/nda/$token'
+    | '/pay/$payToken'
     | '/register/$orgSlug'
     | '/rental/$token'
     | '/u/$token'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/expense/$token/'
     | '/form/$orgSlug/'
     | '/nda/$token/'
+    | '/pay/$payToken/'
     | '/register/$orgSlug/'
     | '/rental/$token/'
     | '/u/$token/'
@@ -261,6 +273,7 @@ export interface RootRouteChildren {
   DraftTokenIndexRoute: typeof DraftTokenIndexRoute
   FormOrgSlugIndexRoute: typeof FormOrgSlugIndexRoute
   NdaTokenIndexRoute: typeof NdaTokenIndexRoute
+  PayPayTokenIndexRoute: typeof PayPayTokenIndexRoute
   RegisterOrgSlugIndexRoute: typeof RegisterOrgSlugIndexRoute
   FormOrgSlugStaffSlugIndexRoute: typeof FormOrgSlugStaffSlugIndexRoute
   RegisterOrgSlugEventSlugIndexRoute: typeof RegisterOrgSlugEventSlugIndexRoute
@@ -329,6 +342,13 @@ declare module '@tanstack/react-router' {
       path: '/register/$orgSlug'
       fullPath: '/register/$orgSlug'
       preLoaderRoute: typeof RegisterOrgSlugIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pay/$payToken/': {
+      id: '/pay/$payToken/'
+      path: '/pay/$payToken'
+      fullPath: '/pay/$payToken'
+      preLoaderRoute: typeof PayPayTokenIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/nda/$token/': {
@@ -466,6 +486,7 @@ const rootRouteChildren: RootRouteChildren = {
   DraftTokenIndexRoute: DraftTokenIndexRoute,
   FormOrgSlugIndexRoute: FormOrgSlugIndexRoute,
   NdaTokenIndexRoute: NdaTokenIndexRoute,
+  PayPayTokenIndexRoute: PayPayTokenIndexRoute,
   RegisterOrgSlugIndexRoute: RegisterOrgSlugIndexRoute,
   FormOrgSlugStaffSlugIndexRoute: FormOrgSlugStaffSlugIndexRoute,
   RegisterOrgSlugEventSlugIndexRoute: RegisterOrgSlugEventSlugIndexRoute,

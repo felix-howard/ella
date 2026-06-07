@@ -76,6 +76,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/schedule-c/:token` - Schedule C expense form (magic link auth)
 - `/schedule-e/:token` - Schedule E rental form (magic link auth)
 - `/draft/:token` - Draft tax return viewer (magic link, public, Phase 03)
+- `/pay/:payToken` - Public payment page for checkout (React/TanStack Router, Phase 04)
 
 **Send Upload Link (Phase 15 - Business Entity Separation Smart Routing):**
 - `POST /clients/:id/send-upload-link` sends SMS with upload portal link to client (or their designated recipient)

@@ -82,7 +82,9 @@ function getErrorCode(data: unknown, fallbackCode: string): string {
   return fallbackCode
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+// Exported for sibling API modules (e.g. payment-api.ts) so they share the
+// same error mapping without growing this file further.
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${path}`
 
   try {

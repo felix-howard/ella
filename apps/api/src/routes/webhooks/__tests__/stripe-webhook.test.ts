@@ -14,6 +14,10 @@ const prismaMocks = vi.hoisted(() => ({
     findUnique: vi.fn(),
     updateMany: vi.fn(),
   },
+  payment: {
+    findUnique: vi.fn(),
+    updateMany: vi.fn(),
+  },
   $transaction: vi.fn(),
 }))
 
@@ -25,14 +29,24 @@ vi.mock('stripe', () => ({
   },
 }))
 
-vi.mock('../../../lib/config', () => ({
-  config: {
-    stripe: {
-      secretKey: 'sk_test_mock',
-      webhookSecret: 'whsec_test_mock',
+// Spread the real config so transitively imported modules (lib/constants,
+// services pulled in via the deposit-payment webhook path) keep their
+// defaults; only Stripe keys are overridden for signature verification.
+vi.mock('../../../lib/config', async (importOriginal) => {
+  const actual = (await importOriginal()) as {
+    config: { stripe: Record<string, unknown> } & Record<string, unknown>
+  }
+  return {
+    config: {
+      ...actual.config,
+      stripe: {
+        ...actual.config.stripe,
+        secretKey: 'sk_test_mock',
+        webhookSecret: 'whsec_test_mock',
+      },
     },
-  },
-}))
+  }
+})
 
 vi.mock('../../../lib/db', () => ({
   prisma: prismaMocks,
@@ -450,6 +464,52 @@ describe('Stripe webhook route', () => {
       }),
       data: expect.objectContaining({ status: 'invoice_paid' }),
     })
+  })
+
+  it('routes payToken checkout sessions to the deposit flow, not the quote flow', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    stripeMocks.constructEvent.mockReturnValueOnce(
+      stripeEvent(
+        'checkout.session.completed',
+        checkoutSession({
+          mode: 'payment',
+          metadata: { payToken: 'tok_deposit_abc', paymentId: 'pay_1' },
+        })
+      )
+    )
+    // Unknown payToken → deposit handler logs and ignores, never touches quotes.
+    prismaMocks.payment.findUnique.mockResolvedValueOnce(null)
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(200)
+    expect(prismaMocks.payment.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { payToken: 'tok_deposit_abc' } })
+    )
+    expect(prismaMocks.payment.updateMany).not.toHaveBeenCalled()
+    expect(prismaMocks.stripeCheckoutSession.updateMany).not.toHaveBeenCalled()
+    expect(prismaMocks.paymentQuote.updateMany).not.toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
+
+  it('defers unpaid deposit checkout completion to the async-success event', async () => {
+    stripeMocks.constructEvent.mockReturnValueOnce(
+      stripeEvent(
+        'checkout.session.completed',
+        checkoutSession({
+          mode: 'payment',
+          payment_status: 'unpaid',
+          metadata: { payToken: 'tok_deposit_abc' },
+        })
+      )
+    )
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(200)
+    // Fulfillment waits for checkout.session.async_payment_succeeded.
+    expect(prismaMocks.payment.findUnique).not.toHaveBeenCalled()
+    expect(prismaMocks.paymentQuote.updateMany).not.toHaveBeenCalled()
   })
 
   it('skips duplicate completed checkout events', async () => {

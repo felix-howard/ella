@@ -144,6 +144,7 @@ async function logClientMutation(
     summary: string
     action: string
     riskLevel?: ActivityRiskLevel
+    coalesceKey?: string
     metadata?: Record<string, unknown>
   }
 ) {
@@ -161,6 +162,7 @@ async function logClientMutation(
     summary: input.summary,
     action: input.action,
     riskLevel: input.riskLevel ?? ActivityRiskLevel.LOW,
+    coalesceKey: input.coalesceKey,
     metadata: input.metadata,
     request: getAuditRequestContext(c),
   })
@@ -1843,6 +1845,8 @@ clientsRoute.patch(
       summary: 'Changed client manager',
       action: ACTIVITY_ACTIONS.CLIENT.MANAGER_CHANGED,
       riskLevel: ActivityRiskLevel.MEDIUM,
+      // Coalesce rapid checkbox toggles in the manager multi-select into one activity entry
+      coalesceKey: `client-manager-changed:${id}`,
       metadata: {
         changedFields: ['managedById', 'managedByStaff'],
         managedById: staffIds[0] ?? null,

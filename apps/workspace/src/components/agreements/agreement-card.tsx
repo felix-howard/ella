@@ -10,6 +10,7 @@ import { Copy, RefreshCw, FileText, Loader2, Pencil, Clock } from 'lucide-react'
 import { useResendAgreement, agreementsApi } from './use-agreement-mutations'
 import { UpdateDepositPanel } from './update-deposit-panel'
 import { NdaReadonlyCard } from './agreement-readonly-card'
+import { ResendPaymentLinkButton } from './resend-payment-link-button'
 import { AgreementExtendModal } from './agreement-extend-modal'
 import { getExpiryStatus } from './agreement-expiry'
 import { toast } from '../../stores/toast-store'
@@ -63,6 +64,9 @@ export function NdaCard({ entity, nda }: Props) {
     nda.status !== 'SIGNED' && nda.status !== 'VOIDED' && !!nda.expiresAt
   // Hide deposit editor for agreements that opted out of deposit at send time.
   const canEditDeposit = nda.depositStatus !== null
+  // Signed but deposit still unpaid → staff can re-SMS the portal pay link.
+  const canResendPaymentLink =
+    entity.type === 'client' && nda.status === 'SIGNED' && nda.depositStatus === 'PENDING'
 
   // Soon/expired states promote Extend to a primary visual treatment so it
   // grabs the staff member's attention on the busiest cards.
@@ -71,7 +75,8 @@ export function NdaCard({ entity, nda }: Props) {
 
   // View PDF rendered here (not via shared card) so it lines up with the
   // other entity-page actions on a single flex row.
-  const hasActions = canCopyOrResend || canExtend || canViewPdf || canEditDeposit
+  const hasActions =
+    canCopyOrResend || canExtend || canViewPdf || canEditDeposit || canResendPaymentLink
 
   return (
     <div className="rounded-xl border border-border/60 bg-card p-4 shadow-sm transition-colors hover:border-border">
@@ -134,6 +139,7 @@ export function NdaCard({ entity, nda }: Props) {
               {t('nda.card.viewPdf')}
             </button>
           )}
+          {canResendPaymentLink && <ResendPaymentLinkButton entity={entity} nda={nda} />}
           {canEditDeposit && (
             <button
               type="button"

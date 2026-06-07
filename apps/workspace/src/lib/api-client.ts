@@ -440,6 +440,19 @@ export const api = {
         }
         return response.blob()
       },
+
+      // Re-SMS the portal pay link for the agreement's PENDING deposit Payment.
+      resendPaymentLink: (clientId: string, agreementId: string) =>
+        request<{ success: boolean; data: { payUrl: string } }>(
+          `/clients/${clientId}/agreements/${agreementId}/resend-payment-link`,
+          { method: 'POST', retries: 0 }, // no retry — avoid duplicate SMS
+        ),
+    },
+
+    // Client payments — powers the client profile Payments tab + Overview card
+    payments: {
+      list: (clientId: string) =>
+        request<{ success: boolean; data: ClientPayment[] }>(`/clients/${clientId}/payments`),
     },
 
   },
@@ -1772,6 +1785,25 @@ export interface Agreement {
 /** Legacy alias — use `Agreement`. Some shared components still receive
  * NDA-typed rows where `depositStatus` is non-null in practice. */
 export type NdaAgreement = Agreement & { depositStatus: DepositStatus }
+
+// Client payments (deposit collected after agreement signing, etc.)
+export type PaymentType = 'DEPOSIT' | 'BALANCE' | 'OTHER'
+export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'CANCELED'
+
+export interface ClientPayment {
+  id: string
+  type: PaymentType
+  status: PaymentStatus
+  /** Decimal serialized as string, e.g. "500.00" */
+  amount: string
+  currency: string
+  description: string | null
+  paidAt: string | null
+  createdAt: string
+  agreement: { id: string; title: string } | null
+  /** Public portal pay page URL for this payment's payToken */
+  payUrl: string
+}
 
 export interface CreateAgreementPayload {
   type?: AgreementType
@@ -3353,6 +3385,10 @@ export interface StaffProfile {
   title: string | null
   notifyOnUpload: boolean
   notifyOnChat: boolean
+  /** ADMIN-only: SMS when a client signs an agreement */
+  notifyOnAgreementSigned: boolean
+  /** ADMIN-only: SMS when a client completes a payment */
+  notifyOnClientPayment: boolean
   formSlug: string | null
   autoSendUploadLink: boolean
   defaultUploadLinkTemplateId: UploadLinkTemplateId | null
@@ -3394,6 +3430,9 @@ export interface UpdateStaffProfileInput {
   title?: string | null
   notifyOnUpload?: boolean
   notifyOnChat?: boolean
+  /** ADMIN-only — server rejects for non-ADMIN staff */
+  notifyOnAgreementSigned?: boolean
+  notifyOnClientPayment?: boolean
 }
 
 export interface ContractorAgreementStatus {

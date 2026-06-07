@@ -1,19 +1,47 @@
 /**
  * Settings Notifications Tab - Notification preferences for current user
- * Always editable - toggles and checkboxes auto-save on change
+ * Always editable - toggles and checkboxes auto-save on change.
+ * Agreement-signed + client-payment SMS toggles are ADMIN-only (server
+ * rejects them for other roles too).
  */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Bell } from 'lucide-react'
 import { Card, Switch } from '@ella/ui'
 import { NotificationSubscriptions } from '../profile/notification-subscriptions'
 import { ChatMonitorSubscriptions } from '../profile/chat-monitor-subscriptions'
 import { api } from '../../lib/api-client'
-import { toast } from '../../stores/toast-store'
+import { useNotifyPrefMutation, type NotifyPrefField } from './use-notify-pref-mutation'
+
+function NotifyToggleRow({
+  field,
+  checked,
+  labelKey,
+  descKey,
+  onToggle,
+}: {
+  field: NotifyPrefField
+  checked: boolean
+  labelKey: string
+  descKey: string
+  onToggle: (checked: boolean) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex-1 pr-4">
+        <label htmlFor={field} className="text-sm font-medium text-foreground">
+          {t(labelKey)}
+        </label>
+        <p className="text-sm text-muted-foreground">{t(descKey)}</p>
+      </div>
+      <Switch id={field} checked={checked} onCheckedChange={onToggle} />
+    </div>
+  )
+}
 
 export function SettingsNotificationsTab() {
   const { t } = useTranslation()
-  const queryClient = useQueryClient()
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['team-member-profile', 'me'],
@@ -22,67 +50,10 @@ export function SettingsNotificationsTab() {
 
   const staff = data?.staff
 
-  const profileQueryKey = ['team-member-profile', 'me']
-
-  const updateUploadMutation = useMutation({
-    mutationFn: (notifyOnUpload: boolean) =>
-      api.team.updateProfile('me', {
-        firstName: staff!.firstName,
-        lastName: staff!.lastName,
-        phoneNumber: staff!.phoneNumber || null,
-        notifyOnUpload,
-      }),
-    onMutate: async (notifyOnUpload) => {
-      await queryClient.cancelQueries({ queryKey: profileQueryKey })
-      const previous = queryClient.getQueryData(profileQueryKey)
-      queryClient.setQueryData(profileQueryKey, (old: Record<string, unknown>) =>
-        old ? { ...old, staff: { ...(old.staff as Record<string, unknown>), notifyOnUpload } } : old
-      )
-      return { previous }
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(profileQueryKey, context.previous)
-      toast.error(t('profile.updateError'))
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: profileQueryKey })
-      queryClient.invalidateQueries({ queryKey: ['staff-me'] })
-    },
-  })
-
-  const updateChatMutation = useMutation({
-    mutationFn: (notifyOnChat: boolean) =>
-      api.team.updateProfile('me', {
-        firstName: staff!.firstName,
-        lastName: staff!.lastName,
-        phoneNumber: staff!.phoneNumber || null,
-        notifyOnChat,
-      }),
-    onMutate: async (notifyOnChat) => {
-      await queryClient.cancelQueries({ queryKey: profileQueryKey })
-      const previous = queryClient.getQueryData(profileQueryKey)
-      queryClient.setQueryData(profileQueryKey, (old: Record<string, unknown>) =>
-        old ? { ...old, staff: { ...(old.staff as Record<string, unknown>), notifyOnChat } } : old
-      )
-      return { previous }
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(profileQueryKey, context.previous)
-      toast.error(t('profile.updateError'))
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: profileQueryKey })
-      queryClient.invalidateQueries({ queryKey: ['staff-me'] })
-    },
-  })
-
-  const handleToggleNotifyOnUpload = (checked: boolean) => {
-    updateUploadMutation.mutate(checked)
-  }
-
-  const handleToggleNotifyOnChat = (checked: boolean) => {
-    updateChatMutation.mutate(checked)
-  }
+  const uploadMutation = useNotifyPrefMutation(staff, 'notifyOnUpload')
+  const chatMutation = useNotifyPrefMutation(staff, 'notifyOnChat')
+  const agreementSignedMutation = useNotifyPrefMutation(staff, 'notifyOnAgreementSigned')
+  const clientPaymentMutation = useNotifyPrefMutation(staff, 'notifyOnClientPayment')
 
   if (isLoading) {
     return (
@@ -103,6 +74,8 @@ export function SettingsNotificationsTab() {
     )
   }
 
+  const isAdmin = staff.role === 'ADMIN'
+
   return (
     <div className="space-y-4">
       <Card className="overflow-hidden">
@@ -113,22 +86,13 @@ export function SettingsNotificationsTab() {
         </div>
 
         <div className="p-6 space-y-4">
-          {/* Notify on Upload Toggle */}
-          <div className="flex items-center justify-between">
-            <div className="flex-1 pr-4">
-              <label htmlFor="notifyOnUpload" className="text-sm font-medium text-foreground">
-                {t('profile.notifyOnUpload')}
-              </label>
-              <p className="text-sm text-muted-foreground">
-                {t('profile.notifyOnUploadDesc')}
-              </p>
-            </div>
-            <Switch
-              id="notifyOnUpload"
-              checked={staff.notifyOnUpload}
-              onCheckedChange={handleToggleNotifyOnUpload}
-            />
-          </div>
+          <NotifyToggleRow
+            field="notifyOnUpload"
+            checked={staff.notifyOnUpload}
+            labelKey="profile.notifyOnUpload"
+            descKey="profile.notifyOnUploadDesc"
+            onToggle={(checked) => uploadMutation.mutate(checked)}
+          />
 
           {/* Phone required hint */}
           {!staff.phoneNumber && (
@@ -138,32 +102,41 @@ export function SettingsNotificationsTab() {
           )}
 
           {/* Admin: subscribe to other members' client upload notifications */}
-          {staff.role === 'ADMIN' && (
-            <NotificationSubscriptions staffId="me" isEditing />
-          )}
+          {isAdmin && <NotificationSubscriptions staffId="me" isEditing />}
 
           {/* Chat Monitoring - Admin only */}
-          {staff.role === 'ADMIN' && (
+          {isAdmin && (
             <>
               <div className="border-t border-border my-4" />
-              <div className="flex items-center justify-between">
-                <div className="flex-1 pr-4">
-                  <label htmlFor="notifyOnChat" className="text-sm font-medium text-foreground">
-                    {t('profile.notifyOnChat')}
-                  </label>
-                  <p className="text-sm text-muted-foreground">
-                    {t('profile.notifyOnChatDesc')}
-                  </p>
-                </div>
-                <Switch
-                  id="notifyOnChat"
-                  checked={staff.notifyOnChat}
-                  onCheckedChange={handleToggleNotifyOnChat}
-                />
-              </div>
-              {staff.notifyOnChat && (
-                <ChatMonitorSubscriptions staffId="me" isEditing />
-              )}
+              <NotifyToggleRow
+                field="notifyOnChat"
+                checked={staff.notifyOnChat}
+                labelKey="profile.notifyOnChat"
+                descKey="profile.notifyOnChatDesc"
+                onToggle={(checked) => chatMutation.mutate(checked)}
+              />
+              {staff.notifyOnChat && <ChatMonitorSubscriptions staffId="me" isEditing />}
+            </>
+          )}
+
+          {/* Agreements & Payments - Admin only (MANAGER/MEMBER never see these) */}
+          {isAdmin && (
+            <>
+              <div className="border-t border-border my-4" />
+              <NotifyToggleRow
+                field="notifyOnAgreementSigned"
+                checked={staff.notifyOnAgreementSigned}
+                labelKey="profile.notifyOnAgreementSigned"
+                descKey="profile.notifyOnAgreementSignedDesc"
+                onToggle={(checked) => agreementSignedMutation.mutate(checked)}
+              />
+              <NotifyToggleRow
+                field="notifyOnClientPayment"
+                checked={staff.notifyOnClientPayment}
+                labelKey="profile.notifyOnClientPayment"
+                descKey="profile.notifyOnClientPaymentDesc"
+                onToggle={(checked) => clientPaymentMutation.mutate(checked)}
+              />
             </>
           )}
         </div>

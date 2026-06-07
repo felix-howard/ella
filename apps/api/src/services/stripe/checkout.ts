@@ -115,7 +115,8 @@ async function createStripeSession(
   }
 }
 
-function isUnsafeProductionReturnUrl(url: string): boolean {
+/** Shared with the deposit checkout flow, which derives its own return URLs from PORTAL_URL. */
+export function isUnsafeProductionReturnUrl(url: string): boolean {
   try {
     const parsed = new URL(url)
     const hostname = parsed.hostname.toLowerCase()

@@ -70,6 +70,7 @@ import {
 } from '../../services/activity-actions'
 import { clientsAgreementsRoute } from './agreements'
 import { clientsAgreementsStaffRoute } from './agreements-staff'
+import { clientsPaymentsStaffRoute } from './payments-staff'
 import {
   IDENTITY_RETENTION_DELETE_IN_PROGRESS_REASON,
   IDENTITY_RETENTION_POLICY,
@@ -124,6 +125,7 @@ function summarizeIdentityRetention(
 // and the POST/PATCH mutations here coexist without collision.
 clientsRoute.route('/', clientsAgreementsRoute)
 clientsRoute.route('/', clientsAgreementsStaffRoute)
+clientsRoute.route('/', clientsPaymentsStaffRoute)
 
 /**
  * Compute display name from firstName and lastName

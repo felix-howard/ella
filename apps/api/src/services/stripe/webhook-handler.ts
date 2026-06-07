@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import { config } from '../../lib/config'
 import { prisma } from '../../lib/db'
+import { markDepositPaymentPaid } from '../payments/deposit-checkout-service'
 
 type StripeEventType =
   | 'checkout.session.completed'
@@ -32,29 +33,51 @@ export function constructStripeWebhookEvent(rawBody: string, signature: string):
   return getStripeClient().webhooks.constructEvent(rawBody, signature, config.stripe.webhookSecret)
 }
 
+/**
+ * Deposit-payment checkout sessions (portal pay page) carry `metadata.payToken`
+ * — the discriminator that keeps them out of the PaymentQuote flow below.
+ */
+function isDepositPaymentSession(session: Stripe.Checkout.Session): boolean {
+  return Boolean(session.metadata?.payToken)
+}
+
+async function handleDepositCheckoutSession(
+  session: Stripe.Checkout.Session,
+  fulfillment: CheckoutFulfillment,
+  event: StripeEventCursor
+): Promise<void> {
+  if (fulfillment === 'failed') {
+    // Payment stays PENDING — the client can retry with the same pay link.
+    console.warn(`[StripeWebhook] Deposit async payment failed for session=${session.id}`)
+    return
+  }
+  // 'completed' with a non-paid status means an async method is still
+  // processing — fulfillment arrives later via async_payment_succeeded.
+  if (fulfillment === 'completed' && session.payment_status !== 'paid') return
+
+  await markDepositPaymentPaid(session, event.at)
+}
+
 export async function handleStripeWebhookEvent(event: Stripe.Event): Promise<StripeWebhookResult> {
   switch (event.type as StripeEventType) {
     case 'checkout.session.completed':
-      await handleCheckoutSession(
-        event.data.object as Stripe.Checkout.Session,
-        'completed',
-        getEventCursor(event)
-      )
-      break
     case 'checkout.session.async_payment_succeeded':
-      await handleCheckoutSession(
-        event.data.object as Stripe.Checkout.Session,
-        'settled',
-        getEventCursor(event)
-      )
+    case 'checkout.session.async_payment_failed': {
+      const session = event.data.object as Stripe.Checkout.Session
+      const fulfillment: CheckoutFulfillment =
+        event.type === 'checkout.session.completed'
+          ? 'completed'
+          : event.type === 'checkout.session.async_payment_succeeded'
+            ? 'settled'
+            : 'failed'
+
+      if (isDepositPaymentSession(session)) {
+        await handleDepositCheckoutSession(session, fulfillment, getEventCursor(event))
+      } else {
+        await handleCheckoutSession(session, fulfillment, getEventCursor(event))
+      }
       break
-    case 'checkout.session.async_payment_failed':
-      await handleCheckoutSession(
-        event.data.object as Stripe.Checkout.Session,
-        'failed',
-        getEventCursor(event)
-      )
-      break
+    }
     case 'invoice.paid':
       await updateQuoteBySubscription(
         event.data.object,

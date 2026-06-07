@@ -22,6 +22,11 @@ import { generateSignedPdf } from './pdf-generator'
 import { getTemplate } from '../../lib/agreements/template-registry'
 import type { TemplateSection } from '../../lib/agreements/types'
 import { composeAddressLine, composeContactLine, resolveClientNameOrBusiness } from './entity-loader'
+import {
+  notifyAdminsAgreementSigned,
+  type PostSignAgreementContext,
+} from './agreement-post-sign-notifications'
+import { createDepositPaymentForAgreement } from '../payments/deposit-payment-service'
 
 const DOWNLOAD_TTL_SECONDS = 900 // 15 min
 const VIEW_PRESIGN_TTL_SECONDS = 900 // 15 min
@@ -469,12 +474,47 @@ export async function signAgreement(input: SignAgreementInput) {
     throw new HTTPException(409, { message: 'Agreement was already signed' })
   }
 
+  // Post-commit side effects (admin SMS, deposit Payment + client pay link).
+  // Fire-and-forget: must NEVER fail or delay the signing response.
+  runPostSignSideEffects({
+    id: agreement.id,
+    organizationId: agreement.organizationId,
+    orgName: agreement.organization.name,
+    title: agreement.title,
+    createdByUserId: agreement.createdByUserId,
+    leadId: agreement.leadId,
+    clientId: agreement.clientId,
+    depositAmount: agreement.depositAmount,
+    depositStatus: agreement.depositStatus,
+    signer: agreement.signer,
+  })
+
   const downloadUrl = await getSignedDownloadUrl(signedPdfKey, DOWNLOAD_TTL_SECONDS)
   return {
     status: 'SIGNED' as const,
     signedAt,
     downloadUrl,
   }
+}
+
+/**
+ * Post-sign side effects, fired AFTER the signing transaction commits. Each
+ * step is independently caught + logged — a Twilio outage or payment-create
+ * failure never breaks the signing response.
+ */
+function runPostSignSideEffects(ctx: PostSignAgreementContext): void {
+  notifyAdminsAgreementSigned(ctx).catch((err) => {
+    console.error(
+      `[Agreement] Post-sign admin notification failed for agreement=${ctx.id}:`,
+      err,
+    )
+  })
+  createDepositPaymentForAgreement(ctx).catch((err) => {
+    console.error(
+      `[Agreement] Post-sign deposit payment hook failed for agreement=${ctx.id}:`,
+      err,
+    )
+  })
 }
 
 /** Legacy alias retained for transitional callers + tests. */

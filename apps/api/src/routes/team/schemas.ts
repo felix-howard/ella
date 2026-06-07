@@ -42,6 +42,9 @@ export const updateProfileSchema = z.object({
   // Notification preferences
   notifyOnUpload: z.boolean().optional(),
   notifyOnChat: z.boolean().optional(),
+  // ADMIN-only preferences — handler rejects when target staff is not ADMIN
+  notifyOnAgreementSigned: z.boolean().optional(),
+  notifyOnClientPayment: z.boolean().optional(),
 })
 
 // Notification subscriptions update

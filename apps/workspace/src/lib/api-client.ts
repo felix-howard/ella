@@ -1158,7 +1158,7 @@ export const api = {
         id: string
         name: string
         email: string
-        role: string
+        role: StaffAppRole
         language: Language
         orgRole: string | null
         avatarUrl: string | null
@@ -1220,12 +1220,12 @@ export const api = {
         ...(opts?.includeArchived ? { params: { includeArchived: 'true' } } : {}),
       }),
 
-    invite: (data: { emailAddress: string; role?: string }) =>
+    invite: (data: { emailAddress: string; role?: AppRole }) =>
       request<{ success: boolean; invitation: { id: string; emailAddress: string; status: string } }>(
         '/team/invite', { method: 'POST', body: JSON.stringify(data) }
       ),
 
-    updateRole: (staffId: string, role: string) =>
+    updateRole: (staffId: string, role: AppRole) =>
       request<{ success: boolean }>(`/team/members/${staffId}/role`, {
         method: 'PATCH', body: JSON.stringify({ role }),
       }),
@@ -3305,6 +3305,16 @@ export type UploadLinkTemplateId = 'official-channel' | 'tax-documents'
 /** Organization role values from Clerk */
 export type OrgRole = 'org:admin' | 'org:member'
 
+/** DB-level Staff.role values (source of truth for app permissions) */
+export type StaffAppRole = 'ADMIN' | 'MANAGER' | 'STAFF' | 'CPA'
+
+/**
+ * App-level roles accepted by team invite/role-change endpoints.
+ * Server maps: ADMIN -> org:admin + Staff.role=ADMIN,
+ * MANAGER -> org:member + Staff.role=MANAGER, MEMBER -> org:member + Staff.role=STAFF
+ */
+export type AppRole = 'ADMIN' | 'MANAGER' | 'MEMBER'
+
 export interface TeamMember {
   id: string
   clerkId: string
@@ -3323,6 +3333,8 @@ export interface TeamInvitation {
   id: string
   emailAddress: string
   role: OrgRole
+  /** Intended Staff.role carried in invitation metadata (distinguishes MANAGER invites) */
+  staffRole: 'ADMIN' | 'MANAGER' | 'STAFF'
   status: string
   createdAt: number
 }

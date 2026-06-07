@@ -31,11 +31,11 @@ export function ChatboxHeader({
   className,
 }: ChatboxHeaderProps) {
   const { t } = useTranslation()
-  const { isAdmin } = useOrgRole()
+  const { canViewPhone } = useOrgRole()
   const avatarColor = getAvatarColor(title)
 
   const displaySubtitle =
-    subtitle ?? (phone ? (isAdmin ? formatPhone(phone) : maskPhone(phone)) : undefined)
+    subtitle ?? (phone ? (canViewPhone ? formatPhone(phone) : maskPhone(phone)) : undefined)
 
   return (
     <div

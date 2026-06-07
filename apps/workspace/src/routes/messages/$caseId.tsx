@@ -27,7 +27,7 @@ const FALLBACK_POLLING_INTERVAL = 60000
 
 function ConversationDetailView() {
   const { t } = useTranslation()
-  const { isAdmin } = useOrgRole()
+  const { canViewPhone } = useOrgRole()
   const { caseId } = Route.useParams()
   const queryClient = useQueryClient()
   const [messages, setMessages] = useState<Message[]>([])
@@ -235,7 +235,7 @@ function ConversationDetailView() {
                       </h1>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-0.5">
-                      <span>{isAdmin ? formatPhone(caseData.client.phone) : maskPhone(caseData.client.phone)}</span>
+                      <span>{canViewPhone ? formatPhone(caseData.client.phone) : maskPhone(caseData.client.phone)}</span>
                     </div>
                   </div>
                 </Link>
@@ -293,7 +293,7 @@ function ConversationDetailView() {
           isMuted={voiceState.isMuted}
           duration={voiceState.duration}
           clientName={caseData.client.name}
-          clientPhone={isAdmin ? formatPhone(caseData.client.phone) : maskPhone(caseData.client.phone)}
+          clientPhone={canViewPhone ? formatPhone(caseData.client.phone) : maskPhone(caseData.client.phone)}
           error={voiceState.error}
           onEndCall={voiceActions.endCall}
           onToggleMute={voiceActions.toggleMute}

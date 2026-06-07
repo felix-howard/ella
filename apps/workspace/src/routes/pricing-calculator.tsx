@@ -9,12 +9,12 @@ export const Route = createFileRoute('/pricing-calculator')({
 
 function PricingCalculatorPage() {
   const navigate = useNavigate()
-  const { isAdmin, isLoading, isError } = useOrgRole()
+  const { canManageClients, isLoading, isError } = useOrgRole()
 
   return (
     <PageContainer>
       <PricingCalculatorShell
-        isAdmin={isAdmin}
+        canAccess={canManageClients}
         isLoading={isLoading}
         hasRoleError={isError}
         onBackToDashboard={() => navigate({ to: '/' })}

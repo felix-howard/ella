@@ -82,9 +82,11 @@ const MemberRow = memo(function MemberRow({ member, isLast, isArchived }: Member
   const isAdmin = member.role === 'ADMIN'
   const roleLabel = member.role === 'ADMIN'
     ? t('team.admin')
-    : member.role === 'CPA'
-      ? t('team.cpa', 'CPA')
-      : t('team.member')
+    : member.role === 'MANAGER'
+      ? t('team.manager')
+      : member.role === 'CPA'
+        ? t('team.cpa', 'CPA')
+        : t('team.member')
 
   const handleRowClick = () => {
     navigate({ to: '/team/profile/$staffId', params: { staffId: member.id } })

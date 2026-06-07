@@ -15,11 +15,18 @@ const BASE_NAV_ITEMS = [
   { path: '/messages', i18nKey: 'nav.messages', icon: MessageSquare },
 ] as const satisfies readonly NavItem[]
 
-const ADMIN_NAV_ITEMS = [
+// Visible to ADMIN + MANAGER (client/lead management tier)
+const MANAGEMENT_NAV_ITEMS = [
   { path: '/leads', i18nKey: 'nav.leads', icon: Megaphone },
   { path: '/pricing-calculator', i18nKey: 'nav.pricingCalculator', icon: Calculator },
-  { path: '/team', i18nKey: 'nav.team', icon: UsersRound },
 ] as const satisfies readonly NavItem[]
+
+// Visible to ADMIN only (team management stays admin-gated)
+const TEAM_NAV_ITEM = {
+  path: '/team',
+  i18nKey: 'nav.team',
+  icon: UsersRound,
+} as const satisfies NavItem
 
 const SETTINGS_NAV_ITEM = {
   path: '/settings',
@@ -27,10 +34,14 @@ const SETTINGS_NAV_ITEM = {
   icon: Settings,
 } as const satisfies NavItem
 
-export function getSidebarNavItems(isAdmin: boolean): NavItem[] {
+export function getSidebarNavItems(flags: {
+  canManageClients: boolean
+  canManageTeam: boolean
+}): NavItem[] {
   return [
     ...BASE_NAV_ITEMS,
-    ...(isAdmin ? ADMIN_NAV_ITEMS : []),
+    ...(flags.canManageClients ? MANAGEMENT_NAV_ITEMS : []),
+    ...(flags.canManageTeam ? [TEAM_NAV_ITEM] : []),
     SETTINGS_NAV_ITEM,
   ]
 }

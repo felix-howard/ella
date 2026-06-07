@@ -107,7 +107,7 @@ function DisplayInfo({
   onEdit: () => void
 }) {
   const { t } = useTranslation()
-  const { isAdmin } = useOrgRole()
+  const { canViewPhone } = useOrgRole()
 
   return (
     <div className="space-y-3">
@@ -127,7 +127,7 @@ function DisplayInfo({
       <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <Phone className="w-4 h-4" />
-          {isAdmin ? formatPhone(client.phone) : maskPhone(client.phone)}
+          {canViewPhone ? formatPhone(client.phone) : maskPhone(client.phone)}
         </span>
         {client.email && (
           <span className="flex items-center gap-1.5">

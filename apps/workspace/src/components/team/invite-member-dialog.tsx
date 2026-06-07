@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { Modal, ModalHeader, ModalTitle, ModalBody, ModalFooter, Button, Input, Select } from '@ella/ui'
-import { api, type OrgRole } from '../../lib/api-client'
+import { api, type AppRole } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 
 interface InviteMemberDialogProps {
@@ -19,7 +19,7 @@ export function InviteMemberDialog({ isOpen, onClose }: InviteMemberDialogProps)
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<OrgRole>('org:member')
+  const [role, setRole] = useState<AppRole>('MEMBER')
 
   const inviteMutation = useMutation({
     mutationFn: () => api.team.invite({ emailAddress: email, role }),
@@ -35,7 +35,7 @@ export function InviteMemberDialog({ isOpen, onClose }: InviteMemberDialogProps)
 
   const handleClose = () => {
     setEmail('')
-    setRole('org:member')
+    setRole('MEMBER')
     onClose()
   }
 
@@ -67,9 +67,10 @@ export function InviteMemberDialog({ isOpen, onClose }: InviteMemberDialogProps)
           </div>
           <div>
             <label htmlFor="invite-role" className="block text-sm font-medium text-foreground mb-1.5">{t('team.inviteRole')}</label>
-            <Select id="invite-role" value={role} onChange={(e) => setRole(e.target.value as OrgRole)} aria-label={t('team.inviteRole')}>
-              <option value="org:member">{t('team.member')}</option>
-              <option value="org:admin">{t('team.admin')}</option>
+            <Select id="invite-role" value={role} onChange={(e) => setRole(e.target.value as AppRole)} aria-label={t('team.inviteRole')}>
+              <option value="MEMBER">{t('team.member')}</option>
+              <option value="MANAGER">{t('team.manager')}</option>
+              <option value="ADMIN">{t('team.admin')}</option>
             </Select>
           </div>
         </ModalBody>

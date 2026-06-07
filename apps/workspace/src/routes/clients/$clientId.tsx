@@ -147,7 +147,7 @@ function ClientDetailPage() {
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
-  const { isAdmin } = useOrgRole()
+  const { canViewPhone, canManageClients } = useOrgRole()
   // Multi-year engagement state
   const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null)
   const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)
@@ -808,7 +808,7 @@ function ClientDetailPage() {
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[13px] text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Phone className="w-3.5 h-3.5" aria-hidden="true" />
-                    {isAdmin ? formatPhone(client.phone) : maskPhone(client.phone)}
+                    {canViewPhone ? formatPhone(client.phone) : maskPhone(client.phone)}
                   </span>
                   {client.email && (
                     <span className="flex items-center gap-1">
@@ -1037,7 +1037,7 @@ function ClientDetailPage() {
             phone: client.phone,
           }}
           enabled={true}
-          canSend={isAdmin}
+          canSend={canManageClients}
         />
       )}
 

@@ -13,7 +13,7 @@ import { ProfileForm } from '../../../components/profile/profile-form'
 import { AssignedClientsList } from '../../../components/profile/assigned-clients-list'
 import { AvatarUploader } from '../../../components/profile/avatar-uploader'
 import { StaffFormLinkCard } from '../../../components/profile/staff-form-link-card'
-import { api } from '../../../lib/api-client'
+import { api, type AppRole } from '../../../lib/api-client'
 import { toast } from '../../../stores/toast-store'
 import { useOrgRole } from '../../../hooks/use-org-role'
 
@@ -24,7 +24,7 @@ export const Route = createFileRoute('/team/profile/$staffId')({
 function ProfilePage() {
   const { t } = useTranslation()
   const { staffId } = Route.useParams()
-  const { isAdmin: isCurrentUserAdmin, staffId: currentUserStaffId } = useOrgRole()
+  const { canManageTeam, staffId: currentUserStaffId } = useOrgRole()
   const queryClient = useQueryClient()
 
   const {
@@ -41,9 +41,9 @@ function ProfilePage() {
     queryFn: () => api.orgSettings.get(),
   })
 
-  // Role change mutation
+  // Role change mutation (app-level role: ADMIN | MANAGER | MEMBER)
   const roleMutation = useMutation({
-    mutationFn: (newRole: 'org:admin' | 'org:member') =>
+    mutationFn: (newRole: AppRole) =>
       api.team.updateRole(staffId, newRole),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
@@ -106,16 +106,18 @@ function ProfilePage() {
   const { staff, managedClients, managedCount, canEdit } = data
 
   // Show role selector only if: admin, viewing other member, member is active
-  const canChangeRole = isCurrentUserAdmin && staffId !== currentUserStaffId && staff.isActive
+  const canChangeRole = canManageTeam && staffId !== currentUserStaffId && staff.isActive
   // Show archive/unarchive only if: admin, viewing other member
-  const canArchive = isCurrentUserAdmin && staffId !== currentUserStaffId
+  const canArchive = canManageTeam && staffId !== currentUserStaffId
   const isOwnProfile = staff.id === currentUserStaffId || staffId === 'me'
   const isArchived = !staff.isActive
   const roleLabel = staff.role === 'ADMIN'
     ? t('team.admin')
-    : staff.role === 'CPA'
-      ? t('team.cpa', 'CPA')
-      : t('team.member')
+    : staff.role === 'MANAGER'
+      ? t('team.manager')
+      : staff.role === 'CPA'
+        ? t('team.cpa', 'CPA')
+        : t('team.member')
 
   return (
     <PageContainer>
@@ -210,8 +212,8 @@ function ProfilePage() {
               await roleMutation.mutateAsync(role)
             }}
             isRoleChangePending={roleMutation.isPending}
-            canManageContractorAgent={isCurrentUserAdmin}
-            canViewContractorAgreement={isOwnProfile || isCurrentUserAdmin}
+            canManageContractorAgent={canManageTeam}
+            canViewContractorAgreement={isOwnProfile || canManageTeam}
             hideNotifications
           />
         </div>

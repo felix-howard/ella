@@ -32,7 +32,7 @@ export function Sidebar() {
   const { signOut } = useClerk()
   const { user } = useUser()
   const { state: voiceState } = useVoiceCallContext()
-  const { isAdmin, avatarUrl } = useOrgRole()
+  const { canManageClients, canManageTeam, avatarUrl } = useOrgRole()
   const { organization } = useOrganization()
   const isMobile = useIsMobile()
 
@@ -81,7 +81,7 @@ export function Sidebar() {
 
   useRealtimeMessages() // Subscribe to org message events for unread badge
 
-  const navItems = getSidebarNavItems(isAdmin)
+  const navItems = getSidebarNavItems({ canManageClients, canManageTeam })
 
   const userInitials = user?.firstName && user?.lastName
     ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()

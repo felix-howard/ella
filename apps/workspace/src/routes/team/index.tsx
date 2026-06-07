@@ -12,7 +12,7 @@ import { PageContainer } from '../../components/layout'
 import { TeamMemberTable } from '../../components/team/team-member-table'
 import { InviteMemberDialog } from '../../components/team/invite-member-dialog'
 import { useOrgRole } from '../../hooks/use-org-role'
-import { api } from '../../lib/api-client'
+import { api, type TeamInvitation } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 
 export const Route = createFileRoute('/team/')({
@@ -22,7 +22,7 @@ export const Route = createFileRoute('/team/')({
 function TeamPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { isAdmin, isLoading: isRoleLoading } = useOrgRole()
+  const { canManageTeam, isLoading: isRoleLoading } = useOrgRole()
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
 
@@ -34,14 +34,14 @@ function TeamPage() {
   } = useQuery({
     queryKey: ['team-members', { includeArchived: showArchived }],
     queryFn: () => api.team.listMembers({ includeArchived: showArchived }),
-    enabled: isAdmin,
+    enabled: canManageTeam,
   })
 
   // Fetch pending invitations
   const { data: invitationsData } = useQuery({
     queryKey: ['team-invitations'],
     queryFn: () => api.team.listInvitations(),
-    enabled: isAdmin,
+    enabled: canManageTeam,
   })
 
   const members = membersData?.data ?? []
@@ -59,8 +59,8 @@ function TeamPage() {
     )
   }
 
-  // Not admin - redirect or show message
-  if (!isAdmin) {
+  // Team management stays admin-only (MANAGER excluded)
+  if (!canManageTeam) {
     return (
       <PageContainer>
         <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -136,9 +136,17 @@ function TeamPage() {
 }
 
 /** Single pending invitation row with revoke action */
-function PendingInvitationRow({ invitation }: { invitation: { id: string; emailAddress: string; role: string; status: string } }) {
+function PendingInvitationRow({ invitation }: { invitation: TeamInvitation }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+
+  // Intended Staff.role from invitation metadata distinguishes Manager invites
+  const inviteRoleLabel =
+    invitation.staffRole === 'ADMIN' || invitation.role === 'org:admin'
+      ? t('team.admin')
+      : invitation.staffRole === 'MANAGER'
+        ? t('team.manager')
+        : t('team.member')
 
   const revokeMutation = useMutation({
     mutationFn: () => api.team.revokeInvitation(invitation.id),
@@ -157,7 +165,7 @@ function PendingInvitationRow({ invitation }: { invitation: { id: string; emailA
         <div>
           <p className="text-sm font-medium text-foreground">{invitation.emailAddress}</p>
           <p className="text-xs text-muted-foreground">
-            {invitation.role === 'org:admin' ? t('team.admin') : t('team.member')}
+            {inviteRoleLabel}
           </p>
         </div>
       </div>

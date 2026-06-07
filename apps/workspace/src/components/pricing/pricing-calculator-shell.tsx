@@ -4,14 +4,15 @@ import { Button } from '@ella/ui'
 import { PricingCalculatorPage } from './pricing-calculator-page'
 
 interface PricingCalculatorShellProps {
-  isAdmin: boolean
+  /** ADMIN + MANAGER can access the pricing calculator */
+  canAccess: boolean
   isLoading: boolean
   hasRoleError: boolean
   onBackToDashboard: () => void
 }
 
 export function PricingCalculatorShell({
-  isAdmin,
+  canAccess,
   isLoading,
   hasRoleError,
   onBackToDashboard,
@@ -40,7 +41,7 @@ export function PricingCalculatorShell({
     )
   }
 
-  if (!isAdmin) {
+  if (!canAccess) {
     return (
       <section className="flex flex-col items-center justify-center py-16 text-center">
         <ShieldAlert className="w-12 h-12 text-muted-foreground mb-4" />

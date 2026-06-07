@@ -2485,6 +2485,7 @@
   "team.inviteRole": "Role",
   "team.inviteSuccess": "Invitation sent",
   "team.managedBy": "Managers",
+  "team.manager": "Manager",
   "team.member": "Member",
   "team.members": "Members",
   "team.name": "Name",

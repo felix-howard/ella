@@ -19,6 +19,9 @@ export function maskPhone(phone: string): string {
  * Supports 10-digit and 11-digit (with country code) numbers
  */
 export function formatPhone(phone: string): string {
+  // Server-masked values (e.g. "*** *** 1234") pass through unchanged —
+  // stripping non-digits would garble them into a bare 4-digit string
+  if (phone.includes('*')) return phone
   const cleaned = phone.replace(/\D/g, '')
   if (cleaned.length === 10) {
     return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`

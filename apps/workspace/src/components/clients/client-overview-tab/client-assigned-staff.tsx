@@ -22,7 +22,7 @@ interface ClientManagedByProps {
 export function ClientAssignedStaff({ clientId, managedByStaff, managedBy }: ClientManagedByProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const { isAdmin } = useOrgRole()
+  const { canManageClients } = useOrgRole()
   const [isOpen, setIsOpen] = useState(false)
   const [localSelection, setLocalSelection] = useState<{ clientId: string; staffIds: string[] } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -37,7 +37,7 @@ export function ClientAssignedStaff({ clientId, managedByStaff, managedBy }: Cli
   const { data: membersData } = useQuery({
     queryKey: ['team-members'],
     queryFn: () => api.team.listMembers(),
-    enabled: isAdmin,
+    enabled: canManageClients,
   })
 
   const members = (membersData?.data ?? []).filter((member) => member.isActive !== false)
@@ -103,7 +103,7 @@ export function ClientAssignedStaff({ clientId, managedByStaff, managedBy }: Cli
       </h3>
 
       {/* Admin: custom dropdown with avatars */}
-      {isAdmin && members.length > 0 ? (
+      {canManageClients && members.length > 0 ? (
         <div ref={containerRef} className="relative">
           <button
             type="button"

@@ -15,6 +15,10 @@ const prismaMocks = vi.hoisted(() => ({
   payment: {
     findMany: vi.fn(),
   },
+  paymentQuote: {
+    // Past-due banner indicator: count of failed recurring quotes for the client.
+    count: vi.fn(),
+  },
 }))
 
 const serviceMocks = vi.hoisted(() => ({
@@ -63,6 +67,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   prismaMocks.client.findFirst.mockResolvedValue({ id: CLIENT_ID })
   prismaMocks.payment.findMany.mockResolvedValue([])
+  prismaMocks.paymentQuote.count.mockResolvedValue(0)
   serviceMocks.resendDepositPayLink.mockResolvedValue({
     payUrl: 'http://portal.test/pay/tok_abc',
   })

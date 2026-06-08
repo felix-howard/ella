@@ -5,11 +5,18 @@ import {
   calculateCheckoutQuote,
   CheckoutQuoteError,
 } from '../checkout'
+import { toCheckoutLineItems } from '../checkout-line-items'
+import type { CheckoutQuote } from '../quote-calculator'
+
+/** Adapt a CheckoutQuote to the generalized `(lineItems, opts)` builder signature. */
+function buildParams(quote: CheckoutQuote) {
+  return buildCheckoutSessionParams(toCheckoutLineItems(quote), {
+    quoteId: quote.quoteId,
+    customerEmail: 'client@example.com',
+  })
+}
 import { calculatePricing, MAX_CHECKOUT_LINE_AMOUNT } from '@ella/shared/pricing'
-import type {
-  CheckoutPricingInput,
-  CreateCheckoutSessionInput,
-} from '../../../routes/billing/schemas'
+import type { CheckoutPricingInput } from '../../../routes/billing/schemas'
 import { config } from '../../../lib/config'
 
 vi.mock('../../../lib/config', () => ({
@@ -56,16 +63,6 @@ const basePricingInput: CheckoutPricingInput = {
   },
 }
 
-function checkoutRequest(): CreateCheckoutSessionInput {
-  return {
-    pricingInput: basePricingInput,
-    customerEmail: 'client@example.com',
-    customerName: 'Test Client',
-    businessName: 'Test Business',
-    quoteNotes: 'Internal note omitted from Stripe metadata',
-  }
-}
-
 describe('Stripe checkout session params', () => {
   beforeEach(() => {
     const mutableConfig = config as {
@@ -90,7 +87,7 @@ describe('Stripe checkout session params', () => {
       cashPlan: { enabled: true, employees: 5, owners: 1 },
     })
 
-    const params = buildCheckoutSessionParams(quote, checkoutRequest())
+    const params = buildParams(quote)
 
     expect(params.mode).toBe('subscription')
     expect(params.line_items).toHaveLength(2)
@@ -133,7 +130,7 @@ describe('Stripe checkout session params', () => {
       setupTotal: 0,
     }
 
-    const params = buildCheckoutSessionParams(quote, checkoutRequest())
+    const params = buildParams(quote)
 
     expect(params.mode).toBe('subscription')
     expect(params.line_items).toHaveLength(1)
@@ -149,7 +146,7 @@ describe('Stripe checkout session params', () => {
       setupTotal: 500,
     }
 
-    const params = buildCheckoutSessionParams(quote, checkoutRequest())
+    const params = buildParams(quote)
 
     expect(params.mode).toBe('payment')
     expect(params.line_items).toHaveLength(1)
@@ -166,7 +163,7 @@ describe('Stripe checkout session params', () => {
       setupTotal: 0,
     }
 
-    expect(() => buildCheckoutSessionParams(quote, checkoutRequest())).toThrow(CheckoutQuoteError)
+    expect(() => buildParams(quote)).toThrow(CheckoutQuoteError)
   })
 
   it('rejects discounted rate overrides below defaults', () => {
@@ -283,5 +280,78 @@ describe('Stripe checkout session params', () => {
     mutableConfig.stripe.cancelUrl = 'https://example.com/cancel'
 
     expect(() => assertStripeCheckoutConfig()).toThrow('Stripe production return URLs')
+  })
+})
+
+describe('buildCheckoutSessionParams — generalized line items + coupons', () => {
+  beforeEach(() => {
+    const mutableConfig = config as { nodeEnv: string; stripe: { isConfigured: boolean } }
+    mutableConfig.nodeEnv = 'development'
+    mutableConfig.stripe.isConfigured = true
+  })
+
+  it('maps custom line items with description, quantity and per-item interval', () => {
+    const params = buildCheckoutSessionParams(
+      [
+        {
+          label: 'Annual retainer',
+          description: 'Yearly support plan',
+          unitAmountCents: 120000,
+          quantity: 2,
+          interval: 'year',
+        },
+        { label: 'Onboarding', unitAmountCents: 50000, quantity: 1, interval: 'one_time' },
+      ],
+      { quoteId: 'quote_custom', metadataSource: 'custom_link' }
+    )
+
+    expect(params.mode).toBe('subscription') // any recurring line → subscription
+    expect(params.line_items).toHaveLength(2)
+    expect(params.line_items?.[0]?.quantity).toBe(2)
+    expect(params.line_items?.[0]?.price_data?.unit_amount).toBe(120000)
+    expect(params.line_items?.[0]?.price_data?.recurring).toEqual({ interval: 'year' })
+    expect(params.line_items?.[0]?.price_data?.product_data?.description).toBe('Yearly support plan')
+    expect(params.line_items?.[1]?.price_data?.recurring).toBeUndefined()
+    expect(params.metadata).toMatchObject({ source: 'custom_link', quoteId: 'quote_custom' })
+  })
+
+  it('uses payment mode when every line is one-time', () => {
+    const params = buildCheckoutSessionParams(
+      [{ label: 'Single fee', unitAmountCents: 9900, quantity: 1, interval: 'one_time' }],
+      { quoteId: 'quote_one_time' }
+    )
+    expect(params.mode).toBe('payment')
+  })
+
+  it('attaches a pre-applied coupon as discounts', () => {
+    const params = buildCheckoutSessionParams(
+      [{ label: 'Item', unitAmountCents: 1000, quantity: 1, interval: 'month' }],
+      { quoteId: 'q', stripeCouponId: 'coupon_abc' }
+    )
+    expect(params.discounts).toEqual([{ coupon: 'coupon_abc' }])
+    expect(params.allow_promotion_codes).toBeUndefined()
+  })
+
+  it('enables the promo-code field when allowPromotionCodes is set', () => {
+    const params = buildCheckoutSessionParams(
+      [{ label: 'Item', unitAmountCents: 1000, quantity: 1, interval: 'month' }],
+      { quoteId: 'q', allowPromotionCodes: true }
+    )
+    expect(params.allow_promotion_codes).toBe(true)
+    expect(params.discounts).toBeUndefined()
+  })
+
+  it('rejects using a coupon and promotion codes together', () => {
+    expect(() =>
+      buildCheckoutSessionParams([{ label: 'Item', unitAmountCents: 1000, quantity: 1, interval: 'month' }], {
+        quoteId: 'q',
+        stripeCouponId: 'coupon_abc',
+        allowPromotionCodes: true,
+      })
+    ).toThrow(CheckoutQuoteError)
+  })
+
+  it('rejects an empty line-item list', () => {
+    expect(() => buildCheckoutSessionParams([], { quoteId: 'q' })).toThrow(CheckoutQuoteError)
   })
 })

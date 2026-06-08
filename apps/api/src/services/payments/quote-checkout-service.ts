@@ -11,9 +11,12 @@
  *    side-effects on this key (deposit sessions use `metadata.payToken`; the two
  *    keys never collide so deposit routing is untouched)
  *
- * Security: amounts are NEVER trusted from the client. The quote is rebuilt from
- * the frozen `inputSnapshot` via `calculateCheckoutQuote()` (deterministic +
- * rate-validated), so the token always charges the amount frozen at send time.
+ * Security: amounts are NEVER trusted from the client. The charged line items are
+ * rebuilt source-aware (`rebuildQuoteForCheckout`): calculator quotes recompute
+ * from the frozen `inputSnapshot` via `calculateCheckoutQuote()` (deterministic +
+ * rate-validated); custom quotes read their frozen `lineItems` straight back from
+ * `resultSnapshot` (re-validated, no recompute). Either way the token only ever
+ * charges the amount frozen at send time.
  */
 import Stripe from 'stripe'
 import { config } from '../../lib/config'
@@ -22,9 +25,8 @@ import {
   buildCheckoutSessionParams,
   isUnsafeProductionReturnUrl,
 } from '../stripe/checkout'
-import { calculateCheckoutQuote } from '../stripe/quote-calculator'
 import { markPaymentQuoteStatus, persistStripeCheckoutSession } from '../stripe/persistence'
-import { checkoutPricingInputSchema } from '../../routes/billing/schemas'
+import { rebuildQuoteForCheckout, resolveQuoteCouponOptions } from '../stripe/quote-rebuild'
 import { buildQuotePayUrl } from './quote-send-service'
 
 /** Route-friendly error with a stable code; handlers map codes to statuses. */
@@ -65,9 +67,14 @@ function assertQuoteCheckoutConfig(payUrl: string): void {
 
 interface QuoteLineView {
   label: string
+  /** Free-form detail (custom links only); absent on calculator lines. */
+  description?: string
   amount: number
   kind: 'monthly' | 'setup'
 }
+
+/** Recurring cadence of the monthly group; null when the quote is one-time only. */
+export type QuoteBillingInterval = 'month' | 'year' | null
 
 /** Minimal public payload for the portal quote page — no PII beyond first name. */
 export interface PublicQuoteView {
@@ -76,6 +83,8 @@ export interface PublicQuoteView {
   lineItems: QuoteLineView[]
   monthlyTotal: number
   setupTotal: number
+  /** Recurring cadence for the "Then $X/…" row; null = one-time only. */
+  billingInterval: QuoteBillingInterval
   /** Charged at checkout: monthlyTotal (first invoice) + setupTotal. */
   dueToday: number
   status: string
@@ -108,6 +117,7 @@ export async function getPublicQuoteView(payToken: string): Promise<PublicQuoteV
     lineItems: snapshot,
     monthlyTotal,
     setupTotal,
+    billingInterval: normalizeBillingInterval(quote.billingInterval),
     dueToday: monthlyTotal + setupTotal,
     status: quote.status,
     paidAt:
@@ -144,28 +154,31 @@ export async function createQuoteCheckoutSession(
   // and — since `stripeSessionId` is @unique — a re-`persist` of the same session
   // would also hit a unique violation. Stripe sessions self-expire (≤24h), so an
   // expired/absent session falls through to a fresh create below.
+  // Note: a reused session's discount is frozen at its first-create — a coupon
+  // attached/changed between Pay clicks won't apply until the session expires.
   const reusable = await findReusableCheckoutSession(quote.id)
   if (reusable) return { checkoutUrl: reusable }
 
-  const pricingInput = parsePricingInput(quote.inputSnapshot)
-  // Rebuild from the frozen input (deterministic + rate-validated), but pin the
-  // quoteId to the EXISTING row so the webhook (metadata.paymentQuoteId) and
-  // session persistence both resolve back to this quote.
-  const checkoutQuote = { ...calculateCheckoutQuote(pricingInput), quoteId: quote.id }
+  // Source-aware rebuild (drift-safe): calculator quotes recompute from the
+  // frozen pricingInput; custom quotes read their frozen lineItems straight back.
+  // The quoteId is pinned to the EXISTING row so the webhook (metadata
+  // .paymentQuoteId) and session persistence both resolve back to this quote.
+  const lineItems = rebuildQuoteForCheckout(quote)
+  const couponOptions = await resolveQuoteCouponOptions(quote)
 
   const session = await getStripeClient().checkout.sessions.create(
-    buildCheckoutSessionParams(
-      checkoutQuote,
-      { pricingInput, customerEmail: quote.customerEmail ?? undefined },
-      {
-        successUrl: `${payUrl}?status=success`,
-        cancelUrl: `${payUrl}?status=canceled`,
-        // Discriminator for Phase-4 webhook side-effects. Intentionally unconsumed
-        // today (the webhook routes on metadata.paymentQuoteId); kept distinct from
-        // the deposit flow's `payToken` so deposit routing is never affected.
-        extraMetadata: { quotePayToken: payToken },
-      },
-    ),
+    buildCheckoutSessionParams(lineItems, {
+      quoteId: quote.id,
+      customerEmail: quote.customerEmail ?? undefined,
+      successUrl: `${payUrl}?status=success`,
+      cancelUrl: `${payUrl}?status=canceled`,
+      metadataSource: quote.source === 'custom' ? 'custom_link' : 'pricing_calculator',
+      // Discriminator for the webhook side-effects. The webhook routes on
+      // metadata.paymentQuoteId; this is kept distinct from the deposit flow's
+      // `payToken` so deposit routing is never affected.
+      extraMetadata: { quotePayToken: payToken },
+      ...couponOptions,
+    }),
   )
 
   if (!session.url) {
@@ -225,7 +238,7 @@ function parseResultSnapshot(snapshot: unknown): QuoteLineView[] {
 function toLineViews(items: unknown, kind: 'monthly' | 'setup'): QuoteLineView[] {
   if (!Array.isArray(items)) return []
   return items
-    .filter((item): item is { label: string; amount: number } => {
+    .filter((item): item is { label: string; description?: unknown; amount: number } => {
       return (
         !!item &&
         typeof item === 'object' &&
@@ -233,14 +246,13 @@ function toLineViews(items: unknown, kind: 'monthly' | 'setup'): QuoteLineView[]
         typeof (item as { amount?: unknown }).amount === 'number'
       )
     })
-    .map((item) => ({ label: item.label, amount: item.amount, kind }))
+    .map((item) => {
+      const description = typeof item.description === 'string' ? item.description : undefined
+      return { label: item.label, ...(description ? { description } : {}), amount: item.amount, kind }
+    })
 }
 
-/** Parse + validate the frozen pricing input. Throws CheckoutQuoteError downstream. */
-function parsePricingInput(snapshot: unknown) {
-  const raw =
-    snapshot && typeof snapshot === 'object'
-      ? (snapshot as { pricingInput?: unknown }).pricingInput
-      : undefined
-  return checkoutPricingInputSchema.parse(raw)
+/** Narrow the stored interval column ("month" | "year" | null) to the public union. */
+function normalizeBillingInterval(value: string | null): QuoteBillingInterval {
+  return value === 'month' || value === 'year' ? value : null
 }

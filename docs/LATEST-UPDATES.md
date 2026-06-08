@@ -1,5 +1,50 @@
 # Latest Documentation Updates
 
+**Date:** 2026-06-08 | **Feature:** Custom Payment Links + Coupons (Phases 1-7) COMPLETE | **Status:** Complete
+
+---
+
+## Custom Payment Links + Coupons Feature Complete
+
+**Date:** 2026-06-08 | **Status:** Complete (All 7 Phases)
+
+**In One Sentence:** Shipped second source of Stripe payment links (staff-driven free-form quotes) with Stripe-native coupon management, per-line billing intervals, and portal pay page enhancements.
+
+**Key Components Shipped:**
+
+### Database Schema
+- Migration `20260608145601_custom_links_and_coupons` extends `PaymentQuote` with: `source` (calculator | custom), `billingInterval` (one-time | monthly | yearly per-line), `appliedCouponId`, `allowPromotionCodes`.
+- New `Coupon` model (organizationId, name, code, stripeId, discountType, discountValue, maxRedemptions, expiresAt, active) bidirectionally synced with Stripe.
+
+### Backend API Services
+- **Quote Building:** `custom-quote-builder.ts` (staff free-form line items), `checkout-line-items.ts` (normalized per-item intervals), `quote-rebuild.ts` (drift-safe: calculator recalcs from inputSnapshot, custom reads frozen resultSnapshot).
+- **Stripe Integration:** Generalized `buildCheckoutSessionParams(lineItems[], opts)` handles mixed intervals. Enforces Stripe XOR rule: coupon OR promotion-codes, not both.
+- **Coupon Routes:** POST/GET/PATCH/DELETE `/coupons` with real-time Stripe Coupon + Promotion Code sync (deactivate on delete).
+- **Checkout Session:** `POST /billing/checkout-sessions` branches on quote.source: calculator quote rebuilt from inputs, custom quote uses frozen line items.
+
+### Workspace UI
+- **Custom Link Tab:** Staff create free-form quotes—per-line label, description, amount, quantity, interval picker (one-time | monthly | yearly). Optional coupon attachment. Select client/lead, send SMS pay link.
+- **Coupon Management Tab:** Create/edit/delete coupons. Live Stripe sync feedback (coupon + promotion code creation/deactivation).
+
+### Portal Pay Page
+- New `PublicQuoteView.billingInterval` exposes per-line cadence.
+- UI renders per-line descriptions, "Monthly" / "Yearly" group headers, /mo vs /yr cadence badges.
+
+### Backward Compatibility
+- ✅ Existing calculator quotes preserved (source defaults to 'calculator', rebuild logic unchanged).
+- ✅ Portal pay page gracefully handles missing billingInterval (one-time fallback).
+- ✅ Custom quotes are additive (new feature, no breaking changes).
+
+**Files Updated:**
+- `docs/system-architecture.md` — Billing section: added two-source architecture, coupon model, per-line intervals.
+- `docs/codebase-summary.md` — Latest Phase entry updated with feature summary.
+
+**Validation:**
+- All 7 phases complete: DB migration ✓, API routes ✓, workspace UI ✓, coupon Stripe sync ✓, portal pay page ✓.
+- Multi-interval checkout tested. Coupon XOR enforcement verified. Webhook handler tested.
+
+---
+
 **Date:** 2026-04-21 | **Feature:** Shared Docs Rework Phase 05 (Portal Viewer Updates) COMPLETE | **Status:** Complete
 
 ---

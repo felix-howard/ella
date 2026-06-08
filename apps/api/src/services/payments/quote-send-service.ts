@@ -1,59 +1,34 @@
 /**
- * Sendable pricing quote: persist a PaymentQuote with a portal pay token +
- * recipient (Client or Lead) + sender attribution, then SMS the recipient the
- * portal pay link. No Stripe call here — checkout happens on the portal
- * (Phase 3); the webhook (Phase 4) layers side-effects onto the existing
- * PaymentQuote status machinery.
+ * Sendable pricing quote (calculator source): persist a PaymentQuote with a
+ * portal pay token + recipient (Client or Lead) + sender attribution, then SMS
+ * the recipient the portal pay link. No Stripe call here — checkout happens on
+ * the portal; the webhook layers side-effects onto the PaymentQuote status.
  *
  * The frozen `inputSnapshot` is the immutable source of truth: portal checkout
- * rebuilds the quote from it via `calculateCheckoutQuote()`, so the token
- * always charges the amounts frozen at send time (quote-drift safe).
+ * rebuilds the quote from it via `calculateCheckoutQuote()`, so the token always
+ * charges the amounts frozen at send time (quote-drift safe). Custom free-form
+ * quotes use `custom-quote-send-service.ts` (no `pricingInput` to rebuild from).
  *
  * `sentByStaffId` is persisted now because the webhook has no request context
  * but still needs a staff sender for the receipt SMS (`sendSignerSmsAndPersist`
  * requires `sentById`).
  */
-import { customAlphabet } from 'nanoid'
-import { HTTPException } from 'hono/http-exception'
-import type { Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
-import { PORTAL_URL } from '../../lib/constants'
 import type { SendQuoteInput } from '../../routes/billing/schemas'
 import { calculateCheckoutQuote } from '../stripe/quote-calculator'
 import {
-  buildQuotePayLinkMessage,
-  QUOTE_PAY_LINK_TEMPLATE_NAME,
-} from './payment-sms-templates'
-import { sendSignerSmsAndPersist } from './signer-sms-delivery'
+  buildQuotePayUrl,
+  generatePayToken,
+  resolveOrgName,
+  resolveRecipient,
+  sendQuotePayLinkSms,
+  toPrismaJson,
+  type CreateSendableQuoteContext,
+  type SendableQuoteResult,
+} from './quote-send-shared'
 
-const generatePayToken = customAlphabet(
-  '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
-  32,
-)
-
-/** Public portal pay page URL for a sent quote. Phase 3 serves this route. */
-export function buildQuotePayUrl(payToken: string): string {
-  return `${PORTAL_URL}/quote/${payToken}`
-}
-
-export interface CreateSendableQuoteContext {
-  staffId: string
-  organizationId: string
-}
-
-export interface SendableQuoteResult {
-  quoteId: string
-  payToken: string
-  payUrl: string
-  smsSent: boolean
-  /** Why the SMS didn't go out (only set when `smsSent` is false). */
-  smsSkippedReason?: 'no_phone' | 'send_failed'
-}
-
-interface ResolvedRecipient {
-  id: string
-  firstName: string
-}
+export { buildQuotePayUrl } from './quote-send-shared'
+export type { CreateSendableQuoteContext, SendableQuoteResult } from './quote-send-shared'
 
 /**
  * Validate the pricing input, persist a sendable PaymentQuote, and SMS the
@@ -113,83 +88,8 @@ export async function createSendableQuote(
 }
 
 /**
- * Send the pay-link SMS; never fail the send. `smsSent` reflects ACTUAL Twilio
- * delivery (not just "no exception") so the UI can offer a copy-link fallback
- * when the recipient has no phone or Twilio rejects/isn't configured.
- */
-async function sendQuotePayLinkSms(params: {
-  recipient: ResolvedRecipient
-  recipientType: 'client' | 'lead'
-  orgName: string
-  organizationId: string
-  staffId: string
-  payUrl: string
-}): Promise<{ smsSent: boolean; smsSkippedReason?: SendableQuoteResult['smsSkippedReason'] }> {
-  const message = buildQuotePayLinkMessage({
-    firstName: params.recipient.firstName,
-    orgName: params.orgName,
-    url: params.payUrl,
-  })
-
-  try {
-    const delivery = await sendSignerSmsAndPersist(
-      {
-        signerId: params.recipient.id,
-        signerKind: params.recipientType,
-        organizationId: params.organizationId,
-        sentById: params.staffId,
-      },
-      message,
-      QUOTE_PAY_LINK_TEMPLATE_NAME,
-    )
-    if (delivery.delivered) return { smsSent: true }
-    return {
-      smsSent: false,
-      smsSkippedReason: delivery.reason === 'no_phone' ? 'no_phone' : 'send_failed',
-    }
-  } catch (error) {
-    // Only a DB/persistence error reaches here — the quote already persisted.
-    console.error(
-      `[Quote] Failed to persist pay-link SMS to ${params.recipientType}=${params.recipient.id}:`,
-      error,
-    )
-    return { smsSent: false, smsSkippedReason: 'send_failed' }
-  }
-}
-
-/** Load the recipient's id/firstName/phone, scoped to the org. 404 if absent. */
-async function resolveRecipient(
-  recipient: SendQuoteInput['recipient'],
-  organizationId: string,
-): Promise<ResolvedRecipient> {
-  if (recipient.type === 'client') {
-    const client = await prisma.client.findFirst({
-      where: { id: recipient.id, organizationId },
-      select: { id: true, firstName: true },
-    })
-    if (!client) throw new HTTPException(404, { message: 'Client not found' })
-    return client
-  }
-
-  const lead = await prisma.lead.findFirst({
-    where: { id: recipient.id, organizationId },
-    select: { id: true, firstName: true },
-  })
-  if (!lead) throw new HTTPException(404, { message: 'Lead not found' })
-  return lead
-}
-
-async function resolveOrgName(organizationId: string): Promise<string> {
-  const org = await prisma.organization.findUnique({
-    where: { id: organizationId },
-    select: { name: true },
-  })
-  return org?.name ?? 'us'
-}
-
-/**
- * Freeze the same shape the anonymous checkout flow persists, so Phase 3 portal
- * checkout can rebuild the quote from `inputSnapshot.pricingInput` uniformly.
+ * Freeze the same shape the anonymous checkout flow persists, so portal checkout
+ * can rebuild the quote from `inputSnapshot.pricingInput` uniformly.
  */
 function buildInputSnapshot(input: SendQuoteInput): Omit<SendQuoteInput, 'recipient'> {
   return {
@@ -198,8 +98,4 @@ function buildInputSnapshot(input: SendQuoteInput): Omit<SendQuoteInput, 'recipi
     customerName: input.customerName,
     businessName: input.businessName,
   }
-}
-
-function toPrismaJson(value: unknown): Prisma.InputJsonValue {
-  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
 }

@@ -14,8 +14,11 @@ import { PricingPaymentLinkPanel } from './pricing-payment-link-panel'
 import { PricingSendQuotePanel } from './pricing-send-quote-panel'
 import { PricingPrintPanel } from './pricing-print-panel'
 import { PricingSummaryPanel } from './pricing-summary-panel'
+import { CustomLinkBuilder } from './custom-link/custom-link-builder'
 import { serializePricingInput, trimOptional } from './pricing-format'
 import type { PricingCheckout, PricingCustomerFields } from './pricing-calculator-types'
+
+type BuilderMode = 'calculator' | 'custom'
 
 interface CreateLinkPayload {
   pricingInput: PricingCalculatorInput
@@ -23,6 +26,7 @@ interface CreateLinkPayload {
 }
 
 export function PricingCalculatorPage() {
+  const [mode, setMode] = useState<BuilderMode>('calculator')
   const [input, setInput] = useState<PricingCalculatorInput>(() => createDefaultPricingInput())
   const [customerFields, setCustomerFields] = useState<PricingCustomerFields>({
     customerEmail: '',
@@ -107,33 +111,71 @@ export function PricingCalculatorPage() {
         </p>
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <PricingCalculatorForm
-          input={input}
-          disabled={createLinkMutation.isPending}
-          onInputChange={handleInputChange}
-        />
-        <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-          <PricingSummaryPanel result={result} />
-          <PricingPrintPanel input={input} result={result} />
-          <PricingPaymentLinkPanel
-            checkout={checkout}
-            disabledReason={disabledReason}
-            errorMessage={errorMessage}
-            fields={customerFields}
-            isCreating={createLinkMutation.isPending}
-            quoteChanged={quoteChanged}
-            onFieldsChange={handleCustomerFieldsChange}
-            onCreate={handleCreate}
+      <ModeSwitch mode={mode} onChange={setMode} />
+
+      {mode === 'calculator' ? (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <PricingCalculatorForm
+            input={input}
+            disabled={createLinkMutation.isPending}
+            onInputChange={handleInputChange}
           />
-          <PricingSendQuotePanel
-            pricingInput={input}
-            fields={customerFields}
-            disabledReason={disabledReason}
-          />
-        </aside>
-      </div>
+          <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+            <PricingSummaryPanel result={result} />
+            <PricingPrintPanel input={input} result={result} />
+            <PricingPaymentLinkPanel
+              checkout={checkout}
+              disabledReason={disabledReason}
+              errorMessage={errorMessage}
+              fields={customerFields}
+              isCreating={createLinkMutation.isPending}
+              quoteChanged={quoteChanged}
+              onFieldsChange={handleCustomerFieldsChange}
+              onCreate={handleCreate}
+            />
+            <PricingSendQuotePanel
+              pricingInput={input}
+              fields={customerFields}
+              disabledReason={disabledReason}
+            />
+          </aside>
+        </div>
+      ) : (
+        <CustomLinkBuilder />
+      )}
     </section>
+  )
+}
+
+function ModeSwitch({ mode, onChange }: { mode: BuilderMode; onChange: (mode: BuilderMode) => void }) {
+  const tabs: Array<{ value: BuilderMode; label: string }> = [
+    { value: 'calculator', label: 'Calculator' },
+    { value: 'custom', label: 'Custom link' },
+  ]
+  return (
+    <div
+      role="tablist"
+      aria-label="Payment link source"
+      className="inline-flex rounded-lg border border-border bg-card p-1"
+    >
+      {tabs.map((tab) => {
+        const active = mode === tab.value
+        return (
+          <button
+            key={tab.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(tab.value)}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+              active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tab.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 

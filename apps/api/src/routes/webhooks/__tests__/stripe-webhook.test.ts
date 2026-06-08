@@ -9,6 +9,9 @@ const stripeMocks = vi.hoisted(() => ({
 const prismaMocks = vi.hoisted(() => ({
   paymentQuote: {
     updateMany: vi.fn(),
+    // Recurring fulfillment loads the sendable quote by subscription on
+    // invoice.* events; default to "no sendable quote" so notify is skipped.
+    findFirst: vi.fn(),
   },
   stripeCheckoutSession: {
     findUnique: vi.fn(),
@@ -109,6 +112,7 @@ describe('Stripe webhook route', () => {
     })
     prismaMocks.stripeCheckoutSession.updateMany.mockResolvedValue({ count: 1 })
     prismaMocks.paymentQuote.updateMany.mockResolvedValue({ count: 1 })
+    prismaMocks.paymentQuote.findFirst.mockResolvedValue(null)
     prismaMocks.$transaction.mockImplementation(async (operations: Promise<unknown>[]) =>
       Promise.all(operations)
     )
@@ -273,6 +277,37 @@ describe('Stripe webhook route', () => {
         id: 'quote_123',
         status: { not: 'canceled' },
       }),
+      data: expect.objectContaining({ status: 'paid' }),
+    })
+  })
+
+  it('settles a custom-link one-time checkout (source-agnostic routing)', async () => {
+    // Custom links carry the same metadata.paymentQuoteId the webhook routes on,
+    // plus a source tag the webhook ignores — so fulfillment is byte-identical.
+    stripeMocks.constructEvent.mockReturnValueOnce(
+      stripeEvent(
+        'checkout.session.completed',
+        checkoutSession({
+          mode: 'payment',
+          subscription: null,
+          payment_intent: 'pi_custom',
+          metadata: { paymentQuoteId: 'quote_custom', source: 'custom_link' },
+        })
+      )
+    )
+    prismaMocks.stripeCheckoutSession.findUnique.mockResolvedValueOnce({
+      paymentQuoteId: 'quote_custom',
+      status: 'open',
+      paidAt: null,
+      lastStripeEventAt: null,
+      paymentQuote: { status: 'checkout_created' },
+    })
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(200)
+    expect(prismaMocks.paymentQuote.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: 'quote_custom', status: { not: 'canceled' } }),
       data: expect.objectContaining({ status: 'paid' }),
     })
   })

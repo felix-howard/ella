@@ -9,9 +9,14 @@ export type QuotePublicStatus = string
 
 export interface QuoteLineView {
   label: string
+  /** Free-form detail (custom links only); absent on calculator lines. */
+  description?: string
   amount: number
   kind: 'monthly' | 'setup'
 }
+
+/** Recurring cadence of the monthly group; null when the quote is one-time only. */
+export type QuoteBillingInterval = 'month' | 'year' | null
 
 /** Mirrors `PublicQuoteView` from the API quote-checkout-service. */
 export interface PublicQuoteView {
@@ -20,6 +25,8 @@ export interface PublicQuoteView {
   lineItems: QuoteLineView[]
   monthlyTotal: number
   setupTotal: number
+  /** Recurring cadence for the "Then $X/…" row; null = one-time only. */
+  billingInterval: QuoteBillingInterval
   /** Charged at checkout: monthlyTotal (first invoice) + setupTotal. */
   dueToday: number
   status: QuotePublicStatus

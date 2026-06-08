@@ -509,6 +509,7 @@
   "pay.error.server.message": "We could not load the payment. Please try again.",
   "quote.summaryTitle": "Your quote",
   "quote.monthlyGroup": "Monthly",
+  "quote.yearlyGroup": "Yearly",
   "quote.setupGroup": "Setup and one-time",
   "quote.dueToday": "Due today",
   "quote.thenMonthly": "Then",

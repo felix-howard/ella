@@ -1,5 +1,6 @@
-import Stripe from 'stripe'
+import type Stripe from 'stripe'
 import { config } from '../../lib/config'
+import { getStripeClient } from './client'
 import type { CreateCheckoutSessionInput } from '../../routes/billing/schemas'
 import {
   markPaymentQuoteStatus,
@@ -8,7 +9,8 @@ import {
   type CreateCheckoutSessionContext,
 } from './persistence'
 import { calculateCheckoutQuote, CheckoutQuoteError } from './quote-calculator'
-import type { CheckoutQuote, LineKind } from './quote-calculator'
+import type { CheckoutQuote } from './quote-calculator'
+import { toCheckoutLineItems, type CheckoutLineItem } from './checkout-line-items'
 
 export interface CheckoutSessionResult {
   quoteId: string
@@ -16,50 +18,65 @@ export interface CheckoutSessionResult {
   sessionId: string
 }
 
-let stripeClient: Stripe | null = null
-
 /**
- * Optional overrides for callers that don't use the anonymous-panel defaults.
- * The portal sent-quote flow returns the recipient to the portal `/quote/:token`
- * page (not the global STRIPE_*_URL) and tags the session with `quotePayToken`
- * so the webhook can route side-effects. Anonymous flow passes nothing → config.
+ * Inputs to the generalized Stripe Checkout params builder. Both quote sources
+ * (calculator + custom) funnel through here as a normalized `CheckoutLineItem[]`
+ * plus session options, so the builder no longer hardcodes "monthly + setup".
+ *
+ * Coupon attach is XOR: a pre-applied `stripeCouponId` (→ `discounts`) OR
+ * `allowPromotionCodes` (→ the checkout promo-code field), never both — Stripe
+ * rejects the combination.
  */
-export interface CheckoutSessionOverrides {
+export interface CheckoutSessionParamsOptions {
+  quoteId: string
+  customerEmail?: string
   successUrl?: string
   cancelUrl?: string
   extraMetadata?: Record<string, string | undefined>
+  /** Pre-applied Stripe coupon id → `discounts: [{ coupon }]`. */
+  stripeCouponId?: string
+  /** Show the promo-code field at checkout → `allow_promotion_codes: true`. */
+  allowPromotionCodes?: boolean
+  /** `metadata.source` tag; defaults to the calculator value for backwards-compat. */
+  metadataSource?: string
 }
 
 export function buildCheckoutSessionParams(
-  quote: CheckoutQuote,
-  input: CreateCheckoutSessionInput,
-  overrides: CheckoutSessionOverrides = {}
+  lineItems: CheckoutLineItem[],
+  opts: CheckoutSessionParamsOptions
 ): Stripe.Checkout.SessionCreateParams {
-  const mode = quote.monthlyTotal > 0 ? 'subscription' : 'payment'
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = []
-
-  if (quote.monthlyTotal > 0) {
-    lineItems.push(createLineItem('Ella monthly service', quote.monthlyTotal, 'monthly'))
-  }
-  if (quote.setupTotal > 0) {
-    lineItems.push(createLineItem('Ella setup and one-time services', quote.setupTotal, 'setup'))
-  }
   if (lineItems.length === 0) throw new CheckoutQuoteError('Payable total is required')
+  if (opts.stripeCouponId && opts.allowPromotionCodes) {
+    throw new CheckoutQuoteError('A checkout cannot use a coupon and promotion codes together')
+  }
+
+  // Any recurring line (month/year) makes the whole session a subscription;
+  // one-time lines then ride along on the first invoice. All-one-time → payment.
+  const anyRecurring = lineItems.some((item) => item.interval !== 'one_time')
 
   return {
-    mode,
-    line_items: lineItems,
-    success_url: overrides.successUrl ?? config.stripe.successUrl,
-    cancel_url: overrides.cancelUrl ?? config.stripe.cancelUrl,
-    customer_email: input.customerEmail,
-    client_reference_id: quote.quoteId,
+    mode: anyRecurring ? 'subscription' : 'payment',
+    line_items: lineItems.map(toStripeLineItem),
+    success_url: opts.successUrl ?? config.stripe.successUrl,
+    cancel_url: opts.cancelUrl ?? config.stripe.cancelUrl,
+    customer_email: opts.customerEmail,
+    client_reference_id: opts.quoteId,
+    ...buildDiscountParams(opts),
     metadata: compactMetadata({
-      paymentQuoteId: quote.quoteId,
-      quoteId: quote.quoteId,
-      source: 'pricing_calculator',
-      ...overrides.extraMetadata,
+      paymentQuoteId: opts.quoteId,
+      quoteId: opts.quoteId,
+      source: opts.metadataSource ?? 'pricing_calculator',
+      ...opts.extraMetadata,
     }),
   }
+}
+
+function buildDiscountParams(
+  opts: CheckoutSessionParamsOptions
+): Pick<Stripe.Checkout.SessionCreateParams, 'discounts' | 'allow_promotion_codes'> {
+  if (opts.stripeCouponId) return { discounts: [{ coupon: opts.stripeCouponId }] }
+  if (opts.allowPromotionCodes) return { allow_promotion_codes: true }
+  return {}
 }
 
 export async function createCheckoutSession(
@@ -93,11 +110,6 @@ export async function createCheckoutSession(
   }
 }
 
-function getStripeClient(): Stripe {
-  stripeClient ??= new Stripe(config.stripe.secretKey)
-  return stripeClient
-}
-
 export function assertStripeCheckoutConfig(): void {
   if (!config.stripe.isConfigured) {
     throw new Error('Stripe is not configured')
@@ -120,7 +132,10 @@ async function createStripeSession(
 ): Promise<Stripe.Checkout.Session> {
   try {
     return await stripe.checkout.sessions.create(
-      buildCheckoutSessionParams(quote, input),
+      buildCheckoutSessionParams(toCheckoutLineItems(quote), {
+        quoteId: quote.quoteId,
+        customerEmail: input.customerEmail,
+      }),
       { idempotencyKey: quote.quoteId }
     )
   } catch (error) {
@@ -145,18 +160,20 @@ export function isUnsafeProductionReturnUrl(url: string): boolean {
   }
 }
 
-function createLineItem(
-  label: string,
-  amount: number,
-  kind: LineKind
-): Stripe.Checkout.SessionCreateParams.LineItem {
+/** Normalized line item → Stripe `price_data` line. Recurring interval carries through; one-time has none. */
+function toStripeLineItem(item: CheckoutLineItem): Stripe.Checkout.SessionCreateParams.LineItem {
+  const isRecurring = item.interval !== 'one_time'
   return {
-    quantity: 1,
+    quantity: item.quantity,
     price_data: {
       currency: config.stripe.currency,
-      unit_amount: amount * 100,
-      product_data: { name: label, metadata: { kind } },
-      ...(kind === 'monthly' ? { recurring: { interval: 'month' as const } } : {}),
+      unit_amount: item.unitAmountCents,
+      product_data: {
+        name: item.label,
+        metadata: { kind: isRecurring ? 'monthly' : 'setup' },
+        ...(item.description ? { description: item.description } : {}),
+      },
+      ...(item.interval !== 'one_time' ? { recurring: { interval: item.interval } } : {}),
     },
   }
 }

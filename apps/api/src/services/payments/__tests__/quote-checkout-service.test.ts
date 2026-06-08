@@ -49,11 +49,7 @@ vi.mock('../../../lib/config', async (importOriginal) => {
   }
 })
 
-import {
-  QuoteCheckoutError,
-  createQuoteCheckoutSession,
-  getPublicQuoteView,
-} from '../quote-checkout-service'
+import { createQuoteCheckoutSession, getPublicQuoteView } from '../quote-checkout-service'
 
 const basePricingInput: CheckoutPricingInput = {
   nec1099Count: 11,
@@ -160,6 +156,69 @@ describe('getPublicQuoteView', () => {
   it('returns null for an unknown token', async () => {
     prismaMocks.paymentQuote.findUnique.mockResolvedValue(null)
     expect(await getPublicQuoteView('nope')).toBeNull()
+  })
+
+  it('omits billingInterval (null) for a calculator quote', async () => {
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(quoteRow())
+    const view = await getPublicQuoteView('tok_abcdefghij')
+    expect(view?.billingInterval).toBeNull()
+  })
+
+  it('surfaces line descriptions and a monthly interval for a custom quote', async () => {
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(
+      quoteRow({
+        source: 'custom',
+        billingInterval: 'month',
+        resultSnapshot: {
+          monthlyItems: [{ label: 'Retainer', description: 'Monthly bookkeeping', amount: 300, kind: 'monthly' }],
+          setupItems: [{ label: 'Onboarding', amount: 150, kind: 'setup' }],
+          monthlyTotal: 300,
+          setupTotal: 150,
+        },
+        monthlyTotalCents: 30000,
+        setupTotalCents: 15000,
+      }),
+    )
+
+    const view = await getPublicQuoteView('tok_abcdefghij')
+
+    expect(view?.billingInterval).toBe('month')
+    expect(view?.lineItems).toEqual([
+      { label: 'Retainer', description: 'Monthly bookkeeping', amount: 300, kind: 'monthly' },
+      { label: 'Onboarding', amount: 150, kind: 'setup' },
+    ])
+    expect(view?.dueToday).toBe(450)
+  })
+
+  it('reports a yearly billing interval', async () => {
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(
+      quoteRow({ source: 'custom', billingInterval: 'year' }),
+    )
+    const view = await getPublicQuoteView('tok_abcdefghij')
+    expect(view?.billingInterval).toBe('year')
+  })
+
+  it('reports a null billing interval for a one-time custom quote', async () => {
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(
+      quoteRow({
+        source: 'custom',
+        billingInterval: null,
+        resultSnapshot: {
+          monthlyItems: [],
+          setupItems: [{ label: 'Single fee', amount: 500, kind: 'setup' }],
+          monthlyTotal: 0,
+          setupTotal: 500,
+        },
+        monthlyTotalCents: 0,
+        setupTotalCents: 50000,
+      }),
+    )
+
+    const view = await getPublicQuoteView('tok_abcdefghij')
+
+    expect(view?.billingInterval).toBeNull()
+    expect(view?.monthlyTotal).toBe(0)
+    expect(view?.dueToday).toBe(500)
   })
 })
 

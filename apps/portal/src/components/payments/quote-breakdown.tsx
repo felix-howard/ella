@@ -18,6 +18,9 @@ export function QuoteBreakdown({ view, language }: QuoteBreakdownProps) {
   const monthlyItems = view.lineItems.filter((item) => item.kind === 'monthly')
   const setupItems = view.lineItems.filter((item) => item.kind === 'setup')
   const fmt = (value: number) => formatQuoteAmount(value, language)
+  // Custom yearly links bill once a year; everything else is monthly cadence.
+  const isYearly = view.billingInterval === 'year'
+  const recurringSuffix = isYearly ? '/yr' : '/mo'
 
   return (
     <section aria-labelledby="quote-summary-title">
@@ -32,7 +35,7 @@ export function QuoteBreakdown({ view, language }: QuoteBreakdownProps) {
       <div className="mt-5 space-y-7">
         {monthlyItems.length > 0 && (
           <LineGroup
-            title={t('quote.monthlyGroup')}
+            title={isYearly ? t('quote.yearlyGroup') : t('quote.monthlyGroup')}
             items={monthlyItems}
             total={view.monthlyTotal}
             fmt={fmt}
@@ -51,7 +54,10 @@ export function QuoteBreakdown({ view, language }: QuoteBreakdownProps) {
       <dl className="mt-6 divide-y divide-border rounded-xl border border-border/70 bg-muted/30">
         <TotalRow label={t('quote.dueToday')} value={fmt(view.dueToday)} strong />
         {view.monthlyTotal > 0 && (
-          <TotalRow label={t('quote.thenMonthly')} value={`${fmt(view.monthlyTotal)}/mo`} />
+          <TotalRow
+            label={t('quote.thenMonthly')}
+            value={`${fmt(view.monthlyTotal)}${recurringSuffix}`}
+          />
         )}
       </dl>
     </section>
@@ -81,7 +87,14 @@ function LineGroup({
             key={`${item.kind}-${item.label}`}
             className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 text-[0.9375rem] leading-7"
           >
-            <span className="min-w-0 text-muted-foreground">{item.label}</span>
+            <span className="min-w-0">
+              <span className="text-muted-foreground">{item.label}</span>
+              {item.description && (
+                <span className="mt-0.5 block text-[0.8125rem] leading-snug text-muted-foreground/70">
+                  {item.description}
+                </span>
+              )}
+            </span>
             <span className="font-medium tabular-nums text-foreground">{fmt(item.amount)}</span>
           </li>
         ))}

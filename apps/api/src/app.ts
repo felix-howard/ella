@@ -47,6 +47,7 @@ import { agreementTemplatesRoute } from './routes/agreement-templates'
 import { leadMessagesRoute } from './routes/leads/messages'
 import { activityRoute } from './routes/activity'
 import { billingRoute } from './routes/billing'
+import { couponsRoute } from './routes/coupons'
 import { recipientsRoute } from './routes/recipients'
 
 const app = new OpenAPIHono()
@@ -89,6 +90,7 @@ app.route('/public/pay', publicPaymentsRoute) // Public deposit payment endpoint
 app.route('/public/quote', publicQuotesRoute) // Public sent pricing-quote pay endpoints (payToken-based, no auth)
 app.route('/contractor-intake', contractorIntakeRoute)
 app.route('/billing', billingRoute)
+app.route('/coupons', couponsRoute) // Coupon CRUD + Stripe sync (auth+requireAdminOrManager, org-scoped)
 app.route('/recipients', recipientsRoute) // Combined client+lead search for sending quotes (inline auth+requireAdminOrManager)
 
 // Protected routes - require authenticated Clerk user + Staff record

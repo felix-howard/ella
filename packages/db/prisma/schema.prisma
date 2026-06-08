@@ -602,6 +602,7 @@ model Organization {
   clientGroups                   ClientGroup[]
   leads                          Lead[]
   paymentQuotes                  PaymentQuote[]
+  coupons                        Coupon[]
   payments                       Payment[]
   smsSendLogs                    SmsSendLog[]
   campaigns                      Campaign[]
@@ -1668,8 +1669,15 @@ model PaymentQuote {
   businessName      String?
   inputSnapshot     Json
   resultSnapshot    Json
-  monthlyTotalCents Int
-  setupTotalCents   Int
+  monthlyTotalCents Int // recurring total, cadence in billingInterval (month or year)
+  setupTotalCents   Int // one-time total
+  // Link source + billing cadence for the custom-link feature.
+  // source defaults to "calculator" so existing rows/flows are untouched.
+  source              String   @default("calculator") // "calculator" | "custom"
+  billingInterval     String? // null=one-time | "month" | "year"
+  appliedCouponId     String? // owner-attached, pre-applied coupon
+  appliedCoupon       Coupon?  @relation(fields: [appliedCouponId], references: [id], onDelete: SetNull)
+  allowPromotionCodes Boolean  @default(false) // client may type a code at Stripe checkout
   status            String                  @default("pending_checkout")
   lastStripeEventId String?
   lastStripeEventAt DateTime?
@@ -1691,6 +1699,37 @@ model PaymentQuote {
   @@index([sentByStaffId])
   @@index([status])
   @@index([lastStripeEventAt])
+  @@index([appliedCouponId])
+}
+
+// App-side source of truth for a discount, mirroring a Stripe Coupon + Promotion Code.
+// Stripe owns the discount math (percent/amount/duration/redeem_by/max_redemptions);
+// this model backs the management UI and the quote-attach flow.
+model Coupon {
+  id                    String       @id @default(cuid())
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  code                  String // promotion code shown to client, e.g. "WELCOME10"
+  name                  String? // internal label
+  discountType          String // "percent" | "amount"
+  percentOff            Int? // 1..100 when percent
+  amountOffCents        Int? // > 0 when amount (currency = org default)
+  currency              String       @default("usd")
+  duration              String       @default("once") // "once" | "forever" | "repeating"
+  durationInMonths      Int? // when duration = "repeating"
+  maxRedemptions        Int? // usage limit (null = unlimited)
+  redeemBy              DateTime? // expiry
+  stripeCouponId        String? // synced Stripe Coupon id
+  stripePromotionCodeId String? // synced Stripe Promotion Code id
+  active                Boolean      @default(true) // soft "disable" toggle
+  timesRedeemed         Int          @default(0) // cached from Stripe for display
+  createdByStaffId      String?
+  appliedQuotes         PaymentQuote[]
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@unique([organizationId, code])
+  @@index([organizationId, active])
 }
 
 model StripeCheckoutSession {

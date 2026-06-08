@@ -141,6 +141,75 @@ export interface RecipientSearchResponse {
   leads: RecipientResult[]
 }
 
+// --- Custom (free-form) payment links --------------------------------------
+// Staff type arbitrary line items instead of driving the pricing calculator.
+// Shapes mirror the API `createCustomCheckoutSchema` / `sendCustomQuoteSchema`.
+
+export interface CustomLineItemInput {
+  label: string
+  description?: string
+  unitAmountCents: number
+  quantity: number
+}
+
+export interface CreateCustomCheckoutInput {
+  billingInterval: 'one_time' | 'month' | 'year'
+  items: CustomLineItemInput[]
+  /** One-time add-on items; only valid for recurring (month/year) links. */
+  oneTimeItems?: CustomLineItemInput[]
+  customerEmail?: string
+  customerName?: string
+  businessName?: string
+  /** Owner-attached coupon (`Coupon.id`). Mutually exclusive with allowPromotionCodes. */
+  couponId?: string
+  /** Let the client type a promo code at Stripe checkout. Mutually exclusive with couponId. */
+  allowPromotionCodes?: boolean
+}
+
+export interface SendCustomQuoteInput extends CreateCustomCheckoutInput {
+  recipient: SendQuoteRecipient
+}
+
+/**
+ * Coupon summary returned by `GET /coupons`. Used both by the custom-link
+ * discount picker (active coupons) and the management panel (all fields).
+ * `redeemBy`/`createdAt` arrive as ISO strings over JSON.
+ */
+export interface CouponSummary {
+  id: string
+  code: string
+  name: string | null
+  discountType: 'percent' | 'amount'
+  percentOff: number | null
+  amountOffCents: number | null
+  currency: string
+  duration: 'once' | 'forever' | 'repeating'
+  durationInMonths: number | null
+  maxRedemptions: number | null
+  redeemBy: string | null
+  timesRedeemed: number
+  active: boolean
+  createdAt: string
+}
+
+export interface ListCouponsResponse {
+  coupons: CouponSummary[]
+}
+
+/** Create-coupon payload mirroring the API `createCouponSchema` (Phase 4). */
+export interface CreateCouponInput {
+  code: string
+  name?: string
+  discountType: 'percent' | 'amount'
+  percentOff?: number
+  amountOffCents?: number
+  currency?: string
+  duration: 'once' | 'forever' | 'repeating'
+  durationInMonths?: number
+  maxRedemptions?: number
+  redeemBy?: string
+}
+
 // Request options type
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>
@@ -330,12 +399,44 @@ export const api = {
         body: JSON.stringify(data),
         retries: 0,
       }),
+
+    // Custom (free-form) payment links — staff-typed line items, not calculator-driven.
+    createCustomCheckoutSession: (data: CreateCustomCheckoutInput) =>
+      request<CheckoutSessionResponse>('/billing/checkout-sessions/custom', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+
+    sendCustomQuote: (data: SendCustomQuoteInput) =>
+      request<SendQuoteResponse>('/billing/quotes/send/custom', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
   },
 
   // Recipient search (combined Clients + Leads) for sending pricing quotes
   recipients: {
     search: (q: string) =>
       request<RecipientSearchResponse>('/recipients/search', { params: { q } }),
+  },
+
+  // Coupons (Stripe-synced) — list/create/disable for picker + management panel
+  coupons: {
+    list: (params?: { active?: boolean }) =>
+      request<ListCouponsResponse>('/coupons', {
+        params: params?.active != null ? { active: String(params.active) } : undefined,
+      }),
+
+    create: (data: CreateCouponInput) =>
+      request<CouponSummary>('/coupons', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    disable: (id: string) =>
+      request<CouponSummary>(`/coupons/${id}/disable`, { method: 'PATCH' }),
   },
 
   // Clients

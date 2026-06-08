@@ -509,6 +509,7 @@
   "pay.error.server.message": "Không tải được thông tin thanh toán. Vui lòng thử lại.",
   "quote.summaryTitle": "Báo giá của bạn",
   "quote.monthlyGroup": "Hàng tháng",
+  "quote.yearlyGroup": "Hàng năm",
   "quote.setupGroup": "Thiết lập và một lần",
   "quote.dueToday": "Thanh toán hôm nay",
   "quote.thenMonthly": "Sau đó",

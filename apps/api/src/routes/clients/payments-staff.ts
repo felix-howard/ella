@@ -53,8 +53,21 @@ clientsPaymentsStaffRoute.get(
       include: { agreement: { select: { id: true, title: true } } },
     })
 
+    // Past-due indicator: any sent quote for this client whose latest recurring
+    // charge failed (webhook flips it to `payment_failed`). Drives the tab banner
+    // so staff can chase the client to update their card.
+    const pastDueCount = await prisma.paymentQuote.count({
+      where: {
+        clientId,
+        organizationId: orgId,
+        payToken: { not: null },
+        status: 'payment_failed',
+      },
+    })
+
     return c.json({
       success: true,
+      pastDue: pastDueCount > 0,
       data: payments.map((payment) => ({
         id: payment.id,
         type: payment.type,

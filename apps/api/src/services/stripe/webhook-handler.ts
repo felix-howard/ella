@@ -2,6 +2,13 @@ import Stripe from 'stripe'
 import { config } from '../../lib/config'
 import { prisma } from '../../lib/db'
 import { markDepositPaymentPaid } from '../payments/deposit-checkout-service'
+import {
+  alertRecurringQuoteFailure,
+  fulfillFirstQuotePayment,
+  loadSendableQuoteBySubscription,
+  recordRecurringQuotePayment,
+} from '../payments/quote-fulfillment-service'
+import type { InvoiceFacts } from '../payments/quote-fulfillment-types'
 
 type StripeEventType =
   | 'checkout.session.completed'
@@ -74,26 +81,56 @@ export async function handleStripeWebhookEvent(event: Stripe.Event): Promise<Str
       if (isDepositPaymentSession(session)) {
         await handleDepositCheckoutSession(session, fulfillment, getEventCursor(event))
       } else {
-        await handleCheckoutSession(session, fulfillment, getEventCursor(event))
+        const cursor = getEventCursor(event)
+        const { quoteId, targetQuoteStatus } = await handleCheckoutSession(
+          session,
+          fulfillment,
+          cursor
+        )
+        // Sent-quote side-effects: only when this completed/settled session is a
+        // sendable quote (carries quotePayToken) AND represents a paid charge.
+        // Idempotent in fulfillFirstQuotePayment (deterministic Payment payToken).
+        if (session.metadata?.quotePayToken && quoteId && isPaidQuoteStatus(targetQuoteStatus)) {
+          await fulfillFirstQuotePayment({ quoteId, session, eventAt: cursor.at })
+        }
       }
       break
     }
-    case 'invoice.paid':
-      await updateQuoteBySubscription(
-        event.data.object,
-        'active',
-        'invoice_paid',
-        getEventCursor(event)
-      )
+    case 'invoice.paid': {
+      const cursor = getEventCursor(event)
+      const facts = extractInvoiceFacts(event.data.object)
+      await updateQuoteBySubscription(event.data.object, 'active', 'invoice_paid', cursor)
+      // Record only TRUE monthly cycles. The subscription's first invoice
+      // (`subscription_create`) fires alongside checkout.session.completed and is
+      // handled there — skip it to avoid a duplicate first-payment row.
+      if (facts.subscriptionId && facts.billingReason !== 'subscription_create') {
+        const quote = await loadSendableQuoteBySubscription(facts.subscriptionId)
+        if (quote) await recordRecurringQuotePayment({ quote, invoice: facts, eventAt: cursor.at })
+      }
       break
-    case 'invoice.payment_failed':
+    }
+    case 'invoice.payment_failed': {
+      const cursor = getEventCursor(event)
+      const facts = extractInvoiceFacts(event.data.object)
+      // Load the sendable quote BEFORE the status update so we can tell a fresh
+      // failure from a Stripe re-delivery (lastStripeEventId already == this id).
+      const quote = facts.subscriptionId
+        ? await loadSendableQuoteBySubscription(facts.subscriptionId)
+        : null
+      // De-dupe on event id (Stripe re-delivery). Skip canceled quotes too: their
+      // status row won't advance lastStripeEventId (so the id guard can't catch a
+      // re-delivery), and chasing a card for a canceled subscription is pointless.
+      const skipAlert =
+        !quote || quote.status === 'canceled' || quote.lastStripeEventId === cursor.id
       await updateQuoteBySubscription(
         event.data.object,
         'payment_failed',
         'invoice_payment_failed',
-        getEventCursor(event)
+        cursor
       )
+      if (quote && !skipAlert) await alertRecurringQuoteFailure({ quote, invoice: facts })
       break
+    }
     case 'customer.subscription.deleted':
       await updateQuoteBySubscription(
         event.data.object,
@@ -114,11 +151,16 @@ function getStripeClient(): Stripe {
   return stripeClient
 }
 
+interface CheckoutSessionOutcome {
+  quoteId: string | null
+  targetQuoteStatus: string
+}
+
 async function handleCheckoutSession(
   session: Stripe.Checkout.Session,
   fulfillment: CheckoutFulfillment,
   event: StripeEventCursor
-): Promise<void> {
+): Promise<CheckoutSessionOutcome> {
   const targetQuoteStatus = getCheckoutQuoteStatus(session, fulfillment)
   const targetSessionStatus =
     fulfillment === 'failed' ? 'payment_failed' : (session.status ?? 'complete')
@@ -135,12 +177,14 @@ async function handleCheckoutSession(
     },
   })
 
+  const resolvedQuoteId = existingSession?.paymentQuoteId ?? metadataQuoteId
+
   if (
     existingSession?.status === targetSessionStatus &&
     existingSession.paymentQuote.status === targetQuoteStatus &&
     (!isPaidQuoteStatus(targetQuoteStatus) || existingSession.paidAt)
   ) {
-    return
+    return { quoteId: resolvedQuoteId, targetQuoteStatus }
   }
 
   if (
@@ -154,7 +198,7 @@ async function handleCheckoutSession(
     })
   }
 
-  const quoteId = existingSession?.paymentQuoteId ?? metadataQuoteId
+  const quoteId = resolvedQuoteId
   const paidAt = isPaidQuoteStatus(targetQuoteStatus) ? event.at : undefined
   const operations = []
   const shouldUpdateSession = shouldApplyCheckoutSessionStatus(
@@ -209,6 +253,25 @@ async function handleCheckoutSession(
   }
 
   if (operations.length > 0) await prisma.$transaction(operations)
+
+  return { quoteId, targetQuoteStatus }
+}
+
+/**
+ * Extract the version-agnostic facts the fulfillment layer needs from a Stripe
+ * Invoice, so that layer never parses raw Stripe objects. Subscription id reuses
+ * the same string|object|parent resolution as the status path.
+ */
+function extractInvoiceFacts(stripeObject: unknown): InvoiceFacts {
+  const obj = (stripeObject ?? {}) as Record<string, unknown>
+  return {
+    id: typeof obj.id === 'string' ? obj.id : null,
+    billingReason: typeof obj.billing_reason === 'string' ? obj.billing_reason : null,
+    amountPaidCents: typeof obj.amount_paid === 'number' ? obj.amount_paid : 0,
+    amountDueCents: typeof obj.amount_due === 'number' ? obj.amount_due : 0,
+    paymentIntentId: getStripeObjectId(obj.payment_intent),
+    subscriptionId: getSubscriptionId(stripeObject),
+  }
 }
 
 async function updateQuoteBySubscription(

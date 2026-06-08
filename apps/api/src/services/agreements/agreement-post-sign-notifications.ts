@@ -76,7 +76,7 @@ export async function notifyAdminsAgreementSigned(
  */
 export async function smsOptedInAdmins(params: {
   organizationId: string
-  toggle: 'notifyOnAgreementSigned' | 'notifyOnClientPayment'
+  toggle: 'notifyOnAgreementSigned' | 'notifyOnClientPayment' | 'notifyOnPaymentFailed'
   message: string
   /** Human-readable context for failure logs, e.g. `agreement=abc signed`. */
   logContext: string

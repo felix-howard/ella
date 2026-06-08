@@ -118,12 +118,15 @@ export function PdfDocument({
     [onLoadError]
   )
 
-  // DPI multiplier for crisp rendering
+  // DPI multiplier for crisp rendering — applied to the canvas *buffer* only
+  // (via react-pdf's devicePixelRatio prop), NOT the layout scale. Folding it
+  // into `scale` would widen each page's CSS width by the DPR, forcing
+  // horizontal scroll on retina mobile.
   const dpiMultiplier =
     typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
 
-  // Effective scale: fitScale * zoom * DPI
-  const renderScale = fitScale * zoom * dpiMultiplier
+  // Layout scale: fit-to-width × user zoom. Keeps page CSS width == container.
+  const renderScale = fitScale * zoom
 
   // Generate page numbers array for rendering
   const pageNumbers = useMemo(
@@ -189,6 +192,7 @@ export function PdfDocument({
             <Page
               pageNumber={pageNum}
               scale={renderScale}
+              devicePixelRatio={dpiMultiplier}
               renderTextLayer={false}
               renderAnnotationLayer={false}
               className="shadow-md"

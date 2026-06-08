@@ -366,12 +366,13 @@ function RateField({
       {label}
       <Input
         aria-label={`${label} rate`}
-        type="number"
-        min={0}
+        type="text"
         inputMode="numeric"
-        value={value === 0 ? '' : value}
+        // Show money fields as "$1,000" for clarity; strip back to digits on
+        // change so the parent keeps a plain numeric value.
+        value={value === 0 ? '' : formatCurrency(value)}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => onChange(event.target.value.replace(/[^\d]/g, ''))}
         className={
           compact ? `h-8 w-24 px-2 text-xs ${numberInputClass}` : `mt-1 ${numberInputClass}`
         }

@@ -11,6 +11,7 @@ import { toast } from '../../stores/toast-store'
 import { api } from '../../lib/api-client'
 import { PricingCalculatorForm } from './pricing-calculator-form'
 import { PricingPaymentLinkPanel } from './pricing-payment-link-panel'
+import { PricingSendQuotePanel } from './pricing-send-quote-panel'
 import { PricingPrintPanel } from './pricing-print-panel'
 import { PricingSummaryPanel } from './pricing-summary-panel'
 import { serializePricingInput, trimOptional } from './pricing-format'
@@ -124,6 +125,11 @@ export function PricingCalculatorPage() {
             quoteChanged={quoteChanged}
             onFieldsChange={handleCustomerFieldsChange}
             onCreate={handleCreate}
+          />
+          <PricingSendQuotePanel
+            pricingInput={input}
+            fields={customerFields}
+            disabledReason={disabledReason}
           />
         </aside>
       </div>

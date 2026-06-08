@@ -96,6 +96,41 @@ export async function getPublicPaymentView(payToken: string): Promise<PublicPaym
 }
 
 /**
+ * Best-effort self-heal: if a payment is still PENDING/FAILED but its Stripe
+ * Checkout Session already reports `paid`, mark it PAID synchronously instead
+ * of waiting on the webhook. Covers webhook delay/failure in production and
+ * local dev without `stripe listen`.
+ *
+ * Never throws — Stripe/network errors leave the DB untouched so the webhook
+ * can still fulfill later. Skips the Stripe round-trip unless a checkout
+ * session actually exists, so fresh page loads stay free of API calls.
+ */
+export async function reconcileDepositPaymentFromStripe(payToken: string): Promise<void> {
+  if (!config.stripe.isConfigured) return
+
+  const payment = await prisma.payment.findUnique({
+    where: { payToken },
+    select: { status: true, stripeSessionId: true },
+  })
+  if (!payment?.stripeSessionId) return
+  if (payment.status !== 'PENDING' && payment.status !== 'FAILED') return
+
+  try {
+    const session = await getStripeClient().checkout.sessions.retrieve(payment.stripeSessionId, {
+      expand: ['payment_intent'],
+    })
+    if (session.payment_status !== 'paid') return
+    // Prefer the PaymentIntent's creation time; fall back to now.
+    const intent =
+      typeof session.payment_intent === 'object' ? session.payment_intent : null
+    const eventAt = intent?.created ? new Date(intent.created * 1000) : new Date()
+    await markDepositPaymentPaid(session, eventAt)
+  } catch (err) {
+    console.error(`[Payment] Stripe reconcile failed for payToken=${payToken}:`, err)
+  }
+}
+
+/**
  * Create a fresh Stripe Checkout Session for a PENDING/FAILED payment and
  * return its redirect URL. Stale `stripeSessionId` is simply overwritten —
  * abandoned Stripe sessions self-expire (≤24h).
@@ -268,7 +303,6 @@ async function notifyDepositPaymentPaid(payment: PaymentWithSigner): Promise<voi
       buildDepositReceiptMessage({
         firstName: signer.firstName,
         amountFormatted,
-        orgName: payment.organization.name,
       }),
       DEPOSIT_RECEIPT_TEMPLATE_NAME,
     )

@@ -10,6 +10,7 @@ import { __resetRateLimitMapForTests } from '../../../middleware/rate-limiter'
 
 const svcMocks = vi.hoisted(() => ({
   getPublicPaymentView: vi.fn(),
+  reconcileDepositPaymentFromStripe: vi.fn(),
   createDepositCheckoutSession: vi.fn(),
 }))
 
@@ -60,6 +61,7 @@ afterEach(() => {
 beforeEach(() => {
   vi.clearAllMocks()
   svcMocks.getPublicPaymentView.mockResolvedValue(paymentView)
+  svcMocks.reconcileDepositPaymentFromStripe.mockResolvedValue(undefined)
   svcMocks.createDepositCheckoutSession.mockResolvedValue({
     checkoutUrl: 'https://checkout.stripe.com/c/pay/cs_dep_123',
   })
@@ -73,6 +75,13 @@ describe('GET /public/pay/:payToken', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ success: true, data: paymentView })
     expect(svcMocks.getPublicPaymentView).toHaveBeenCalledWith(token)
+  })
+
+  it('reconciles from Stripe before reading the view (webhook self-heal)', async () => {
+    const token = freshToken()
+    await createApp().request(`/public/pay/${token}`)
+
+    expect(svcMocks.reconcileDepositPaymentFromStripe).toHaveBeenCalledWith(token)
   })
 
   it('returns 404 for an unknown payToken', async () => {

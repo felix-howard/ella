@@ -8,6 +8,7 @@ import type Stripe from 'stripe'
 
 const stripeMocks = vi.hoisted(() => ({
   sessionsCreate: vi.fn(),
+  sessionsRetrieve: vi.fn(),
 }))
 
 const prismaMocks = vi.hoisted(() => ({
@@ -31,7 +32,9 @@ const signerSmsMocks = vi.hoisted(() => ({
 
 vi.mock('stripe', () => ({
   default: class {
-    checkout = { sessions: { create: stripeMocks.sessionsCreate } }
+    checkout = {
+      sessions: { create: stripeMocks.sessionsCreate, retrieve: stripeMocks.sessionsRetrieve },
+    }
   },
 }))
 
@@ -63,6 +66,7 @@ import {
   createDepositCheckoutSession,
   getPublicPaymentView,
   markDepositPaymentPaid,
+  reconcileDepositPaymentFromStripe,
 } from '../deposit-checkout-service'
 
 function paymentRow(overrides: Record<string, unknown> = {}) {
@@ -287,5 +291,78 @@ describe('markDepositPaymentPaid', () => {
     expect(notifyMocks.smsOptedInAdmins).toHaveBeenCalledTimes(1)
     expect(signerSmsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
     warnSpy.mockRestore()
+  })
+})
+
+describe('reconcileDepositPaymentFromStripe', () => {
+  function paidSession(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'cs_dep_123',
+      payment_status: 'paid',
+      payment_intent: { id: 'pi_123', created: 1_750_000_000 },
+      metadata: { payToken: 'tok_abc' },
+      ...overrides,
+    }
+  }
+
+  it('marks PAID when the Stripe session reports paid (webhook self-heal)', async () => {
+    prismaMocks.payment.findUnique.mockResolvedValue(
+      paymentRow({ stripeSessionId: 'cs_dep_123' }),
+    )
+    stripeMocks.sessionsRetrieve.mockResolvedValue(paidSession())
+
+    await reconcileDepositPaymentFromStripe('tok_abc')
+
+    expect(stripeMocks.sessionsRetrieve).toHaveBeenCalledWith('cs_dep_123', {
+      expand: ['payment_intent'],
+    })
+    expect(prismaMocks.payment.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'PAID' }) }),
+    )
+  })
+
+  it('skips the Stripe round-trip when no checkout session exists yet', async () => {
+    prismaMocks.payment.findUnique.mockResolvedValue(paymentRow({ stripeSessionId: null }))
+
+    await reconcileDepositPaymentFromStripe('tok_abc')
+
+    expect(stripeMocks.sessionsRetrieve).not.toHaveBeenCalled()
+    expect(prismaMocks.payment.updateMany).not.toHaveBeenCalled()
+  })
+
+  it.each(['PAID', 'REFUNDED', 'CANCELED'])(
+    'skips reconcile for a terminal %s payment',
+    async (status) => {
+      prismaMocks.payment.findUnique.mockResolvedValue(
+        paymentRow({ status, stripeSessionId: 'cs_dep_123' }),
+      )
+
+      await reconcileDepositPaymentFromStripe('tok_abc')
+
+      expect(stripeMocks.sessionsRetrieve).not.toHaveBeenCalled()
+    },
+  )
+
+  it('does not mark PAID when the session is still unpaid', async () => {
+    prismaMocks.payment.findUnique.mockResolvedValue(
+      paymentRow({ stripeSessionId: 'cs_dep_123' }),
+    )
+    stripeMocks.sessionsRetrieve.mockResolvedValue(paidSession({ payment_status: 'unpaid' }))
+
+    await reconcileDepositPaymentFromStripe('tok_abc')
+
+    expect(prismaMocks.payment.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('swallows Stripe errors so the webhook can still fulfill later', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    prismaMocks.payment.findUnique.mockResolvedValue(
+      paymentRow({ stripeSessionId: 'cs_dep_123' }),
+    )
+    stripeMocks.sessionsRetrieve.mockRejectedValue(new Error('stripe down'))
+
+    await expect(reconcileDepositPaymentFromStripe('tok_abc')).resolves.toBeUndefined()
+    expect(prismaMocks.payment.updateMany).not.toHaveBeenCalled()
+    errorSpy.mockRestore()
   })
 })

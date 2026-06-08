@@ -27,12 +27,11 @@ export function formatUsdAmount(amount: { toString(): string }): string {
 export function buildDepositPayLinkMessage(params: {
   firstName: string
   amountFormatted: string
-  orgName: string
   url: string
 }): string {
   return (
     `Hi ${params.firstName}, thanks for signing! Please pay your ` +
-    `${params.amountFormatted} retainer here: ${params.url}\n\n- ${params.orgName}`
+    `${params.amountFormatted} retainer here: ${params.url}`
   )
 }
 
@@ -40,12 +39,8 @@ export function buildDepositPayLinkMessage(params: {
 export function buildDepositReceiptMessage(params: {
   firstName: string
   amountFormatted: string
-  orgName: string
 }): string {
-  return (
-    `Hi ${params.firstName}, we received your ${params.amountFormatted} ` +
-    `retainer payment. Thank you!\n\n- ${params.orgName}`
-  )
+  return `Hi ${params.firstName}, we received your ${params.amountFormatted} retainer payment. Thank you!`
 }
 
 /** Admin SMS: a client signed an agreement (deposit line only when one applies). */

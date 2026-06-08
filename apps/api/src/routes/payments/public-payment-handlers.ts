@@ -13,6 +13,7 @@ import { z } from 'zod'
 import { checkRateLimit, releaseRateLimit } from '../../middleware/rate-limiter'
 import {
   getPublicPaymentView,
+  reconcileDepositPaymentFromStripe,
   createDepositCheckoutSession,
   DepositCheckoutError,
 } from '../../services/payments/deposit-checkout-service'
@@ -43,6 +44,8 @@ publicPaymentsRoute.get(
   zValidator('param', payTokenParamSchema),
   async (c) => {
     const { payToken } = c.req.valid('param')
+    // Self-heal from Stripe before reading — resilient to webhook delay/failure.
+    await reconcileDepositPaymentFromStripe(payToken)
     const view = await getPublicPaymentView(payToken)
     if (!view) throw new HTTPException(404, { message: 'Payment link not found' })
     return c.json({ success: true, data: view })

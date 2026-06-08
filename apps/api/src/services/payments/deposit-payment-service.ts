@@ -88,7 +88,6 @@ export async function sendDepositPayLinkSms(
   const message = buildDepositPayLinkMessage({
     firstName: ctx.signer.firstName,
     amountFormatted: formatUsdAmount(ctx.depositAmount ?? '0'),
-    orgName: ctx.orgName,
     url: buildPaymentPayUrl(payToken),
   })
   await sendSignerSmsAndPersist(

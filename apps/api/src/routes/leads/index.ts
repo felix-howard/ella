@@ -11,6 +11,7 @@ import { sanitizeSearchInput, sanitizeTextInput } from '../../lib/validation'
 import { formatPhoneToE164, sendSmsOnly, isTwilioConfigured } from '../../services/sms'
 import { createMagicLink } from '../../services/magic-link'
 import { sendWelcomeMessage } from '../../services/sms'
+import { convertLeadToClientCore } from '../../services/leads/lead-conversion-service'
 import {
   normalizeManagerIds,
   syncClientManagers,
@@ -495,101 +496,40 @@ leadsRoute.post(
     const finalEmail = sanitizedEmail !== undefined ? sanitizedEmail : lead.email
 
     const result = await prisma.$transaction(async (tx) => {
-
-      // Duplicate check inside transaction to prevent race conditions
-      const existingClient = await tx.client.findFirst({
-        where: { phone: lead.phone, clientType: 'INDIVIDUAL', organizationId: orgId },
-        select: { id: true, firstName: true, lastName: true },
-      })
-
-      if (existingClient) {
-        return { duplicate: true as const, existingClient }
-      }
-
+      // Manager validation gates client creation — keep it in the route (the
+      // webhook auto-convert path has no managers to validate).
       const staffValid = await validateActiveOrgStaff(tx, orgId, managerIds)
       if (!staffValid) {
         return { duplicate: false as const, staffNotFound: true as const }
       }
 
-      const client = await tx.client.create({
-        data: {
-          firstName: finalFirstName,
-          lastName: finalLastName,
-          name: `${finalFirstName} ${finalLastName}`,
-          phone: lead.phone,
-          email: finalEmail,
-          language,
-          source: 'CONVERTED',
-          tags: lead.tags || [],
-          notes: lead.notes,
-          organizationId: orgId,
-          managedById: managerIds[0] || null,
-          createdById: staffId,
+      const converted = await convertLeadToClientCore(tx, {
+        lead,
+        organizationId: orgId,
+        firstName: finalFirstName,
+        lastName: finalLastName,
+        email: finalEmail,
+        language,
+        taxYear,
+        createdByStaffId: staffId,
+        managedById: managerIds[0] || null,
+        leadUpdateOverrides: {
+          ...(sanitizedFirstName ? { firstName: sanitizedFirstName } : {}),
+          ...(sanitizedLastName ? { lastName: sanitizedLastName } : {}),
+          ...(sanitizedEmail !== undefined ? { email: sanitizedEmail } : {}),
         },
       })
-      await syncClientManagers(tx, { clientIds: [client.id], organizationId: orgId, staffIds: managerIds })
-
-      const engagement = await tx.taxEngagement.create({
-        data: {
-          clientId: client.id,
-          taxYear,
-          status: 'DRAFT',
-        },
-      })
-
-      const taxCase = await tx.taxCase.create({
-        data: {
-          clientId: client.id,
-          engagementId: engagement.id,
-          taxYear,
-          taxTypes: ['FORM_1040'],
-          status: 'INTAKE',
-        },
-      })
-
-      // Lead → Client conversion always produces a standalone INDIVIDUAL client,
-      // so we always create a conversation to host reassigned lead messages.
-      const conversation = await tx.conversation.create({
-        data: { caseId: taxCase.id, lastMessageAt: new Date() },
-      })
-
-      // Reassign pre-conversion lead messages to the new conversation.
-      // UPDATE (not copy) preserves message IDs and createdAt for continuous thread history.
-      const migrated = await tx.message.updateMany({
-        where: { leadId: id },
-        data: { conversationId: conversation.id, leadId: null },
-      })
-
-      // Link all agreements from this lead to the new client. organizationId
-      // filter is defense-in-depth (leadId is already org-scoped). Pending SENT
-      // agreements remain signable via their token; once signed they auto-
-      // surface on the Client.
-      const agreementMigrated = await tx.agreement.updateMany({
-        where: { leadId: id, organizationId: orgId },
-        data: { clientId: client.id },
-      })
-
-      await tx.lead.update({
-        where: { id },
-        data: {
-          status: 'CONVERTED',
-          convertedToId: client.id,
-          convertedAt: new Date(),
-          ...(sanitizedFirstName && { firstName: sanitizedFirstName }),
-          ...(sanitizedLastName && { lastName: sanitizedLastName }),
-          ...(sanitizedEmail !== undefined && { email: sanitizedEmail }),
-        },
-      })
-
-      return {
-        duplicate: false as const,
-        client,
-        engagement,
-        taxCase,
-        conversation,
-        migratedCount: migrated.count,
-        agreementMigratedCount: agreementMigrated.count,
+      if (converted.duplicate) {
+        return { duplicate: true as const, existingClient: converted.existingClient }
       }
+
+      await syncClientManagers(tx, {
+        clientIds: [converted.client.id],
+        organizationId: orgId,
+        staffIds: managerIds,
+      })
+
+      return converted
     })
 
     if (result.duplicate) {

@@ -183,7 +183,9 @@ export function Step3UploadEditor({ entity, type, isSubmitting, onCancel, onSubm
             {uploaded.previewUrl && (
               <iframe
                 title={t('agreements.wizard.upload.previewTitle')}
-                src={uploaded.previewUrl}
+                // PDF open params hide the native viewer's thumbnail/page sidebar
+                // (navpanes=0, pagemode=none) so the document gets full width.
+                src={`${uploaded.previewUrl}#navpanes=0&pagemode=none&view=FitH`}
                 className="h-[72vh] min-h-[480px] w-full rounded-xl border border-border bg-white xl:h-[calc(92vh-13rem)]"
               />
             )}

@@ -94,7 +94,7 @@ beforeEach(() => {
   prismaMocks.payment.update.mockResolvedValue({})
   prismaMocks.payment.updateMany.mockResolvedValue({ count: 1 })
   prismaMocks.agreement.updateMany.mockResolvedValue({ count: 1 })
-  notifyMocks.smsOptedInAdmins.mockResolvedValue(undefined)
+  notifyMocks.smsOptedInAdmins.mockResolvedValue([])
   signerSmsMocks.sendSignerSmsAndPersist.mockResolvedValue(undefined)
   stripeMocks.sessionsCreate.mockResolvedValue({
     id: 'cs_dep_123',
@@ -291,6 +291,48 @@ describe('markDepositPaymentPaid', () => {
     expect(notifyMocks.smsOptedInAdmins).toHaveBeenCalledTimes(1)
     expect(signerSmsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
     warnSpy.mockRestore()
+  })
+
+  it('skips the receipt SMS when the signer shares a phone with a notified admin', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    // Signer's phone == the admin phone that just received the paid-notification.
+    prismaMocks.payment.findUnique.mockResolvedValue(
+      paymentRow({
+        lead: {
+          id: 'lead_1',
+          firstName: 'Anna',
+          lastName: 'Nguyen',
+          email: 'anna@test.com',
+          phone: '+18136442540',
+        },
+      }),
+    )
+    notifyMocks.smsOptedInAdmins.mockResolvedValue(['+18136442540'])
+
+    await markDepositPaymentPaid(stripeSession(), eventAt)
+
+    expect(notifyMocks.smsOptedInAdmins).toHaveBeenCalledTimes(1)
+    expect(signerSmsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
+
+  it('still sends the receipt when the signer phone differs from notified admins', async () => {
+    prismaMocks.payment.findUnique.mockResolvedValue(
+      paymentRow({
+        lead: {
+          id: 'lead_1',
+          firstName: 'Anna',
+          lastName: 'Nguyen',
+          email: 'anna@test.com',
+          phone: '+15559990000',
+        },
+      }),
+    )
+    notifyMocks.smsOptedInAdmins.mockResolvedValue(['+18136442540'])
+
+    await markDepositPaymentPaid(stripeSession(), eventAt)
+
+    expect(signerSmsMocks.sendSignerSmsAndPersist).toHaveBeenCalledTimes(1)
   })
 })
 

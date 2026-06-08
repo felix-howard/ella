@@ -15,6 +15,7 @@ const twilioMocks = vi.hoisted(() => ({
   sendSms: vi.fn(),
   isTwilioConfigured: vi.fn(),
   isValidPhoneNumber: vi.fn((phone: string) => phone.startsWith('+')),
+  formatPhoneToE164: vi.fn((phone: string) => phone),
 }))
 
 vi.mock('../../../lib/db', () => ({ prisma: prismaMocks }))
@@ -115,7 +116,12 @@ describe('smsOptedInAdmins', () => {
       .mockResolvedValueOnce({ success: false, error: 'unreachable' })
       .mockResolvedValueOnce({ success: true, sid: 'SM456' })
 
-    await expect(smsOptedInAdmins(baseParams)).resolves.toBeUndefined()
+    // Returns the E.164 phones it targeted (both, even though one send failed)
+    // so callers can dedupe follow-up SMS to the same handset.
+    await expect(smsOptedInAdmins(baseParams)).resolves.toEqual([
+      '+15550000001',
+      '+15550000002',
+    ])
 
     expect(twilioMocks.sendSms).toHaveBeenCalledTimes(2)
     expect(errorSpy).toHaveBeenCalledWith(

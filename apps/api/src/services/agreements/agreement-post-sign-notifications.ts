@@ -11,7 +11,12 @@
 import { prisma } from '../../lib/db'
 // Direct module import (not the ../sms barrel) keeps the Stripe webhook's
 // import graph free of the MMS/AI handler chain.
-import { sendSms, isTwilioConfigured, isValidPhoneNumber } from '../sms/twilio-client'
+import {
+  sendSms,
+  isTwilioConfigured,
+  isValidPhoneNumber,
+  formatPhoneToE164,
+} from '../sms/twilio-client'
 import {
   buildAdminAgreementSignedMessage,
   formatUsdAmount,
@@ -75,12 +80,12 @@ export async function smsOptedInAdmins(params: {
   message: string
   /** Human-readable context for failure logs, e.g. `agreement=abc signed`. */
   logContext: string
-}): Promise<void> {
+}): Promise<string[]> {
   if (!isTwilioConfigured()) {
     console.warn(
       `[Notify] Twilio not configured — skipping admin SMS (${params.logContext})`,
     )
-    return
+    return []
   }
 
   const admins = await prisma.staff.findMany({
@@ -93,7 +98,13 @@ export async function smsOptedInAdmins(params: {
     },
     select: { id: true, phoneNumber: true },
   })
-  if (admins.length === 0) return
+  if (admins.length === 0) return []
+
+  // E.164-normalized phones we targeted — callers dedupe follow-up SMS (e.g. the
+  // client receipt) so one handset never receives both messages for one event.
+  const targetedPhones = admins
+    .map((a) => (a.phoneNumber ? formatPhoneToE164(a.phoneNumber) : null))
+    .filter((p): p is string => p !== null && isValidPhoneNumber(p))
 
   const results = await Promise.allSettled(
     admins.map(async (admin) => {
@@ -115,4 +126,6 @@ export async function smsOptedInAdmins(params: {
       )
     }
   }
+
+  return targetedPhones
 }

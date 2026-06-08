@@ -15,6 +15,7 @@ import { config } from '../../lib/config'
 import { prisma } from '../../lib/db'
 import { isUnsafeProductionReturnUrl } from '../stripe/checkout'
 import { smsOptedInAdmins } from '../agreements/agreement-post-sign-notifications'
+import { formatPhoneToE164 } from '../sms/twilio-client'
 import { buildPaymentPayUrl } from './deposit-payment-service'
 import { sendSignerSmsAndPersist } from './signer-sms-delivery'
 import {
@@ -59,8 +60,8 @@ function assertDepositCheckoutConfig(payUrl: string): void {
 
 const paymentWithSignerInclude = {
   organization: { select: { name: true } },
-  client: { select: { id: true, firstName: true, lastName: true, email: true } },
-  lead: { select: { id: true, firstName: true, lastName: true, email: true } },
+  client: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+  lead: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
   agreement: { select: { id: true, title: true, createdByUserId: true } },
 } as const
 
@@ -267,8 +268,12 @@ async function notifyDepositPaymentPaid(payment: PaymentWithSigner): Promise<voi
     ? [signer.firstName, signer.lastName].filter(Boolean).join(' ')
     : 'A client'
 
+  // Phones that received the admin notification — used to dedupe the receipt
+  // below so one handset never gets both messages for the same payment (e.g. a
+  // staff member who is also the paying client, sharing one phone number).
+  let notifiedAdminPhones: string[] = []
   try {
-    await smsOptedInAdmins({
+    notifiedAdminPhones = await smsOptedInAdmins({
       organizationId: payment.organizationId,
       toggle: 'notifyOnClientPayment',
       message: buildAdminPaymentReceivedMessage({
@@ -288,6 +293,17 @@ async function notifyDepositPaymentPaid(payment: PaymentWithSigner): Promise<voi
   if (!signer || !payment.agreement?.createdByUserId) {
     console.warn(
       `[Payment] Receipt SMS skipped for payment=${payment.id} — missing ${signer ? 'agreement sender' : 'signer'}`,
+    )
+    return
+  }
+
+  // Dedupe: if the signer's phone already got the admin notification, sending
+  // the receipt would double-text the same handset. The admin notification is
+  // sufficient for that number, so skip the receipt.
+  const signerPhone = signer.phone ? formatPhoneToE164(signer.phone) : null
+  if (signerPhone && notifiedAdminPhones.includes(signerPhone)) {
+    console.warn(
+      `[Payment] Receipt SMS skipped for payment=${payment.id} — signer phone already notified as admin`,
     )
     return
   }

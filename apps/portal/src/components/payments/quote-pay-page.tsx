@@ -27,6 +27,7 @@ import {
 import { toast } from '../../lib/toast-store'
 import { PaymentPageShell } from './payment-page-shell'
 import { QuoteBreakdown } from './quote-breakdown'
+import { QuoteIntroPanel } from './quote-intro-panel'
 import {
   PaymentPaidPanel,
   PaymentConfirmingPanel,
@@ -227,56 +228,51 @@ function QuotePayCard({
   const { t } = useTranslation()
 
   return (
-    <section className="flex-1 flex items-center justify-center py-8">
-      <div className="w-full max-w-md space-y-5">
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
-          <div className="border-b border-border bg-muted/30 px-6 py-5 text-center">
-            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              {view.orgName}
-            </p>
-            {view.recipientFirstName && (
-              <p className="mt-2 text-base text-foreground">
-                {t('pay.greeting', { firstName: view.recipientFirstName })}
-              </p>
-            )}
-          </div>
+    <section className="flex-1 py-2 sm:py-4">
+      <div className="mx-auto grid w-full max-w-5xl items-start gap-8 lg:grid-cols-[1fr_minmax(380px,420px)] lg:gap-12">
+        <div className="order-2 lg:order-1">
+          <QuoteIntroPanel orgName={view.orgName} recipientFirstName={view.recipientFirstName} />
+        </div>
 
-          <div className="px-5 py-5 sm:px-6">
-            {showCanceledNotice && (
-              <div
-                className="mb-5 flex items-start gap-2.5 rounded-lg border border-border bg-muted/40 px-4 py-3 text-left text-sm text-muted-foreground"
-                role="status"
-              >
-                <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>{t('pay.canceledNotice')}</span>
-              </div>
-            )}
-
-            <QuoteBreakdown view={view} language={language} />
-
-            <Button
-              onClick={onPay}
-              disabled={redirecting}
-              size="lg"
-              className="mt-6 min-h-12 w-full gap-2 text-base font-semibold shadow-md shadow-primary/20"
-            >
-              {redirecting ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-                  {t('pay.redirecting')}
-                </>
-              ) : (
-                <>
-                  <CreditCard className="h-5 w-5" aria-hidden="true" />
-                  {t('pay.payButton', { amount: dueTodayFormatted })}
-                </>
+        <div className="order-1 lg:order-2 lg:sticky lg:top-24">
+          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
+            <div className="px-5 py-5 sm:px-6 sm:py-6">
+              {showCanceledNotice && (
+                <div
+                  className="mb-5 flex items-start gap-2.5 rounded-lg border border-border bg-muted/40 px-4 py-3 text-left text-sm text-muted-foreground"
+                  role="status"
+                >
+                  <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>{t('pay.canceledNotice')}</span>
+                </div>
               )}
-            </Button>
 
-            <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-              <Lock className="h-3.5 w-3.5" aria-hidden="true" />
-              {t('pay.stripeNote')}
-            </p>
+              <QuoteBreakdown view={view} language={language} />
+
+              <Button
+                onClick={onPay}
+                disabled={redirecting}
+                size="lg"
+                className="mt-6 min-h-12 w-full gap-2 text-base font-semibold shadow-md shadow-primary/20"
+              >
+                {redirecting ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                    {t('pay.redirecting')}
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="h-5 w-5" aria-hidden="true" />
+                    {t('pay.payButton', { amount: dueTodayFormatted })}
+                  </>
+                )}
+              </Button>
+
+              <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                <Lock className="h-3.5 w-3.5" aria-hidden="true" />
+                {t('pay.stripeNote')}
+              </p>
+            </div>
           </div>
         </div>
       </div>

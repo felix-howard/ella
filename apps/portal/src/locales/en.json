@@ -511,5 +511,11 @@
   "quote.monthlyGroup": "Monthly",
   "quote.setupGroup": "Setup and one-time",
   "quote.dueToday": "Due today",
-  "quote.thenMonthly": "Then"
+  "quote.thenMonthly": "Then",
+  "quote.intro.heading": "Review & complete your payment",
+  "quote.intro.lead": "{{orgName}} prepared the quote on the right. Look it over and pay securely — it only takes a minute.",
+  "quote.intro.leadNamed": "Hi {{firstName}}, {{orgName}} prepared your quote. Look it over and pay securely — it only takes a minute.",
+  "quote.trust.secureTitle": "Secure Stripe checkout",
+  "quote.trust.encryptedTitle": "Bank-level encryption",
+  "quote.trust.receiptTitle": "Receipt sent by text"
 }

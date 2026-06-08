@@ -25,12 +25,35 @@ import type { EntityRef } from '../types'
 const MAX_PDF_BYTES = 15 * 1024 * 1024
 const DEFAULT_DEPOSIT_AMOUNT = '500.00'
 
+/**
+ * Strip user input down to a plain numeric string (digits + at most one dot,
+ * max two decimals). This is the value stored in state, validated, and sent.
+ */
+function sanitizeAmount(input: string): string {
+  let cleaned = input.replace(/[^\d.]/g, '')
+  const firstDot = cleaned.indexOf('.')
+  if (firstDot !== -1) {
+    cleaned =
+      cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '')
+    cleaned = cleaned.slice(0, firstDot + 3)
+  }
+  return cleaned
+}
+
+/** Render a raw numeric string as USD, e.g. "1500" → "$1,500", "1500.5" → "$1,500.5". */
+function formatAmount(raw: string): string {
+  if (!raw) return ''
+  const [intPart, decPart] = raw.split('.')
+  const grouped = intPart ? Number(intPart).toLocaleString('en-US') : '0'
+  const dollars = `$${grouped}`
+  return decPart !== undefined ? `${dollars}.${decPart}` : dollars
+}
+
 export interface UploadStep3Resolved {
   uploadedPdfKey: string
   title: string
   depositEnabled: boolean
   depositAmount: string
-  internalNote: string
   expiryDays: number
 }
 
@@ -51,7 +74,6 @@ export function Step3UploadEditor({ entity, type, isSubmitting, onCancel, onSubm
   const [title, setTitle] = useState<string>(t(`agreements.type.${type}`))
   const [depositEnabled, setDepositEnabled] = useState(false)
   const [depositAmount, setDepositAmount] = useState(DEFAULT_DEPOSIT_AMOUNT)
-  const [internalNote, setInternalNote] = useState('')
   const [expiryDays, setExpiryDays] = useState(EXPIRY_DAYS_DEFAULT)
 
   const uploadMutation = useMutation({
@@ -96,7 +118,6 @@ export function Step3UploadEditor({ entity, type, isSubmitting, onCancel, onSubm
       title: title.trim(),
       depositEnabled,
       depositAmount: depositAmount.trim(),
-      internalNote,
       expiryDays,
     })
   }
@@ -163,7 +184,7 @@ export function Step3UploadEditor({ entity, type, isSubmitting, onCancel, onSubm
               <iframe
                 title={t('agreements.wizard.upload.previewTitle')}
                 src={uploaded.previewUrl}
-                className="h-[460px] w-full rounded-xl border border-border bg-white"
+                className="h-[72vh] min-h-[480px] w-full rounded-xl border border-border bg-white xl:h-[calc(92vh-13rem)]"
               />
             )}
           </div>
@@ -216,10 +237,10 @@ export function Step3UploadEditor({ entity, type, isSubmitting, onCancel, onSubm
               <input
                 type="text"
                 inputMode="decimal"
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(e.target.value)}
+                value={formatAmount(depositAmount)}
+                onChange={(e) => setDepositAmount(sanitizeAmount(e.target.value))}
                 disabled={isSubmitting}
-                placeholder="500.00"
+                placeholder="$500.00"
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
               />
               {!depositValid && (
@@ -275,21 +296,6 @@ export function Step3UploadEditor({ entity, type, isSubmitting, onCancel, onSubm
               })}
             </div>
           </div>
-
-          <label className="mt-4 block">
-            <span className="mb-1 block text-xs font-medium text-muted-foreground">
-              {t('agreements.wizard.fields.internalNoteLabel')}
-            </span>
-            <textarea
-              value={internalNote}
-              onChange={(e) => setInternalNote(e.target.value)}
-              rows={2}
-              maxLength={2000}
-              disabled={isSubmitting}
-              placeholder={t('agreements.wizard.fields.internalNotePlaceholder')}
-              className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
-            />
-          </label>
 
           <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4">
             <button

@@ -163,7 +163,6 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
       title: resolved.title.trim() || undefined,
       uploadedPdfKey: resolved.uploadedPdfKey,
       depositAmount: resolved.depositEnabled ? resolved.depositAmount : null,
-      internalNote: resolved.internalNote.trim() || undefined,
       expiryDays: resolved.expiryDays,
     }
     mutation.mutate(payload, { onSuccess: () => onClose() })

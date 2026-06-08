@@ -53,6 +53,12 @@ export const createAgreementBodySchema = z
     title: z.string().min(1).max(200).optional(),
     contentHtml: z.string().max(AGREEMENT_CONTENT_HTML_MAX).optional(),
     templateId: z.string().min(1).optional(),
+    /**
+     * R2 key of a previously-uploaded source PDF (from the upload-pdf endpoint).
+     * When set, the agreement body is the uploaded PDF — contentHtml/templateId
+     * must be omitted and the type-specific content rules are bypassed.
+     */
+    uploadedPdfKey: z.string().min(1).max(512).optional(),
     /** Pass `null` to explicitly skip deposit; omit/positive string to apply. */
     depositAmount: depositAmountSchema.optional().nullable(),
     /** Staff-only context, never shown to recipient or in PDF. */
@@ -67,6 +73,18 @@ export const createAgreementBodySchema = z
   })
   .strict()
   .superRefine((val, ctx) => {
+    // Uploaded-PDF path: the PDF IS the body. Reject mixing it with HTML/template
+    // sources, then short-circuit the content-required rules below.
+    if (val.uploadedPdfKey) {
+      if (val.contentHtml || val.templateId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['uploadedPdfKey'],
+          message: 'uploadedPdfKey cannot be combined with contentHtml or templateId',
+        })
+      }
+      return
+    }
     // CUSTOM requires content (no template fallback exists)
     if (val.type === 'CUSTOM' && !val.contentHtml) {
       ctx.addIssue({

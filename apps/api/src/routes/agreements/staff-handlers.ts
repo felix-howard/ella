@@ -22,6 +22,7 @@ import {
   extendAgreementForEntity,
   getDefaultHtmlForEntity,
   renderPreviewPdf,
+  storeUploadedPdf,
 } from '../../services/agreements/agreement-service'
 import {
   agreementTypeSchema,
@@ -71,6 +72,7 @@ staffRoute.post(
       title: body.title,
       contentHtml: body.contentHtml,
       templateId: body.templateId,
+      uploadedPdfKey: body.uploadedPdfKey,
       depositAmount: body.depositAmount ?? null,
       internalNote: body.internalNote,
       expiryDays: body.expiryDays,
@@ -95,6 +97,30 @@ staffRoute.get(
       type,
     })
     return c.json({ success: true, data })
+  },
+)
+
+// POST /:leadId/agreements/upload-pdf — multipart upload of a source PDF.
+staffRoute.post(
+  '/:leadId/agreements/upload-pdf',
+  zValidator('param', leadIdParamSchema),
+  async (c) => {
+    const { orgId } = getAuth(c.get('user'))
+    const { leadId } = c.req.valid('param')
+    const form = await c.req.parseBody()
+    const file = form['file']
+    if (!(file instanceof File)) {
+      throw new HTTPException(422, { message: 'No PDF file provided' })
+    }
+    const bytes = Buffer.from(await file.arrayBuffer())
+    const data = await storeUploadedPdf({
+      entityType: 'lead',
+      entityId: leadId,
+      orgId,
+      bytes,
+      contentType: file.type || null,
+    })
+    return c.json({ success: true, data }, 201)
   },
 )
 

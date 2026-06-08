@@ -203,7 +203,13 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
             </section>
 
             <div className="min-w-0 lg:h-full">
-              {view.templateHtml ? (
+              {view.uploadedPdfUrl ? (
+                <iframe
+                  title={view.templateTitle}
+                  src={view.uploadedPdfUrl}
+                  className="h-[70vh] w-full rounded-xl border border-border bg-white lg:h-full lg:min-h-[70vh]"
+                />
+              ) : view.templateHtml ? (
                 <AgreementCustomHtmlView
                   title={view.templateTitle}
                   html={view.templateHtml}
@@ -221,7 +227,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
             </div>
             <div className="shrink-0 lg:sticky lg:top-24">
               <AgreementSignForm
-                canSubmit={reachedBottom}
+                canSubmit={view.uploadedPdfUrl ? true : reachedBottom}
                 submitting={state === 'submitting'}
                 onSubmit={handleSubmit}
                 firmSnapshot={view.firmSnapshot}

@@ -161,6 +161,9 @@ export interface AgreementPublicView {
   templateTitle: string
   templateSections: AgreementTemplateSection[]
   templateHtml: string | null
+  /** Presigned URL of a staff-uploaded source PDF. When set, render the PDF
+   *  instead of templateSections/templateHtml. */
+  uploadedPdfUrl: string | null
   /** Formatted (e.g. `$300.00`) when a deposit applies; null otherwise. */
   depositAmount: string | null
   orgName: string

@@ -1804,6 +1804,10 @@ model Agreement {
   template          AgreementTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   templateVersion   String
   customContentHtml String?            @db.Text // Sanitized HTML snapshot per-lead. NULL = render from templateVersion.
+  // R2 key of a staff-uploaded source PDF. When set, the agreement body is the
+  // uploaded PDF (used as-is); signing appends a generated signature page rather
+  // than rendering from customContentHtml/templateVersion.
+  uploadedPdfKey    String?
 
   // Status
   status            AgreementStatus @default(DRAFT)

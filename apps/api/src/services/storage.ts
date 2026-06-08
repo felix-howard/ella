@@ -388,6 +388,49 @@ export async function fetchImageBuffer(r2Key: string): Promise<{
 }
 
 /**
+ * Fetch any R2 object as a Buffer (content-type agnostic). Used by the
+ * upload-PDF agreement flow to pull the staff-uploaded source PDF at signing
+ * time. Retries on 404 to absorb R2 replication lag, same as fetchImageBuffer.
+ * Returns null when R2 isn't configured or the object can't be fetched.
+ */
+export async function fetchFileBuffer(r2Key: string): Promise<Buffer | null> {
+  const MAX_RETRIES = 4
+  const BASE_DELAY_MS = 500
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const signedUrl = await getSignedDownloadUrl(r2Key)
+    if (!signedUrl) return null
+
+    try {
+      const response = await fetch(signedUrl)
+      if (response.ok) {
+        return Buffer.from(await response.arrayBuffer())
+      }
+      if (response.status === 404 && attempt < MAX_RETRIES - 1) {
+        await new Promise((resolve) => setTimeout(resolve, BASE_DELAY_MS * Math.pow(2, attempt)))
+        continue
+      }
+      console.error('[Storage] Failed to fetch file from R2', {
+        object: getSafeStorageReference(r2Key),
+        status: response.status,
+      })
+      return null
+    } catch (error) {
+      if (attempt < MAX_RETRIES - 1) {
+        await new Promise((resolve) => setTimeout(resolve, BASE_DELAY_MS * Math.pow(2, attempt)))
+        continue
+      }
+      console.error('[Storage] Failed to fetch file', {
+        object: getSafeStorageReference(r2Key),
+        error: getSafeStorageError(error),
+      })
+      return null
+    }
+  }
+  return null
+}
+
+/**
  * Result of a rename operation
  */
 export interface RenameResult {

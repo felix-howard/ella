@@ -29,6 +29,44 @@ export function setAuthTokenGetter(getter: () => Promise<string | null>) {
   getAuthToken = getter
 }
 
+export interface UploadedPdfResult {
+  key: string
+  pageCount: number
+  previewUrl: string | null
+}
+
+/**
+ * Multipart upload of an agreement source PDF. Bypasses the JSON `request<>`
+ * helper because the body is FormData (browser sets the multipart boundary).
+ * Shared by `api.clients.agreements.uploadPdf` and `api.leads.agreements.uploadPdf`.
+ */
+async function uploadAgreementPdf(basePath: string, file: File): Promise<UploadedPdfResult> {
+  const headers: Record<string, string> = {}
+  if (getAuthToken) {
+    const token = await getAuthToken()
+    if (token) headers.Authorization = `Bearer ${token}`
+  }
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await fetch(`${API_BASE_URL}${basePath}/upload-pdf`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  })
+  if (!response.ok) {
+    let message = `Upload failed (${response.status})`
+    try {
+      const data = (await response.json()) as { error?: string; message?: string }
+      if (data?.message || data?.error) message = data.message || data.error || message
+    } catch {
+      // Body wasn't JSON — keep generic message
+    }
+    throw new ApiError(response.status, 'UPLOAD_FAILED', message)
+  }
+  const json = (await response.json()) as { success: boolean; data: UploadedPdfResult }
+  return json.data
+}
+
 // API error class for consistent error handling
 export class ApiError extends Error {
   constructor(
@@ -440,6 +478,10 @@ export const api = {
         }
         return response.blob()
       },
+
+      // Multipart upload of a source PDF; returns the key passed to `create`.
+      uploadPdf: (clientId: string, file: File): Promise<UploadedPdfResult> =>
+        uploadAgreementPdf(`/clients/${clientId}/agreements`, file),
 
       // Re-SMS the portal pay link for the agreement's PENDING deposit Payment.
       resendPaymentLink: (clientId: string, agreementId: string) =>
@@ -1589,6 +1631,10 @@ export const api = {
         }
         return response.blob()
       },
+
+      // Multipart upload of a source PDF; returns the key passed to `create`.
+      uploadPdf: (leadId: string, file: File): Promise<UploadedPdfResult> =>
+        uploadAgreementPdf(`/leads/${leadId}/agreements`, file),
     },
 
     // Two-way Staff ↔ Lead SMS (polymorphic Message.leadId)
@@ -1810,6 +1856,8 @@ export interface CreateAgreementPayload {
   title?: string
   contentHtml?: string
   templateId?: string
+  /** R2 key from `uploadPdf`. When set, the agreement body is the uploaded PDF. */
+  uploadedPdfKey?: string
   /** Pass `null` to explicitly skip deposit; positive decimal string otherwise. */
   depositAmount?: string | null
   /** Staff-only context, never shown to recipient. Omit/blank → skipped. */

@@ -28,6 +28,7 @@ import {
   resendAgreementForEntity,
   extendAgreementForEntity,
   renderPreviewPdf,
+  storeUploadedPdf,
 } from '../../services/agreements/agreement-service'
 import {
   createAgreementBodySchema,
@@ -75,6 +76,7 @@ clientsAgreementsStaffRoute.post(
       title: body.title,
       contentHtml: body.contentHtml,
       templateId: body.templateId,
+      uploadedPdfKey: body.uploadedPdfKey,
       depositAmount: body.depositAmount ?? null,
       internalNote: body.internalNote,
       expiryDays: body.expiryDays,
@@ -100,6 +102,32 @@ clientsAgreementsStaffRoute.get(
       type,
     })
     return c.json({ success: true, data })
+  },
+)
+
+// POST /:clientId/agreements/upload-pdf — multipart upload of a source PDF.
+// Validates + stores to R2; returns the key the create call snapshots.
+clientsAgreementsStaffRoute.post(
+  '/:clientId/agreements/upload-pdf',
+  requireAdminOrManager,
+  zValidator('param', clientIdParamSchema),
+  async (c) => {
+    const { orgId } = getAuth(c.get('user'))
+    const { clientId } = c.req.valid('param')
+    const form = await c.req.parseBody()
+    const file = form['file']
+    if (!(file instanceof File)) {
+      throw new HTTPException(422, { message: 'No PDF file provided' })
+    }
+    const bytes = Buffer.from(await file.arrayBuffer())
+    const data = await storeUploadedPdf({
+      entityType: 'client',
+      entityId: clientId,
+      orgId,
+      bytes,
+      contentType: file.type || null,
+    })
+    return c.json({ success: true, data }, 201)
   },
 )
 

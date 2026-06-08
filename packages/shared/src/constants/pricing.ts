@@ -61,7 +61,7 @@ export const CASH_PLAN = {
 
 export const AUDIT_PROTECTION = {
   monthly: 300,
-  setup: 500,
+  setup: 1000,
 }
 
 export const ONE_TIME = {

@@ -442,6 +442,7 @@ model Staff {
   notifyOnChat                Boolean @default(false) // Enable/disable SMS when monitored staff sends messages
   notifyOnAgreementSigned     Boolean @default(false) // ADMIN-only: SMS when a client signs an agreement
   notifyOnClientPayment       Boolean @default(false) // ADMIN-only: SMS when a client completes a payment
+  notifyOnPaymentFailed       Boolean @default(false) // ADMIN-only: SMS when a recurring quote charge fails
   autoSendUploadLink          Boolean @default(false) // Per-staff auto-send upload link on personal form
   defaultUploadLinkTemplateId String? // Default SMS template for personal form auto-send
 
@@ -483,6 +484,7 @@ model Staff {
   agreementsCreated              Agreement[]                     @relation("AgreementCreatedBy")
   agreementTemplatesCreated      AgreementTemplate[]             @relation("AgreementTemplateCreatedBy")
   createdPaymentQuotes           PaymentQuote[]                  @relation("PaymentQuoteCreatedBy")
+  sentQuotes                     PaymentQuote[]                  @relation("QuoteSentBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1673,6 +1675,11 @@ model PaymentQuote {
   lastStripeEventAt DateTime?
   createdByStaffId  String?
   createdByStaff    Staff?                  @relation("PaymentQuoteCreatedBy", fields: [createdByStaffId], references: [id], onDelete: SetNull)
+  // Sendable-quote fields: portal pay token, send timestamp ("is sendable" marker), and SMS sender attribution
+  payToken          String?                 @unique // portal token; null for anonymous quotes from the create-link panel
+  sentAt            DateTime? // set when the quote is sent to a client/lead
+  sentByStaffId     String?
+  sentByStaff       Staff?                  @relation("QuoteSentBy", fields: [sentByStaffId], references: [id], onDelete: SetNull)
   checkoutSessions  StripeCheckoutSession[]
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
@@ -1681,6 +1688,7 @@ model PaymentQuote {
   @@index([clientId])
   @@index([leadId])
   @@index([createdByStaffId])
+  @@index([sentByStaffId])
   @@index([status])
   @@index([lastStripeEventAt])
 }
@@ -1714,6 +1722,7 @@ enum PaymentType {
   DEPOSIT
   BALANCE
   OTHER
+  RECURRING
 }
 
 enum PaymentStatus {

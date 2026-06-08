@@ -5,7 +5,7 @@
  */
 import { useTranslation } from 'react-i18next'
 import { Link } from '@tanstack/react-router'
-import { Loader2, CreditCard, Copy, FileSignature } from 'lucide-react'
+import { Loader2, CreditCard, Copy, FileSignature, AlertTriangle } from 'lucide-react'
 import { type ClientPayment } from '../../../lib/api-client'
 import { CardSection } from '../../shared/card-section'
 import { copyToClipboard } from '../../../lib/clipboard'
@@ -80,13 +80,30 @@ function PaymentRow({ payment, clientId }: { payment: ClientPayment; clientId: s
   )
 }
 
+function PastDueBanner() {
+  const { t } = useTranslation()
+  return (
+    <div className="mb-3 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm dark:border-red-900/50 dark:bg-red-950/40">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+      <div className="min-w-0">
+        <p className="font-medium text-red-800 dark:text-red-300">{t('payments.pastDueTitle')}</p>
+        <p className="mt-0.5 text-xs text-red-700/90 dark:text-red-400/80">
+          {t('payments.pastDueDesc')}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export function ClientPaymentsTab({ clientId }: Props) {
   const { t } = useTranslation()
   const query = useClientPayments(clientId)
   const payments = query.data?.data ?? []
+  const pastDue = query.data?.pastDue ?? false
 
   return (
     <CardSection title={t('payments.tabTitle')} icon={CreditCard}>
+      {pastDue && <PastDueBanner />}
       {query.isLoading ? (
         <div className="flex items-center justify-center py-10">
           <Loader2 className="w-6 h-6 text-primary animate-spin" />

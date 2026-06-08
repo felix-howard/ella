@@ -104,6 +104,43 @@ export interface CheckoutSessionResponse {
   sessionId: string
 }
 
+export interface SendQuoteRecipient {
+  type: 'client' | 'lead'
+  id: string
+}
+
+export interface SendQuoteInput {
+  pricingInput: PricingCalculatorInput
+  recipient: SendQuoteRecipient
+  customerEmail?: string
+  customerName?: string
+  businessName?: string
+}
+
+export interface SendQuoteResponse {
+  quoteId: string
+  payToken: string
+  payUrl: string
+  smsSent: boolean
+  /** Set only when `smsSent` is false, so the UI can offer a copy-link fallback. */
+  smsSkippedReason?: 'no_phone' | 'send_failed'
+}
+
+export interface RecipientResult {
+  id: string
+  type: 'client' | 'lead'
+  firstName: string | null
+  lastName: string | null
+  businessName: string | null
+  /** Last 4 digits of the phone, or null — full numbers never leave the API. */
+  phoneLast4: string | null
+}
+
+export interface RecipientSearchResponse {
+  clients: RecipientResult[]
+  leads: RecipientResult[]
+}
+
 // Request options type
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>
@@ -286,6 +323,19 @@ export const api = {
         body: JSON.stringify(data),
         retries: 0,
       }),
+
+    sendQuote: (data: SendQuoteInput) =>
+      request<SendQuoteResponse>('/billing/quotes/send', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+  },
+
+  // Recipient search (combined Clients + Leads) for sending pricing quotes
+  recipients: {
+    search: (q: string) =>
+      request<RecipientSearchResponse>('/recipients/search', { params: { q } }),
   },
 
   // Clients
@@ -494,7 +544,9 @@ export const api = {
     // Client payments — powers the client profile Payments tab + Overview card
     payments: {
       list: (clientId: string) =>
-        request<{ success: boolean; data: ClientPayment[] }>(`/clients/${clientId}/payments`),
+        request<{ success: boolean; data: ClientPayment[]; pastDue?: boolean }>(
+          `/clients/${clientId}/payments`,
+        ),
     },
 
   },
@@ -1833,7 +1885,7 @@ export interface Agreement {
 export type NdaAgreement = Agreement & { depositStatus: DepositStatus }
 
 // Client payments (deposit collected after agreement signing, etc.)
-export type PaymentType = 'DEPOSIT' | 'BALANCE' | 'OTHER'
+export type PaymentType = 'DEPOSIT' | 'BALANCE' | 'OTHER' | 'RECURRING'
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'CANCELED'
 
 export interface ClientPayment {

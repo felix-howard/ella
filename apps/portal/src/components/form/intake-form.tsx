@@ -93,7 +93,9 @@ export function IntakeForm({ onSubmit, isSubmitting, error }: IntakeFormProps) {
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [taxYear, setTaxYear] = useState(currentYear - 1)
-  const [hasBusiness, setHasBusiness] = useState<boolean | null>(null)
+  // Default to "Yes" — most clients are business owners, so the business section
+  // is shown by default to cut a click for the common case. Individuals click "No".
+  const [hasBusiness, setHasBusiness] = useState<boolean | null>(true)
   const [businesses, setBusinesses] = useState<IntakeBusinessEntry[]>(() => [newBusinessEntry()])
   const [expandedIndex, setExpandedIndex] = useState(0)
 
@@ -258,15 +260,15 @@ export function IntakeForm({ onSubmit, isSubmitting, error }: IntakeFormProps) {
         </label>
         <div className="flex gap-4" role="radiogroup" aria-labelledby="has-business-label">
           <BusinessRadio
-            checked={hasBusiness === false}
-            onSelect={() => setHasBusiness(false)}
-            label={t('form.no')}
-            disabled={isSubmitting}
-          />
-          <BusinessRadio
             checked={hasBusiness === true}
             onSelect={() => setHasBusiness(true)}
             label={t('form.yes')}
+            disabled={isSubmitting}
+          />
+          <BusinessRadio
+            checked={hasBusiness === false}
+            onSelect={() => setHasBusiness(false)}
+            label={t('form.no')}
             disabled={isSubmitting}
           />
         </div>

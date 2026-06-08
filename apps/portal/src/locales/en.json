@@ -294,7 +294,7 @@
   "form.phonePlaceholder": "(123) 456-7890",
   "form.taxYear": "Tax Year",
   "form.basicInfoTitle": "Basic Information",
-  "form.ownsBusiness": "Do you want to file taxes for your business too?",
+  "form.ownsBusiness": "Do you have a business?",
   "form.yes": "Yes",
   "form.no": "No",
   "form.email": "Email",

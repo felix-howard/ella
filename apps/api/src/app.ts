@@ -42,7 +42,7 @@ import { clientForm1099NecPrepareRoute } from './routes/form-1099-nec/client-for
 import { campaignsRoute } from './routes/campaigns'
 import { clientGroupsRoute } from './routes/client-groups'
 import { agreementsStaffRoute, agreementsPublicRoute } from './routes/agreements'
-import { publicPaymentsRoute } from './routes/payments'
+import { publicPaymentsRoute, publicQuotesRoute } from './routes/payments'
 import { agreementTemplatesRoute } from './routes/agreement-templates'
 import { leadMessagesRoute } from './routes/leads/messages'
 import { activityRoute } from './routes/activity'
@@ -86,6 +86,7 @@ app.route('/leads', leadMessagesRoute) // Lead messages: /leads/:id/messages* (i
 app.route('/public/agreements', agreementsPublicRoute) // Public signing endpoints (token-based, no auth) — canonical path
 app.route('/public/nda', agreementsPublicRoute) // Alias retained for back-compat with existing customer SMS links
 app.route('/public/pay', publicPaymentsRoute) // Public deposit payment endpoints (payToken-based, no auth)
+app.route('/public/quote', publicQuotesRoute) // Public sent pricing-quote pay endpoints (payToken-based, no auth)
 app.route('/contractor-intake', contractorIntakeRoute)
 app.route('/billing', billingRoute)
 app.route('/recipients', recipientsRoute) // Combined client+lead search for sending quotes (inline auth+requireAdminOrManager)

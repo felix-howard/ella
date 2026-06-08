@@ -506,5 +506,10 @@
   "pay.error.rate_limited.title": "Too many attempts",
   "pay.error.rate_limited.message": "You have made too many attempts recently. Please wait a few minutes and try again.",
   "pay.error.server.title": "Something went wrong",
-  "pay.error.server.message": "We could not load the payment. Please try again."
+  "pay.error.server.message": "We could not load the payment. Please try again.",
+  "quote.summaryTitle": "Your quote",
+  "quote.monthlyGroup": "Monthly",
+  "quote.setupGroup": "Setup and one-time",
+  "quote.dueToday": "Due today",
+  "quote.thenMonthly": "Then"
 }

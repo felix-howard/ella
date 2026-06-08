@@ -18,9 +18,22 @@ export interface CheckoutSessionResult {
 
 let stripeClient: Stripe | null = null
 
+/**
+ * Optional overrides for callers that don't use the anonymous-panel defaults.
+ * The portal sent-quote flow returns the recipient to the portal `/quote/:token`
+ * page (not the global STRIPE_*_URL) and tags the session with `quotePayToken`
+ * so the webhook can route side-effects. Anonymous flow passes nothing → config.
+ */
+export interface CheckoutSessionOverrides {
+  successUrl?: string
+  cancelUrl?: string
+  extraMetadata?: Record<string, string | undefined>
+}
+
 export function buildCheckoutSessionParams(
   quote: CheckoutQuote,
-  input: CreateCheckoutSessionInput
+  input: CreateCheckoutSessionInput,
+  overrides: CheckoutSessionOverrides = {}
 ): Stripe.Checkout.SessionCreateParams {
   const mode = quote.monthlyTotal > 0 ? 'subscription' : 'payment'
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = []
@@ -36,14 +49,15 @@ export function buildCheckoutSessionParams(
   return {
     mode,
     line_items: lineItems,
-    success_url: config.stripe.successUrl,
-    cancel_url: config.stripe.cancelUrl,
+    success_url: overrides.successUrl ?? config.stripe.successUrl,
+    cancel_url: overrides.cancelUrl ?? config.stripe.cancelUrl,
     customer_email: input.customerEmail,
     client_reference_id: quote.quoteId,
     metadata: compactMetadata({
       paymentQuoteId: quote.quoteId,
       quoteId: quote.quoteId,
       source: 'pricing_calculator',
+      ...overrides.extraMetadata,
     }),
   }
 }

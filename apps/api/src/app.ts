@@ -47,6 +47,7 @@ import { agreementTemplatesRoute } from './routes/agreement-templates'
 import { leadMessagesRoute } from './routes/leads/messages'
 import { activityRoute } from './routes/activity'
 import { billingRoute } from './routes/billing'
+import { recipientsRoute } from './routes/recipients'
 
 const app = new OpenAPIHono()
 
@@ -87,6 +88,7 @@ app.route('/public/nda', agreementsPublicRoute) // Alias retained for back-compa
 app.route('/public/pay', publicPaymentsRoute) // Public deposit payment endpoints (payToken-based, no auth)
 app.route('/contractor-intake', contractorIntakeRoute)
 app.route('/billing', billingRoute)
+app.route('/recipients', recipientsRoute) // Combined client+lead search for sending quotes (inline auth+requireAdminOrManager)
 
 // Protected routes - require authenticated Clerk user + Staff record
 app.use('/clients/*', authMiddleware)

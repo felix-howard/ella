@@ -12,6 +12,11 @@ export const DEPOSIT_PAY_LINK_TEMPLATE_NAME = 'deposit_pay_link'
 /** templateUsed marker for the client payment receipt SMS (phase 3). */
 export const DEPOSIT_RECEIPT_TEMPLATE_NAME = 'deposit_receipt'
 
+/** templateUsed marker for the sent-quote portal pay-link SMS. */
+export const QUOTE_PAY_LINK_TEMPLATE_NAME = 'quote_pay_link'
+/** templateUsed marker for the first-payment receipt SMS on a sent quote. */
+export const QUOTE_RECEIPT_TEMPLATE_NAME = 'quote_receipt'
+
 /**
  * Format a Prisma Decimal (or anything stringable) as `$300.00`.
  * USD-only by design — Payment.currency is always 'usd' in v1; revisit all
@@ -63,4 +68,43 @@ export function buildAdminPaymentReceivedMessage(params: {
 }): string {
   const forSuffix = params.agreementTitle ? ` for ${params.agreementTitle}` : ''
   return `${params.payerName} paid ${params.amountFormatted}${forSuffix}`
+}
+
+/** Client SMS: portal pay link for a quote sent to a Client or Lead. */
+export function buildQuotePayLinkMessage(params: {
+  firstName: string
+  orgName: string
+  url: string
+}): string {
+  return (
+    `Hi ${params.firstName}, here's your quote from ${params.orgName}. ` +
+    `Review and pay here: ${params.url}`
+  )
+}
+
+/** Client SMS: receipt confirmation after the first quote payment is collected. */
+export function buildQuoteReceiptMessage(params: {
+  firstName: string
+  amountFormatted: string
+}): string {
+  return `Hi ${params.firstName}, we received your ${params.amountFormatted} payment. Thank you!`
+}
+
+/** Admin SMS: a client paid a sent quote (first payment). */
+export function buildAdminQuotePaidMessage(params: {
+  payerName: string
+  amountFormatted: string
+}): string {
+  return `${params.payerName} paid ${params.amountFormatted} (quote)`
+}
+
+/** Admin SMS: a recurring quote charge failed — staff should chase the card. */
+export function buildAdminPaymentFailedMessage(params: {
+  payerName: string
+  amountFormatted: string
+}): string {
+  return (
+    `Payment failed: couldn't collect ${params.amountFormatted} from ` +
+    `${params.payerName}. Follow up to update their card.`
+  )
 }

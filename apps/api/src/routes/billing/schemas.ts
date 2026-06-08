@@ -59,5 +59,17 @@ export const createCheckoutSessionSchema = z.object({
   quoteNotes: z.string().trim().max(1000).optional(),
 })
 
+export const sendQuoteInputSchema = z.object({
+  pricingInput: checkoutPricingInputSchema,
+  recipient: z.object({
+    type: z.enum(['client', 'lead']),
+    id: z.string().trim().min(1),
+  }),
+  customerEmail: z.string().email().optional(),
+  customerName: z.string().trim().min(1).max(120).optional(),
+  businessName: z.string().trim().min(1).max(120).optional(),
+})
+
 export type CheckoutPricingInput = z.infer<typeof checkoutPricingInputSchema>
 export type CreateCheckoutSessionInput = z.infer<typeof createCheckoutSessionSchema>
+export type SendQuoteInput = z.infer<typeof sendQuoteInputSchema>

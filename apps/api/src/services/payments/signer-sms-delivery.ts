@@ -32,15 +32,25 @@ interface SmsPersistInput {
   twilioStatus: string
 }
 
+/** Outcome of an SMS delivery attempt, so callers can offer a copy-link fallback. */
+export interface SignerSmsDeliveryResult {
+  /** True only when Twilio actually accepted the message. */
+  delivered: boolean
+  /** Why it wasn't delivered: 'no_phone' | 'sms_not_configured' | a Twilio error. */
+  reason?: string
+}
+
 /**
  * Look up the signer's phone, send the SMS, and persist it to their chat
- * history. Logs + returns silently when no phone is on file.
+ * history. Returns the delivery outcome (callers that don't care can ignore it).
+ * Persists an `ERROR:` Message even on failure for an audit trail; never throws
+ * for a no-phone/unconfigured/Twilio-rejected send — only DB errors propagate.
  */
 export async function sendSignerSmsAndPersist(
   target: SignerSmsTarget,
   message: string,
   templateUsed: string,
-): Promise<void> {
+): Promise<SignerSmsDeliveryResult> {
   const phone =
     target.signerKind === 'lead'
       ? (
@@ -53,7 +63,7 @@ export async function sendSignerSmsAndPersist(
     console.warn(
       `[Payment] No phone for ${target.signerKind}=${target.signerId} — ${templateUsed} SMS skipped`,
     )
-    return
+    return { delivered: false, reason: 'no_phone' }
   }
 
   const result = isTwilioConfigured()
@@ -69,6 +79,10 @@ export async function sendSignerSmsAndPersist(
   } else {
     await persistClientSms(target, persistInput)
   }
+
+  return result.success
+    ? { delivered: true }
+    : { delivered: false, reason: result.error ?? 'unknown' }
 }
 
 /** Lead path: Message.leadId + SmsSendLog audit, then realtime event. */

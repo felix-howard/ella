@@ -337,7 +337,7 @@
   "register.email": "Email",
   "register.emailPlaceholder": "email@example.com",
   "register.businessName": "Tên doanh nghiệp",
-  "register.businessNamePlaceholder": "Tên tiệm/công ty của bạn",
+  "register.businessNamePlaceholder": "Tên công ty của bạn",
   "register.smsConsent": "Tôi đồng ý nhận tin nhắn tự động từ {{orgName}} về tư vấn thuế.",
   "register.submit": "Đăng ký",
   "register.submitting": "Đang gửi...",

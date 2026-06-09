@@ -4,7 +4,7 @@
  * (`canSubmit=true` after scroll-to-bottom), signature is drawn, full name +
  * title meet length rules, and the agree checkbox is checked.
  */
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import SignatureCanvas from 'react-signature-canvas'
 import { useTranslation } from 'react-i18next'
 import { Check, Eraser, Loader2, PenLine } from 'lucide-react'
@@ -45,6 +45,33 @@ export function AgreementSignForm({
   const [signerTitle, setSignerTitle] = useState('')
   const [agreed, setAgreed] = useState(false)
   const [hasStroke, setHasStroke] = useState(false)
+
+  // Sync the canvas's intrinsic resolution to its CSS-rendered size × DPR.
+  // Without this, signature_pad maps pointer coordinates into the default
+  // 300×150 canvas space, so strokes drift away from the cursor. Re-run on any
+  // size change (responsive breakpoints, window resize) and preserve strokes.
+  useEffect(() => {
+    const pad = sigRef.current
+    if (!pad) return
+    const canvas = pad.getCanvas()
+
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) return
+      const ratio = Math.max(window.devicePixelRatio || 1, 1)
+      const data = pad.toData()
+      canvas.width = rect.width * ratio
+      canvas.height = rect.height * ratio
+      canvas.getContext('2d')?.scale(ratio, ratio)
+      pad.clear() // canvas resize resets the drawing surface
+      if (data.length) pad.fromData(data)
+    }
+
+    resize()
+    const observer = new ResizeObserver(resize)
+    observer.observe(canvas)
+    return () => observer.disconnect()
+  }, [])
 
   const trimmedName = signerName.trim()
   const trimmedTitle = signerTitle.trim()

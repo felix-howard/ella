@@ -7,7 +7,6 @@
  */
 import { useTranslation } from 'react-i18next'
 import { AddressAutocomplete } from '../contractor-intake/address-autocomplete'
-import { formatPhoneUS } from '../../lib/format-phone'
 
 export interface IntakeBusinessData {
   businessName: string
@@ -44,7 +43,6 @@ const BUSINESS_TYPES = [
 interface IntakeBusinessFormProps {
   data: IntakeBusinessData
   onChange: (updates: Partial<IntakeBusinessData>) => void
-  phoneRequired?: boolean
   /** Prefix for input ids — needed when multiple instances render on the same page. */
   idPrefix?: string
   /** Hide the section heading — used when the form is rendered inside an accordion that already shows the title. */
@@ -54,13 +52,8 @@ interface IntakeBusinessFormProps {
 const inputClass =
   'w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors'
 
-export function IntakeBusinessForm({ data, onChange, phoneRequired, idPrefix = 'intake-', hideTitle }: IntakeBusinessFormProps) {
+export function IntakeBusinessForm({ data, onChange, idPrefix = 'intake-', hideTitle }: IntakeBusinessFormProps) {
   const { t } = useTranslation()
-
-  const formatEin = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 9)
-    return digits.length > 2 ? `${digits.slice(0, 2)}-${digits.slice(2)}` : digits
-  }
 
   const id = (suffix: string) => `${idPrefix}biz${suffix}`
 
@@ -85,71 +78,21 @@ export function IntakeBusinessForm({ data, onChange, phoneRequired, idPrefix = '
         />
       </div>
 
-      {/* Business Type + EIN */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label htmlFor={id('Type')} className="block text-sm font-medium text-foreground mb-1.5">
-            {t('form.businessType')}
-          </label>
-          <select
-            id={id('Type')}
-            value={data.businessType}
-            onChange={(e) => onChange({ businessType: e.target.value })}
-            className={inputClass}
-          >
-            {BUSINESS_TYPES.map((bt) => (
-              <option key={bt.value} value={bt.value}>{t(bt.labelKey)}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor={id('Ein')} className="block text-sm font-medium text-foreground mb-1.5">
-            {t('form.ein')}
-          </label>
-          <input
-            id={id('Ein')}
-            type="text"
-            value={data.businessEin}
-            onChange={(e) => onChange({ businessEin: formatEin(e.target.value) })}
-            placeholder={t('form.einPlaceholder')}
-            className={inputClass}
-            maxLength={10}
-          />
-        </div>
-      </div>
-
-      {/* Phone + Email */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label htmlFor={id('Phone')} className="block text-sm font-medium text-foreground mb-1.5">
-            {t('form.businessPhone')} {phoneRequired && <span className="text-destructive">*</span>}
-          </label>
-          <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">+1</span>
-            <input
-              id={id('Phone')}
-              type="tel"
-              value={data.businessPhone}
-              onChange={(e) => onChange({ businessPhone: formatPhoneUS(e.target.value) })}
-              placeholder="XXX XXX XXXX"
-              className={`${inputClass} pl-10`}
-              required={phoneRequired}
-            />
-          </div>
-        </div>
-        <div>
-          <label htmlFor={id('Email')} className="block text-sm font-medium text-foreground mb-1.5">
-            {t('form.businessEmail')}
-          </label>
-          <input
-            id={id('Email')}
-            type="email"
-            value={data.businessEmail}
-            onChange={(e) => onChange({ businessEmail: e.target.value })}
-            placeholder={t('form.emailPlaceholder')}
-            className={inputClass}
-          />
-        </div>
+      {/* Business Type */}
+      <div>
+        <label htmlFor={id('Type')} className="block text-sm font-medium text-foreground mb-1.5">
+          {t('form.businessType')}
+        </label>
+        <select
+          id={id('Type')}
+          value={data.businessType}
+          onChange={(e) => onChange({ businessType: e.target.value })}
+          className={inputClass}
+        >
+          {BUSINESS_TYPES.map((bt) => (
+            <option key={bt.value} value={bt.value}>{t(bt.labelKey)}</option>
+          ))}
+        </select>
       </div>
 
       {/* Address with Google Places autocomplete */}

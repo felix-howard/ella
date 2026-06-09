@@ -1,9 +1,83 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-04 ICT
+> **Last Updated:** 2026-06-09 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+## 2026-06-09
+
+### Workspace Custom Payment Links: Mixed Billing UI
+**Status:** Complete
+
+**Changed:**
+- Moved custom-link billing interval selection from quote-level to per-line item.
+- Added `Due today` plus `Then monthly/yearly` summary so one-time setup and first recurring period are shown together.
+- Grouped custom rows into recurring `items` plus one-time `oneTimeItems`, matching the existing Stripe backend contract.
+- Blocked mixed monthly + yearly rows in one link before submission; one-time + monthly/yearly remains supported.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- custom-link-money pricing-calculator` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api test -- custom-quote-builder checkout` pass
+
+### Lead Bulk SMS Contract Update
+**Status:** Complete; browser QA pending
+
+**Changed:**
+- Centralized the bulk SMS recipient cap at `200` in `@ella/shared/constants` and reused it in shared validation, workspace client types, and API responses.
+- Extended `GET /leads` with `latestSms`, `selectableTotal`, and `bulkSmsMaxRecipients` so the workspace can plan sends from the list view.
+- Added `POST /leads/bulk-sms/preview-targets` to preview eligible recipient ids before send.
+- Updated `POST /leads/bulk-sms` to reject converted leads before sending, return per-recipient `results`, and surface structured limit/error codes.
+- Updated workspace lead selection so "select all" can target all filtered eligible leads up to the 200-recipient cap, with over-limit guidance.
+- Added lead-list/detail SMS delivery indicators and persistent bulk-send result summaries so immediate failures and later delivery failures stay visible.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/leads/__tests__/bulk-sms.test.ts src/routes/webhooks/__tests__/twilio-status.test.ts` pass
+- `pnpm -F @ella/workspace test -- src/components/leads/bulk-sms-transparency.test.tsx` pass
+- `pnpm -F @ella/api type-check`, `pnpm -F @ella/shared type-check`, `pnpm -F @ella/workspace type-check`, and `pnpm -F @ella/workspace build` pass
+- Manual browser QA checklist recorded in Phase 04; authenticated seeded workspace validation remains pending.
+
+## 2026-06-07
+
+### Deposit Payment Flow After Agreement Signing — Complete (Phases 1–6)
+**Status:** Complete
+
+**Added:**
+- Prisma `Payment` model: `type='DEPOSIT'`, status enum (PENDING|PAID|FAILED|CANCELED|REFUNDED), `payToken` (unique), FKs to org/client/lead/agreement (SetNull), amount, Stripe session ID, paid/failed timestamps
+- Staff notification toggles: `notifyOnAgreementSigned` / `notifyOnClientPayment` (ADMIN-only, default OFF)
+- Post-sign hook: Admin SMS fan-out + auto-Payment creation + client pay-link SMS (via `agreement-post-sign-notifications.ts`, `deposit-payment-service.ts`, `signer-sms-delivery.ts`)
+- Public pay API `/public/pay/:payToken` (GET token view, POST fresh Stripe Checkout session, per-token rate limit 3/hour with auto-refund on server failure)
+- Stripe webhook deposit handler: Idempotent claim guard, agreement depositStatus sync, admin+client SMS on success (via `deposit-checkout-service.ts`)
+- Portal page `/pay/:payToken` (public checkout flow)
+- Workspace: Payments tab + Overview payments card + Settings toggles (ADMIN-only) + Resend link button (ADMIN/MANAGER, throttled 1/60s)
+- Staff endpoints: `POST /clients/:clientId/payments/resend` (ADMIN/MANAGER, rate-limited), `GET /clients/:clientId/payments`
+- Migration: `packages/db/prisma/migrations/20260607133402_add_payment_model_and_staff_notify_toggles`
+- Tests: ~75 service + route level (full suite 2633 passing)
+
+**Validation:**
+- `pnpm -F @ella/api test` — 2633 tests pass (zero skips)
+- `pnpm -F @ella/workspace test` — 76 tests pass
+- `type-check` + `lint` clean on api and workspace
+
+### MANAGER Role (Assistant Tier) — Complete (Phases 1–5)
+**Status:** Complete
+
+**Added:**
+- New `StaffRole.MANAGER`: near-admin assistant tier. Gets everything ADMIN-gated EXCEPT team management (`requireOrgAdmin` stays ADMIN-only) and full client phone numbers (server-side masked `*** *** {last4}` via `serializePhone()`, ADMIN-only full view — also fixes prior STAFF DevTools phone leak).
+- Central helpers: `isAdminOrManager`/`canSeeAllClients` (org-scope), `canViewFullPhone`/`maskPhone`/`serializePhone` (phone-privacy), `requireAdminOrManager` middleware.
+- Clerk sync preserve rule: MANAGER stays `org:member` in Clerk; `Staff.role` is source of truth; re-sync never downgrades MANAGER→STAFF; ADMIN demoted via Clerk → STAFF.
+- Workspace capability flags (`useOrgRole()`: isManager, canManageClients, canViewPhone, canManageTeam); `formatPhone()` passes masked values through.
+
+**Phase 5 (this entry): Tests, Docs, Validation:**
+- Unit tests: `org-scope.test.ts` (MANAGER org-wide scope + failsafes), `phone-privacy.test.ts` (mask format, null/short input, per-role serialization), `auth.test.ts` (sync preserves MANAGER, demotes ADMIN→STAFF).
+- Route integration tests: `manager-role-authorization.test.ts` — MANAGER 200 on /clients (org-wide where clause), /admin/intake-questions, /leads; 403 on /team invite/role/deactivate; STAFF 403 on admin-gated routes; raw-body scans prove no unmasked phone for MANAGER/STAFF, full phone for ADMIN.
+- Docs updated: codebase-summary (role matrix), system-architecture (RBAC + regression test map), code-standards (mandatory role-check helper rule).
+
+**Validation:**
+- `pnpm -F @ella/api test` — 122 files / 2575 tests pass (zero skips)
+- `pnpm -F @ella/workspace test` — 21 files / 76 tests pass
+- `type-check` + `lint` clean on api and workspace
 
 ## 2026-06-05
 

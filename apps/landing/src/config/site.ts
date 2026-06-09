@@ -31,7 +31,7 @@ export const siteConfig = {
     primaryLabel: "Start Tax Help",
     secondaryLabel: "Book Consultation",
     contactLabel: "Contact Ella Tax Services",
-    navLabel: "Get Started",
+    navLabel: "Login",
     navHref: "https://app.ella.tax",
     registrationHref: "https://my.ella.tax/register/team/web-sp",
     primaryHref: "https://my.ella.tax/register/team/web-sp",

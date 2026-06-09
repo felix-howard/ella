@@ -82,7 +82,9 @@ function getErrorCode(data: unknown, fallbackCode: string): string {
   return fallbackCode
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+// Exported for sibling API modules (e.g. payment-api.ts) so they share the
+// same error mapping without growing this file further.
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${path}`
 
   try {
@@ -159,6 +161,9 @@ export interface AgreementPublicView {
   templateTitle: string
   templateSections: AgreementTemplateSection[]
   templateHtml: string | null
+  /** Presigned URL of a staff-uploaded source PDF. When set, render the PDF
+   *  instead of templateSections/templateHtml. */
+  uploadedPdfUrl: string | null
   /** Formatted (e.g. `$300.00`) when a deposit applies; null otherwise. */
   depositAmount: string | null
   orgName: string

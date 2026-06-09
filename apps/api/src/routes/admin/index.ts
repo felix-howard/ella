@@ -7,7 +7,7 @@ import { zValidator } from '@hono/zod-validator'
 import { ActivityRiskLevel } from '@ella/db'
 import { prisma } from '../../lib/db'
 import type { TaxType, FieldType, DocType } from '@ella/db'
-import { requireOrgAdmin, type AuthVariables } from '../../middleware/auth'
+import { requireAdminOrManager, type AuthVariables } from '../../middleware/auth'
 import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 import {
@@ -32,7 +32,7 @@ import type { MessageTemplateCategory } from '@ella/db'
 
 const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
-adminRoute.use('*', requireOrgAdmin)
+adminRoute.use('*', requireAdminOrManager)
 
 async function logAdminTemplateActivity(
   c: Context<{ Variables: AuthVariables }>,

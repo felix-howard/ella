@@ -1,5 +1,5 @@
 import type { ActivityActorType, ActivityRiskLevel, Prisma } from '@ella/db'
-import { buildClientScopeFilter, verifyClientAccess } from '../lib/org-scope'
+import { buildClientScopeFilter, canSeeAllClients, verifyClientAccess } from '../lib/org-scope'
 import { prisma } from '../lib/db'
 import { resolveAvatarUrl } from './storage'
 import { toActivityTimelineItem } from './activity-log'
@@ -60,7 +60,7 @@ export interface ActivityTimelineResponse {
 type ActivityRow = Awaited<ReturnType<typeof findActivityRows>>[number]
 
 function isAdmin(user: AuthUser) {
-  return user.orgRole === 'org:admin' || user.role === 'ADMIN'
+  return canSeeAllClients(user)
 }
 
 function baseWhere(user: AuthUser): Prisma.ActivityLogWhereInput {

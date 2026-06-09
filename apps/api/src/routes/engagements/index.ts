@@ -25,6 +25,7 @@ import { createMagicLink } from '../../services/magic-link'
 import type { EngagementStatus, Prisma, TaxType } from '@ella/db'
 import type { AuthUser, AuthVariables } from '../../middleware/auth'
 import { buildNestedClientScope, buildClientScopeFilter } from '../../lib/org-scope'
+import { serializePhone } from '../../lib/phone-privacy'
 import { isBizWithGroup } from '../../lib/client-helpers'
 
 const engagementsRoute = new Hono<{ Variables: AuthVariables }>()
@@ -57,6 +58,7 @@ engagementsRoute.get('/', zValidator('query', listEngagementsQuerySchema), async
   return c.json({
     data: engagements.map((e) => ({
       ...e,
+      client: { ...e.client, phone: serializePhone(user, e.client.phone) },
       createdAt: e.createdAt.toISOString(),
       updatedAt: e.updatedAt.toISOString(),
     })),
@@ -89,6 +91,7 @@ engagementsRoute.get('/:id', zValidator('param', engagementIdParamSchema), async
   return c.json({
     data: {
       ...engagement,
+      client: { ...engagement.client, phone: serializePhone(user, engagement.client.phone) },
       createdAt: engagement.createdAt.toISOString(),
       updatedAt: engagement.updatedAt.toISOString(),
       taxCases: engagement.taxCases.map((tc) => ({

@@ -3,12 +3,30 @@ import type { Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
 import type { CreateCheckoutSessionInput } from '../../routes/billing/schemas'
 import type { CheckoutQuote } from './quote-calculator'
+import type { CheckoutInterval, CheckoutLineItem } from './checkout-line-items'
 
 export interface CreateCheckoutSessionContext {
   organizationId?: string | null
   createdByStaffId?: string | null
   clientId?: string | null
   leadId?: string | null
+}
+
+/**
+ * Frozen source for a custom (free-form) quote. Unlike calculator quotes there
+ * is no `pricingInput` to rebuild from, so the normalized `lineItems` are stored
+ * inside `resultSnapshot` and read straight back at checkout (no recompute).
+ */
+export interface CustomQuotePersistInput {
+  quote: CheckoutQuote
+  lineItems: CheckoutLineItem[]
+  billingInterval: CheckoutInterval
+  customerEmail?: string
+  customerName?: string
+  businessName?: string
+  /** Owner-attached coupon (`Coupon.id`). */
+  appliedCouponId?: string
+  allowPromotionCodes?: boolean
 }
 
 export async function persistPaymentQuote(
@@ -27,8 +45,10 @@ export async function persistPaymentQuote(
       businessName: input.businessName,
       inputSnapshot: toPrismaJson(buildInputSnapshot(input)),
       resultSnapshot: toPrismaJson(quote),
-      monthlyTotalCents: quote.monthlyTotal * 100,
-      setupTotalCents: quote.setupTotal * 100,
+      // Round to whole cents: the column is Int and a fractional total would
+      // otherwise reach Prisma. Matches the custom path's buildCustomQuoteData.
+      monthlyTotalCents: Math.round(quote.monthlyTotal * 100),
+      setupTotalCents: Math.round(quote.setupTotal * 100),
       status: 'pending_checkout',
       createdByStaffId: context.createdByStaffId,
     },
@@ -42,6 +62,49 @@ function buildInputSnapshot(input: CreateCheckoutSessionInput): Omit<CreateCheck
     customerName: input.customerName,
     businessName: input.businessName,
   }
+}
+
+/**
+ * Shared Prisma payload for a custom quote (both the anonymous-create and the
+ * send-to-recipient flows). Callers spread this and add their own status/token/
+ * recipient/sender fields. `billingInterval` is stored null for one-time links
+ * to match the column's "null = one-time" contract.
+ */
+export function buildCustomQuoteData(input: CustomQuotePersistInput) {
+  return {
+    id: input.quote.quoteId,
+    customerEmail: input.customerEmail,
+    customerName: input.customerName,
+    businessName: input.businessName,
+    inputSnapshot: toPrismaJson({
+      source: 'custom',
+      billingInterval: input.billingInterval,
+    }),
+    resultSnapshot: toPrismaJson({ ...input.quote, lineItems: input.lineItems }),
+    monthlyTotalCents: Math.round(input.quote.monthlyTotal * 100),
+    setupTotalCents: Math.round(input.quote.setupTotal * 100),
+    source: 'custom',
+    billingInterval: input.billingInterval === 'one_time' ? null : input.billingInterval,
+    appliedCouponId: input.appliedCouponId ?? null,
+    allowPromotionCodes: input.allowPromotionCodes ?? false,
+  }
+}
+
+/** Persist an anonymous custom quote (created from the workspace panel, no recipient). */
+export async function persistCustomPaymentQuote(
+  input: CustomQuotePersistInput,
+  context: CreateCheckoutSessionContext
+): Promise<void> {
+  await prisma.paymentQuote.create({
+    data: {
+      ...buildCustomQuoteData(input),
+      organizationId: context.organizationId,
+      clientId: context.clientId,
+      leadId: context.leadId,
+      status: 'pending_checkout',
+      createdByStaffId: context.createdByStaffId,
+    },
+  })
 }
 
 export async function persistStripeCheckoutSession(

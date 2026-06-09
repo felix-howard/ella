@@ -2,6 +2,8 @@
  * Shared constants barrel export
  */
 
+export const BULK_SMS_MAX_RECIPIENTS = 200
+
 export {
   type TaxCaseStatus,
   VALID_STATUS_TRANSITIONS,

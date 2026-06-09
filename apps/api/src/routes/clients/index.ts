@@ -55,9 +55,10 @@ import { Prisma } from '@ella/db'
 import type { TaxType, Language, ClientType, BusinessType } from '@ella/db'
 import { encryptSSN, maskEIN } from '../../services/crypto'
 import type { ClientUploads } from '@ella/shared'
-import { buildClientScopeFilter } from '../../lib/org-scope'
+import { buildClientScopeFilter, canSeeAllClients } from '../../lib/org-scope'
+import { serializePhone } from '../../lib/phone-privacy'
 import { rateLimiter } from '../../middleware/rate-limiter'
-import { requireOrgAdmin } from '../../middleware/auth'
+import { requireAdminOrManager } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import { ActivityRiskLevel } from '@ella/db'
 import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
@@ -69,6 +70,7 @@ import {
 } from '../../services/activity-actions'
 import { clientsAgreementsRoute } from './agreements'
 import { clientsAgreementsStaffRoute } from './agreements-staff'
+import { clientsPaymentsStaffRoute } from './payments-staff'
 import {
   IDENTITY_RETENTION_DELETE_IN_PROGRESS_REASON,
   IDENTITY_RETENTION_POLICY,
@@ -118,11 +120,12 @@ function summarizeIdentityRetention(
 }
 
 // Sub-routes (paths relative to /clients, e.g. /:clientId/agreements)
-// Read-only listing first; staff mutations layer requireOrgAdmin internally.
+// Read-only listing first; staff mutations layer requireAdminOrManager internally.
 // Hono dispatches by method+path so the GET listing in `clientsAgreementsRoute`
 // and the POST/PATCH mutations here coexist without collision.
 clientsRoute.route('/', clientsAgreementsRoute)
 clientsRoute.route('/', clientsAgreementsStaffRoute)
+clientsRoute.route('/', clientsPaymentsStaffRoute)
 
 /**
  * Compute display name from firstName and lastName
@@ -143,6 +146,7 @@ async function logClientMutation(
     summary: string
     action: string
     riskLevel?: ActivityRiskLevel
+    coalesceKey?: string
     metadata?: Record<string, unknown>
   }
 ) {
@@ -160,6 +164,7 @@ async function logClientMutation(
     summary: input.summary,
     action: input.action,
     riskLevel: input.riskLevel ?? ActivityRiskLevel.LOW,
+    coalesceKey: input.coalesceKey,
     metadata: input.metadata,
     request: getAuditRequestContext(c),
   })
@@ -211,7 +216,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
 
   // Build where clause with org + assignment scope
   const user = c.get('user')
-  const isAdmin = user.orgRole === 'org:admin' || user.role === 'ADMIN'
+  const isAdmin = canSeeAllClients(user)
   const where: Record<string, unknown> = { ...buildClientScopeFilter(user) }
 
   if (search) {
@@ -415,7 +420,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       firstName: client.firstName,
       lastName: client.lastName,
       name: computeDisplayName(client.firstName, client.lastName),
-      phone: client.phone,
+      phone: serializePhone(user, client.phone),
       email: client.email,
       language: client.language as 'VI' | 'EN',
       source: client.source as ClientSource,
@@ -664,7 +669,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         firstName: result.client.firstName,
         lastName: result.client.lastName,
         name: computeDisplayName(result.client.firstName, result.client.lastName),
-        phone: result.client.phone,
+        phone: serializePhone(user, result.client.phone),
         email: result.client.email,
         language: result.client.language,
         clientType: result.client.clientType,
@@ -840,6 +845,7 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
           const siblingSC = siblingCase?.scheduleCExpense
           return {
             ...sibling,
+            phone: serializePhone(user, sibling.phone),
             einMasked: maskEIN(siblingEin),
             latestCaseId: siblingCase?.id ?? null,
             latestCaseTaxYear: siblingCase?.taxYear ?? null,
@@ -867,6 +873,7 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
 
   return c.json({
     ...clientSafe,
+    phone: serializePhone(user, client.phone),
     einMasked: maskEIN(einEncrypted),
     name: computeDisplayName(client.firstName, client.lastName),
     avatarUrl: await resolveAvatarUrl(client.avatarUrl),
@@ -1062,6 +1069,7 @@ clientsRoute.patch(
 
     return c.json({
       ...client,
+      phone: serializePhone(user, client.phone),
       name: computeDisplayName(client.firstName, client.lastName),
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
@@ -1755,10 +1763,10 @@ clientsRoute.delete('/:id', zValidator('param', clientIdParamSchema), async (c) 
   })
 })
 
-// PATCH /clients/:id/managed-by - Change client manager (admin only)
+// PATCH /clients/:id/managed-by - Change client manager (admin/manager only)
 clientsRoute.patch(
   '/:id/managed-by',
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', clientIdParamSchema),
   zValidator('json', updateManagedBySchema),
   async (c) => {
@@ -1839,6 +1847,8 @@ clientsRoute.patch(
       summary: 'Changed client manager',
       action: ACTIVITY_ACTIONS.CLIENT.MANAGER_CHANGED,
       riskLevel: ActivityRiskLevel.MEDIUM,
+      // Coalesce rapid checkbox toggles in the manager multi-select into one activity entry
+      coalesceKey: `client-manager-changed:${id}`,
       metadata: {
         changedFields: ['managedById', 'managedByStaff'],
         managedById: staffIds[0] ?? null,

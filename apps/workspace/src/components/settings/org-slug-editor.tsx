@@ -14,7 +14,7 @@ import { useOrgRole } from '../../hooks/use-org-role'
 export function OrgSlugEditor() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const { isAdmin } = useOrgRole()
+  const { canManageClients } = useOrgRole()
   const [isEditing, setIsEditing] = useState(false)
   const [slugValue, setSlugValue] = useState('')
   const [slugError, setSlugError] = useState<string | null>(null)
@@ -79,7 +79,7 @@ export function OrgSlugEditor() {
     setIsEditing(false)
   }
 
-  if (isLoading || !isAdmin) return null
+  if (isLoading || !canManageClients) return null
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">

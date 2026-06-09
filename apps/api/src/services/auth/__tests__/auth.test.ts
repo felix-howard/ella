@@ -133,6 +133,63 @@ describe('Auth service', () => {
       expect(prisma.staff.upsert).not.toHaveBeenCalled()
     })
 
+    it('preserves MANAGER role on re-sync for active org:member (no downgrade to STAFF)', async () => {
+      // Critical regression case: Clerk re-sync (org:member) must NOT overwrite
+      // the app-level MANAGER role with STAFF. Stale invite metadata (staffRole:
+      // STAFF from the original invite) must be IGNORED for an active member —
+      // exercises the isActiveMember metadata-suppression guard in the sync.
+      vi.mocked(clerkClient.organizations.getOrganizationMembershipList).mockResolvedValueOnce({
+        data: [{ ...membership, publicMetadata: { staffRole: 'STAFF' } }],
+      } as never)
+      vi.mocked(prisma.organization.upsert).mockResolvedValueOnce({ id: 'org_db_1' } as never)
+      // Lookup by email finds the existing active MANAGER in the same org
+      vi.mocked(prisma.staff.findUnique)
+        .mockResolvedValueOnce({
+          id: 'staff_mgr',
+          email: 'member@test.com',
+          clerkId: 'user_1',
+          role: 'MANAGER',
+          organizationId: 'org_db_1',
+          isActive: true,
+          formSlug: '123456',
+        } as never)
+        .mockResolvedValueOnce({ id: 'staff_mgr', clerkId: 'user_1', organizationId: 'org_db_1' } as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({} as never)
+
+      await syncStaffFromClerkMembership('user_1', 'org_clerk_1', 'org:member')
+
+      expect(prisma.staff.update).toHaveBeenCalledWith({
+        where: { id: 'staff_mgr' },
+        data: expect.objectContaining({ role: 'MANAGER' }),
+      })
+    })
+
+    it('demotes app ADMIN to STAFF when Clerk role becomes org:member', async () => {
+      vi.mocked(clerkClient.organizations.getOrganizationMembershipList).mockResolvedValueOnce({
+        data: [membership],
+      } as never)
+      vi.mocked(prisma.organization.upsert).mockResolvedValueOnce({ id: 'org_db_1' } as never)
+      vi.mocked(prisma.staff.findUnique)
+        .mockResolvedValueOnce({
+          id: 'staff_admin',
+          email: 'member@test.com',
+          clerkId: 'user_1',
+          role: 'ADMIN',
+          organizationId: 'org_db_1',
+          isActive: true,
+          formSlug: '123456',
+        } as never)
+        .mockResolvedValueOnce({ id: 'staff_admin', clerkId: 'user_1', organizationId: 'org_db_1' } as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({} as never)
+
+      await syncStaffFromClerkMembership('user_1', 'org_clerk_1', 'org:member')
+
+      expect(prisma.staff.update).toHaveBeenCalledWith({
+        where: { id: 'staff_admin' },
+        data: expect.objectContaining({ role: 'STAFF' }),
+      })
+    })
+
     it('does not relink an email already owned by another Clerk user', async () => {
       vi.mocked(clerkClient.organizations.getOrganizationMembershipList).mockResolvedValueOnce({
         data: [membership],

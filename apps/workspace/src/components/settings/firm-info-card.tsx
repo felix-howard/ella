@@ -25,7 +25,7 @@ const US_STATES = [
 const QUERY_KEY = ['org-settings']
 
 export function FirmInfoCard() {
-  const { isAdmin } = useOrgRole()
+  const { canManageClients } = useOrgRole()
   const { organization } = useOrganization()
 
   const queryClient = useQueryClient()
@@ -93,8 +93,8 @@ export function FirmInfoCard() {
     },
   })
 
-  // Hidden for non-admins
-  if (!isAdmin) return null
+  // Hidden unless admin/manager (org config tier)
+  if (!canManageClients) return null
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))

@@ -52,6 +52,7 @@ vi.mock('../../../services/storage', () => ({
 vi.mock('../../../middleware/auth', () => ({
   requireOrg: async (_c: unknown, next: () => Promise<void>) => next(),
   requireOrgAdmin: async (_c: unknown, next: () => Promise<void>) => next(),
+  requireAdminOrManager: async (_c: unknown, next: () => Promise<void>) => next(),
 }))
 
 vi.mock('../../../middleware/rate-limiter', () => ({
@@ -60,6 +61,7 @@ vi.mock('../../../middleware/rate-limiter', () => ({
 
 vi.mock('../../../lib/org-scope', () => ({
   buildClientScopeFilter: vi.fn().mockReturnValue({ organizationId: 'org_1' }),
+  canSeeAllClients: vi.fn().mockReturnValue(true),
 }))
 
 vi.mock('../../../services/checklist-generator', () => ({

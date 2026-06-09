@@ -5,12 +5,14 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { ActivityRiskLevel } from '@ella/db'
+import { BULK_SMS_MAX_RECIPIENTS } from '@ella/shared/constants'
 import { prisma } from '../../lib/db'
 import { getPaginationParams, buildPaginationResponse } from '../../lib/constants'
-import { sanitizeSearchInput, sanitizeTextInput } from '../../lib/validation'
+import { sanitizeTextInput } from '../../lib/validation'
 import { formatPhoneToE164, sendSmsOnly, isTwilioConfigured } from '../../services/sms'
 import { createMagicLink } from '../../services/magic-link'
 import { sendWelcomeMessage } from '../../services/sms'
+import { convertLeadToClientCore } from '../../services/leads/lead-conversion-service'
 import {
   normalizeManagerIds,
   syncClientManagers,
@@ -18,7 +20,7 @@ import {
 } from '../../services/clients/client-managers'
 import { publishMessageEvent } from '../../services/realtime/message-publisher'
 import { rateLimiter } from '../../middleware/rate-limiter'
-import { authMiddleware, requireOrgAdmin } from '../../middleware/auth'
+import { authMiddleware, requireAdminOrManager } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import {
   createLeadSchema,
@@ -28,8 +30,11 @@ import {
   updateLeadSchema,
   convertLeadSchema,
   bulkSmsSchema,
+  bulkSmsPreviewTargetsSchema,
 } from './schemas'
+import { buildLeadWhere, buildSelectableLeadWhere } from './lead-filter-helpers'
 import { getVerifiedAuth } from './auth-helpers'
+import { serializePhone } from '../../lib/phone-privacy'
 import {
   getAuditRequestContext,
   getChangedFieldNames,
@@ -42,6 +47,14 @@ const leadsRoute = new Hono<{ Variables: AuthVariables }>()
 
 function buildSmsConsentText(orgName: string): string {
   return `I agree to receive automated texts from ${orgName} about my tax consultation.`
+}
+
+function toSafeSmsError(error: string | null | undefined): string | null {
+  if (!error) return null
+  if (error === 'Message sent; delivery record unavailable') return error
+  const twilioCode = error.match(/TWILIO_ERROR_(\d+)/)?.[1] ?? error.match(/\b(\d{5})\b/)?.[1]
+  if (twilioCode) return `SMS provider error ${twilioCode}`
+  return 'SMS delivery failed'
 }
 
 // ============================================
@@ -140,10 +153,11 @@ leadsRoute.post(
 leadsRoute.post(
   '/admin',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('json', adminCreateLeadSchema),
   async (c) => {
-    const { orgId, staffId } = getVerifiedAuth(c.get('user'))
+    const user = c.get('user')
+    const { orgId, staffId } = getVerifiedAuth(user)
     const { firstName, lastName, phone, email, notes } = c.req.valid('json')
 
     const normalizedPhone = formatPhoneToE164(phone)
@@ -178,7 +192,7 @@ leadsRoute.post(
         request: getAuditRequestContext(c),
       })
 
-      return c.json({ success: true, data: lead })
+      return c.json({ success: true, data: { ...lead, phone: serializePhone(user, lead.phone) } })
     } catch (err: unknown) {
       // Handle duplicate phone+org unique constraint violation
       if (err && typeof err === 'object' && 'code' in err && err.code === 'P2002') {
@@ -195,36 +209,18 @@ leadsRoute.post(
 leadsRoute.get(
   '/',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('query', listLeadsQuerySchema),
   async (c) => {
-    const { orgId } = getVerifiedAuth(c.get('user'))
+    const user = c.get('user')
+    const { orgId } = getVerifiedAuth(user)
     const { page, limit, status, search, tag, includeConverted } = c.req.valid('query')
     const { skip } = getPaginationParams(page, limit)
 
-    const where: Record<string, unknown> = { organizationId: orgId }
+    const where = buildLeadWhere({ organizationId: orgId, status, search, tag, includeConverted })
+    const selectableWhere = buildSelectableLeadWhere({ organizationId: orgId, status, search, tag, includeConverted })
 
-    if (status) {
-      where.status = status
-    } else if (!includeConverted) {
-      where.status = { not: 'CONVERTED' }
-    }
-
-    if (tag) {
-      where.tags = { has: tag }
-    }
-
-    if (search) {
-      const sanitized = sanitizeSearchInput(search)
-      where.OR = [
-        { firstName: { contains: sanitized, mode: 'insensitive' } },
-        { lastName: { contains: sanitized, mode: 'insensitive' } },
-        { phone: { contains: sanitized } },
-        { businessName: { contains: sanitized, mode: 'insensitive' } },
-      ]
-    }
-
-    const [leads, total] = await Promise.all([
+    const [leads, total, selectableTotal] = await Promise.all([
       prisma.lead.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -243,15 +239,75 @@ leadsRoute.get(
           notes: true,
           createdAt: true,
           convertedToId: true,
+          smsSendLogs: {
+            orderBy: { sentAt: 'desc' },
+            take: 1,
+            select: {
+              status: true,
+              error: true,
+              sentAt: true,
+            },
+          },
         },
       }),
       prisma.lead.count({ where }),
+      prisma.lead.count({ where: selectableWhere }),
     ])
 
     return c.json({
       success: true,
-      data: leads,
+      data: leads.map((lead) => {
+        const { smsSendLogs, ...rest } = lead
+        return {
+          ...rest,
+          phone: serializePhone(user, lead.phone),
+          latestSms: smsSendLogs?.[0]
+            ? {
+                ...smsSendLogs[0],
+                error: toSafeSmsError(smsSendLogs[0].error),
+              }
+            : null,
+        }
+      }),
       pagination: buildPaginationResponse(page, limit, total),
+      selectableTotal,
+      bulkSmsMaxRecipients: BULK_SMS_MAX_RECIPIENTS,
+    })
+  }
+)
+
+// ============================================
+// PROTECTED+ADMIN: Preview Bulk SMS Targets
+// ============================================
+leadsRoute.post(
+  '/bulk-sms/preview-targets',
+  authMiddleware,
+  requireAdminOrManager,
+  zValidator('json', bulkSmsPreviewTargetsSchema),
+  async (c) => {
+    const { orgId } = getVerifiedAuth(c.get('user'))
+    const { status, search, tag, includeConverted, limit } = c.req.valid('json')
+    const where = buildSelectableLeadWhere({ organizationId: orgId, status, search, tag, includeConverted })
+
+    const [selectableTotal, leads] = await Promise.all([
+      prisma.lead.count({ where }),
+      prisma.lead.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        select: { id: true },
+      }),
+    ])
+
+    return c.json({
+      success: true,
+      data: {
+        total: selectableTotal,
+        selectableTotal,
+        returnedIds: leads.map((lead) => lead.id),
+        limit: BULK_SMS_MAX_RECIPIENTS,
+        truncated: selectableTotal > leads.length,
+      },
     })
   }
 )
@@ -262,7 +318,7 @@ leadsRoute.get(
 leadsRoute.get(
   '/tags',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   async (c) => {
     const { orgId } = getVerifiedAuth(c.get('user'))
     const result = await prisma.$queryRaw<Array<{ tag: string }>>`
@@ -281,7 +337,7 @@ leadsRoute.get(
 leadsRoute.get(
   '/stats',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   async (c) => {
     const { orgId } = getVerifiedAuth(c.get('user'))
     const grouped = await prisma.lead.groupBy({
@@ -320,10 +376,11 @@ leadsRoute.get(
 leadsRoute.get(
   '/:id',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', leadIdParamSchema),
   async (c) => {
-    const { orgId } = getVerifiedAuth(c.get('user'))
+    const user = c.get('user')
+    const { orgId } = getVerifiedAuth(user)
     const { id } = c.req.valid('param')
 
     const lead = await prisma.lead.findFirst({
@@ -334,8 +391,8 @@ leadsRoute.get(
           take: 20,
           select: {
             id: true,
-            message: true,
             status: true,
+            error: true,
             sentAt: true,
           },
         },
@@ -356,7 +413,25 @@ leadsRoute.get(
       campaignName = campaign?.name || null
     }
 
-    return c.json({ success: true, data: { ...lead, campaignName } })
+    return c.json({
+      success: true,
+      data: {
+        ...lead,
+        phone: serializePhone(user, lead.phone),
+        campaignName,
+        smsSendLogs: lead.smsSendLogs.map((log) => ({
+          ...log,
+          error: toSafeSmsError(log.error),
+        })),
+        latestSms: lead.smsSendLogs?.[0]
+          ? {
+              status: lead.smsSendLogs[0].status,
+              error: toSafeSmsError(lead.smsSendLogs[0].error),
+              sentAt: lead.smsSendLogs[0].sentAt,
+            }
+          : null,
+      },
+    })
   }
 )
 
@@ -366,11 +441,12 @@ leadsRoute.get(
 leadsRoute.patch(
   '/:id',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', leadIdParamSchema),
   zValidator('json', updateLeadSchema),
   async (c) => {
-    const { orgId, staffId } = getVerifiedAuth(c.get('user'))
+    const user = c.get('user')
+    const { orgId, staffId } = getVerifiedAuth(user)
     const { id } = c.req.valid('param')
     const updates = c.req.valid('json')
 
@@ -411,7 +487,7 @@ leadsRoute.patch(
       request: getAuditRequestContext(c),
     })
 
-    return c.json({ success: true, data: updated })
+    return c.json({ success: true, data: { ...updated, phone: serializePhone(user, updated.phone) } })
   }
 )
 
@@ -421,10 +497,11 @@ leadsRoute.patch(
 leadsRoute.get(
   '/:id/convert-check',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', leadIdParamSchema),
   async (c) => {
-    const { orgId } = getVerifiedAuth(c.get('user'))
+    const user = c.get('user')
+    const { orgId } = getVerifiedAuth(user)
     const { id } = c.req.valid('param')
 
     const lead = await prisma.lead.findFirst({
@@ -444,7 +521,9 @@ leadsRoute.get(
     return c.json({
       success: true,
       hasDuplicate: !!existingClient,
-      existingClient: existingClient || undefined,
+      existingClient: existingClient
+        ? { ...existingClient, phone: serializePhone(user, existingClient.phone) }
+        : undefined,
     })
   }
 )
@@ -455,7 +534,7 @@ leadsRoute.get(
 leadsRoute.post(
   '/:id/convert',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', leadIdParamSchema),
   zValidator('json', convertLeadSchema),
   async (c) => {
@@ -487,101 +566,40 @@ leadsRoute.post(
     const finalEmail = sanitizedEmail !== undefined ? sanitizedEmail : lead.email
 
     const result = await prisma.$transaction(async (tx) => {
-
-      // Duplicate check inside transaction to prevent race conditions
-      const existingClient = await tx.client.findFirst({
-        where: { phone: lead.phone, clientType: 'INDIVIDUAL', organizationId: orgId },
-        select: { id: true, firstName: true, lastName: true },
-      })
-
-      if (existingClient) {
-        return { duplicate: true as const, existingClient }
-      }
-
+      // Manager validation gates client creation — keep it in the route (the
+      // webhook auto-convert path has no managers to validate).
       const staffValid = await validateActiveOrgStaff(tx, orgId, managerIds)
       if (!staffValid) {
         return { duplicate: false as const, staffNotFound: true as const }
       }
 
-      const client = await tx.client.create({
-        data: {
-          firstName: finalFirstName,
-          lastName: finalLastName,
-          name: `${finalFirstName} ${finalLastName}`,
-          phone: lead.phone,
-          email: finalEmail,
-          language,
-          source: 'CONVERTED',
-          tags: lead.tags || [],
-          notes: lead.notes,
-          organizationId: orgId,
-          managedById: managerIds[0] || null,
-          createdById: staffId,
+      const converted = await convertLeadToClientCore(tx, {
+        lead,
+        organizationId: orgId,
+        firstName: finalFirstName,
+        lastName: finalLastName,
+        email: finalEmail,
+        language,
+        taxYear,
+        createdByStaffId: staffId,
+        managedById: managerIds[0] || null,
+        leadUpdateOverrides: {
+          ...(sanitizedFirstName ? { firstName: sanitizedFirstName } : {}),
+          ...(sanitizedLastName ? { lastName: sanitizedLastName } : {}),
+          ...(sanitizedEmail !== undefined ? { email: sanitizedEmail } : {}),
         },
       })
-      await syncClientManagers(tx, { clientIds: [client.id], organizationId: orgId, staffIds: managerIds })
-
-      const engagement = await tx.taxEngagement.create({
-        data: {
-          clientId: client.id,
-          taxYear,
-          status: 'DRAFT',
-        },
-      })
-
-      const taxCase = await tx.taxCase.create({
-        data: {
-          clientId: client.id,
-          engagementId: engagement.id,
-          taxYear,
-          taxTypes: ['FORM_1040'],
-          status: 'INTAKE',
-        },
-      })
-
-      // Lead → Client conversion always produces a standalone INDIVIDUAL client,
-      // so we always create a conversation to host reassigned lead messages.
-      const conversation = await tx.conversation.create({
-        data: { caseId: taxCase.id, lastMessageAt: new Date() },
-      })
-
-      // Reassign pre-conversion lead messages to the new conversation.
-      // UPDATE (not copy) preserves message IDs and createdAt for continuous thread history.
-      const migrated = await tx.message.updateMany({
-        where: { leadId: id },
-        data: { conversationId: conversation.id, leadId: null },
-      })
-
-      // Link all agreements from this lead to the new client. organizationId
-      // filter is defense-in-depth (leadId is already org-scoped). Pending SENT
-      // agreements remain signable via their token; once signed they auto-
-      // surface on the Client.
-      const agreementMigrated = await tx.agreement.updateMany({
-        where: { leadId: id, organizationId: orgId },
-        data: { clientId: client.id },
-      })
-
-      await tx.lead.update({
-        where: { id },
-        data: {
-          status: 'CONVERTED',
-          convertedToId: client.id,
-          convertedAt: new Date(),
-          ...(sanitizedFirstName && { firstName: sanitizedFirstName }),
-          ...(sanitizedLastName && { lastName: sanitizedLastName }),
-          ...(sanitizedEmail !== undefined && { email: sanitizedEmail }),
-        },
-      })
-
-      return {
-        duplicate: false as const,
-        client,
-        engagement,
-        taxCase,
-        conversation,
-        migratedCount: migrated.count,
-        agreementMigratedCount: agreementMigrated.count,
+      if (converted.duplicate) {
+        return { duplicate: true as const, existingClient: converted.existingClient }
       }
+
+      await syncClientManagers(tx, {
+        clientIds: [converted.client.id],
+        organizationId: orgId,
+        staffIds: managerIds,
+      })
+
+      return converted
     })
 
     if (result.duplicate) {
@@ -657,15 +675,30 @@ leadsRoute.post(
 leadsRoute.post(
   '/bulk-sms',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('json', bulkSmsSchema),
   async (c) => {
     const { orgId, staffId } = getVerifiedAuth(c.get('user'))
     const { leadIds, message, formLinkType, staffSlug } = c.req.valid('json')
 
+    if (leadIds.length > BULK_SMS_MAX_RECIPIENTS) {
+      return c.json({
+        success: false,
+        error: 'Bulk SMS recipient limit exceeded',
+        code: 'BULK_SMS_LIMIT_EXCEEDED',
+        count: leadIds.length,
+        limit: BULK_SMS_MAX_RECIPIENTS,
+      }, 400)
+    }
+
     // Early check: Twilio must be configured
     if (!isTwilioConfigured()) {
-      return c.json({ success: false, error: 'SMS not configured' }, 503)
+      return c.json({
+        success: false,
+        error: 'SMS not configured',
+        code: 'SMS_NOT_CONFIGURED',
+        limit: BULK_SMS_MAX_RECIPIENTS,
+      }, 503)
     }
 
     // Validate staff formSlug if staff form link requested
@@ -700,11 +733,21 @@ leadsRoute.post(
         id: { in: leadIds },
         organizationId: orgId,
       },
-      select: { id: true, firstName: true, phone: true },
+      select: { id: true, firstName: true, phone: true, status: true },
     })
 
     if (leads.length !== leadIds.length) {
       return c.json({ success: false, error: 'Some leads not found or not in organization' }, 400)
+    }
+
+    const convertedLeadIds = leads.filter((lead) => lead.status === 'CONVERTED').map((lead) => lead.id)
+    if (convertedLeadIds.length > 0) {
+      return c.json({
+        success: false,
+        error: 'Converted leads cannot receive bulk SMS',
+        code: 'BULK_SMS_CONVERTED_LEADS',
+        leadIds: convertedLeadIds,
+      }, 400)
     }
 
     // Build form URL
@@ -717,62 +760,98 @@ leadsRoute.post(
     let failed = 0
     const errors: string[] = []
     const createdMessages: Array<{ id: string; leadId: string }> = []
+    const successfulLeadIds: string[] = []
+    const recipientResults: Array<{ leadId: string; name: string; status: 'sent' | 'failed'; error?: string }> = []
 
     // Process SMS in batches of 10 for concurrency control
     const BATCH_SIZE = 10
     for (let i = 0; i < leads.length; i += BATCH_SIZE) {
       const batch = leads.slice(i, i + BATCH_SIZE)
-      const results = await Promise.allSettled(
+      const results = await Promise.all(
         batch.map(async (lead) => {
           const personalizedMessage = message
             .replace(/\{\{firstName\}\}/g, lead.firstName)
             .replace(/\{\{formLink\}\}/g, formUrl)
 
-          const smsResult = await sendSmsOnly(lead.phone, personalizedMessage)
+          const smsResult = await sendSmsOnly(lead.phone, personalizedMessage).catch(() => null)
+          if (!smsResult) {
+            return {
+              leadId: lead.id,
+              name: lead.firstName,
+              status: 'failed' as const,
+              error: 'SMS delivery failed',
+            }
+          }
+
+          const safeSmsError = toSafeSmsError(smsResult.error)
           const twilioStatus = smsResult.success
             ? (smsResult.status || 'queued')
-            : `ERROR: ${smsResult.error ?? 'unknown'}`
+            : `ERROR: ${safeSmsError ?? 'SMS delivery failed'}`
 
-          const [messageRecord] = await prisma.$transaction([
-            prisma.message.create({
-              data: {
-                leadId: lead.id,
-                channel: 'SMS',
-                direction: 'OUTBOUND',
-                content: personalizedMessage,
-                twilioSid: smsResult.sid ?? null,
-                twilioStatus,
-                sentById: staffId,
-              },
-            }),
-            prisma.smsSendLog.create({
-              data: {
-                leadId: lead.id,
-                message: personalizedMessage,
-                status: smsResult.success ? 'SENT' : 'FAILED',
-                twilioSid: smsResult.sid ?? null,
-                error: smsResult.error ?? null,
-                sentById: staffId,
-                organizationId: orgId,
-              },
-            }),
-          ])
-          createdMessages.push({ id: messageRecord.id, leadId: lead.id })
+          try {
+            const [messageRecord] = await prisma.$transaction([
+              prisma.message.create({
+                data: {
+                  leadId: lead.id,
+                  channel: 'SMS',
+                  direction: 'OUTBOUND',
+                  content: personalizedMessage,
+                  twilioSid: smsResult.sid ?? null,
+                  twilioStatus,
+                  sentById: staffId,
+                },
+              }),
+              prisma.smsSendLog.create({
+                data: {
+                  leadId: lead.id,
+                  message: personalizedMessage,
+                  status: smsResult.success ? 'SENT' : 'FAILED',
+                  twilioSid: smsResult.sid ?? null,
+                  error: safeSmsError,
+                  sentById: staffId,
+                  organizationId: orgId,
+                },
+              }),
+            ])
+            createdMessages.push({ id: messageRecord.id, leadId: lead.id })
 
-          if (smsResult.success) {
-            return { success: true, leadName: lead.firstName }
+            if (smsResult.success) {
+              return { leadId: lead.id, name: lead.firstName, status: 'sent' as const }
+            }
+            return {
+              leadId: lead.id,
+              name: lead.firstName,
+              status: 'failed' as const,
+              error: safeSmsError ?? 'SMS delivery failed',
+            }
+          } catch (err) {
+            console.error('[Leads] Bulk SMS persistence failed:', err)
+            if (smsResult.success) {
+              return {
+                leadId: lead.id,
+                name: lead.firstName,
+                status: 'sent' as const,
+                error: 'Message sent; delivery record unavailable',
+              }
+            }
+            return {
+              leadId: lead.id,
+              name: lead.firstName,
+              status: 'failed' as const,
+              error: safeSmsError ?? 'SMS delivery failed',
+            }
           }
-          return { success: false, leadName: lead.firstName }
         })
       )
 
       for (const result of results) {
-        if (result.status === 'fulfilled' && result.value.success) {
+        recipientResults.push(result)
+        if (result.status === 'sent') {
           sent++
+          if (!result.error) successfulLeadIds.push(result.leadId)
         } else {
           failed++
-          const name = result.status === 'fulfilled' ? result.value.leadName : 'Unknown'
-          errors.push(`${name}: SMS delivery failed`)
+          errors.push(`${result.name}: ${result.error ?? 'SMS delivery failed'}`)
         }
       }
     }
@@ -787,43 +866,54 @@ leadsRoute.post(
       }).catch(() => {})
     }
 
-    // Update all targeted leads to SENT status (regardless of delivery outcome)
-    if (leads.length > 0) {
-      await prisma.lead.updateMany({
-        where: {
-          id: { in: leads.map((l) => l.id) },
-          organizationId: orgId,
-          status: 'NEW',
-        },
-        data: { status: 'SENT' },
-      })
+    // Only immediate Twilio successes move NEW leads to SENT. Failed attempts
+    // stay in their current lifecycle state; SmsSendLog carries delivery detail.
+    if (successfulLeadIds.length > 0) {
+      try {
+        await prisma.lead.updateMany({
+          where: {
+            id: { in: successfulLeadIds },
+            organizationId: orgId,
+            status: 'NEW',
+          },
+          data: { status: 'SENT' },
+        })
+      } catch (err) {
+        console.error('[Leads] Bulk SMS lead status update failed:', err)
+      }
     }
 
-    await logStaffActivity({
-      organizationId: orgId,
-      actorStaffId: staffId,
-      category: ACTIVITY_CATEGORIES.LEAD,
-      targetType: ACTIVITY_TARGET_TYPES.ORGANIZATION,
-      targetId: orgId,
-      summary: 'Sent bulk SMS to leads',
-      action: ACTIVITY_ACTIONS.LEAD.MESSAGE_SENT,
-      riskLevel: ActivityRiskLevel.MEDIUM,
-      metadata: {
-        channel: 'SMS',
-        count: leads.length,
-        sent,
-        failed,
-        messageIds: createdMessages.map((m) => m.id),
-        formLinkType,
-        usedStaffFormSlug: Boolean(staffFormSlug),
-      },
-      request: getAuditRequestContext(c),
-    })
+    try {
+      await logStaffActivity({
+        organizationId: orgId,
+        actorStaffId: staffId,
+        category: ACTIVITY_CATEGORIES.LEAD,
+        targetType: ACTIVITY_TARGET_TYPES.ORGANIZATION,
+        targetId: orgId,
+        summary: 'Sent bulk SMS to leads',
+        action: ACTIVITY_ACTIONS.LEAD.MESSAGE_SENT,
+        riskLevel: ActivityRiskLevel.MEDIUM,
+        metadata: {
+          channel: 'SMS',
+          count: leads.length,
+          sent,
+          failed,
+          messageIds: createdMessages.map((m) => m.id),
+          formLinkType,
+          usedStaffFormSlug: Boolean(staffFormSlug),
+        },
+        request: getAuditRequestContext(c),
+      })
+    } catch (err) {
+      console.error('[Leads] Bulk SMS activity log failed:', err)
+    }
 
     return c.json({
       success: true,
       sent,
       failed,
+      limit: BULK_SMS_MAX_RECIPIENTS,
+      results: recipientResults,
       errors: errors.length > 0 ? errors : undefined,
     })
   }
@@ -835,7 +925,7 @@ leadsRoute.post(
 leadsRoute.delete(
   '/:id',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', leadIdParamSchema),
   async (c) => {
     const { orgId, staffId } = getVerifiedAuth(c.get('user'))

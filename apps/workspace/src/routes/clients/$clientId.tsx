@@ -33,6 +33,7 @@ import {
   Pencil,
   Check,
   X,
+  CreditCard,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button, buttonVariants, Input } from '@ella/ui'
@@ -65,6 +66,7 @@ import { useDeleteBusinessWithScheduleC } from '../../hooks/use-delete-business-
 import { countScheduleCExpenseLines } from '../../lib/schedule-c-expense-helpers'
 import { FilesTab } from '../../components/files'
 import { AgreementsTab } from '../../components/agreements/agreements-tab'
+import { ClientPaymentsTab } from '../../components/clients/client-payments-tab'
 import { SendUploadLinkModal } from '../../components/shared/send-upload-link-modal'
 import { FloatingChatbox } from '../../components/chatbox'
 import { ErrorBoundary } from '../../components/error-boundary'
@@ -81,11 +83,11 @@ import { isScheduleCEligibleBusiness, BUSINESS_TYPE_LABELS } from '../../lib/bus
 import { IndividualScheduleCActivities } from '../../components/cases/tabs/schedule-c-tab/individual-schedule-c-activities'
 import { getLinkedBusinessesWithScheduleC } from '../../components/cases/tabs/schedule-c-tab/schedule-c-activities'
 
-type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'shared-docs' | 'contractors' | 'agreements'
+type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'shared-docs' | 'contractors' | 'agreements' | 'payments'
 
 const VALID_TAB_PARAMS: TabType[] = [
   'overview', 'files', 'checklist', 'schedule-c', 'schedule-e',
-  'data-entry', 'shared-docs', 'contractors', 'agreements',
+  'data-entry', 'shared-docs', 'contractors', 'agreements', 'payments',
 ]
 const DEFAULT_CLIENT_TAB: TabType = 'files'
 
@@ -99,11 +101,12 @@ function getAvailableTabIds(client: { clientType: 'INDIVIDUAL' | 'BUSINESS'; bus
       'contractors',
       'data-entry',
       'shared-docs',
+      'payments',
       ...(isScheduleCEligibleBusiness(client) ? (['schedule-c'] as TabType[]) : []),
     ]
   }
 
-  return ['overview', 'files', 'agreements', 'data-entry', 'shared-docs', 'schedule-c', 'schedule-e']
+  return ['overview', 'files', 'agreements', 'payments', 'data-entry', 'shared-docs', 'schedule-c', 'schedule-e']
 }
 
 export const Route = createFileRoute('/clients/$clientId')({
@@ -147,7 +150,7 @@ function ClientDetailPage() {
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
-  const { isAdmin } = useOrgRole()
+  const { canViewPhone, canManageClients } = useOrgRole()
   // Multi-year engagement state
   const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null)
   const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)
@@ -691,6 +694,7 @@ function ClientDetailPage() {
   const scheduleCTab = { id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }
   const scheduleETab = { id: 'schedule-e' as TabType, label: 'Schedule E', icon: Home }
   const agreementsTab = { id: 'agreements' as TabType, label: t('clientDetail.tabAgreements'), icon: FileSignature }
+  const paymentsTab = { id: 'payments' as TabType, label: t('clientDetail.tabPayments'), icon: CreditCard }
   const isBusiness = client.clientType === 'BUSINESS'
 
   // Schedule C eligibility & cross-entity activity computation.
@@ -713,12 +717,14 @@ function ClientDetailPage() {
         { id: 'contractors', label: 'Contractors', icon: UserCircle },
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
         { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
+        paymentsTab,
         ...(showScheduleCTab ? [scheduleCTab] : []),
       ]
     : [
         { id: 'overview', label: t('clientOverview.title'), icon: User },
         { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
         agreementsTab,
+        paymentsTab,
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
         { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
         scheduleCTab,
@@ -808,7 +814,7 @@ function ClientDetailPage() {
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[13px] text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Phone className="w-3.5 h-3.5" aria-hidden="true" />
-                    {isAdmin ? formatPhone(client.phone) : maskPhone(client.phone)}
+                    {canViewPhone ? formatPhone(client.phone) : maskPhone(client.phone)}
                   </span>
                   {client.email && (
                     <span className="flex items-center gap-1">
@@ -1037,9 +1043,12 @@ function ClientDetailPage() {
             phone: client.phone,
           }}
           enabled={true}
-          canSend={isAdmin}
+          canSend={canManageClients}
         />
       )}
+
+      {/* Payments Tab - deposits/balances collected from this client */}
+      {activeTab === 'payments' && <ClientPaymentsTab clientId={clientId} />}
 
       {/* Checklist Tab - Requirement-based document view (renamed from Documents) */}
       {activeTab === 'checklist' && (

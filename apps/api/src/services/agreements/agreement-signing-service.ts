@@ -15,13 +15,20 @@ import { customAlphabet } from 'nanoid'
 import { HTTPException } from 'hono/http-exception'
 import type { Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
-import { uploadFile, getSignedDownloadUrl, fetchImageBuffer } from '../storage'
+import { uploadFile, getSignedDownloadUrl, fetchImageBuffer, fetchFileBuffer } from '../storage'
 import { isExpired } from './token-service'
 import { decodeSignaturePng } from '../../routes/agreements/helpers'
 import { generateSignedPdf } from './pdf-generator'
+import { generateSignaturePagePdf } from './pdf-signature-page'
+import { appendPagesToPdf } from './pdf-merge'
 import { getTemplate } from '../../lib/agreements/template-registry'
 import type { TemplateSection } from '../../lib/agreements/types'
 import { composeAddressLine, composeContactLine, resolveClientNameOrBusiness } from './entity-loader'
+import {
+  notifyAdminsAgreementSigned,
+  type PostSignAgreementContext,
+} from './agreement-post-sign-notifications'
+import { createDepositPaymentForAgreement } from '../payments/deposit-payment-service'
 
 const DOWNLOAD_TTL_SECONDS = 900 // 15 min
 const VIEW_PRESIGN_TTL_SECONDS = 900 // 15 min
@@ -194,6 +201,9 @@ export interface PublicAgreementView {
   templateTitle: string
   templateSections: TemplateSection[]
   templateHtml: string | null
+  /** Presigned URL (15-min TTL) of the staff-uploaded source PDF. When set, the
+   *  portal renders the PDF instead of templateSections/templateHtml. */
+  uploadedPdfUrl: string | null
   /** Formatted deposit amount (`$300.00`) when a deposit applies; null otherwise. */
   depositAmount: string | null
   orgName: string
@@ -211,6 +221,9 @@ export async function toPublicView(agreement: LoadedAgreement): Promise<PublicAg
   const template = getTemplate(agreement.templateVersion)
   const depositAmount = agreement.depositAmount
     ? `$${agreement.depositAmount.toString()}`
+    : null
+  const uploadedPdfUrl = agreement.uploadedPdfKey
+    ? await getSignedDownloadUrl(agreement.uploadedPdfKey, VIEW_PRESIGN_TTL_SECONDS)
     : null
   const fullName = [agreement.signer.firstName, agreement.signer.lastName]
     .filter(Boolean)
@@ -293,6 +306,7 @@ export async function toPublicView(agreement: LoadedAgreement): Promise<PublicAg
     // `??`) so empty strings collapse to null and the portal takes the legacy
     // render branch instead of an empty custom HTML block.
     templateHtml: agreement.customContentHtml || null,
+    uploadedPdfUrl,
     depositAmount,
     orgName: agreement.organization.name,
     leadFirstName: agreement.signer.firstName,
@@ -420,30 +434,57 @@ export async function signAgreement(input: SignAgreementInput) {
     }
   }
 
-  const pdfBuffer = await generateSignedPdf({
-    agreement: {
-      type: agreement.type,
-      templateVersion: agreement.templateVersion,
-      depositAmount: agreement.depositAmount ?? '0.00',
-      customContentHtml: agreement.customContentHtml,
-      title: agreement.title,
-    },
-    lead: { firstName: agreement.signer.firstName, lastName: agreement.signer.lastName },
-    organization: {
-      name: agreement.organization.name,
-      governingState: agreement.organization.governingState,
-      governingCounty: agreement.organization.governingCounty,
-    },
-    signature: {
-      pngBuffer: decoded.buffer,
-      typedName: signerName,
-      ipAddress: input.ip,
-      userAgent: input.userAgent,
-      signedAt,
-    },
-    firmSnapshot,
-    clientSnapshot,
-  })
+  // Uploaded-PDF path: keep the customer's source PDF intact and append a
+  // generated Acceptance & Signature page. Native (HTML/template) path renders
+  // the full document as before.
+  let pdfBuffer: Buffer
+  if (agreement.uploadedPdfKey) {
+    if (!firmSnapshot || !clientSnapshot) {
+      throw new HTTPException(500, {
+        message: 'Uploaded agreement is missing its signing snapshot',
+      })
+    }
+    const basePdf = await fetchFileBuffer(agreement.uploadedPdfKey)
+    if (!basePdf) {
+      throw new HTTPException(502, { message: 'Could not load the uploaded agreement PDF' })
+    }
+    const signaturePage = await generateSignaturePagePdf({
+      documentTitle: agreement.title,
+      orgName: agreement.organization.name,
+      firmSnapshot,
+      clientSnapshot,
+      depositAmountLabel: agreement.depositAmount
+        ? `$${agreement.depositAmount.toString()}`
+        : null,
+      audit: { ipAddress: input.ip, userAgent: input.userAgent, signedAt },
+    })
+    pdfBuffer = await appendPagesToPdf(basePdf, signaturePage)
+  } else {
+    pdfBuffer = await generateSignedPdf({
+      agreement: {
+        type: agreement.type,
+        templateVersion: agreement.templateVersion,
+        depositAmount: agreement.depositAmount ?? '0.00',
+        customContentHtml: agreement.customContentHtml,
+        title: agreement.title,
+      },
+      lead: { firstName: agreement.signer.firstName, lastName: agreement.signer.lastName },
+      organization: {
+        name: agreement.organization.name,
+        governingState: agreement.organization.governingState,
+        governingCounty: agreement.organization.governingCounty,
+      },
+      signature: {
+        pngBuffer: decoded.buffer,
+        typedName: signerName,
+        ipAddress: input.ip,
+        userAgent: input.userAgent,
+        signedAt,
+      },
+      firmSnapshot,
+      clientSnapshot,
+    })
+  }
 
   await uploadFile(signedPdfKey, pdfBuffer, 'application/pdf')
 
@@ -469,12 +510,47 @@ export async function signAgreement(input: SignAgreementInput) {
     throw new HTTPException(409, { message: 'Agreement was already signed' })
   }
 
+  // Post-commit side effects (admin SMS, deposit Payment + client pay link).
+  // Fire-and-forget: must NEVER fail or delay the signing response.
+  runPostSignSideEffects({
+    id: agreement.id,
+    organizationId: agreement.organizationId,
+    orgName: agreement.organization.name,
+    title: agreement.title,
+    createdByUserId: agreement.createdByUserId,
+    leadId: agreement.leadId,
+    clientId: agreement.clientId,
+    depositAmount: agreement.depositAmount,
+    depositStatus: agreement.depositStatus,
+    signer: agreement.signer,
+  })
+
   const downloadUrl = await getSignedDownloadUrl(signedPdfKey, DOWNLOAD_TTL_SECONDS)
   return {
     status: 'SIGNED' as const,
     signedAt,
     downloadUrl,
   }
+}
+
+/**
+ * Post-sign side effects, fired AFTER the signing transaction commits. Each
+ * step is independently caught + logged — a Twilio outage or payment-create
+ * failure never breaks the signing response.
+ */
+function runPostSignSideEffects(ctx: PostSignAgreementContext): void {
+  notifyAdminsAgreementSigned(ctx).catch((err) => {
+    console.error(
+      `[Agreement] Post-sign admin notification failed for agreement=${ctx.id}:`,
+      err,
+    )
+  })
+  createDepositPaymentForAgreement(ctx).catch((err) => {
+    console.error(
+      `[Agreement] Post-sign deposit payment hook failed for agreement=${ctx.id}:`,
+      err,
+    )
+  })
 }
 
 /** Legacy alias retained for transitional callers + tests. */

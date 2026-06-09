@@ -3,6 +3,7 @@ export { cn } from './lib/utils'
 
 // Components
 export { Button, buttonVariants, type ButtonProps } from './components/button'
+export { Combobox, type ComboboxItem, type ComboboxProps } from './components/combobox'
 export {
   Card,
   cardVariants,

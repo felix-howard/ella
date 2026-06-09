@@ -11,28 +11,27 @@ import { toast } from '../../stores/toast-store'
 import { api } from '../../lib/api-client'
 import { PricingCalculatorForm } from './pricing-calculator-form'
 import { PricingPaymentLinkPanel } from './pricing-payment-link-panel'
+import { PricingSendQuotePanel } from './pricing-send-quote-panel'
 import { PricingPrintPanel } from './pricing-print-panel'
 import { PricingSummaryPanel } from './pricing-summary-panel'
-import { serializePricingInput, trimOptional } from './pricing-format'
-import type { PricingCheckout, PricingCustomerFields } from './pricing-calculator-types'
+import { CustomLinkBuilder } from './custom-link/custom-link-builder'
+import { serializePricingInput } from './pricing-format'
+import type { PricingCheckout } from './pricing-calculator-types'
+
+type BuilderMode = 'calculator' | 'custom'
 
 interface CreateLinkPayload {
   pricingInput: PricingCalculatorInput
-  fields: PricingCustomerFields
 }
 
 export function PricingCalculatorPage() {
+  const [mode, setMode] = useState<BuilderMode>('calculator')
   const [input, setInput] = useState<PricingCalculatorInput>(() => createDefaultPricingInput())
-  const [customerFields, setCustomerFields] = useState<PricingCustomerFields>({
-    customerEmail: '',
-    customerName: '',
-    businessName: '',
-  })
   const [checkout, setCheckout] = useState<PricingCheckout>(null)
   const [quoteChanged, setQuoteChanged] = useState(false)
   const [lastCheckoutSignature, setLastCheckoutSignature] = useState<string | null>(null)
   const result = useMemo(() => calculatePricing(input), [input])
-  const currentCheckoutSignature = makeCheckoutSignature(input, customerFields)
+  const currentCheckoutSignature = makeCheckoutSignature(input)
   const currentCheckoutSignatureRef = useRef(currentCheckoutSignature)
 
   useEffect(() => {
@@ -40,15 +39,12 @@ export function PricingCalculatorPage() {
   }, [currentCheckoutSignature])
 
   const createLinkMutation = useMutation({
-    mutationFn: ({ pricingInput, fields }: CreateLinkPayload) =>
+    mutationFn: ({ pricingInput }: CreateLinkPayload) =>
       api.billing.createCheckoutSession({
         pricingInput,
-        customerEmail: trimOptional(fields.customerEmail),
-        customerName: trimOptional(fields.customerName),
-        businessName: trimOptional(fields.businessName),
       }),
     onSuccess: (response, variables) => {
-      const responseSignature = makeCheckoutSignature(variables.pricingInput, variables.fields)
+      const responseSignature = makeCheckoutSignature(variables.pricingInput)
       if (currentCheckoutSignatureRef.current !== responseSignature) {
         setCheckout(null)
         setQuoteChanged(true)
@@ -73,7 +69,7 @@ export function PricingCalculatorPage() {
     if (
       checkout &&
       lastCheckoutSignature &&
-      makeCheckoutSignature(nextInput, customerFields) !== lastCheckoutSignature
+      makeCheckoutSignature(nextInput) !== lastCheckoutSignature
     ) {
       setCheckout(null)
       setQuoteChanged(true)
@@ -81,20 +77,8 @@ export function PricingCalculatorPage() {
     setInput(nextInput)
   }
 
-  const handleCustomerFieldsChange = (nextFields: PricingCustomerFields) => {
-    if (
-      checkout &&
-      lastCheckoutSignature &&
-      makeCheckoutSignature(input, nextFields) !== lastCheckoutSignature
-    ) {
-      setCheckout(null)
-      setQuoteChanged(true)
-    }
-    setCustomerFields(nextFields)
-  }
-
-  const handleCreate = async (fields: PricingCustomerFields) => {
-    await createLinkMutation.mutateAsync({ pricingInput: input, fields })
+  const handleCreate = async () => {
+    await createLinkMutation.mutateAsync({ pricingInput: input })
   }
 
   return (
@@ -106,28 +90,68 @@ export function PricingCalculatorPage() {
         </p>
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <PricingCalculatorForm
-          input={input}
-          disabled={createLinkMutation.isPending}
-          onInputChange={handleInputChange}
-        />
-        <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-          <PricingSummaryPanel result={result} />
-          <PricingPrintPanel input={input} result={result} />
-          <PricingPaymentLinkPanel
-            checkout={checkout}
-            disabledReason={disabledReason}
-            errorMessage={errorMessage}
-            fields={customerFields}
-            isCreating={createLinkMutation.isPending}
-            quoteChanged={quoteChanged}
-            onFieldsChange={handleCustomerFieldsChange}
-            onCreate={handleCreate}
+      <ModeSwitch mode={mode} onChange={setMode} />
+
+      {mode === 'calculator' ? (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <PricingCalculatorForm
+            input={input}
+            disabled={createLinkMutation.isPending}
+            onInputChange={handleInputChange}
           />
-        </aside>
-      </div>
+          <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+            <PricingSummaryPanel result={result} />
+            <PricingPrintPanel input={input} result={result} />
+            <PricingPaymentLinkPanel
+              checkout={checkout}
+              disabledReason={disabledReason}
+              errorMessage={errorMessage}
+              isCreating={createLinkMutation.isPending}
+              quoteChanged={quoteChanged}
+              onCreate={handleCreate}
+            />
+            <PricingSendQuotePanel
+              pricingInput={input}
+              disabledReason={disabledReason}
+            />
+          </aside>
+        </div>
+      ) : (
+        <CustomLinkBuilder />
+      )}
     </section>
+  )
+}
+
+function ModeSwitch({ mode, onChange }: { mode: BuilderMode; onChange: (mode: BuilderMode) => void }) {
+  const tabs: Array<{ value: BuilderMode; label: string }> = [
+    { value: 'calculator', label: 'Calculator' },
+    { value: 'custom', label: 'Custom link' },
+  ]
+  return (
+    <div
+      role="tablist"
+      aria-label="Payment link source"
+      className="inline-flex rounded-lg border border-border bg-card p-1"
+    >
+      {tabs.map((tab) => {
+        const active = mode === tab.value
+        return (
+          <button
+            key={tab.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(tab.value)}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+              active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tab.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -148,14 +172,8 @@ function getCreateDisabledReason(
   return null
 }
 
-function makeCheckoutSignature(
-  input: PricingCalculatorInput,
-  fields: PricingCustomerFields
-): string {
+function makeCheckoutSignature(input: PricingCalculatorInput): string {
   return JSON.stringify({
     pricingInput: JSON.parse(serializePricingInput(input)) as PricingCalculatorInput,
-    customerEmail: trimOptional(fields.customerEmail),
-    customerName: trimOptional(fields.customerName),
-    businessName: trimOptional(fields.businessName),
   })
 }

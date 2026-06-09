@@ -76,6 +76,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/schedule-c/:token` - Schedule C expense form (magic link auth)
 - `/schedule-e/:token` - Schedule E rental form (magic link auth)
 - `/draft/:token` - Draft tax return viewer (magic link, public, Phase 03)
+- `/pay/:payToken` - Public payment page for checkout (React/TanStack Router, Phase 04)
 
 **Send Upload Link (Phase 15 - Business Entity Separation Smart Routing):**
 - `POST /clients/:id/send-upload-link` sends SMS with upload portal link to client (or their designated recipient)
@@ -90,9 +91,16 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Authentication (Clerk + Multi-Tenancy):**
 - `ClerkAuthProvider` - Wraps root, sets JWT token getter
 - `useAutoOrgSelection()` - Auto-selects first org on sign-in
-- `useOrgRole()` - Returns `{ isAdmin, role }` for RBAC
+- `useOrgRole()` - Returns `{ isAdmin, isManager, canManageClients, canViewPhone, canManageTeam, ...role booleans }` for RBAC (Phase 4)
 - Zero-org fallback: Localized UI (org.noOrg)
-- Sidebar: Displays org name, role badge, conditional Team nav
+- Sidebar: Displays org name, role badge, conditional Team nav (gated by `canManageTeam`)
+
+**Frontend Capability Flags (Phase 4 - MANAGER Role UI + Server Phone Masking):**
+- `useOrgRole()` hook in `apps/workspace/src/hooks/use-org-role.ts` provides semantic capability flags; components consume these, never compare role string literals for permissions.
+- **Flags:** (1) `isManager` - user has Staff.role='MANAGER'. (2) `canManageClients` - isAdmin || isManager (mirrors server admin-or-manager gate); enables leads list, pricing-calculator nav, clients CRUD UI. (3) `canViewPhone` - isAdmin only (server masks for others via `serializePhone()`). (4) `canManageTeam` - isAdmin only; gates /team nav, invite/role-change/deactivate UI.
+- **App-Level Roles (Phase 4):** `AppRole` union type ('ADMIN' | 'MANAGER' | 'MEMBER') used in team invite dialog + profile role select, mirrors `apps/api/src/lib/staff-role-mapping.ts APP_ROLES` for JSON payloads (TeamInvitation.staffRole, team/members/:staffId/role endpoint).
+- **Phone Masking Convention:** `formatPhone()` in `apps/workspace/src/lib/formatters.ts` passes through server-masked values containing '*' unchanged (e.g., `*** *** 1234`). Frontend never re-masks; server is authoritative source via `serializePhone()` middleware.
+- **UI Contract:** Nav items (leads, pricing-calculator, /team) gated by capability flags. Team invite dialog + profile role select offer ADMIN/MANAGER/MEMBER app-level roles for mutations. Code never checks org:admin literal; instead uses `canManageTeam` or `canManageClients` flags.
 
 **State Management:**
 - React Query: Server state, auto cache invalidation
@@ -160,11 +168,16 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Firm signer lookup prefers `kaytax76@gmail.com` with a stored signature, then falls back to the first active admin with a stored signature. Production rollout must verify the exact signer account/title/signature before contractor staff sign.
 - Data model: `Staff.isContractorAgent` gates the workspace compliance flow; `ContractorAgreementAcceptance` stores the signed PDF, source template, SHA-256, signer snapshots, IP/User-Agent, and firm signer snapshot.
 
-**Billing (Stripe Checkout Foundation):**
-- `POST /billing/checkout-sessions` - Org-admin only. Persists a `PaymentQuote` first, then creates the Stripe Checkout session and stores the returned session URL, status, and expiry in `StripeCheckoutSession`. Uses `quoteId` as the Stripe idempotency key, keeps Stripe metadata free of internal notes and PII, and surfaces config errors as `STRIPE_NOT_CONFIGURED` or `STRIPE_RETURN_URLS_INVALID`.
+**Billing (Stripe Checkout with Calculator + Custom Quote Sources):**
+- **Quote Sources:** `PaymentQuote.source` field (enum: 'calculator' | 'custom') branches payment flow. Calculator quotes (`source='calculator'`) rebuild from stored `inputSnapshot` (pricing inputs). Custom quotes (`source='custom'`) have no `inputSnapshot`—line items frozen in `resultSnapshot` are the source of truth.
+- `POST /billing/checkout-sessions` - Admin/manager only. Persists a `PaymentQuote` first, then creates the Stripe Checkout session and stores the returned session URL, status, and expiry in `StripeCheckoutSession`. Uses `quoteId` as the Stripe idempotency key, keeps Stripe metadata free of internal notes and PII, and surfaces config errors as `STRIPE_NOT_CONFIGURED` or `STRIPE_RETURN_URLS_INVALID`. Handles both calculator and custom quote types.
 - `POST /webhooks/stripe` - Public Stripe webhook. Verifies `Stripe-Signature` with the raw request body and `STRIPE_WEBHOOK_SECRET`, then syncs local `PaymentQuote` and `StripeCheckoutSession` status for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `invoice.paid`, `invoice.payment_failed`, and `customer.subscription.deleted`. Completed unpaid checkouts map to `awaiting_payment`, and the existing local checkout-session quote association wins over Stripe metadata when both exist. Webhook updates persist `lastStripeEventId` and `lastStripeEventAt` on quote/session records, ignore older events, apply same-second status precedence, and keep canceled sessions terminal for later invoice events on the same subscription.
+- **Custom Payment Links (Staff-Driven):** Staff create free-form quotes with per-line item control (label, description, amount, quantity) + per-line billing interval (one-time | monthly | yearly). Line items frozen in `resultSnapshot`. Optional coupon attachment (XOR with promotion codes per Stripe rules). Checkout session built via generalized `buildCheckoutSessionParams(lineItems[], opts)` supporting mixed intervals via line-item grouping + subscription logic.
+- **Coupons (Stripe-Native):** New `Coupon` model (organizationId, name, stripeId, code, discountType, discountValue, maxRedemptions, expiresAt, active). App-side source of truth synced bidirectionally with Stripe Coupon + Promotion Code. Routes: `POST /coupons` (create + sync), `GET /coupons` (list org), `PATCH /coupons/:id` (update), `DELETE /coupons/:id` (soft-delete, deactivate on Stripe). Per-checkout, enforce Stripe rule: `discounts:[{coupon}]` OR `allow_promotion_codes:true`, not both.
+- **Quote Drift-Safety:** New `rebuildQuoteForCheckout(quote)` rebuilds Stripe params from frozen snapshot. For calculator source: calls `calculateCheckoutQuote(inputSnapshot)` to regenerate. For custom source: reads `resultSnapshot.lineItems` directly (no recalc, line items are frozen).
+- **Portal Pay Page:** New `PublicQuoteView.billingInterval` field exposes per-line cadence (null = one-time). UI surfaces per-line descriptions, correct "Monthly" / "Yearly" group headers, and /mo vs /yr badges.
 - Pricing payment links are disabled for enterprise-sized quotes (>20 1099 workers); those quotes remain contact-sales only.
-- Workspace `/pricing-calculator` uses the same shared calculator domain as billing and creates payment links through the authenticated `api.billing` client. No-selection, enterprise-sized, unsafe quantity, and oversized checkout states disable link creation before the API call and are enforced again by billing before Stripe session creation.
+- Workspace `/pricing-calculator` uses the same shared calculator domain as billing and creates payment links through the authenticated `api.billing` client. No-selection, enterprise-sized, unsafe quantity, and oversized checkout states disable link creation before the API call and are enforced again by billing before Stripe session creation. New custom-link tab allows staff to create and send free-form quotes.
 - Stripe config lives in the API process env: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `STRIPE_CURRENCY`. Local API dev loads `apps/api/.env`.
 - Landing payment-link calls require `PUBLIC_API_URL` in the landing process/build env so `/pricing` can reach the API. Local landing dev loads `apps/landing/.env`; deployed static builds need the same variable configured in build/deploy env.
 - Local webhook testing: `pnpm dev` starts Stripe CLI forwarding automatically when Stripe CLI plus `STRIPE_SECRET_KEY` and the matching local `STRIPE_WEBHOOK_SECRET` are available. Bootstrap or refresh the local `whsec_...` with `stripe listen --forward-to localhost:3002/webhooks/stripe`, then copy the printed signing secret into `apps/api/.env`. Do not reuse the live Dashboard webhook secret for local CLI forwarding.
@@ -239,24 +252,25 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Lead Management (9 - Phase 02 API Endpoints + Tag-Based Categorization Complete):**
 - `POST /leads` - Create lead from registration form (public, rate-limited 5/min). P2002 duplicate phone+org returns success (idempotent). Accepts `tags` string array for flexible categorization.
-- `GET /leads` - List org leads (org-scoped, admin required). Supports pagination (limit 1-100), status filter (NEW|CONTACTED|CONVERTED|LOST), tag filters (hasSome, hasAll operators), full-text search (firstName, lastName, phone, businessName)
-- `GET /leads/tags` - Get distinct tags (admin required). Returns array of unique tag strings across all org leads, sorted alphabetically. Used for tag filter dropdowns + tag management UI.
+- `GET /leads` - List org leads (org-scoped, admin/manager required). Supports pagination (limit 1-100), status filter (NEW|SENT|CONTACTED|CONVERTED|LOST), single tag filter, and full-text search (firstName, lastName, phone, businessName). Returns `latestSms` per lead, plus `selectableTotal` and `bulkSmsMaxRecipients` for bulk-send planning.
+- `GET /leads/tags` - Get distinct tags (admin/manager required). Returns array of unique tag strings across all org leads, sorted alphabetically. Used for tag filter dropdowns + tag management UI.
 - `GET /leads/:id` - Get lead detail with SMS send history (last 20 SMS logs ordered by sentAt desc). Returns tags array + campaignTag (original source)
 - `PATCH /leads/:id` - Update lead (status, notes, firstName, lastName, email, businessName, tags). All text fields + tags sanitized. Tags support add/remove mutations.
-- `GET /leads/:id/convert-check` - Check for duplicate client by phone (admin required). Returns hasDuplicate + existingClient data
+- `GET /leads/:id/convert-check` - Check for duplicate client by phone (admin/manager required). Returns hasDuplicate + existingClient data
 - `POST /leads/:id/convert` - Convert lead to Client with transaction (create Client + TaxEngagement + TaxCase). Carries over tags to new Client. Optional welcome SMS with magic link. Server enforces phone uniqueness (409 if duplicate)
-- `POST /leads/bulk-sms` - Send bulk SMS to leads with form link personalization. Supports tag-based filtering + batched concurrency (default 5 concurrent). SMS templates: `{{firstName}}` and `{{formLink}}` replacement. Tracks SmsSendLog per message. Lead status (NEW→CONTACTED) updated atomically on Twilio delivery webhook confirmation, not on send
-- `DELETE /leads/:id` - Delete lead (org-scoped, admin required)
-- Rate limiter on public create (5/min), authMiddleware + requireOrgAdmin on all protected endpoints. Phone normalized to E.164 format. Tags: flexible string array (1-100 chars each), stored with GIN index for fast containment queries. SMS integration via Twilio with optional staff form routing
+- `POST /leads/bulk-sms/preview-targets` - Preview eligible bulk SMS recipients before sending. Returns `total`, `selectableTotal`, `returnedIds`, `limit` (200), and `truncated` so workspace can page/filter safely.
+- `POST /leads/bulk-sms` - Send bulk SMS to leads with form link personalization. Shared recipient cap comes from `@ella/shared/constants` (`BULK_SMS_MAX_RECIPIENTS = 200`). Supports tag-based filtering + batched concurrency. SMS templates: `{{firstName}}` and `{{formLink}}` replacement. Rejects converted leads before send, returns per-recipient `results` with `sent` / `failed` and structured `errors`, and marks successful new sends as `SENT`.
+- `DELETE /leads/:id` - Delete lead (org-scoped, admin/manager required)
+- Rate limiter on public create (5/min), authMiddleware + requireAdminOrManager on all protected endpoints (except team management). Phone normalized to E.164 format. Tags: flexible string array (1-100 chars each), stored with GIN index for fast containment queries. SMS integration via Twilio with optional staff form routing
 
 **Team & Organization (19 - Phase 3 + Phase 02 Profile API + Phase 04 Navigation + Phase 02 Intake Form):**
 - `GET /org-settings` - Get org profile + autoSendFormClientUploadLink toggle (Phase 02 Intake Form)
-- `PATCH /org-settings` - Update org profile + autoSendFormClientUploadLink (Phase 02 Intake Form)
+- `PATCH /org-settings` - Update org profile + autoSendFormClientUploadLink (admin/manager only, Phase 02 Intake Form)
 - `GET /team/members` - List org staff (reads from DB)
-- `POST /team/invite` - Send Clerk org invitation via Backend API (webhook syncs results to DB)
-- `PATCH /team/members/:staffId/role` - Update role via Clerk Backend API (webhook syncs to DB)
-- `DELETE /team/members/:staffId` - Deactivate staff via Clerk Backend API (webhook syncs to DB)
-- `PATCH /team/members/:staffId/contractor-agent` - Toggle `Staff.isContractorAgent` via admin-only backend API (webhook-independent, DB-backed)
+- `POST /team/invite` - Send Clerk org invitation via Backend API (admin only, webhook syncs results to DB)
+- `PATCH /team/members/:staffId/role` - Update role via Clerk Backend API (admin only, webhook syncs to DB)
+- `DELETE /team/members/:staffId` - Deactivate staff via Clerk Backend API (admin only, webhook syncs to DB)
+- `PATCH /team/members/:staffId/contractor-agent` - Toggle `Staff.isContractorAgent` via admin-only backend API (admin only, webhook-independent, DB-backed)
 - `GET /team/members/:staffId/profile` - Get member profile with assigned clients (Phase 02)
 - `PATCH /team/members/:staffId/profile` - Update name/phone (self only, Phase 02)
 - `POST /team/members/:staffId/avatar/presigned-url` - Get R2 upload URL (self only, Phase 02)
@@ -270,21 +284,21 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Similar for invitations & staff assignments
 
 **Clients (16+ with Tag Support, Phase 10 Entity Separation):**
-- `GET /clients` - List with org scoping + sort + tag filters (Phase 2: supports `sort=recentUploads`, returns `uploads: { newCount, totalCount, latestAt }` per client. Tag filtering: hasSome, hasAll operators). Admin manager filters now match any linked `ClientManager` row. Returns tags + source enum plus manager display fields (`managedBy`, `managedByStaff`).
-- `GET /clients/tags` - Get distinct tags (admin required). Returns array of unique tag strings across all org clients, sorted alphabetically. Used for tag filter dropdowns.
-- `POST /clients` - Create with organization. Accepts tags array + source enum (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED). Phase 10: Supports clientType (INDIVIDUAL|BUSINESS), businessType, ein (encrypted as einEncrypted), businessAddress/City/State/Zip for BUSINESS clients.
-- `POST /clients/create-with-business` - Combo endpoint (Phase 10). Creates individual client + business client + ClientGroup in one transaction. Body: individual{firstName, lastName, phone, email, language}, business{name, type, ein, address, city, state, zip}, case{taxTypes, taxYear}, groupName. Returns {individual, business, group, taxCase, magicLink}.
+- `GET /clients` - List with org scoping + sort + tag filters (Phase 2: supports `sort=recentUploads`, returns `uploads: { newCount, totalCount, latestAt }` per client. Tag filtering: hasSome, hasAll operators). Admin/manager filters now match any linked `ClientManager` row. Returns tags + source enum plus manager display fields (`managedBy`, `managedByStaff`).
+- `GET /clients/tags` - Get distinct tags (admin/manager required). Returns array of unique tag strings across all org clients, sorted alphabetically. Used for tag filter dropdowns.
+- `POST /clients` - Create with organization (admin/manager only). Accepts tags array + source enum (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED). Phase 10: Supports clientType (INDIVIDUAL|BUSINESS), businessType, ein (encrypted as einEncrypted), businessAddress/City/State/Zip for BUSINESS clients.
+- `POST /clients/create-with-business` - Combo endpoint (Phase 10, admin/manager only). Creates individual client + business client + ClientGroup in one transaction. Body: individual{firstName, lastName, phone, email, language}, business{name, type, ein, address, city, state, zip}, case{taxTypes, taxYear}, groupName. Returns {individual, business, group, taxCase, magicLink}.
 - `GET /clients/:id` - Detail with org verification (Phase 10: returns clientType, einMasked instead of einEncrypted, clientGroupId, business fields for BUSINESS clients). Returns tags array + source enum + conversion metadata, plus manager compatibility fields (`managedById`, `managedBy`, `managedByStaff`).
-- `PATCH /clients/:id` - Update profile/intakeAnswers/tags. Tags support add/remove/replace mutations. Phase 10: Can update clientType, ein (re-encrypted), businessType, business address fields.
-- `DELETE /clients/:id` - Deactivate
+- `PATCH /clients/:id` - Update profile/intakeAnswers/tags (admin/manager only). Tags support add/remove/replace mutations. Phase 10: Can update clientType, ein (re-encrypted), businessType, business address fields.
+- `DELETE /clients/:id` - Deactivate (admin/manager only)
 - `GET /clients/:id/resend-sms` - Resend welcome link
 - `POST /clients/:id/send-upload-link` - Send upload link SMS to client with random expiring `/upload/:token` URL. Reuses active unexpired links and supports lifecycle controls through Files tab. For business clients with clientGroupId, resolves individual client's taxCase for same year and creates magic link on individual's case—uploads go to individual. Falls back to business case with warning if individual has no taxCase for year. Adds organizationId filter for security.
 - `POST /clients/:id/avatar/presigned-url` - Get R2 upload URL for client avatar (Phase 02 Backend)
 - `PATCH /clients/:id/avatar` - Confirm avatar upload + return signed download URL (Phase 02 Backend)
 - `DELETE /clients/:id/avatar` - Remove client avatar (Phase 02 Backend)
 - `PATCH /clients/:id/notes` - Update client notes/internal comments (Phase 02 Backend)
-- `GET /activity/recent` - Get org-scoped recent activity timeline with safe DTOs, cursor pagination, and filters (`limit`, `category`, `actorStaffId`, `riskLevel`). Invalid cursors return 400 `INVALID_CURSOR`.
-- `GET /activity/clients/:clientId` - Get client-scoped activity timeline with safe DTOs and cursor pagination. Access stays org-scoped; inaccessible clients return 404.
+- `GET /activity/recent` - Get org-scoped recent activity timeline with safe DTOs, cursor pagination, and filters (`limit`, `category`, `actorStaffId`, `riskLevel`) (admin/manager only). Invalid cursors return 400 `INVALID_CURSOR`.
+- `GET /activity/clients/:clientId` - Get client-scoped activity timeline with safe DTOs and cursor pagination (admin/manager only). Access stays org-scoped; inaccessible clients return 404.
 - `GET /clients/:id/activity` - Legacy client overview timeline kept during the workspace migration; sanitized message rows do not include message body snippets.
 - `GET /clients/:id/stats` - Get quick stats (totalFiles, taxYears, verifiedPercent, lastMessageAt, Phase 02 Backend)
 - Status endpoints for action tracking. Client.source expanded to 5 values: MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED.
@@ -292,9 +306,9 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Client Groups (5 - Phase 10 Entity Separation):**
 - `GET /client-groups` - List org client groups with pagination (limit 1-100, default 20). Supports full-text search by group name. Returns group id, name, client count, timestamps.
 - `GET /client-groups/:id` - Get group detail with nested clients array (id, name, clientType, phone). Returns _count.clients for stats.
-- `POST /client-groups` - Create group. Body: name (required), clientIds (optional array). Org-scoped, no special permissions. Returns 201 with created group.
-- `PATCH /client-groups/:id` - Update group. Body: name (optional), addClientIds (add clients to group), removeClientIds (remove clients). Org-scoped. Returns 200 with updated group.
-- `DELETE /client-groups/:id` - Delete group. Org-scoped. Returns 200. No cascade—client relationships preserved (clientGroupId set to null).
+- `POST /client-groups` - Create group (admin/manager only). Body: name (required), clientIds (optional array). Org-scoped. Returns 201 with created group.
+- `PATCH /client-groups/:id` - Update group (admin/manager only). Body: name (optional), addClientIds (add clients to group), removeClientIds (remove clients). Org-scoped. Returns 200 with updated group.
+- `DELETE /client-groups/:id` - Delete group (admin/manager only). Org-scoped. Returns 200. No cascade—client relationships preserved (clientGroupId set to null).
 - **Auth Pattern:** All routes org-scoped via buildClientScopeFilter. POST requires valid clientIds that exist in org.
 - **Data Model:** ClientGroup (id, name, organizationId, clients array relation, createdAt, updatedAt). Index: organizationId for fast lookups. Supports flexible grouping (family businesses, partnerships, multi-entity arrangements).
 - **Manager Propagation:** `PATCH /clients/:id/managed-by` accepts compatible `{ staffId?: string | null, staffIds?: string[] }`, normalizes to a unique manager set, syncs `ClientManager` rows in a transaction, and keeps legacy `managedById` / `managedBy` mirrors aligned for rollout compatibility.
@@ -324,14 +338,14 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Contractor Management (8 - Phase 08 Client Re-Parent Routes):**
 - `GET /clients/:clientId/contractors` - List contractors for business client. Enforces clientType=BUSINESS + org-scope via verifyBusinessClient. Returns contractor list with latest 1099-NEC form per contractor if available (id, firstName, lastName, ssnLast4, address, city, state, zip, email, phone, formId, formStatus, hasCopyA, hasCopyB).
-- `POST /clients/:clientId/contractors` - Create contractor. Body: firstName, lastName, address, city, state, zip, email, phone, tinType (SSN|EIN), ssn. Enforces clientType=BUSINESS. Directly links to Client(clientType=BUSINESS). Returns 201 with created contractor.
-- `PATCH /clients/:clientId/contractors/:id` - Update contractor details. Body: all fields optional. Org-scoped with verifyBusinessClient. Returns 200 with updated contractor.
-- `DELETE /clients/:clientId/contractors/:id` - Delete contractor. Org-scoped with verifyBusinessClient. Returns 204.
-- `POST /clients/:clientId/contractors/upload-excel` - Parse nail salon Excel file (2 contractors per row block: columns A-C left, E-G right). Returns array of parsed contractors with address parsing (regex + AI fallback for ambiguous cities). Org-scoped with verifyBusinessClient.
-- `POST /clients/:clientId/contractors/bulk-save` - Batch save parsed contractors to DB. Body: contractors array with parsed fields. Org-scoped with verifyBusinessClient. Returns 201 with created contractors.
-- `DELETE /clients/:clientId/contractors/all` - Delete all contractors for business client. Org-scoped with verifyBusinessClient. Returns 204.
+- `POST /clients/:clientId/contractors` - Create contractor (admin/manager only). Body: firstName, lastName, address, city, state, zip, email, phone, tinType (SSN|EIN), ssn. Enforces clientType=BUSINESS. Directly links to Client(clientType=BUSINESS). Returns 201 with created contractor.
+- `PATCH /clients/:clientId/contractors/:id` - Update contractor details (admin/manager only). Body: all fields optional. Org-scoped with verifyBusinessClient. Returns 200 with updated contractor.
+- `DELETE /clients/:clientId/contractors/:id` - Delete contractor (admin/manager only). Org-scoped with verifyBusinessClient. Returns 204.
+- `POST /clients/:clientId/contractors/upload-excel` - Parse nail salon Excel file (admin/manager only). Returns array of parsed contractors with address parsing (regex + AI fallback for ambiguous cities). Org-scoped with verifyBusinessClient.
+- `POST /clients/:clientId/contractors/bulk-save` - Batch save parsed contractors to DB (admin/manager only). Body: contractors array with parsed fields. Org-scoped with verifyBusinessClient. Returns 201 with created contractors.
+- `DELETE /clients/:clientId/contractors/all` - Delete all contractors for business client (admin/manager only). Org-scoped with verifyBusinessClient. Returns 204.
 - `GET /clients/:clientId/contractors/all` - Alternative list endpoint (same as GET /clients/:clientId/contractors).
-- **Auth Pattern**: All routes use verifyBusinessClient(clientId, user) enforcing both clientType=BUSINESS + org-scope. Audit logging via logProfileChanges(clientId, ...) now uses clientId directly (is business client).
+- **Auth Pattern**: All routes use verifyBusinessClient(clientId, user) + requireAdminOrManager for mutations, enforcing both clientType=BUSINESS + org-scope + role. Audit logging via logProfileChanges(clientId, ...) now uses clientId directly (is business client).
 - **Data Model** (Phase 15 Complete): Contractor.clientId is now the sole parent FK (Cascade delete). Contractor.businessId FK removed. All contractors directly linked to Client with clientType=BUSINESS.
 
 **1099-NEC Tax Form Integration (15 routes - TaxBandits API, Phase 09 Client-Scoped Routes):**
@@ -349,7 +363,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - `GET /clients/:clientId/1099-nec/batches` - List filing batches for client.
   - `GET /clients/:clientId/1099-nec/batches/:batchId` - Batch details with form statuses.
   - `POST /clients/:clientId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits API.
-- **Auth Pattern:** All client routes use verifyBusinessClient(clientId, user) + requireOrgAdmin for mutations. Validates clientType=BUSINESS + org-scope.
+- **Auth Pattern:** All client routes use verifyBusinessClient(clientId, user) + requireAdminOrManager for mutations. Validates clientType=BUSINESS + org-scope.
 - **Models:** Form1099NEC (status enum, validation errors, eFile tracking, contractorId FK, batchId FK), FilingBatch (groups forms by tax year + submission, status + timestamps for lifecycle tracking, clientId FK, Cascade delete).
 - **TaxBandits Client** (`apps/api/src/services/taxbandits-client.ts`): OAuth 2.0 JWT-based e-filing (form creation, status, PDF request, IRS transmission). Token caching (55-min default), retry with exponential backoff, 30s request timeout.
 - **Shared Helpers** (`apps/api/src/routes/form-1099-nec/shared-helpers.ts`, Phase 09):
@@ -375,7 +389,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Webhooks:**
 - `POST /webhooks/clerk` - Clerk event sync (user/org/membership lifecycle). Signed with Svix. Handlers: user.updated (sync email/name/avatar), user.deleted (deactivate staff), organization.created/updated (upsert org), organizationMembership.created/updated/deleted (sync staff member, handle out-of-order events). Uses upserts for idempotency. Returns 500 on handler error for Clerk retry.
 - `POST /webhooks/twilio/sms` - Twilio incoming SMS webhook. Resolves exactly one active org from recipient Twilio number before client/lead lookup, routes known callers within that org, creates resolved-org placeholder conversations for unknown callers, and publishes realtime events. Unresolved or ambiguous recipient org returns `ORG_NOT_RESOLVED` without cross-tenant phone lookup; there is no global single-org fallback.
-- `POST /webhooks/twilio/status` - Twilio SMS delivery status updates (queued, sent, delivered, undelivered, failed). Updates Message.twilioStatus + SmsSendLog.status. **Atomic transaction:** Updates Lead status (NEW→CONTACTED) on confirmed delivery (messageStatus='delivered') if SmsSendLog exists
+- `POST /webhooks/twilio/status` - Twilio SMS delivery status updates (queued, sent, delivered, undelivered, failed). Updates `Message.twilioStatus` + `SmsSendLog.status/error`, persists failed/undelivered details for `latestSms`, and uses an atomic transaction to update Lead status (`NEW`/`SENT` → `CONTACTED`) on confirmed delivery when a matching `SmsSendLog` exists.
 - `POST /webhooks/twilio/voice` - Twilio outbound call connection. Returns TwiML for recording setup
 - `POST /webhooks/twilio/voice/recording` - Twilio outbound call recording completion. Stores recording URL + duration in Message
 - `POST /webhooks/twilio/voice/incoming` - Twilio incoming call from customer. Resolves exactly one active org from called number, routes known callers to linked client managers plus org admins, routes unknown callers to resolved-org admins only, and uses no-staff hangup/missed-call handling if org cannot be resolved, org mapping is ambiguous, or no eligible staff are online. There is no global single-org fallback. Voice callbacks carry called-number context and require resolved org context before missed-call textback or placeholder persistence.
@@ -399,18 +413,27 @@ Organization (root entity)
 
 **Data Scoping:**
 - `buildClientScopeFilter(user)` - Core scoping function
-- **Admin:** See all org clients
+- **Admin/Manager:** See all org clients
 - **Staff:** See only clients with any matching `ClientManager` link for the current staff member; legacy `managedById` remains a compatibility mirror during rollout
 - Applied to: Clients, Cases, Engagements, Messages, Documents, Images, Actions
+- **Predicates:** `isAdminOrManager(user)` returns true for org:admin, ADMIN, or MANAGER roles; `canSeeAllClients(user)` wraps same logic for scope filter
 
 **Permission Model:**
-- **ADMIN:** Manage org, team, client assignments
-- **STAFF:** View assigned clients only, no admin functions
+- **ADMIN:** Full org management: team (invite/role/deactivate), all clients, admin config, billing, leads, cases, campaigns, agreements, 1099-NEC, org settings, activity timeline
+- **MANAGER:** Client/operational mgmt: admin config, clients (create/assign), leads, cases, campaigns, agreements, 1099-NEC, billing checkout, org settings, activity timeline. Blocked: team management. **Phone Privacy (Phase 3):** Server enforces masking on all workspace-facing responses (clients, leads, messages, engagements, cases, actions, managed-clients)—`serializePhone()` at response layer returns `*** *** {last4}` except for ADMIN. Internal SMS/lead-convert/voice logic uses raw numbers.
+- **STAFF:** View assigned clients only via `ClientManager` links; no admin functions. Receives masked phone numbers.
 - **CPA:** Future role for CPA firm integrations
 
 **Middleware:**
 - `requireOrg` - Verify orgId in JWT, all protected endpoints
-- `requireOrgAdmin` - Verify org:admin role from Clerk, team endpoints only
+- `requireOrgAdmin` - Verify org:admin role (Clerk or app ADMIN), team endpoints only (invite/role/deactivate)
+- `requireAdminOrManager` - Verify org:admin, app ADMIN, or app MANAGER, non-team admin-gated endpoints
+
+**RBAC Regression Tests (Phase 5 - MANAGER Role):**
+- `apps/api/src/lib/__tests__/org-scope.test.ts` - MANAGER org-wide scope filter, STAFF/CPA assigned-only, no-staffId/no-org failsafes
+- `apps/api/src/lib/__tests__/phone-privacy.test.ts` - `canViewFullPhone` (ADMIN-only), `maskPhone` null/short/format, `serializePhone` per role
+- `apps/api/src/lib/__tests__/staff-role-mapping.test.ts` + `apps/api/src/services/auth/__tests__/auth.test.ts` - Clerk sync preserve rule: org:member + existing MANAGER stays MANAGER (no downgrade), org:admin→ADMIN, ADMIN demoted via Clerk→STAFF
+- `apps/api/src/routes/__tests__/manager-role-authorization.test.ts` - Route-level matrix through real middleware: MANAGER 200 on /clients (org-wide where clause), /admin, /leads; 403 on /team mutations; raw response-body scan proves no unmasked phone for MANAGER/STAFF, full phone for ADMIN
 
 **Audit Logging:**
 - AuditLog tracks: entity type, id, field, old/new values, changedBy, timestamp
@@ -422,7 +445,7 @@ Organization (root entity)
 
 **Key Models (Multi-Tenant):**
 - **Organization** - Org root with Clerk integration, autoSendFormClientUploadLink (bool, Phase 02 Intake Form - auto-send SMS to staff on form submission)
-- **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), isContractorAgent (default: false), title, signaturePngKey, formSlug (auto-generated six-digit unique slug per org for public form routing, editable by staff/admin). Notification preferences for client upload alerts and contractor-agent compliance.
+- **Staff** - organizationId FK, clerkId (unique), role (ADMIN|MANAGER|STAFF|CPA), notifyOnUpload (default: true), isContractorAgent (default: false), title, signaturePngKey, formSlug (auto-generated six-digit unique slug per org for public form routing, editable by staff/admin). Notification preferences for client upload alerts and contractor-agent compliance.
 - **Client** - organizationId FK, managedById FK (legacy primary manager during rollout; `ClientManager` is canonical), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form), clientType (enum: INDIVIDUAL|BUSINESS, default INDIVIDUAL). For clientType=BUSINESS: businessType (BusinessType enum, required), einEncrypted (encrypted, required), businessAddress, businessCity, businessState, businessZip (all required). Database stores einEncrypted; API returns einMasked (XX-XXX####). clientGroupId FK (optional, links related clients like individual+business or partnerships). Relations: contractors, filingBatches, intakeTokens (all BUSINESS-type specific).
 - **ClientManager** - tenant-scoped canonical join row between Client and Staff. Backfilled from legacy managedById, unique on `[clientId, staffId]`, with org-scoped guards and tenant-scoped foreign keys.
 - **ClientGroup** - organizationId FK (optional, org-scoped grouping), name (group name), clients array relation. Phase 01 Entity Separation: new entity enables flexible grouping of related clients (e.g., family businesses, partnerships, multi-entity tax arrangements). Indexed on organizationId for fast group lookups.
@@ -446,8 +469,8 @@ Organization (root entity)
 - **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token (unique, 12-char base36), caseId/type reference, optional `draftReturnId` FK (SetNull) pointing at current ShareableDocument — FK column name preserved for zero data movement, isActive, expiresAt (14-day TTL for DRAFT_RETURN, null for others), usageCount, lastUsedAt. On version upload the same token is retained and `draftReturnId` is repointed to the new version. Indexes: token (unique), caseId+type, draftReturnId
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
-- **Lead** - Marketing lead capture. Fields: id (cuid), firstName, lastName, phone (unique per org + organizationId), email, businessName, status (NEW|CONTACTED|CONVERTED|LOST), campaignTag (renamed from source; eventSlug or null), tags (String[] for categorization, auto-populated from campaignTag on creation), notes (5KB max), organizationId FK, convertedToId FK (Client, null if not converted), createdAt/updatedAt. Indexes: organizationId+status, organizationId+phone, tags (GIN). Phase 02 Marketing API Complete. Phase 01 Tag-Based Categorization Added.
-- **SmsSendLog** - Audit trail for SMS to leads. Fields: id (cuid), message, status (SENT|FAILED), twilioSid (optional), error (optional), sentAt timestamp, createdAt/updatedAt. Relations: leadId FK, sentById FK (Staff), organizationId FK. Used by bulk-sms endpoint to track per-message delivery. Phase 02 Marketing API Complete.
+- **Lead** - Marketing lead capture. Fields: id (cuid), firstName, lastName, phone (unique per org + organizationId), email, businessName, status (NEW|SENT|CONTACTED|CONVERTED|LOST), campaignTag (renamed from source; eventSlug or null), tags (String[] for categorization, auto-populated from campaignTag on creation), notes (5KB max), organizationId FK, convertedToId FK (Client, null if not converted), createdAt/updatedAt. Indexes: organizationId+status, organizationId+phone, tags (GIN). Phase 02 Marketing API Complete. Phase 01 Tag-Based Categorization Added.
+- **SmsSendLog** - Audit trail for SMS to leads. Fields: id (cuid), message, status (SENT|DELIVERED|UNDELIVERED|FAILED), twilioSid (optional), error (optional), sentAt timestamp, createdAt/updatedAt. Relations: leadId FK, sentById FK (Staff), organizationId FK. Used by bulk-sms endpoints to track per-message delivery and drive `latestSms` summaries. Phase 02 Marketing API Complete.
 
 **Phase 02 Types (Document Upload Notification & Intake Form):**
 - **ClientUploads** - Type: `{ newCount: number, totalCount: number, latestAt: string | null }`. Per-client upload tracking based on DocumentView records. `newCount` = images without DocumentView record (unviewed). `totalCount` = all images in client's cases. `latestAt` = most recent image createdAt serialized for API clients. Included in GET /clients response via aggregation query.
@@ -539,8 +562,8 @@ Webhooks from Clerk sync user, organization, and membership changes to DB in rea
 - **user.updated** - Sync email, name, avatar to Staff (updateMany by clerkId)
 - **user.deleted** - Deactivate staff (isActive=false, set deactivatedAt)
 - **organization.created/updated** - Upsert Organization (handles out-of-order events)
-- **organizationMembership.created** - Link user to org: (1) ensure org exists (upsert), (2) check if staff exists by email (pre-existing), (3) upsert/update staff with clerkId, role (ADMIN|STAFF), org assignment
-- **organizationMembership.updated** - Update staff role (maps org:admin → ADMIN, org:member → STAFF)
+- **organizationMembership.created** - Link user to org: (1) ensure org exists (upsert), (2) check if staff exists by email (pre-existing), (3) upsert/update staff with clerkId, resolve role via preserve rule (org:admin→ADMIN; org:member→respect metadata.staffRole or preserve existing MANAGER/STAFF/CPA, default STAFF), org assignment
+- **organizationMembership.updated** - Update staff role using preserve rule: org:admin→ADMIN, org:member→demote ADMIN to STAFF only, preserve MANAGER/STAFF/CPA on re-sync
 - **organizationMembership.deleted** - Deactivate staff for that org (scope by organizationId + clerkId)
 
 **Route Handler (POST /webhooks/clerk):**
@@ -2419,6 +2442,43 @@ All avatar/notes UI will need i18n keys in workspace:
 - `profile.avatarUpdated` - Success toast
 - `profile.notesPlaceholder` - Editor hint text
 - Error keys for validation failures
+
+## Deposit Payment Flow (Post-Agreement Signing)
+
+**Overview:** After client signs agreement with deposit amount, system auto-creates Payment record + SMS to client with portal pay link + Stripe checkout session. Webhook marks payment PAID → SMS admins + client receipt. Staff can resend links + view payment status on client profile.
+
+**Models & Data:**
+- **Payment** - `organizationId, clientId, leadId, agreementId` (FKs with SetNull), `type='DEPOSIT'`, `status` (PENDING|PAID|FAILED|CANCELED|REFUNDED), `payToken` (unique per-token rate limit 3/hour with auto-refund on server failure), `amount` (cents), `stripeCheckoutSessionId`, `paidAt`, `failedAt`
+- **Staff Notifications** - ADMIN-only toggles: `notifyOnAgreementSigned` (SMS to admins when client signs), `notifyOnClientPayment` (SMS to admins when client pays)
+
+**Post-Sign Hook** (`agreement-signing-service.ts`):
+Fire-and-forget after signing commit — isolated try/catch per step (no transaction impact):
+1. Admin SMS fan-out: Query staff with `notifyOnAgreementSigned=true` → send SMS via `agreement-post-sign-notifications.ts`
+2. Payment creation: Create Payment(type=DEPOSIT, status=PENDING, payToken) via `deposit-payment-service.ts`
+3. Client SMS: Send pay-link SMS with `portal/pay/:payToken` URL via `signer-sms-delivery.ts` (SMSTemplate: `payment-sms-templates.ts`)
+
+**Public Payment API** (`/public/pay`):
+- `GET /:payToken` - Public view Payment (no auth required). Returns amount, client name, agreement details. Returns 404 if token invalid/payment already paid
+- `POST /:payToken/checkout` - Fresh Stripe Checkout session (mode=payment). Amount always from DB (never client-supplied). Per-token rate limit 3/hour with auto-slot-refund on server failure (idempotent). Returns session.url. Returns 410 if already PAID, 404 if invalid token
+- Shared Stripe webhook (`webhook-handler.ts`) — discriminates deposit sessions via `metadata.payToken` → `markDepositPaymentPaid` in `deposit-checkout-service.ts`. Idempotent claim guard (status !== PAID before mutate). Syncs agreement depositStatus. Admin SMS + client receipt SMS on success
+
+**Workspace UI:**
+- **Payments Tab** (new `/clients/:id` tab): Client Payment list, status badges (PENDING, PAID, FAILED), created date, amount
+- **Overview Payments Card**: Quick summary (total collected, pending, overdue count)
+- **Settings → Notifications**: 2 ADMIN-only toggles (`notifyOnAgreementSigned`, `notifyOnClientPayment`), default OFF. PATCH endpoint rejects toggles for non-ADMIN targets (403)
+- **Resend Payment Link**: Staff button (ADMIN/MANAGER only, throttled 1/60s), triggers `POST /clients/:clientId/payments/resend` → admin SMS + new client SMS with fresh link
+
+**Portal Pay Page** (`/pay/:payToken`):
+React/TanStack Router public checkout flow. Validates token → displays amount + pay CTA → redirects to Stripe Checkout session.url → webhook marks paid.
+
+**Staff Payments Endpoint** (`/clients/payments-staff.ts`):
+- `POST /clients/:clientId/payments/resend` - ADMIN/MANAGER only. Throttled 1/60s per client. Creates fresh Payment + sends new SMS to client. Returns 429 if throttled
+- Query `GET /clients/:clientId/payments` - List client payments with status filtering + pagination
+
+**Webhook Idempotency:**
+- Per-session: Check if status !== PAID before state mutation
+- Per-org: lastStripeEventId + lastStripeEventAt guard against duplicate processing
+- Graceful degradation: SMS failures don't rollback payment mark (post-commit fire-and-forget)
 
 ---
 

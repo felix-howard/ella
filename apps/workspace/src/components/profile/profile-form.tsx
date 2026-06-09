@@ -9,7 +9,7 @@ import PhoneInput, { isPossiblePhoneNumber } from 'react-phone-number-input'
 import type { E164Number } from 'libphonenumber-js'
 import { Loader2, Check, Edit2 } from 'lucide-react'
 import { Button, Input, Switch } from '@ella/ui'
-import { api, type StaffProfile } from '../../lib/api-client'
+import { api, type AppRole, type StaffProfile } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { formatPhone } from '../../lib/formatters'
 import { NotificationSubscriptions } from './notification-subscriptions'
@@ -20,12 +20,23 @@ import { useInvalidateNdaReadiness } from '../agreements/use-nda-readiness'
 // Phone input styles
 import 'react-phone-number-input/style.css'
 
+/**
+ * Map DB Staff.role to the app-level role used by team endpoints.
+ * CPA maps to MEMBER for the selector — an unchanged select stays non-dirty,
+ * so a CPA's role is never accidentally rewritten to STAFF.
+ */
+function staffRoleToAppRole(role: string): AppRole {
+  if (role === 'ADMIN') return 'ADMIN'
+  if (role === 'MANAGER') return 'MANAGER'
+  return 'MEMBER'
+}
+
 interface ProfileFormProps {
   staff: StaffProfile
   canEdit: boolean
   staffId: string
   canChangeRole: boolean
-  onRoleChange?: (role: 'org:admin' | 'org:member') => Promise<void>
+  onRoleChange?: (role: AppRole) => Promise<void>
   isRoleChangePending?: boolean
   canManageContractorAgent?: boolean
   canViewContractorAgreement?: boolean
@@ -56,9 +67,7 @@ export function ProfileForm({
     staff.phoneNumber as E164Number | undefined
   )
   const [editNotifyOnUpload, setEditNotifyOnUpload] = useState(staff.notifyOnUpload)
-  const [editRole, setEditRole] = useState<'org:admin' | 'org:member'>(
-    staff.role === 'ADMIN' ? 'org:admin' : 'org:member'
-  )
+  const [editRole, setEditRole] = useState<AppRole>(staffRoleToAppRole(staff.role))
   const [editIsContractorAgent, setEditIsContractorAgent] = useState(staff.isContractorAgent)
 
   // Validation errors
@@ -66,14 +75,14 @@ export function ProfileForm({
   const [lastNameError, setLastNameError] = useState<string | null>(null)
   const [phoneError, setPhoneError] = useState<string | null>(null)
 
-  const currentClerkRole = staff.role === 'ADMIN' ? 'org:admin' : 'org:member'
+  const currentAppRole = staffRoleToAppRole(staff.role)
   const isProfileDirty =
     editFirstName !== staff.firstName ||
     editLastName !== staff.lastName ||
     editTitle !== (staff.title ?? '') ||
     editPhoneNumber !== staff.phoneNumber ||
     editNotifyOnUpload !== staff.notifyOnUpload
-  const isRoleDirty = editRole !== currentClerkRole
+  const isRoleDirty = editRole !== currentAppRole
   const isContractorAgentDirty =
     canManageContractorAgent && editIsContractorAgent !== staff.isContractorAgent
 
@@ -151,7 +160,7 @@ export function ProfileForm({
     setEditTitle(staff.title ?? '')
     setEditPhoneNumber(staff.phoneNumber as E164Number | undefined)
     setEditNotifyOnUpload(staff.notifyOnUpload)
-    setEditRole(staff.role === 'ADMIN' ? 'org:admin' : 'org:member')
+    setEditRole(staffRoleToAppRole(staff.role))
     setEditIsContractorAgent(staff.isContractorAgent)
     setFirstNameError(null)
     setLastNameError(null)
@@ -161,9 +170,11 @@ export function ProfileForm({
 
   const roleLabel = staff.role === 'ADMIN'
     ? t('team.admin')
-    : staff.role === 'CPA'
-      ? t('team.cpa', 'CPA')
-      : t('team.member')
+    : staff.role === 'MANAGER'
+      ? t('team.manager')
+      : staff.role === 'CPA'
+        ? t('team.cpa', 'CPA')
+        : t('team.member')
   const isDirty = isProfileDirty || isRoleDirty || isContractorAgentDirty
 
   return (
@@ -240,12 +251,13 @@ export function ProfileForm({
             <select
               id="role"
               value={editRole}
-              onChange={(e) => setEditRole(e.target.value as 'org:admin' | 'org:member')}
+              onChange={(e) => setEditRole(e.target.value as AppRole)}
               disabled={isRoleChangePending}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             >
-              <option value="org:admin">{t('team.admin')}</option>
-              <option value="org:member">{t('team.member')}</option>
+              <option value="ADMIN">{t('team.admin')}</option>
+              <option value="MANAGER">{t('team.manager')}</option>
+              <option value="MEMBER">{t('team.member')}</option>
             </select>
           ) : (
             <p className="text-foreground">

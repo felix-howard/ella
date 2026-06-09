@@ -2,22 +2,26 @@
  * Bulk SMS Dialog - Send SMS to multiple selected leads
  * Supports {{firstName}} and {{formLink}} placeholders
  */
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Loader2, CheckCircle, AlertCircle, User, Link2 } from 'lucide-react'
+import { X, Loader2, AlertCircle, User, Link2 } from 'lucide-react'
 import { cn } from '@ella/ui'
-import { api, type Lead } from '../../lib/api-client'
+import { api, ApiError, type BulkSmsResponse, type Lead } from '../../lib/api-client'
 import { PORTAL_BASE_URL } from '../../lib/constants'
+import { BulkSmsResultSummary } from './bulk-sms-result-summary'
 
 interface BulkSmsDialogProps {
-  leads: Lead[]
+  leadIds: string[]
+  selectedCount: number
+  previewLead?: Lead
+  maxRecipients: number
   onClose: () => void
 }
 
 type SendState = 'idle' | 'sending' | 'success' | 'partial' | 'error'
 
-export function BulkSmsDialog({ leads, onClose }: BulkSmsDialogProps) {
+export function BulkSmsDialog({ leadIds, selectedCount, previewLead, maxRecipients, onClose }: BulkSmsDialogProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -26,7 +30,11 @@ export function BulkSmsDialog({ leads, onClose }: BulkSmsDialogProps) {
   const [formLinkType, setFormLinkType] = useState<'org' | 'staff'>('org')
   const [staffSlug, setStaffSlug] = useState('')
   const [sendState, setSendState] = useState<SendState>('idle')
-  const [result, setResult] = useState<{ sent: number; failed: number; errors?: string[] } | null>(null)
+  const [activeLeadIds, setActiveLeadIds] = useState(leadIds)
+  const [result, setResult] = useState<BulkSmsResponse | null>(null)
+  const [sendError, setSendError] = useState<string | null>(null)
+  const targetCount = activeLeadIds.length || selectedCount || leadIds.length
+  const activePreviewLead = previewLead && activeLeadIds.includes(previewLead.id) ? previewLead : undefined
 
   // Fetch staff list for staff-specific form link dropdown
   const { data: staffData } = useQuery({
@@ -60,11 +68,11 @@ export function BulkSmsDialog({ leads, onClose }: BulkSmsDialogProps) {
 
   // Resolve preview message for first lead
   const previewMessage = useMemo(() => {
-    if (!leads[0]) return message
+    if (!activePreviewLead) return message
     return message
-      .replace(/\{\{firstName\}\}/g, leads[0].firstName)
+      .replace(/\{\{firstName\}\}/g, activePreviewLead.firstName)
       .replace(/\{\{formLink\}\}/g, formLinkPreview)
-  }, [message, leads, formLinkPreview])
+  }, [message, activePreviewLead, formLinkPreview])
 
   // Insert placeholder at cursor position
   const insertPlaceholder = (placeholder: string) => {
@@ -85,38 +93,53 @@ export function BulkSmsDialog({ leads, onClose }: BulkSmsDialogProps) {
   // Send mutation
   const sendMutation = useMutation({
     mutationFn: () => api.leads.bulkSms({
-      leadIds: leads.map((l) => l.id),
+      leadIds: activeLeadIds,
       message,
       formLinkType,
       staffSlug: formLinkType === 'staff' ? staffSlug : undefined,
     }),
     onSuccess: (data) => {
       setResult(data)
+      setSendError(null)
       if (data.failed === 0) setSendState('success')
       else if (data.sent > 0) setSendState('partial')
       else setSendState('error')
       queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['leads-stats'] })
+      activeLeadIds.forEach((id) => {
+        queryClient.invalidateQueries({ queryKey: ['lead', id] })
+        queryClient.invalidateQueries({ queryKey: ['messages', 'lead', id] })
+      })
     },
-    onError: () => setSendState('error'),
+    onError: (error) => {
+      setSendError(getBulkSmsErrorMessage(error))
+      setSendState('error')
+    },
   })
 
   const handleSend = () => {
     if (!message.trim()) return
     if (formLinkType === 'staff' && !staffSlug) return
+    if (activeLeadIds.length === 0 || activeLeadIds.length > maxRecipients) return
     setSendState('sending')
+    setResult(null)
+    setSendError(null)
     sendMutation.mutate()
+  }
+
+  const handleRetryFailed = () => {
+    if (!result) return
+    const failedLeadIds = result.results
+      .filter((item) => item.status === 'failed')
+      .map((item) => item.leadId)
+    setActiveLeadIds(failedLeadIds)
+    setResult(null)
+    setSendError(null)
+    setSendState('idle')
   }
 
   const charCount = previewMessage.length
   const isOverLimit = charCount > 160
-
-  // Auto-close after success
-  useEffect(() => {
-    if (sendState === 'success') {
-      const timer = setTimeout(onClose, 2000)
-      return () => clearTimeout(timer)
-    }
-  }, [sendState, onClose])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -128,10 +151,13 @@ export function BulkSmsDialog({ leads, onClose }: BulkSmsDialogProps) {
           <div>
             <h2 className="text-lg font-semibold">{t('bulkSms.title')}</h2>
             <p className="text-sm text-muted-foreground">
-              {t('bulkSms.subtitle', { count: leads.length })}
+              {t('bulkSms.subtitle', { count: targetCount })}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t('bulkSms.maxRecipients', { limit: maxRecipients })}
             </p>
           </div>
-          {sendState === 'idle' && (
+          {sendState !== 'sending' && (
             <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg">
               <X className="w-5 h-5" />
             </button>
@@ -140,38 +166,22 @@ export function BulkSmsDialog({ leads, onClose }: BulkSmsDialogProps) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Success */}
-          {sendState === 'success' && (
-            <div className="flex flex-col items-center py-8 text-center">
-              <CheckCircle className="w-12 h-12 text-green-600 mb-3" />
-              <p className="text-lg font-medium">{t('bulkSms.success', { sent: result?.sent })}</p>
-            </div>
-          )}
-
-          {/* Partial Success */}
-          {sendState === 'partial' && (
-            <div className="flex flex-col items-center py-6 text-center">
-              <AlertCircle className="w-12 h-12 text-yellow-500 mb-3" />
-              <p className="text-lg font-medium mb-2">
-                {t('bulkSms.partialSuccess', { sent: result?.sent, total: leads.length, failed: result?.failed })}
-              </p>
-              {result?.errors && result.errors.length > 0 && (
-                <div className="text-sm text-muted-foreground max-h-24 overflow-y-auto">
-                  {result.errors.slice(0, 5).map((err, i) => <div key={i}>{err}</div>)}
-                </div>
-              )}
-              <button onClick={onClose} className="mt-4 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium">
-                {t('common.close')}
-              </button>
-            </div>
+          {(sendState === 'success' || sendState === 'partial' || (sendState === 'error' && result)) && result && (
+            <BulkSmsResultSummary
+              result={result}
+              attemptedCount={result.sent + result.failed}
+              onRetryFailed={handleRetryFailed}
+              onClose={onClose}
+            />
           )}
 
           {/* Error */}
-          {sendState === 'error' && (
+          {sendState === 'error' && !result && (
             <div className="flex flex-col items-center py-6 text-center">
               <AlertCircle className="w-12 h-12 text-red-500 mb-3" />
               <p className="text-lg font-medium">{t('bulkSms.error')}</p>
-              <button onClick={() => { setSendState('idle'); setResult(null) }} className="mt-4 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium">
+              {sendError && <p className="mt-2 max-w-sm text-sm text-muted-foreground">{sendError}</p>}
+              <button onClick={() => { setSendState('idle'); setResult(null); setSendError(null) }} className="mt-4 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium">
                 {t('common.retry')}
               </button>
             </div>
@@ -182,7 +192,7 @@ export function BulkSmsDialog({ leads, onClose }: BulkSmsDialogProps) {
             <div className="flex flex-col items-center py-8">
               <Loader2 className="w-10 h-10 text-primary animate-spin mb-3" />
               <p className="text-muted-foreground">
-                {t('bulkSms.sending', { sent: '...', total: leads.length })}
+                {t('bulkSms.sending', { sent: '...', total: targetCount })}
               </p>
             </div>
           )}
@@ -275,12 +285,12 @@ export function BulkSmsDialog({ leads, onClose }: BulkSmsDialogProps) {
               </div>
 
               {/* Preview */}
-              {message && leads[0] && (
+              {message && activePreviewLead && (
                 <div>
                   <label className="block text-sm font-medium mb-2">{t('bulkSms.preview')}</label>
                   <div className="bg-muted/50 rounded-lg p-3">
                     <p className="text-xs text-muted-foreground mb-1">
-                      {t('bulkSms.previewNote', { name: leads[0].firstName })}
+                      {t('bulkSms.previewNote', { name: activePreviewLead.firstName })}
                     </p>
                     <p className="text-sm whitespace-pre-wrap break-words">{previewMessage}</p>
                   </div>
@@ -301,19 +311,25 @@ export function BulkSmsDialog({ leads, onClose }: BulkSmsDialogProps) {
             </button>
             <button
               onClick={handleSend}
-              disabled={!message.trim() || (formLinkType === 'staff' && !staffSlug)}
+              disabled={!message.trim() || (formLinkType === 'staff' && !staffSlug) || activeLeadIds.length === 0 || activeLeadIds.length > maxRecipients}
               className={cn(
                 'px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors',
-                !message.trim() || (formLinkType === 'staff' && !staffSlug)
+                !message.trim() || (formLinkType === 'staff' && !staffSlug) || activeLeadIds.length === 0 || activeLeadIds.length > maxRecipients
                   ? 'bg-primary/50 cursor-not-allowed'
                   : 'bg-primary hover:bg-primary/90'
               )}
             >
-              {t('bulkSms.sendButton', { count: leads.length })}
+              {t('bulkSms.sendButton', { count: targetCount })}
             </button>
           </div>
         )}
       </div>
     </div>
   )
+}
+
+function getBulkSmsErrorMessage(error: unknown) {
+  if (error instanceof ApiError) return error.message
+  if (error instanceof Error) return error.message
+  return null
 }

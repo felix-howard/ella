@@ -7,8 +7,12 @@
  */
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { FilePlus, FileSignature, Loader2 } from 'lucide-react'
-import { BUILTIN_ENGAGEMENT_LETTER_TEMPLATE, BUILTIN_NDA_TEMPLATE } from './template-sentinels'
+import { FilePlus, FileSignature, Loader2, Upload } from 'lucide-react'
+import {
+  BUILTIN_ENGAGEMENT_LETTER_TEMPLATE,
+  BUILTIN_NDA_TEMPLATE,
+  UPLOAD_PDF_TEMPLATE,
+} from './template-sentinels'
 import { api } from '../../../lib/api-client'
 import type {
   AgreementTemplate,
@@ -71,6 +75,24 @@ export function Step2TemplatePicker({ type, onSelect }: Props) {
               </span>
               <span className="block text-xs text-muted-foreground mt-1">
                 {t('agreements.wizard.startBlankDescription')}
+              </span>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onSelect(UPLOAD_PDF_TEMPLATE)}
+            className="text-left p-4 rounded-xl border border-dashed border-border bg-card hover:border-primary hover:shadow-md transition-all flex items-start gap-3 focus:outline-none focus:ring-2 focus:ring-primary/30"
+          >
+            <span className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+              <Upload className="w-5 h-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-foreground">
+                {t('agreements.wizard.uploadPdf')}
+              </span>
+              <span className="block text-xs text-muted-foreground mt-1">
+                {t('agreements.wizard.uploadPdfDescription')}
               </span>
             </span>
           </button>

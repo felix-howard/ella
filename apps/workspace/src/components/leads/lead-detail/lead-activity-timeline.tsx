@@ -4,7 +4,7 @@
  * timestamps; no AuditLog in v1 so status history is not preserved.
  */
 import { useTranslation } from 'react-i18next'
-import { UserPlus, FileText, Eye, CheckCircle2, Award, RefreshCw } from 'lucide-react'
+import { UserPlus, FileText, Eye, CheckCircle2, Award, RefreshCw, MessageCircle } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAgreementsList } from '../../agreements/use-agreement-mutations'
 import { CardSection } from '../../shared/card-section'
@@ -22,6 +22,7 @@ const ICON_BY_TYPE: Record<TimelineEventType, LucideIcon> = {
   'nda-signed': CheckCircle2,
   converted: Award,
   status: RefreshCw,
+  sms: MessageCircle,
 }
 
 interface Props {

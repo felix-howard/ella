@@ -12,6 +12,7 @@ export type TimelineEventType =
   | 'nda-signed'
   | 'converted'
   | 'status'
+  | 'sms'
 
 export type TimelineEventColor = 'mint' | 'coral' | 'blue' | 'gray'
 
@@ -81,6 +82,28 @@ export function deriveLeadActivityEvents(
     })
   }
 
+  const latestSms = lead.latestSms ?? (
+    lead.smsSendLogs?.[0] && isLeadSmsStatus(lead.smsSendLogs[0].status)
+      ? {
+          status: lead.smsSendLogs[0].status,
+          error: lead.smsSendLogs[0].error ?? null,
+          sentAt: lead.smsSendLogs[0].sentAt,
+        }
+      : null
+  )
+
+  if (latestSms) {
+    const isFailure = latestSms.status === 'FAILED' || latestSms.status === 'UNDELIVERED'
+    events.push({
+      id: `sms-${lead.id}-${latestSms.sentAt}`,
+      type: 'sms',
+      titleKey: `leads.activity.sms.${latestSms.status}`,
+      subtitle: isFailure ? latestSms.error ?? undefined : undefined,
+      timestamp: latestSms.sentAt,
+      color: isFailure ? 'coral' : latestSms.status === 'DELIVERED' ? 'mint' : 'gray',
+    })
+  }
+
   // Current status (no history) — surface only if meaningful and different from NEW
   if (lead.status !== 'NEW' && lead.status !== 'CONVERTED' && lead.updatedAt !== lead.createdAt) {
     events.push({
@@ -95,4 +118,8 @@ export function deriveLeadActivityEvents(
 
   events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
   return events
+}
+
+function isLeadSmsStatus(status: string): status is NonNullable<Lead['latestSms']>['status'] {
+  return status === 'SENT' || status === 'DELIVERED' || status === 'UNDELIVERED' || status === 'FAILED'
 }

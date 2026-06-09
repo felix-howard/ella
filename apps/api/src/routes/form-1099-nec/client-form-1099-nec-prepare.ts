@@ -8,13 +8,13 @@ import { config } from '../../lib/config'
 import { taxbanditsClient } from '../../services/taxbandits-client'
 import { getBusinessClientForFiling, createFormsInTaxBandits, fetchDraftPdfs } from './shared-helpers'
 import type { AuthVariables } from '../../middleware/auth'
-import { requireOrgAdmin } from '../../middleware/auth'
+import { requireAdminOrManager } from '../../middleware/auth'
 import type { Form1099Status } from '@ella/db'
 
 const clientForm1099NecPrepareRoute = new Hono<{ Variables: AuthVariables }>()
 
 /** POST /clients/:clientId/1099-nec/prepare — One-click: Create + Fetch PDFs */
-clientForm1099NecPrepareRoute.post('/:clientId/1099-nec/prepare', requireOrgAdmin, async (c) => {
+clientForm1099NecPrepareRoute.post('/:clientId/1099-nec/prepare', requireAdminOrManager, async (c) => {
   const user = c.get('user')
   const { clientId } = c.req.param()
 

@@ -12,12 +12,18 @@ const createCheckoutSessionMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@tanstack/react-query', () => ({
   useMutation: (options: unknown) => useMutationMock(options),
+  // Send-quote panel's recipient search; no results during static render.
+  useQuery: () => ({ data: undefined, isFetching: false }),
 }))
 
 vi.mock('../../../lib/api-client', () => ({
   api: {
     billing: {
       createCheckoutSession: createCheckoutSessionMock,
+      sendQuote: vi.fn(),
+    },
+    recipients: {
+      search: vi.fn(),
     },
   },
 }))
@@ -36,6 +42,9 @@ vi.mock('../../../lib/clipboard', () => ({
 
 vi.mock('@ella/ui', () => ({
   Badge: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  Combobox: ({ query, placeholder }: { query: string; placeholder?: string }) => (
+    <input value={query} placeholder={placeholder} readOnly />
+  ),
   Button: ({
     children,
     disabled,
@@ -97,6 +106,7 @@ describe('workspace pricing calculator', () => {
     expect(markup).toContain('Quote PDF')
     expect(markup).toContain('Print PDF')
     expect(markup).toContain('Payment link')
+    expect(markup).toContain('Send to client')
     expect(markup).toContain('Select at least one billable service')
     expect(markup).toContain('button')
     expect(markup).toContain('disabled=""')
@@ -143,10 +153,10 @@ describe('workspace pricing calculator', () => {
     expect(markup).toContain('aria-label="Basic / mo rate"')
     expect(markup).toContain('aria-label="Setup rate"')
     expect(markup).toContain('aria-label="Audit / mo rate"')
-    expect(markup).toContain('value="75"')
-    expect(markup).toContain('value="1000"')
-    expect(markup).toContain('value="300"')
-    expect(markup).toContain('min="0"')
+    // Money fields render formatted (e.g. "$1,000") for clarity.
+    expect(markup).toContain('value="$75"')
+    expect(markup).toContain('value="$1,000"')
+    expect(markup).toContain('value="$300"')
     expect(markup).not.toContain('min="75"')
     expect(markup).not.toContain('min="1000"')
     expect(markup).not.toContain('min="300"')
@@ -194,32 +204,20 @@ describe('workspace pricing calculator', () => {
     expect(markup).not.toContain('value="0"')
   })
 
-  it('builds the checkout-session payload from workspace fields without a token field', async () => {
+  it('builds an anonymous checkout-session payload without token or customer fields', async () => {
     renderToStaticMarkup(<PricingCalculatorPage />)
     const mutationOptions = useMutationMock.mock.calls[0][0] as {
-      mutationFn: (payload: {
-        pricingInput: PricingCalculatorInput
-        fields: { customerEmail: string; customerName: string; businessName: string }
-      }) => Promise<unknown>
+      mutationFn: (payload: { pricingInput: PricingCalculatorInput }) => Promise<unknown>
     }
     const pricingInput = createDefaultPricingInput()
 
-    await mutationOptions.mutationFn({
-      pricingInput,
-      fields: {
-        customerEmail: ' client@example.com ',
-        customerName: ' Client One ',
-        businessName: ' ',
-      },
-    })
+    await mutationOptions.mutationFn({ pricingInput })
 
-    expect(createCheckoutSessionMock).toHaveBeenCalledWith({
-      pricingInput,
-      customerEmail: 'client@example.com',
-      customerName: 'Client One',
-      businessName: undefined,
-    })
+    expect(createCheckoutSessionMock).toHaveBeenCalledWith({ pricingInput })
     expect(createCheckoutSessionMock.mock.calls[0][0]).not.toHaveProperty('bearerToken')
     expect(createCheckoutSessionMock.mock.calls[0][0]).not.toHaveProperty('token')
+    expect(createCheckoutSessionMock.mock.calls[0][0]).not.toHaveProperty('customerEmail')
+    expect(createCheckoutSessionMock.mock.calls[0][0]).not.toHaveProperty('customerName')
+    expect(createCheckoutSessionMock.mock.calls[0][0]).not.toHaveProperty('businessName')
   })
 })

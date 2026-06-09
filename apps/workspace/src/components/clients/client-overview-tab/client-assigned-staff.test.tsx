@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientAssignedStaff } from './client-assigned-staff'
 
 const mocks = vi.hoisted(() => ({
-  isAdmin: false,
+  canManageClients: false,
   membersData: undefined as undefined | { data: Array<{ id: string; name: string; avatarUrl: string | null; isActive?: boolean }> },
   mutationOptions: null as null | {
     mutationFn: (staffIds: string[]) => Promise<unknown>
@@ -40,7 +40,7 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('../../../hooks/use-org-role', () => ({
-  useOrgRole: () => ({ isAdmin: mocks.isAdmin }),
+  useOrgRole: () => ({ canManageClients: mocks.canManageClients }),
 }))
 
 vi.mock('../../../lib/api-client', () => ({
@@ -66,7 +66,7 @@ vi.mock('@ella/ui', () => ({
 describe('ClientAssignedStaff', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.isAdmin = false
+    mocks.canManageClients = false
     mocks.membersData = undefined
     mocks.mutationOptions = null
     mocks.updateManagedBy.mockResolvedValue({ data: { managedByStaff: [] } })
@@ -88,7 +88,7 @@ describe('ClientAssignedStaff', () => {
   })
 
   it('uses the multi-manager payload when wiring admin mutations', async () => {
-    mocks.isAdmin = true
+    mocks.canManageClients = true
     mocks.membersData = {
       data: [
         { id: 'staff-1', name: 'Alice Admin', avatarUrl: null, isActive: true },
@@ -108,7 +108,7 @@ describe('ClientAssignedStaff', () => {
   })
 
   it('shows every selected manager name in the closed admin selector', () => {
-    mocks.isAdmin = true
+    mocks.canManageClients = true
     mocks.membersData = {
       data: [
         { id: 'staff-1', name: 'Amber Tran', avatarUrl: null, isActive: true },
@@ -135,7 +135,7 @@ describe('ClientAssignedStaff', () => {
   })
 
   it('supports clearing all managers and invalidates affected profile caches', async () => {
-    mocks.isAdmin = true
+    mocks.canManageClients = true
     mocks.membersData = {
       data: [
         { id: 'staff-1', name: 'Alice Admin', avatarUrl: null, isActive: true },

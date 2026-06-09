@@ -30,9 +30,14 @@ import {
   type Step3Draft,
 } from './wizard-steps/step3-content-editor'
 import {
+  Step3UploadEditor,
+  type UploadStep3Resolved,
+} from './wizard-steps/step3-upload-editor'
+import {
   BLANK_TEMPLATE,
   BUILTIN_ENGAGEMENT_LETTER_TEMPLATE,
   BUILTIN_NDA_TEMPLATE,
+  UPLOAD_PDF_TEMPLATE,
 } from './wizard-steps/template-sentinels'
 import { formatPhone } from '../../lib/formatters'
 import type {
@@ -64,11 +69,17 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
   // Step3 draft is owned here so Back navigation preserves user input.
   const [draft, setDraft] = useState<Step3Draft>(emptyStep3Draft)
 
+  // "Upload PDF" path swaps Step 3 to the upload editor and creates the
+  // agreement from the uploaded PDF (uploadedPdfKey) rather than HTML/template.
+  const isUploadMode = templateId === UPLOAD_PDF_TEMPLATE
+
   // Agreement setup pre-flight: block send when CPA / org missing required setup.
   // Fail closed — if the query errors (offline, 401, 500), keep the user gated.
   // Server-side `snapshotFirmSide` is the real enforcement; this is just UX.
+  // Uploaded PDFs relax the org-detail requirements server-side, so the readiness
+  // gate is skipped — a missing firm signature still surfaces as a server 422.
   const readinessType = type === 'ENGAGEMENT_LETTER' ? 'ENGAGEMENT_LETTER' : 'NDA'
-  const needsReadiness = type === 'NDA' || type === 'ENGAGEMENT_LETTER'
+  const needsReadiness = !isUploadMode && (type === 'NDA' || type === 'ENGAGEMENT_LETTER')
   const readinessQuery = useNdaReadiness(readinessType, needsReadiness)
   const setupMissing =
     needsReadiness &&
@@ -131,7 +142,8 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
       !!templateId &&
       templateId !== BLANK_TEMPLATE &&
       templateId !== BUILTIN_NDA_TEMPLATE &&
-      templateId !== BUILTIN_ENGAGEMENT_LETTER_TEMPLATE
+      templateId !== BUILTIN_ENGAGEMENT_LETTER_TEMPLATE &&
+      templateId !== UPLOAD_PDF_TEMPLATE
     const payload: CreateAgreementPayload = {
       type,
       title: resolved.title.trim() || undefined,
@@ -139,6 +151,18 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
       templateId: isRealTemplate ? templateId : undefined,
       depositAmount: resolved.depositEnabled ? resolved.depositAmount : null,
       internalNote: resolved.internalNote.trim() || undefined,
+      expiryDays: resolved.expiryDays,
+    }
+    mutation.mutate(payload, { onSuccess: () => onClose() })
+  }
+
+  const handleUploadSubmit = (resolved: UploadStep3Resolved) => {
+    if (!type) return
+    const payload: CreateAgreementPayload = {
+      type,
+      title: resolved.title.trim() || undefined,
+      uploadedPdfKey: resolved.uploadedPdfKey,
+      depositAmount: resolved.depositEnabled ? resolved.depositAmount : null,
       expiryDays: resolved.expiryDays,
     }
     mutation.mutate(payload, { onSuccess: () => onClose() })
@@ -223,18 +247,30 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
               onClose={onClose}
             />
           )}
-          {step === 3 && type && !(needsReadiness && (readinessQuery.isLoading || setupMissing)) && (
-            <Step3ContentEditor
+          {step === 3 && type && isUploadMode && (
+            <Step3UploadEditor
               entity={entity}
               type={type}
-              templateId={templateId}
               isSubmitting={mutation.isPending}
-              draft={draft}
-              onDraftChange={setDraft}
               onCancel={onClose}
-              onSubmit={handleSubmit}
+              onSubmit={handleUploadSubmit}
             />
           )}
+          {step === 3 &&
+            type &&
+            !isUploadMode &&
+            !(needsReadiness && (readinessQuery.isLoading || setupMissing)) && (
+              <Step3ContentEditor
+                entity={entity}
+                type={type}
+                templateId={templateId}
+                isSubmitting={mutation.isPending}
+                draft={draft}
+                onDraftChange={setDraft}
+                onCancel={onClose}
+                onSubmit={handleSubmit}
+              />
+            )}
         </div>
       </div>
     </>,

@@ -38,9 +38,9 @@ vi.mock('../../../middleware/auth', () => ({
     }
     await next()
   },
-  requireOrgAdmin: async (c: Context<{ Variables: AuthVariables }>, next: Next) => {
+  requireAdminOrManager: async (c: Context<{ Variables: AuthVariables }>, next: Next) => {
     const user = c.get('user')
-    if (user.orgRole !== 'org:admin' && user.role !== 'ADMIN') {
+    if (!(user.orgRole === 'org:admin' || user.role === 'ADMIN' || user.role === 'MANAGER')) {
       return c.json({ message: 'Admin access required' }, 403)
     }
     await next()

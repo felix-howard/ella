@@ -29,6 +29,7 @@ import {
 import { generateAgreementToken, expiryDate, clampExpiryDays } from './token-service'
 import { sendAgreementInviteSms, sendAgreementInviteSmsForClient } from './agreement-sms'
 import { generateSignedPdf } from './pdf-generator'
+import { assertValidUploadedPdfKey } from './agreement-upload-ops'
 import { copyR2Object } from '../storage'
 import {
   loadEntityWithOrg,
@@ -69,6 +70,12 @@ interface CreateAgreementInput {
   contentHtml?: string
   /** Reference an org-level AgreementTemplate. Snapshotted on create. */
   templateId?: string
+  /**
+   * R2 key of a staff-uploaded source PDF. When set, the agreement body IS the
+   * uploaded PDF: no HTML/template content is resolved, and signing appends a
+   * generated signature page instead of rendering from templateVersion.
+   */
+  uploadedPdfKey?: string
   /** Optional deposit amount. null/undefined → no deposit on this send. */
   depositAmount?: Prisma.Decimal | string | number | null
   /** Staff-only note persisted on the Agreement row. Never rendered to recipient. */
@@ -274,7 +281,10 @@ async function snapshotFirmSide(input: {
 export async function createAgreementForEntity(input: CreateAgreementInput) {
   const type = input.type ?? 'NDA'
   const title = input.title?.trim() || DEFAULT_TITLES[type]
-  const usesFirmSnapshot = type === 'NDA' || type === 'ENGAGEMENT_LETTER'
+  const isUploadedPdf = Boolean(input.uploadedPdfKey)
+  // Uploaded PDFs always carry a firm counter-signature on the appended page, so
+  // they use the v2 snapshot loader regardless of agreement type.
+  const usesFirmSnapshot = isUploadedPdf || type === 'NDA' || type === 'ENGAGEMENT_LETTER'
 
   // NDA + Engagement Letter use the v2 snapshot loader (firm + business client
   // fields). Other types use the legacy narrow loader.
@@ -302,12 +312,29 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
     })
   }
 
-  const { customContentHtml, templateVersion, templateId } = await resolveContent({
-    type,
-    orgId: input.orgId,
-    templateId: input.templateId,
-    contentHtml: input.contentHtml,
-  })
+  // Uploaded-PDF path bypasses HTML/template content resolution entirely — the
+  // PDF is the body. templateVersion is still recorded (built-in default for the
+  // type) so any code that calls getTemplate(version) stays safe, though signing
+  // takes the merge path and never renders from it.
+  let customContentHtml: string | null
+  let templateVersion: string
+  let templateId: string | null
+  if (isUploadedPdf) {
+    assertValidUploadedPdfKey(input.uploadedPdfKey!, entity.id)
+    customContentHtml = null
+    templateId = null
+    templateVersion = defaultTemplateForType(type)?.version ?? currentTemplate.version
+  } else {
+    const resolved = await resolveContent({
+      type,
+      orgId: input.orgId,
+      templateId: input.templateId,
+      contentHtml: input.contentHtml,
+    })
+    customContentHtml = resolved.customContentHtml
+    templateVersion = resolved.templateVersion
+    templateId = resolved.templateId
+  }
 
   const deposit = normalizeDeposit(input.depositAmount)
 
@@ -318,19 +345,29 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
   let firmSnapshot: Awaited<ReturnType<typeof snapshotFirmSide>> | null = null
   if (usesFirmSnapshot) {
     const v2 = entity as Awaited<ReturnType<typeof loadEntityForV2Snapshot>>
+    // Uploaded PDFs don't render the firm header block (governing law / firm
+    // address / contact live inside the customer's own PDF), so those org-detail
+    // requirements are relaxed. The firm signature + title are still required —
+    // they render on the appended signature page.
     firmSnapshot = await snapshotFirmSide({
       staffId: input.staffId,
       type,
-      orgAddressOk: Boolean(
-        v2.organization.address?.trim() &&
-          v2.organization.city?.trim() &&
-          v2.organization.state?.trim() &&
-          v2.organization.zip?.trim(),
-      ),
-      orgGoverningOk: Boolean(
-        v2.organization.governingState?.trim() && v2.organization.governingCounty?.trim(),
-      ),
-      orgContactOk: Boolean(v2.organization.firmPhone?.trim() && v2.organization.firmEmail?.trim()),
+      orgAddressOk:
+        isUploadedPdf ||
+        Boolean(
+          v2.organization.address?.trim() &&
+            v2.organization.city?.trim() &&
+            v2.organization.state?.trim() &&
+            v2.organization.zip?.trim(),
+        ),
+      orgGoverningOk:
+        isUploadedPdf ||
+        Boolean(
+          v2.organization.governingState?.trim() && v2.organization.governingCounty?.trim(),
+        ),
+      orgContactOk:
+        isUploadedPdf ||
+        Boolean(v2.organization.firmPhone?.trim() && v2.organization.firmEmail?.trim()),
     })
   }
 
@@ -347,6 +384,7 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
       templateId,
       templateVersion,
       customContentHtml,
+      uploadedPdfKey: input.uploadedPdfKey ?? null,
       status: 'SENT',
       token,
       expiresAt: expiryDate(expiryDays),

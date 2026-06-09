@@ -20,6 +20,8 @@ export type LineKind = 'monthly' | 'setup'
 
 export interface QuoteLine {
   label: string
+  /** Free-form detail (custom links only); calculator lines omit it. */
+  description?: string
   amount: number
   kind: LineKind
 }

@@ -75,7 +75,6 @@ export function IntakeBusinessAccordion({
                 <IntakeBusinessForm
                   data={biz}
                   onChange={(updates) => onUpdate(index, updates)}
-                  phoneRequired={false}
                   idPrefix={`intake-${index}-`}
                   hideTitle
                 />

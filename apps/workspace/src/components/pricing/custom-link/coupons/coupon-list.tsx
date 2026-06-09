@@ -1,5 +1,14 @@
 import { useState } from 'react'
-import { Badge, Button } from '@ella/ui'
+import {
+  Badge,
+  Button,
+  Modal,
+  ModalBody,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+} from '@ella/ui'
 import { Loader2 } from 'lucide-react'
 import type { CouponSummary } from '../../../../lib/api-client'
 import { toast } from '../../../../stores/toast-store'
@@ -19,6 +28,21 @@ interface CouponListProps {
 
 /** Table of all coupons with discount/duration/redemption/status + disable. */
 export function CouponList({ coupons, loading, error }: CouponListProps) {
+  const [couponToDisable, setCouponToDisable] = useState<CouponSummary | null>(null)
+  const disableCoupon = useDisableCoupon()
+
+  const handleDisable = async () => {
+    if (!couponToDisable) return
+
+    try {
+      await disableCoupon.mutateAsync(couponToDisable.id)
+      toast.success(`Coupon ${couponToDisable.code} disabled`)
+      setCouponToDisable(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not disable coupon')
+    }
+  }
+
   if (loading) {
     return (
       <p className="flex items-center gap-2 py-4 text-xs text-muted-foreground">
@@ -40,44 +64,49 @@ export function CouponList({ coupons, loading, error }: CouponListProps) {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-xs">
-        <thead className="text-muted-foreground">
-          <tr className="border-b border-border">
-            <Th>Code</Th>
-            <Th>Discount</Th>
-            <Th>Duration</Th>
-            <Th>Used</Th>
-            <Th>Expires</Th>
-            <Th>Status</Th>
-            <Th className="text-right">Action</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {coupons.map((coupon) => (
-            <CouponRow key={coupon.id} coupon={coupon} />
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs">
+          <thead className="text-muted-foreground">
+            <tr className="border-b border-border">
+              <Th>Code</Th>
+              <Th>Discount</Th>
+              <Th>Duration</Th>
+              <Th>Used</Th>
+              <Th>Expires</Th>
+              <Th>Status</Th>
+              <Th className="text-right">Action</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {coupons.map((coupon) => (
+              <CouponRow
+                key={coupon.id}
+                coupon={coupon}
+                onRequestDisable={setCouponToDisable}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <DisableCouponConfirmModal
+        coupon={couponToDisable}
+        isPending={disableCoupon.isPending}
+        onCancel={() => setCouponToDisable(null)}
+        onConfirm={handleDisable}
+      />
+    </>
   )
 }
 
-function CouponRow({ coupon }: { coupon: CouponSummary }) {
-  const [confirming, setConfirming] = useState(false)
-  const disableCoupon = useDisableCoupon()
-
-  const handleDisable = async () => {
-    try {
-      await disableCoupon.mutateAsync(coupon.id)
-      toast.success(`Coupon ${coupon.code} disabled`)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not disable coupon')
-    } finally {
-      setConfirming(false)
-    }
-  }
-
+function CouponRow({
+  coupon,
+  onRequestDisable,
+}: {
+  coupon: CouponSummary
+  onRequestDisable: (coupon: CouponSummary) => void
+}) {
   return (
     <tr className="border-b border-border/60 last:border-0">
       <Td>
@@ -96,35 +125,65 @@ function CouponRow({ coupon }: { coupon: CouponSummary }) {
       <Td className="text-right">
         {!coupon.active ? (
           <span className="text-muted-foreground">—</span>
-        ) : confirming ? (
-          <span className="inline-flex items-center gap-1">
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              onClick={handleDisable}
-              disabled={disableCoupon.isPending}
-            >
-              {disableCoupon.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
-              Confirm
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => setConfirming(false)}
-              disabled={disableCoupon.isPending}
-            >
-              Cancel
-            </Button>
-          </span>
         ) : (
-          <Button type="button" size="sm" variant="ghost" onClick={() => setConfirming(true)}>
+          <Button type="button" size="sm" variant="ghost" onClick={() => onRequestDisable(coupon)}>
             Disable
           </Button>
         )}
       </Td>
     </tr>
+  )
+}
+
+function DisableCouponConfirmModal({
+  coupon,
+  isPending,
+  onCancel,
+  onConfirm,
+}: {
+  coupon: CouponSummary | null
+  isPending: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const titleId = 'disable-coupon-confirm-title'
+  const descriptionId = 'disable-coupon-confirm-description'
+
+  return (
+    <Modal
+      open={Boolean(coupon)}
+      onClose={() => {
+        if (!isPending) onCancel()
+      }}
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+    >
+      <ModalHeader>
+        <ModalTitle id={titleId}>Disable discount code?</ModalTitle>
+        <ModalDescription id={descriptionId}>
+          This will stop <span className="font-semibold text-foreground">{coupon?.code}</span> from being used on new
+          payment links. Existing Stripe checkout sessions keep their current discount.
+        </ModalDescription>
+      </ModalHeader>
+      <ModalBody>
+        <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+          <p className="font-medium text-foreground">{coupon?.code}</p>
+          {coupon?.name && <p className="mt-1 text-muted-foreground">{coupon.name}</p>}
+          <p className="mt-2 text-muted-foreground">
+            {coupon ? discountSummary(coupon) || 'No discount summary' : ''}
+          </p>
+        </div>
+      </ModalBody>
+      <ModalFooter>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>
+          Cancel
+        </Button>
+        <Button type="button" variant="destructive" onClick={onConfirm} disabled={isPending}>
+          {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          Disable
+        </Button>
+      </ModalFooter>
+    </Modal>
   )
 }
 

@@ -21,7 +21,7 @@ const TONE_CLASSES: Record<IndicatorTone, string> = {
   neutral: 'bg-muted text-muted-foreground',
   pending: 'bg-yellow-100 text-yellow-700',
   success: 'bg-emerald-100 text-emerald-700',
-  danger: 'bg-red-100 text-red-700',
+  danger: 'bg-red-50/70 text-red-600 ring-1 ring-red-100',
 }
 
 interface LeadSmsStatusIndicatorProps {
@@ -61,7 +61,7 @@ export function LeadSmsStatusIndicator({ sms, compact = false }: LeadSmsStatusIn
   return (
     <span
       className={cn(
-        'inline-flex max-w-full items-center gap-1.5 rounded-full text-xs font-medium',
+        'inline-flex max-w-full items-center gap-1.5 self-start rounded-full text-xs font-medium',
         compact ? 'px-2 py-0.5' : 'px-2.5 py-1',
         TONE_CLASSES[config.tone],
       )}

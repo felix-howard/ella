@@ -1,11 +1,11 @@
 import {
-  Calculator,
   LayoutDashboard,
   Megaphone,
   MessageSquare,
   Settings,
   Users,
   UsersRound,
+  WalletCards,
 } from 'lucide-react'
 import type { NavItem } from './sidebar-content'
 
@@ -18,7 +18,7 @@ const BASE_NAV_ITEMS = [
 // Visible to ADMIN + MANAGER (client/lead management tier)
 const MANAGEMENT_NAV_ITEMS = [
   { path: '/leads', i18nKey: 'nav.leads', icon: Megaphone },
-  { path: '/pricing-calculator', i18nKey: 'nav.pricingCalculator', icon: Calculator },
+  { path: '/pricing-calculator', i18nKey: 'nav.pricingCalculator', icon: WalletCards },
 ] as const satisfies readonly NavItem[]
 
 // Visible to ADMIN only (team management stays admin-gated)

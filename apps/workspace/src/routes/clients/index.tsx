@@ -23,7 +23,7 @@ export const Route = createFileRoute('/clients/')({
 
 function ClientListPage() {
   const { t } = useTranslation()
-  const { isAdmin, staffId } = useOrgRole()
+  const { canManageClients, canViewPhone, staffId } = useOrgRole()
   const [searchQuery, setSearchQuery] = useState('')
   const [managedById, setManagedById] = useState<string | undefined>(undefined)
   const [tagFilter, setTagFilter] = useState<string | undefined>(undefined)
@@ -33,11 +33,11 @@ function ClientListPage() {
   // Debounce search query for server-side search (300ms delay)
   const [debouncedSearch, isSearchPending] = useDebouncedValue(searchQuery, 300)
 
-  // Fetch team members for "Managed By" dropdown (admin only)
+  // Fetch team members for "Managed By" dropdown (admin/manager only)
   const { data: teamData } = useQuery({
     queryKey: ['team-members'],
     queryFn: () => api.team.listMembers(),
-    enabled: isAdmin,
+    enabled: canManageClients,
     staleTime: 60000,
   })
 
@@ -132,8 +132,8 @@ function ClientListPage() {
           />
         </div>
 
-        {/* Managed By dropdown (admin only) */}
-        {isAdmin && (
+        {/* Managed By dropdown (admin/manager only) */}
+        {canManageClients && (
           <CustomSelect
             value={managedById ?? ''}
             onChange={(val) => setManagedById(val || undefined)}
@@ -207,7 +207,7 @@ function ClientListPage() {
 
       {/* Content */}
       {isLoading ? (
-        <ClientListTable clients={[]} isLoading isAdmin={isAdmin} />
+        <ClientListTable clients={[]} isLoading canManageClients={canManageClients} canViewPhone={canViewPhone} />
       ) : isError ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <AlertCircle className="w-12 h-12 text-destructive mb-4" />
@@ -224,7 +224,7 @@ function ClientListPage() {
           </button>
         </div>
       ) : (
-        <ClientListTable clients={clients} isAdmin={isAdmin} />
+        <ClientListTable clients={clients} canManageClients={canManageClients} canViewPhone={canViewPhone} />
       )}
     </PageContainer>
   )

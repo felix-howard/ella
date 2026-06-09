@@ -28,11 +28,9 @@ describe('PricingPaymentLinkPanel', () => {
         checkout={null}
         disabledReason="VIP quotes require manual follow-up."
         errorMessage={null}
-        fields={{ customerEmail: '', customerName: '', businessName: '' }}
         isCreating={false}
         quoteChanged={false}
         onCreate={vi.fn()}
-        onFieldsChange={vi.fn()}
       />,
     )
 
@@ -40,23 +38,22 @@ describe('PricingPaymentLinkPanel', () => {
     expect(markup).toContain('disabled=""')
   })
 
-  it('disables payment-link creation when customer email is invalid', () => {
+  it('renders anonymous payment-link creation without customer fields', () => {
     const markup = renderToStaticMarkup(
       <PricingPaymentLinkPanel
         checkout={null}
         disabledReason={null}
         errorMessage={null}
-        fields={{ customerEmail: 'not-an-email', customerName: '', businessName: '' }}
         isCreating={false}
         quoteChanged={false}
         onCreate={vi.fn()}
-        onFieldsChange={vi.fn()}
       />,
     )
 
-    expect(markup).toContain('Enter a valid email or leave it blank.')
-    expect(markup).toContain('aria-invalid="true"')
-    expect(markup).toContain('disabled=""')
+    expect(markup).toContain('Create payment link')
+    expect(markup).not.toContain('Customer email optional')
+    expect(markup).not.toContain('Customer name')
+    expect(markup).not.toContain('Business')
   })
 
   it('renders created checkout URL actions', () => {
@@ -69,15 +66,9 @@ describe('PricingPaymentLinkPanel', () => {
         }}
         disabledReason={null}
         errorMessage={null}
-        fields={{
-          customerEmail: 'client@example.com',
-          customerName: 'Client One',
-          businessName: 'Client LLC',
-        }}
         isCreating={false}
         quoteChanged={false}
         onCreate={vi.fn()}
-        onFieldsChange={vi.fn()}
       />,
     )
 

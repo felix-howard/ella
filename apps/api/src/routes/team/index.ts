@@ -27,6 +27,8 @@ import {
   generateAvatarKey,
   resolveAvatarUrl,
 } from '../../services/storage'
+import { APP_ROLE_TO_CLERK_ROLE, APP_ROLE_TO_STAFF_ROLE } from '../../lib/staff-role-mapping'
+import { serializePhone } from '../../lib/phone-privacy'
 import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 
@@ -124,12 +126,15 @@ teamRoute.post(
     }
 
     try {
+      // MANAGER is org:member in Clerk; intended Staff.role travels via invitation
+      // publicMetadata so the membership.created webhook assigns it on accept
       const invitation = await clerkClient.organizations.createOrganizationInvitation({
         organizationId: user.clerkOrgId,
         emailAddress,
-        role,
+        role: APP_ROLE_TO_CLERK_ROLE[role],
         inviterUserId: user.id,
         redirectUrl: `${config.workspaceUrl}/accept-invitation`,
+        publicMetadata: { staffRole: APP_ROLE_TO_STAFF_ROLE[role] },
       })
 
       if (user.staffId) {
@@ -196,7 +201,7 @@ teamRoute.patch(
     }
 
     // Prevent demoting the last admin in the org
-    if (role === 'org:member' && staff.role === 'ADMIN') {
+    if (role !== 'ADMIN' && staff.role === 'ADMIN') {
       const adminCount = await prisma.staff.count({
         where: { organizationId: user.organizationId, role: 'ADMIN', isActive: true },
       })
@@ -210,18 +215,22 @@ teamRoute.patch(
       await clerkClient.organizations.updateOrganizationMembership({
         organizationId: user.clerkOrgId,
         userId: staff.clerkId,
-        role,
+        role: APP_ROLE_TO_CLERK_ROLE[role],
       })
 
-      // Sync role to DB immediately (don't wait for webhook)
-      const dbRole = role === 'org:admin' ? 'ADMIN' : 'STAFF'
+      // Sync role to DB immediately (don't wait for webhook). The membership.updated
+      // webhook preserve rule never downgrades MANAGER/CPA, so this write is durable.
+      // Known tiny race (ADMIN->MANAGER): if the webhook reads the old ADMIN role before
+      // this write commits but applies its STAFF demotion after it, MANAGER could be lost.
+      // Window is ms-scale; admin can re-apply. Revisit if it ever surfaces in practice.
+      const dbRole = APP_ROLE_TO_STAFF_ROLE[role]
       await prisma.staff.update({
         where: { id: staffId },
         data: { role: dbRole },
       })
 
       // Audit log (async, non-blocking)
-      logTeamAction('ROLE_CHANGED', staffId, user.staffId, { oldValue: oldRole, newValue: role })
+      logTeamAction('ROLE_CHANGED', staffId, user.staffId, { oldValue: oldRole, newValue: dbRole })
       await logTeamMemberActivity(c, user, staffId, {
         summary: 'Updated team member role',
         action: ACTIVITY_ACTIONS.TEAM.MEMBER_UPDATED,
@@ -452,6 +461,11 @@ teamRoute.get(
         id: inv.id,
         emailAddress: inv.emailAddress,
         role: inv.role,
+        // Intended Staff.role carried in invitation metadata (distinguishes MANAGER invites).
+        // Fallback is for legacy invites created before staffRole metadata existed.
+        staffRole:
+          (inv.publicMetadata as Record<string, unknown> | null | undefined)?.staffRole ??
+          (inv.role === 'org:admin' ? 'ADMIN' : 'STAFF'),
         status: inv.status,
         createdAt: inv.createdAt,
       }))
@@ -537,6 +551,8 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
       title: true,
       notifyOnUpload: true,
       notifyOnChat: true,
+      notifyOnAgreementSigned: true,
+      notifyOnClientPayment: true,
       formSlug: true,
       autoSendUploadLink: true,
       defaultUploadLinkTemplateId: true,
@@ -566,7 +582,11 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
     orderBy: { name: 'asc' },
   })
   const managedClientsList = await Promise.all(
-    clients.map(async (c) => ({ ...c, avatarUrl: await resolveAvatarUrl(c.avatarUrl) }))
+    clients.map(async (cl) => ({
+      ...cl,
+      phone: serializePhone(user, cl.phone),
+      avatarUrl: await resolveAvatarUrl(cl.avatarUrl),
+    }))
   )
   const managedCount = staff._count.managedClientLinks
 
@@ -612,7 +632,7 @@ teamRoute.patch(
       return c.json({ error: 'Can only edit your own profile' }, 403)
     }
 
-    const { firstName, lastName, phoneNumber, title, notifyOnUpload, notifyOnChat } = c.req.valid('json')
+    const { firstName, lastName, phoneNumber, title, notifyOnUpload, notifyOnChat, notifyOnAgreementSigned, notifyOnClientPayment } = c.req.valid('json')
 
     // Verify staff exists and belongs to org
     const staff = await prisma.staff.findFirst({
@@ -625,6 +645,15 @@ teamRoute.patch(
 
     if (!staff) {
       return c.json({ error: 'Staff not found' }, 404)
+    }
+
+    // ADMIN-only toggles: reject (not silently drop) so a MANAGER/MEMBER
+    // poking the API directly gets an explicit error instead of fake success.
+    if (
+      (notifyOnAgreementSigned !== undefined || notifyOnClientPayment !== undefined) &&
+      staff.role !== 'ADMIN'
+    ) {
+      return c.json({ error: 'Agreement/payment notification toggles are admin-only' }, 403)
     }
 
     // Compose full name from firstName + lastName
@@ -641,6 +670,8 @@ teamRoute.patch(
         ...(title !== undefined && { title }),
         ...(notifyOnUpload !== undefined && { notifyOnUpload }),
         ...(notifyOnChat !== undefined && { notifyOnChat }),
+        ...(notifyOnAgreementSigned !== undefined && { notifyOnAgreementSigned }),
+        ...(notifyOnClientPayment !== undefined && { notifyOnClientPayment }),
       },
       select: {
         id: true,
@@ -651,6 +682,8 @@ teamRoute.patch(
         title: true,
         notifyOnUpload: true,
         notifyOnChat: true,
+        notifyOnAgreementSigned: true,
+        notifyOnClientPayment: true,
       },
     })
 
@@ -670,8 +703,8 @@ teamRoute.patch(
     // Audit log when admin edits another member's profile
     if (targetStaffId !== user.staffId) {
       logTeamAction('PROFILE_EDITED', targetStaffId, user.staffId, {
-        oldValue: { name: staff.name, phoneNumber: staff.phoneNumber, notifyOnUpload: staff.notifyOnUpload, notifyOnChat: staff.notifyOnChat },
-        newValue: { name, phoneNumber, notifyOnUpload, notifyOnChat },
+        oldValue: { name: staff.name, phoneNumber: staff.phoneNumber, notifyOnUpload: staff.notifyOnUpload, notifyOnChat: staff.notifyOnChat, notifyOnAgreementSigned: staff.notifyOnAgreementSigned, notifyOnClientPayment: staff.notifyOnClientPayment },
+        newValue: { name, phoneNumber, notifyOnUpload, notifyOnChat, notifyOnAgreementSigned, notifyOnClientPayment },
       })
     }
 
@@ -692,6 +725,8 @@ teamRoute.patch(
           title,
           notifyOnUpload,
           notifyOnChat,
+          notifyOnAgreementSigned,
+          notifyOnClientPayment,
         }),
         editedSelf: targetStaffId === user.staffId,
       },

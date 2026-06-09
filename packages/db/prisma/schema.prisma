@@ -339,6 +339,7 @@ enum MessageDirection {
 
 enum StaffRole {
   ADMIN
+  MANAGER
   STAFF
   CPA
 }
@@ -439,6 +440,9 @@ model Staff {
   // Notification preferences
   notifyOnUpload              Boolean @default(true) // Enable/disable SMS on client uploads
   notifyOnChat                Boolean @default(false) // Enable/disable SMS when monitored staff sends messages
+  notifyOnAgreementSigned     Boolean @default(false) // ADMIN-only: SMS when a client signs an agreement
+  notifyOnClientPayment       Boolean @default(false) // ADMIN-only: SMS when a client completes a payment
+  notifyOnPaymentFailed       Boolean @default(false) // ADMIN-only: SMS when a recurring quote charge fails
   autoSendUploadLink          Boolean @default(false) // Per-staff auto-send upload link on personal form
   defaultUploadLinkTemplateId String? // Default SMS template for personal form auto-send
 
@@ -480,6 +484,7 @@ model Staff {
   agreementsCreated              Agreement[]                     @relation("AgreementCreatedBy")
   agreementTemplatesCreated      AgreementTemplate[]             @relation("AgreementTemplateCreatedBy")
   createdPaymentQuotes           PaymentQuote[]                  @relation("PaymentQuoteCreatedBy")
+  sentQuotes                     PaymentQuote[]                  @relation("QuoteSentBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -597,6 +602,8 @@ model Organization {
   clientGroups                   ClientGroup[]
   leads                          Lead[]
   paymentQuotes                  PaymentQuote[]
+  coupons                        Coupon[]
+  payments                       Payment[]
   smsSendLogs                    SmsSendLog[]
   campaigns                      Campaign[]
   agreements                     Agreement[]
@@ -656,6 +663,7 @@ model Client {
   convertedLeads Lead[]          @relation("ConvertedLead")
   agreements     Agreement[]
   paymentQuotes  PaymentQuote[]
+  payments       Payment[]
 
   // Business-type client relations (for clientType = BUSINESS)
   contractors   Contractor[]
@@ -1633,6 +1641,7 @@ model Lead {
   agreements    Agreement[]
   messages      Message[]
   paymentQuotes PaymentQuote[]
+  payments      Payment[]
 
   // Staff-side "last read" marker for inbound SMS unread count
   messagesLastReadAt DateTime?
@@ -1660,13 +1669,25 @@ model PaymentQuote {
   businessName      String?
   inputSnapshot     Json
   resultSnapshot    Json
-  monthlyTotalCents Int
-  setupTotalCents   Int
+  monthlyTotalCents Int // recurring total, cadence in billingInterval (month or year)
+  setupTotalCents   Int // one-time total
+  // Link source + billing cadence for the custom-link feature.
+  // source defaults to "calculator" so existing rows/flows are untouched.
+  source              String   @default("calculator") // "calculator" | "custom"
+  billingInterval     String? // null=one-time | "month" | "year"
+  appliedCouponId     String? // owner-attached, pre-applied coupon
+  appliedCoupon       Coupon?  @relation(fields: [appliedCouponId], references: [id], onDelete: SetNull)
+  allowPromotionCodes Boolean  @default(false) // client may type a code at Stripe checkout
   status            String                  @default("pending_checkout")
   lastStripeEventId String?
   lastStripeEventAt DateTime?
   createdByStaffId  String?
   createdByStaff    Staff?                  @relation("PaymentQuoteCreatedBy", fields: [createdByStaffId], references: [id], onDelete: SetNull)
+  // Sendable-quote fields: portal pay token, send timestamp ("is sendable" marker), and SMS sender attribution
+  payToken          String?                 @unique // portal token; null for anonymous quotes from the create-link panel
+  sentAt            DateTime? // set when the quote is sent to a client/lead
+  sentByStaffId     String?
+  sentByStaff       Staff?                  @relation("QuoteSentBy", fields: [sentByStaffId], references: [id], onDelete: SetNull)
   checkoutSessions  StripeCheckoutSession[]
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
@@ -1675,8 +1696,40 @@ model PaymentQuote {
   @@index([clientId])
   @@index([leadId])
   @@index([createdByStaffId])
+  @@index([sentByStaffId])
   @@index([status])
   @@index([lastStripeEventAt])
+  @@index([appliedCouponId])
+}
+
+// App-side source of truth for a discount, mirroring a Stripe Coupon + Promotion Code.
+// Stripe owns the discount math (percent/amount/duration/redeem_by/max_redemptions);
+// this model backs the management UI and the quote-attach flow.
+model Coupon {
+  id                    String       @id @default(cuid())
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  code                  String // promotion code shown to client, e.g. "WELCOME10"
+  name                  String? // internal label
+  discountType          String // "percent" | "amount"
+  percentOff            Int? // 1..100 when percent
+  amountOffCents        Int? // > 0 when amount (currency = org default)
+  currency              String       @default("usd")
+  duration              String       @default("once") // "once" | "forever" | "repeating"
+  durationInMonths      Int? // when duration = "repeating"
+  maxRedemptions        Int? // usage limit (null = unlimited)
+  redeemBy              DateTime? // expiry
+  stripeCouponId        String? // synced Stripe Coupon id
+  stripePromotionCodeId String? // synced Stripe Promotion Code id
+  active                Boolean      @default(true) // soft "disable" toggle
+  timesRedeemed         Int          @default(0) // cached from Stripe for display
+  createdByStaffId      String?
+  appliedQuotes         PaymentQuote[]
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@unique([organizationId, code])
+  @@index([organizationId, active])
 }
 
 model StripeCheckoutSession {
@@ -1702,6 +1755,56 @@ model StripeCheckoutSession {
   @@index([stripeCustomerId])
   @@index([stripeSubscriptionId])
   @@index([stripePaymentIntentId])
+}
+
+enum PaymentType {
+  DEPOSIT
+  BALANCE
+  OTHER
+  RECURRING
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELED
+}
+
+// Deposit/balance payments collected from clients or leads (e.g. after agreement signing).
+// Distinct from PaymentQuote (pricing-calculator checkouts) — keep names separate.
+model Payment {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientId       String?
+  client         Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  leadId         String?
+  lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  agreementId    String?
+  agreement      Agreement?   @relation(fields: [agreementId], references: [id], onDelete: SetNull)
+
+  type     PaymentType   @default(DEPOSIT)
+  status   PaymentStatus @default(PENDING)
+  amount   Decimal       @db.Decimal(10, 2)
+  currency String        @default("usd")
+
+  // Public pay-link token (portal/pay/:payToken). Separate lifecycle from agreement signing token.
+  payToken              String  @unique
+  stripeSessionId       String?
+  stripePaymentIntentId String?
+
+  paidAt      DateTime?
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([leadId])
+  @@index([agreementId])
+  @@index([organizationId, status])
 }
 
 model SmsSendLog {
@@ -1749,6 +1852,10 @@ model Agreement {
   template          AgreementTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   templateVersion   String
   customContentHtml String?            @db.Text // Sanitized HTML snapshot per-lead. NULL = render from templateVersion.
+  // R2 key of a staff-uploaded source PDF. When set, the agreement body is the
+  // uploaded PDF (used as-is); signing appends a generated signature page rather
+  // than rendering from customContentHtml/templateVersion.
+  uploadedPdfKey    String?
 
   // Status
   status            AgreementStatus @default(DRAFT)
@@ -1793,6 +1900,8 @@ model Agreement {
   // Audit
   createdByUserId String
   createdBy       Staff  @relation("AgreementCreatedBy", fields: [createdByUserId], references: [id])
+
+  payments Payment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

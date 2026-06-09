@@ -59,5 +59,81 @@ export const createCheckoutSessionSchema = z.object({
   quoteNotes: z.string().trim().max(1000).optional(),
 })
 
+const recipientSchema = z.object({
+  type: z.enum(['client', 'lead']),
+  id: z.string().trim().min(1),
+})
+
+export const sendQuoteInputSchema = z.object({
+  pricingInput: checkoutPricingInputSchema,
+  recipient: recipientSchema,
+  customerEmail: z.string().email().optional(),
+  customerName: z.string().trim().min(1).max(120).optional(),
+  businessName: z.string().trim().min(1).max(120).optional(),
+})
+
+// --- Custom (free-form) payment links --------------------------------------
+// Staff type arbitrary line items instead of driving the pricing calculator.
+// Limits mirror the server-side `buildCustomQuote` validation so a request is
+// rejected at the edge before any Stripe/DB work.
+
+const MAX_CUSTOM_UNIT_AMOUNT_CENTS = 1_000_000_00
+const MAX_CUSTOM_ITEMS = 50
+
+export const customLineItemSchema = z.object({
+  label: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(500).optional(),
+  unitAmountCents: z.number().int().min(1).max(MAX_CUSTOM_UNIT_AMOUNT_CENTS),
+  quantity: z.number().int().min(1).max(1000),
+})
+
+const customBillingIntervalEnum = z.enum(['one_time', 'month', 'year'])
+
+/** Fields shared by the anonymous-create and send-to-recipient custom flows. */
+const customQuoteFields = {
+  billingInterval: customBillingIntervalEnum,
+  items: z.array(customLineItemSchema).min(1).max(MAX_CUSTOM_ITEMS),
+  /** One-time add-on items; only valid for recurring links. */
+  oneTimeItems: z.array(customLineItemSchema).max(MAX_CUSTOM_ITEMS).optional(),
+  customerEmail: z.string().email().optional(),
+  customerName: z.string().trim().min(1).max(120).optional(),
+  businessName: z.string().trim().min(1).max(120).optional(),
+  /** Owner-attached coupon (app `Coupon.id`). XOR with `allowPromotionCodes`. */
+  couponId: z.string().cuid().optional(),
+  /** Let the client type a promo code at Stripe checkout. XOR with `couponId`. */
+  allowPromotionCodes: z.boolean().optional(),
+}
+
+const notBothDiscounts = (v: { couponId?: string; allowPromotionCodes?: boolean }): boolean =>
+  !(v.couponId && v.allowPromotionCodes)
+
+const oneTimeItemsOnlyRecurring = (v: {
+  billingInterval: 'one_time' | 'month' | 'year'
+  oneTimeItems?: unknown[]
+}): boolean => v.billingInterval !== 'one_time' || !v.oneTimeItems?.length
+
+const NOT_BOTH_DISCOUNTS_ERROR = {
+  message: 'Cannot pre-apply a coupon and allow promotion codes on the same link',
+  path: ['allowPromotionCodes'],
+}
+const ONE_TIME_ITEMS_ERROR = {
+  message: 'oneTimeItems are only allowed on recurring (month/year) links',
+  path: ['oneTimeItems'],
+}
+
+export const createCustomCheckoutSchema = z
+  .object(customQuoteFields)
+  .refine(notBothDiscounts, NOT_BOTH_DISCOUNTS_ERROR)
+  .refine(oneTimeItemsOnlyRecurring, ONE_TIME_ITEMS_ERROR)
+
+export const sendCustomQuoteSchema = z
+  .object({ ...customQuoteFields, recipient: recipientSchema })
+  .refine(notBothDiscounts, NOT_BOTH_DISCOUNTS_ERROR)
+  .refine(oneTimeItemsOnlyRecurring, ONE_TIME_ITEMS_ERROR)
+
 export type CheckoutPricingInput = z.infer<typeof checkoutPricingInputSchema>
 export type CreateCheckoutSessionInput = z.infer<typeof createCheckoutSessionSchema>
+export type SendQuoteInput = z.infer<typeof sendQuoteInputSchema>
+export type CustomLineItemSchema = z.infer<typeof customLineItemSchema>
+export type CreateCustomCheckoutInput = z.infer<typeof createCustomCheckoutSchema>
+export type SendCustomQuoteInput = z.infer<typeof sendCustomQuoteSchema>

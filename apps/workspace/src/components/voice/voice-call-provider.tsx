@@ -58,7 +58,7 @@ class VoiceErrorBoundary extends Component<{ children: ReactNode }, VoiceErrorBo
 function VoiceCallProviderInner({ children }: VoiceCallProviderProps) {
   const [state, actions] = useVoiceCall()
   const { t } = useTranslation()
-  const { isAdmin } = useOrgRole()
+  const { canViewPhone } = useOrgRole()
 
   // Track if this is an inbound call (accepted from incoming modal)
   // We show ActiveCallModal for inbound calls that were accepted
@@ -111,7 +111,7 @@ function VoiceCallProviderInner({ children }: VoiceCallProviderProps) {
           isMuted={state.isMuted}
           duration={state.duration}
           clientName={inboundCallerInfo.name}
-          clientPhone={isAdmin ? formatPhone(inboundCallerInfo.phone) : maskPhone(inboundCallerInfo.phone)}
+          clientPhone={canViewPhone ? formatPhone(inboundCallerInfo.phone) : maskPhone(inboundCallerInfo.phone)}
           error={state.error}
           onEndCall={actions.endCall}
           onToggleMute={actions.toggleMute}

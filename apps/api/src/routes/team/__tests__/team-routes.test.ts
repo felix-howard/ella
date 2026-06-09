@@ -49,6 +49,9 @@ vi.mock('../../../lib/clerk-client', () => ({
       getOrganizationInvitationList: vi.fn(),
       revokeOrganizationInvitation: vi.fn(),
     },
+    users: {
+      updateUser: vi.fn(),
+    },
   },
 }))
 
@@ -212,20 +215,26 @@ describe('Team Routes', () => {
       const res = await app.request('/team/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailAddress: 'new@test.com', role: 'org:member' }),
+        body: JSON.stringify({ emailAddress: 'new@test.com', role: 'MEMBER' }),
       })
 
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.success).toBe(true)
       expect(body.invitation.emailAddress).toBe('new@test.com')
+      expect(vi.mocked(clerkClient.organizations.createOrganizationInvitation)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          role: 'org:member',
+          publicMetadata: { staffRole: 'STAFF' },
+        })
+      )
       expect(logStaffActivity).toHaveBeenCalledWith(
         expect.objectContaining({
           organizationId: 'org_db_1',
           actorStaffId: 'staff_1',
           action: 'team.member_invited',
-          metadata: expect.not.objectContaining({
-            emailAddress: expect.anything(),
+          metadata: expect.objectContaining({
+            role: 'MEMBER',
           }),
         })
       )
@@ -251,7 +260,7 @@ describe('Team Routes', () => {
       const res = await app.request('/team/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailAddress: 'new@test.com' }),
+        body: JSON.stringify({ emailAddress: 'new@test.com', role: 'MEMBER' }),
       })
 
       expect(res.status).toBe(400)
@@ -266,15 +275,16 @@ describe('Team Routes', () => {
   describe('PATCH /team/members/:staffId/role', () => {
     it('updates role via Clerk', async () => {
       vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({
-        id: 's2', clerkId: 'c2', organizationId: 'org_db_1', isActive: true,
+        id: 's2', clerkId: 'c2', organizationId: 'org_db_1', isActive: true, role: 'STAFF',
       } as never)
       vi.mocked(clerkClient.organizations.updateOrganizationMembership).mockResolvedValueOnce({} as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({} as never)
 
       const app = createApp()
       const res = await app.request('/team/members/s2/role', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'org:admin' }),
+        body: JSON.stringify({ role: 'ADMIN' }),
       })
 
       expect(res.status).toBe(200)
@@ -282,6 +292,10 @@ describe('Team Routes', () => {
         organizationId: 'org_clerk_1',
         userId: 'c2',
         role: 'org:admin',
+      })
+      expect(vi.mocked(prisma.staff.update)).toHaveBeenCalledWith({
+        where: { id: 's2' },
+        data: { role: 'ADMIN' },
       })
     })
 
@@ -292,7 +306,7 @@ describe('Team Routes', () => {
       const res = await app.request('/team/members/unknown/role', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'org:member' }),
+        body: JSON.stringify({ role: 'MEMBER' }),
       })
 
       expect(res.status).toBe(404)
@@ -308,7 +322,7 @@ describe('Team Routes', () => {
       const res = await app.request('/team/members/s2/role', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'org:member' }),
+        body: JSON.stringify({ role: 'MEMBER' }),
       })
 
       expect(res.status).toBe(400)
@@ -349,14 +363,12 @@ describe('Team Routes', () => {
           data: { isContractorAgent: true },
         }),
       )
-      expect(logTeamAction).toHaveBeenCalledWith(
-        'CONTRACTOR_AGENT_CHANGED',
-        's2',
-        'staff_1',
-        {
-          oldValue: { isContractorAgent: false },
-          newValue: { isContractorAgent: true },
-        },
+      expect(logStaffActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organizationId: 'org_db_1',
+          actorStaffId: 'staff_1',
+          action: 'team.member_updated',
+        })
       )
     })
 
@@ -422,6 +434,7 @@ describe('Team Routes', () => {
       const res = await app.request('/team/members/unknown', { method: 'DELETE' })
 
       expect(res.status).toBe(404)
+      expect(vi.mocked(deactivateStaff)).not.toHaveBeenCalled()
     })
   })
 
@@ -467,6 +480,8 @@ describe('Team Routes', () => {
   describe('PUT /team/members/:staffId/notification-subscriptions', () => {
     it('logs subscription updates with activity coalescing to avoid recent activity spam', async () => {
       vi.mocked(prisma.staff.count).mockResolvedValueOnce(2)
+      vi.mocked(prisma.notificationSubscription.deleteMany).mockResolvedValueOnce({ count: 0 } as never)
+      vi.mocked(prisma.notificationSubscription.createMany).mockResolvedValueOnce({ count: 2 } as never)
 
       const app = createApp()
       const res = await app.request('/team/members/staff_2/notification-subscriptions', {
@@ -522,8 +537,14 @@ describe('Team Routes', () => {
       expect(body.staff.isContractorAgent).toBe(true)
       expect(body.staff._count).toEqual({ managedClients: 2 })
       expect(body.managedCount).toBe(2)
+      expect(body.staff.firstName).toBe('Member')
+      expect(body.staff.lastName).toBe('B')
       expect(vi.mocked(prisma.staff.findFirst)).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: {
+            id: 'staff_2',
+            organizationId: 'org_db_1',
+          },
           select: expect.objectContaining({
             isContractorAgent: true,
             _count: { select: { managedClientLinks: true } },
@@ -546,6 +567,7 @@ describe('Team Routes', () => {
       vi.mocked(prisma.client.findMany).mockResolvedValueOnce([] as never)
 
       const app = createApp(memberUser())
+      // Member user (staff_2) trying to view another member's profile (staff_2 -> staff_2 is self, so use staff_1)
       const res = await app.request('/team/members/staff_1/profile')
 
       expect(res.status).toBe(200)
@@ -554,24 +576,34 @@ describe('Team Routes', () => {
     })
 
     it('PATCH profile allows admin to edit another member', async () => {
-      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(targetStaff as never)
+      const targetForPatch = {
+        id: 'staff_2', name: 'Member B', email: 'b@t.com', role: 'STAFF',
+        avatarUrl: null, phoneNumber: '+84123456789', notifyOnUpload: false,
+        notifyOnChat: false, title: null, clerkId: 'c2', isActive: true,
+      }
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(targetForPatch as never)
       vi.mocked(prisma.staff.update).mockResolvedValueOnce({
         id: 'staff_2', name: 'New Name', email: 'b@t.com',
-        phoneNumber: '+84123456789', avatarUrl: null, notifyOnUpload: false,
+        phoneNumber: '+84123456789', avatarUrl: null, notifyOnUpload: false, notifyOnChat: false, title: null,
       } as never)
+      vi.mocked(clerkClient.users.updateUser).mockResolvedValueOnce({} as never)
 
       const app = createApp()
       const res = await app.request('/team/members/staff_2/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'New Name' }),
+        body: JSON.stringify({ firstName: 'New', lastName: 'Name' }),
       })
 
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.success).toBe(true)
-      expect(vi.mocked(logTeamAction)).toHaveBeenCalledWith(
-        'PROFILE_EDITED', 'staff_2', 'staff_1', expect.any(Object)
+      expect(logStaffActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organizationId: 'org_db_1',
+          actorStaffId: 'staff_1',
+          action: 'profile.updated',
+        })
       )
     })
 

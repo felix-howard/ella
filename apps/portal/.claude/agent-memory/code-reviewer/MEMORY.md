@@ -1,0 +1,2 @@
+- [Portal i18n convention](project_portal-i18n-flat-keys.md) — locale JSON uses flat dotted keys, not nested objects; both en+vi must stay in sync
+- [Portal public API error contract](project_portal-api-error-contract.md) — Hono HTTPException → app.onError → JSON {error,message}; api-client maps status→ApiError

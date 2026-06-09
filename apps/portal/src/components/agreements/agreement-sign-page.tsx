@@ -8,7 +8,7 @@
  *   ready    -> submitting
  *   submitting -> confirmed (200) | error (409 signed / 410 expired / 429 rate / 5xx)
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileText, Loader2, Lock, ShieldCheck } from 'lucide-react'
 import { EllaLogoLight, EllaLogoDark } from '@ella/ui'
@@ -24,6 +24,11 @@ import { AgreementSignForm, type AgreementSignSubmission } from './agreement-sig
 import { AgreementConfirmationPanel } from './agreement-confirmation-panel'
 import { AgreementErrorPanel, type AgreementErrorCode } from './agreement-error-panel'
 import { toast } from '../../lib/toast-store'
+
+// Lazy-load the full PDF.js viewer (vertical scroll, fit-to-width, zoom) only
+// when an uploaded PDF needs rendering — keeps the worker bundle out of the
+// initial load for template-based agreements.
+const PdfViewer = lazy(() => import('../pdf-viewer/index'))
 
 type PageState = 'loading' | 'ready' | 'submitting' | 'confirmed' | 'error'
 
@@ -203,7 +208,19 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
             </section>
 
             <div className="min-w-0 lg:h-full">
-              {view.templateHtml ? (
+              {view.uploadedPdfUrl ? (
+                <div className="h-[80vh] w-full overflow-hidden rounded-xl border border-border bg-muted/20 lg:h-[calc(100dvh-12rem)] lg:min-h-[80vh]">
+                  <Suspense
+                    fallback={
+                      <div className="flex h-full items-center justify-center">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    }
+                  >
+                    <PdfViewer url={view.uploadedPdfUrl} />
+                  </Suspense>
+                </div>
+              ) : view.templateHtml ? (
                 <AgreementCustomHtmlView
                   title={view.templateTitle}
                   html={view.templateHtml}
@@ -221,7 +238,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
             </div>
             <div className="shrink-0 lg:sticky lg:top-24">
               <AgreementSignForm
-                canSubmit={reachedBottom}
+                canSubmit={view.uploadedPdfUrl ? true : reachedBottom}
                 submitting={state === 'submitting'}
                 onSubmit={handleSubmit}
                 firmSnapshot={view.firmSnapshot}

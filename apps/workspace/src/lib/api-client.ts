@@ -4,7 +4,10 @@
  * Features: timeout, retry logic, env validation
  */
 import type { MessageReaction } from '@ella/shared'
+import { BULK_SMS_MAX_RECIPIENTS } from '@ella/shared/constants'
 import type { PricingCalculatorInput } from '@ella/shared/pricing'
+
+export { BULK_SMS_MAX_RECIPIENTS }
 
 // Environment validation
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002'
@@ -29,12 +32,51 @@ export function setAuthTokenGetter(getter: () => Promise<string | null>) {
   getAuthToken = getter
 }
 
+export interface UploadedPdfResult {
+  key: string
+  pageCount: number
+  previewUrl: string | null
+}
+
+/**
+ * Multipart upload of an agreement source PDF. Bypasses the JSON `request<>`
+ * helper because the body is FormData (browser sets the multipart boundary).
+ * Shared by `api.clients.agreements.uploadPdf` and `api.leads.agreements.uploadPdf`.
+ */
+async function uploadAgreementPdf(basePath: string, file: File): Promise<UploadedPdfResult> {
+  const headers: Record<string, string> = {}
+  if (getAuthToken) {
+    const token = await getAuthToken()
+    if (token) headers.Authorization = `Bearer ${token}`
+  }
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await fetch(`${API_BASE_URL}${basePath}/upload-pdf`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  })
+  if (!response.ok) {
+    let message = `Upload failed (${response.status})`
+    try {
+      const data = (await response.json()) as { error?: string; message?: string }
+      if (data?.message || data?.error) message = data.message || data.error || message
+    } catch {
+      // Body wasn't JSON — keep generic message
+    }
+    throw new ApiError(response.status, 'UPLOAD_FAILED', message)
+  }
+  const json = (await response.json()) as { success: boolean; data: UploadedPdfResult }
+  return json.data
+}
+
 // API error class for consistent error handling
 export class ApiError extends Error {
   constructor(
     public status: number,
     public code: string,
-    message: string
+    message: string,
+    public payload?: unknown
   ) {
     super(message)
     this.name = 'ApiError'
@@ -64,6 +106,112 @@ export interface CheckoutSessionResponse {
   quoteId: string
   checkoutUrl: string
   sessionId: string
+}
+
+export interface SendQuoteRecipient {
+  type: 'client' | 'lead'
+  id: string
+}
+
+export interface SendQuoteInput {
+  pricingInput: PricingCalculatorInput
+  recipient: SendQuoteRecipient
+  customerEmail?: string
+  customerName?: string
+  businessName?: string
+}
+
+export interface SendQuoteResponse {
+  quoteId: string
+  payToken: string
+  payUrl: string
+  smsSent: boolean
+  /** Set only when `smsSent` is false, so the UI can offer a copy-link fallback. */
+  smsSkippedReason?: 'no_phone' | 'send_failed'
+}
+
+export interface RecipientResult {
+  id: string
+  type: 'client' | 'lead'
+  firstName: string | null
+  lastName: string | null
+  businessName: string | null
+  /** Last 4 digits of the phone, or null — full numbers never leave the API. */
+  phoneLast4: string | null
+}
+
+export interface RecipientSearchResponse {
+  clients: RecipientResult[]
+  leads: RecipientResult[]
+}
+
+// --- Custom (free-form) payment links --------------------------------------
+// Staff type arbitrary line items instead of driving the pricing calculator.
+// Shapes mirror the API `createCustomCheckoutSchema` / `sendCustomQuoteSchema`.
+
+export interface CustomLineItemInput {
+  label: string
+  description?: string
+  unitAmountCents: number
+  quantity: number
+}
+
+export interface CreateCustomCheckoutInput {
+  billingInterval: 'one_time' | 'month' | 'year'
+  items: CustomLineItemInput[]
+  /** One-time add-on items; only valid for recurring (month/year) links. */
+  oneTimeItems?: CustomLineItemInput[]
+  customerEmail?: string
+  customerName?: string
+  businessName?: string
+  /** Owner-attached coupon (`Coupon.id`). Mutually exclusive with allowPromotionCodes. */
+  couponId?: string
+  /** Let the client type a promo code at Stripe checkout. Mutually exclusive with couponId. */
+  allowPromotionCodes?: boolean
+}
+
+export interface SendCustomQuoteInput extends CreateCustomCheckoutInput {
+  recipient: SendQuoteRecipient
+}
+
+/**
+ * Coupon summary returned by `GET /coupons`. Used both by the custom-link
+ * discount picker (active coupons) and the management panel (all fields).
+ * `redeemBy`/`createdAt` arrive as ISO strings over JSON.
+ */
+export interface CouponSummary {
+  id: string
+  code: string
+  name: string | null
+  discountType: 'percent' | 'amount'
+  percentOff: number | null
+  amountOffCents: number | null
+  currency: string
+  duration: 'once' | 'forever' | 'repeating'
+  durationInMonths: number | null
+  maxRedemptions: number | null
+  redeemBy: string | null
+  timesRedeemed: number
+  active: boolean
+  createdAt: string
+}
+
+export interface ListCouponsResponse {
+  coupons: CouponSummary[]
+}
+
+/** Create-coupon payload mirroring the API `createCouponSchema` (Phase 4). */
+export interface CreateCouponInput {
+  code: string
+  name?: string
+  discountType: 'percent' | 'amount'
+  percentOff?: number
+  amountOffCents?: number
+  currency?: string
+  duration: 'once' | 'forever' | 'repeating'
+  durationInMonths?: number
+  maxRedemptions?: number
+  redeemBy?: string
 }
 
 // Request options type
@@ -123,11 +271,12 @@ async function attemptRequest<T>(url: string, fetchOptions: RequestInit, timeout
     }
 
     if (!response.ok) {
-      const errorData = data as { error?: string; message?: string }
+      const errorData = data as { code?: string; error?: string; message?: string }
       throw new ApiError(
         response.status,
-        errorData.error || 'UNKNOWN_ERROR',
-        errorData.message || errorData.error || 'An unknown error occurred'
+        errorData.code || errorData.error || 'UNKNOWN_ERROR',
+        errorData.message || errorData.error || 'An unknown error occurred',
+        errorData
       )
     }
 
@@ -248,6 +397,51 @@ export const api = {
         body: JSON.stringify(data),
         retries: 0,
       }),
+
+    sendQuote: (data: SendQuoteInput) =>
+      request<SendQuoteResponse>('/billing/quotes/send', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+
+    // Custom (free-form) payment links — staff-typed line items, not calculator-driven.
+    createCustomCheckoutSession: (data: CreateCustomCheckoutInput) =>
+      request<CheckoutSessionResponse>('/billing/checkout-sessions/custom', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+
+    sendCustomQuote: (data: SendCustomQuoteInput) =>
+      request<SendQuoteResponse>('/billing/quotes/send/custom', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+  },
+
+  // Recipient search (combined Clients + Leads) for sending pricing quotes
+  recipients: {
+    search: (q: string) =>
+      request<RecipientSearchResponse>('/recipients/search', { params: { q } }),
+  },
+
+  // Coupons (Stripe-synced) — list/create/disable for picker + management panel
+  coupons: {
+    list: (params?: { active?: boolean }) =>
+      request<ListCouponsResponse>('/coupons', {
+        params: params?.active != null ? { active: String(params.active) } : undefined,
+      }),
+
+    create: (data: CreateCouponInput) =>
+      request<CouponSummary>('/coupons', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    disable: (id: string) =>
+      request<CouponSummary>(`/coupons/${id}/disable`, { method: 'PATCH' }),
   },
 
   // Clients
@@ -440,6 +634,25 @@ export const api = {
         }
         return response.blob()
       },
+
+      // Multipart upload of a source PDF; returns the key passed to `create`.
+      uploadPdf: (clientId: string, file: File): Promise<UploadedPdfResult> =>
+        uploadAgreementPdf(`/clients/${clientId}/agreements`, file),
+
+      // Re-SMS the portal pay link for the agreement's PENDING deposit Payment.
+      resendPaymentLink: (clientId: string, agreementId: string) =>
+        request<{ success: boolean; data: { payUrl: string } }>(
+          `/clients/${clientId}/agreements/${agreementId}/resend-payment-link`,
+          { method: 'POST', retries: 0 }, // no retry — avoid duplicate SMS
+        ),
+    },
+
+    // Client payments — powers the client profile Payments tab + Overview card
+    payments: {
+      list: (clientId: string) =>
+        request<{ success: boolean; data: ClientPayment[]; pastDue?: boolean }>(
+          `/clients/${clientId}/payments`,
+        ),
     },
 
   },
@@ -1158,7 +1371,7 @@ export const api = {
         id: string
         name: string
         email: string
-        role: string
+        role: StaffAppRole
         language: Language
         orgRole: string | null
         avatarUrl: string | null
@@ -1220,12 +1433,12 @@ export const api = {
         ...(opts?.includeArchived ? { params: { includeArchived: 'true' } } : {}),
       }),
 
-    invite: (data: { emailAddress: string; role?: string }) =>
+    invite: (data: { emailAddress: string; role?: AppRole }) =>
       request<{ success: boolean; invitation: { id: string; emailAddress: string; status: string } }>(
         '/team/invite', { method: 'POST', body: JSON.stringify(data) }
       ),
 
-    updateRole: (staffId: string, role: string) =>
+    updateRole: (staffId: string, role: AppRole) =>
       request<{ success: boolean }>(`/team/members/${staffId}/role`, {
         method: 'PATCH', body: JSON.stringify({ role }),
       }),
@@ -1472,7 +1685,13 @@ export const api = {
   // Leads management (admin-only)
   leads: {
     list: (params?: { page?: number; limit?: number; status?: string; search?: string; tag?: string; includeConverted?: boolean }) =>
-      request<{ success: boolean; data: Lead[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>('/leads', { params }),
+      request<{
+        success: boolean
+        data: Lead[]
+        pagination: { page: number; limit: number; total: number; totalPages: number }
+        selectableTotal: number
+        bulkSmsMaxRecipients: number
+      }>('/leads', { params }),
 
     create: (data: { firstName: string; lastName: string; phone: string; email?: string | null; notes?: string | null }) =>
       request<{ success: boolean; data: Lead }>('/leads/admin', { method: 'POST', body: JSON.stringify(data) }),
@@ -1507,7 +1726,10 @@ export const api = {
       request<{ success: boolean; clientId: string; engagementId: string }>(`/leads/${id}/convert`, { method: 'POST', body: JSON.stringify(data) }),
 
     bulkSms: (data: { leadIds: string[]; message: string; formLinkType: 'org' | 'staff'; staffSlug?: string }) =>
-      request<{ success: boolean; sent: number; failed: number; errors?: string[] }>('/leads/bulk-sms', { method: 'POST', body: JSON.stringify(data) }),
+      request<BulkSmsResponse>('/leads/bulk-sms', { method: 'POST', body: JSON.stringify(data) }),
+
+    previewBulkSmsTargets: (data: { status?: string; search?: string; tag?: string; includeConverted?: boolean; limit?: number }) =>
+      request<{ success: boolean; data: BulkSmsTargetPreview }>('/leads/bulk-sms/preview-targets', { method: 'POST', body: JSON.stringify(data) }),
 
     delete: (id: string) =>
       request<{ success: boolean }>(`/leads/${id}`, { method: 'DELETE' }),
@@ -1576,6 +1798,10 @@ export const api = {
         }
         return response.blob()
       },
+
+      // Multipart upload of a source PDF; returns the key passed to `create`.
+      uploadPdf: (leadId: string, file: File): Promise<UploadedPdfResult> =>
+        uploadAgreementPdf(`/leads/${leadId}/agreements`, file),
     },
 
     // Two-way Staff ↔ Lead SMS (polymorphic Message.leadId)
@@ -1694,8 +1920,15 @@ export type LeadStatus = 'NEW' | 'SENT' | 'CONTACTED' | 'CONVERTED' | 'LOST'
 
 export interface SmsSendLog {
   id: string
-  message: string
+  message?: string
   status: string
+  error?: string | null
+  sentAt: string
+}
+
+export interface LatestLeadSms {
+  status: 'SENT' | 'DELIVERED' | 'UNDELIVERED' | 'FAILED'
+  error: string | null
   sentAt: string
 }
 
@@ -1719,6 +1952,31 @@ export interface Lead {
   createdAt: string
   updatedAt: string
   smsSendLogs?: SmsSendLog[]
+  latestSms?: LatestLeadSms | null
+}
+
+export interface BulkSmsTargetPreview {
+  total: number
+  selectableTotal: number
+  returnedIds: string[]
+  limit: number
+  truncated: boolean
+}
+
+export interface BulkSmsResult {
+  leadId: string
+  name: string
+  status: 'sent' | 'failed'
+  error?: string
+}
+
+export interface BulkSmsResponse {
+  success: boolean
+  sent: number
+  failed: number
+  limit: number
+  results: BulkSmsResult[]
+  errors?: string[]
 }
 
 export type NdaStatus = 'DRAFT' | 'SENT' | 'SIGNED' | 'EXPIRED' | 'VOIDED'
@@ -1773,11 +2031,32 @@ export interface Agreement {
  * NDA-typed rows where `depositStatus` is non-null in practice. */
 export type NdaAgreement = Agreement & { depositStatus: DepositStatus }
 
+// Client payments (deposit collected after agreement signing, etc.)
+export type PaymentType = 'DEPOSIT' | 'BALANCE' | 'OTHER' | 'RECURRING'
+export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'CANCELED'
+
+export interface ClientPayment {
+  id: string
+  type: PaymentType
+  status: PaymentStatus
+  /** Decimal serialized as string, e.g. "500.00" */
+  amount: string
+  currency: string
+  description: string | null
+  paidAt: string | null
+  createdAt: string
+  agreement: { id: string; title: string } | null
+  /** Public portal pay page URL for this payment's payToken */
+  payUrl: string
+}
+
 export interface CreateAgreementPayload {
   type?: AgreementType
   title?: string
   contentHtml?: string
   templateId?: string
+  /** R2 key from `uploadPdf`. When set, the agreement body is the uploaded PDF. */
+  uploadedPdfKey?: string
   /** Pass `null` to explicitly skip deposit; positive decimal string otherwise. */
   depositAmount?: string | null
   /** Staff-only context, never shown to recipient. Omit/blank → skipped. */
@@ -3305,6 +3584,16 @@ export type UploadLinkTemplateId = 'official-channel' | 'tax-documents'
 /** Organization role values from Clerk */
 export type OrgRole = 'org:admin' | 'org:member'
 
+/** DB-level Staff.role values (source of truth for app permissions) */
+export type StaffAppRole = 'ADMIN' | 'MANAGER' | 'STAFF' | 'CPA'
+
+/**
+ * App-level roles accepted by team invite/role-change endpoints.
+ * Server maps: ADMIN -> org:admin + Staff.role=ADMIN,
+ * MANAGER -> org:member + Staff.role=MANAGER, MEMBER -> org:member + Staff.role=STAFF
+ */
+export type AppRole = 'ADMIN' | 'MANAGER' | 'MEMBER'
+
 export interface TeamMember {
   id: string
   clerkId: string
@@ -3323,6 +3612,8 @@ export interface TeamInvitation {
   id: string
   emailAddress: string
   role: OrgRole
+  /** Intended Staff.role carried in invitation metadata (distinguishes MANAGER invites) */
+  staffRole: 'ADMIN' | 'MANAGER' | 'STAFF'
   status: string
   createdAt: number
 }
@@ -3341,6 +3632,10 @@ export interface StaffProfile {
   title: string | null
   notifyOnUpload: boolean
   notifyOnChat: boolean
+  /** ADMIN-only: SMS when a client signs an agreement */
+  notifyOnAgreementSigned: boolean
+  /** ADMIN-only: SMS when a client completes a payment */
+  notifyOnClientPayment: boolean
   formSlug: string | null
   autoSendUploadLink: boolean
   defaultUploadLinkTemplateId: UploadLinkTemplateId | null
@@ -3382,6 +3677,9 @@ export interface UpdateStaffProfileInput {
   title?: string | null
   notifyOnUpload?: boolean
   notifyOnChat?: boolean
+  /** ADMIN-only — server rejects for non-ADMIN staff */
+  notifyOnAgreementSigned?: boolean
+  notifyOnClientPayment?: boolean
 }
 
 export interface ContractorAgreementStatus {

@@ -134,7 +134,7 @@ vi.mock('../../../middleware/auth', () => {
     await next()
   }
   const requireOrgAdmin = async (_c: any, next: () => Promise<void>) => next()
-  return { authMiddleware, requireOrgAdmin }
+  return { authMiddleware, requireOrgAdmin, requireAdminOrManager: requireOrgAdmin }
 })
 
 import { Hono } from 'hono'

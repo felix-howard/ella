@@ -8,6 +8,7 @@ import { prisma } from '../../lib/db'
 import { listActionsQuerySchema, updateActionSchema } from './schemas'
 import type { ActionType, ActionPriority } from '@ella/db'
 import { buildClientScopeFilter } from '../../lib/org-scope'
+import { serializePhone } from '../../lib/phone-privacy'
 import type { AuthVariables } from '../../middleware/auth'
 
 const actionsRoute = new Hono<{ Variables: AuthVariables }>()
@@ -65,6 +66,10 @@ actionsRoute.get('/', zValidator('query', listActionsQuerySchema), async (c) => 
   const formatActions = (list: typeof actions) =>
     list.map((a) => ({
       ...a,
+      taxCase: {
+        ...a.taxCase,
+        client: { ...a.taxCase.client, phone: serializePhone(user, a.taxCase.client.phone) },
+      },
       createdAt: a.createdAt.toISOString(),
       updatedAt: a.updatedAt.toISOString(),
     }))
@@ -102,6 +107,10 @@ actionsRoute.get('/:id', async (c) => {
 
   return c.json({
     ...action,
+    taxCase: {
+      ...action.taxCase,
+      client: { ...action.taxCase.client, phone: serializePhone(user, action.taxCase.client.phone) },
+    },
     createdAt: action.createdAt.toISOString(),
     updatedAt: action.updatedAt.toISOString(),
   })

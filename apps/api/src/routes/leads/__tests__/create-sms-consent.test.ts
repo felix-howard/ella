@@ -66,6 +66,7 @@ vi.mock('../../../services/activity-log', () => ({
 vi.mock('../../../middleware/auth', () => ({
   authMiddleware: async (_c: any, next: () => Promise<void>) => next(),
   requireOrgAdmin: async (_c: any, next: () => Promise<void>) => next(),
+  requireAdminOrManager: async (_c: any, next: () => Promise<void>) => next(),
 }))
 
 import { Hono } from 'hono'

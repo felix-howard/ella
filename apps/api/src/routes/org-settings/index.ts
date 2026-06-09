@@ -7,6 +7,7 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { ActivityRiskLevel, Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
+import { isAdminOrManager } from '../../lib/org-scope'
 import { clerkClient } from '../../lib/clerk-client'
 import { formatPhoneToE164, isValidPhoneNumber } from '../../services/sms'
 import { UPLOAD_LINK_TEMPLATE_IDS } from '../../services/sms/upload-link-template-resolver'
@@ -106,8 +107,8 @@ orgSettingsRoute.patch(
 
     const data = c.req.valid('json')
 
-    // Only admins can update org settings
-    if (user.orgRole !== 'org:admin' && user.role !== 'ADMIN') {
+    // Only admins/managers can update org settings
+    if (!isAdminOrManager(user)) {
       if (user.staffId) {
         await logStaffActivity({
           organizationId: user.organizationId,

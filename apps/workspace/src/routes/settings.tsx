@@ -50,7 +50,7 @@ function SettingsPage() {
   const { t } = useTranslation()
   const { tab, focus } = Route.useSearch()
   const navigate = useNavigate()
-  const { isAdmin } = useOrgRole()
+  const { canManageClients } = useOrgRole()
   const activeTab = tab || 'general'
 
   const handleTabChange = (value: string) => {
@@ -102,7 +102,7 @@ function SettingsPage() {
               <LinkIcon className="w-4 h-4" />
               {t('settings.tabFormLinks')}
             </TabsTrigger>
-            {isAdmin && (
+            {canManageClients && (
               <TabsTrigger value="agreement-templates" className="flex items-center gap-2">
                 <FileSignature className="w-4 h-4" />
                 {t('settings.tabAgreementTemplates')}

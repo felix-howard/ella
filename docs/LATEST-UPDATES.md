@@ -1,5 +1,84 @@
 # Latest Documentation Updates
 
+**Date:** 2026-06-09 | **Feature:** Lead Bulk SMS Contract Update COMPLETE | **Status:** Complete; browser QA pending
+
+## Lead Bulk SMS Contract Update
+
+**Date:** 2026-06-09 | **Status:** Complete; browser QA pending
+
+**In One Sentence:** Tightened the lead bulk SMS contract around a shared 200-recipient cap, added all-filtered selection support, surfaced lead SMS delivery state (`latestSms`, `selectableTotal`, `bulkSmsMaxRecipients`), added a preview-targets endpoint, and returned per-recipient send results with converted-lead rejection.
+
+**Key Components Shipped:**
+
+### Shared Constants
+- `BULK_SMS_MAX_RECIPIENTS = 200` now lives in `@ella/shared/constants` and is reused by shared schemas, API validation, and workspace client types.
+
+### Backend API
+- `GET /leads` now returns `latestSms` per lead plus `selectableTotal` and `bulkSmsMaxRecipients` for bulk planning.
+- `POST /leads/bulk-sms/preview-targets` previews eligible lead ids before send.
+- `POST /leads/bulk-sms` rejects converted leads up front, returns per-recipient `results`, and surfaces structured limit/error codes.
+- `POST /webhooks/twilio/status` continues to move delivered lead SMS from `NEW`/`SENT` to `CONTACTED` and persists failed/undelivered states for latest-SMS UI.
+
+### Workspace UI
+- `apps/workspace/src/lib/api-client.ts` now types the updated list response and preview/send payloads against the shared 200-recipient ceiling.
+- Leads list selection now supports all filtered eligible leads up to 200 recipients and shows over-limit narrowing guidance.
+- Lead rows/detail surfaces show compact SMS delivery indicators, and the bulk SMS dialog keeps the per-recipient send summary visible for retry/diagnosis.
+
+### Documentation Sync
+- `docs/system-architecture.md`, `docs/codebase-summary.md`, and `docs/project-changelog.md` now match the updated SMS contract.
+
+### Validation
+- API bulk SMS + Twilio status webhook tests pass.
+- Workspace transparency test, touched package type-checks, and workspace build pass.
+- Manual browser QA checklist is recorded in the Phase 04 plan file and remains pending for an authenticated seeded workspace.
+
+---
+
+**Date:** 2026-06-08 | **Feature:** Custom Payment Links + Coupons (Phases 1-7) COMPLETE | **Status:** Complete
+
+---
+
+## Custom Payment Links + Coupons Feature Complete
+
+**Date:** 2026-06-08 | **Status:** Complete (All 7 Phases)
+
+**In One Sentence:** Shipped second source of Stripe payment links (staff-driven free-form quotes) with Stripe-native coupon management, per-line billing intervals, and portal pay page enhancements.
+
+**Key Components Shipped:**
+
+### Database Schema
+- Migration `20260608145601_custom_links_and_coupons` extends `PaymentQuote` with: `source` (calculator | custom), `billingInterval` (one-time | monthly | yearly per-line), `appliedCouponId`, `allowPromotionCodes`.
+- New `Coupon` model (organizationId, name, code, stripeId, discountType, discountValue, maxRedemptions, expiresAt, active) bidirectionally synced with Stripe.
+
+### Backend API Services
+- **Quote Building:** `custom-quote-builder.ts` (staff free-form line items), `checkout-line-items.ts` (normalized per-item intervals), `quote-rebuild.ts` (drift-safe: calculator recalcs from inputSnapshot, custom reads frozen resultSnapshot).
+- **Stripe Integration:** Generalized `buildCheckoutSessionParams(lineItems[], opts)` handles mixed intervals. Enforces Stripe XOR rule: coupon OR promotion-codes, not both.
+- **Coupon Routes:** POST/GET/PATCH/DELETE `/coupons` with real-time Stripe Coupon + Promotion Code sync (deactivate on delete).
+- **Checkout Session:** `POST /billing/checkout-sessions` branches on quote.source: calculator quote rebuilt from inputs, custom quote uses frozen line items.
+
+### Workspace UI
+- **Custom Link Tab:** Staff create free-form quotes—per-line label, description, amount, quantity, interval picker (one-time | monthly | yearly). Optional coupon attachment. Select client/lead, send SMS pay link.
+- **Coupon Management Tab:** Create/edit/delete coupons. Live Stripe sync feedback (coupon + promotion code creation/deactivation).
+
+### Portal Pay Page
+- New `PublicQuoteView.billingInterval` exposes per-line cadence.
+- UI renders per-line descriptions, "Monthly" / "Yearly" group headers, /mo vs /yr cadence badges.
+
+### Backward Compatibility
+- ✅ Existing calculator quotes preserved (source defaults to 'calculator', rebuild logic unchanged).
+- ✅ Portal pay page gracefully handles missing billingInterval (one-time fallback).
+- ✅ Custom quotes are additive (new feature, no breaking changes).
+
+**Files Updated:**
+- `docs/system-architecture.md` — Billing section: added two-source architecture, coupon model, per-line intervals.
+- `docs/codebase-summary.md` — Latest Phase entry updated with feature summary.
+
+**Validation:**
+- All 7 phases complete: DB migration ✓, API routes ✓, workspace UI ✓, coupon Stripe sync ✓, portal pay page ✓.
+- Multi-interval checkout tested. Coupon XOR enforcement verified. Webhook handler tested.
+
+---
+
 **Date:** 2026-04-21 | **Feature:** Shared Docs Rework Phase 05 (Portal Viewer Updates) COMPLETE | **Status:** Complete
 
 ---

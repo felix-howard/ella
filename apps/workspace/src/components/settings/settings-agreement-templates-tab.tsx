@@ -1,6 +1,6 @@
 /**
- * Settings → Agreement Templates tab. Org-admin only.
- * Non-admins see a friendly notice (parent already hides the tab trigger,
+ * Settings → Agreement Templates tab. Admin/Manager only.
+ * Others see a friendly notice (parent already hides the tab trigger,
  * but the route accepts ?tab=agreement-templates so we still gate here).
  */
 import { useTranslation } from 'react-i18next'
@@ -10,7 +10,7 @@ import { TemplateList } from '../agreement-templates/template-list'
 
 export function SettingsAgreementTemplatesTab() {
   const { t } = useTranslation()
-  const { isAdmin, isLoading } = useOrgRole()
+  const { canManageClients, isLoading } = useOrgRole()
 
   if (isLoading) {
     return (
@@ -20,7 +20,7 @@ export function SettingsAgreementTemplatesTab() {
     )
   }
 
-  if (!isAdmin) {
+  if (!canManageClients) {
     return (
       <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
         {t('agreementTemplates.adminOnly')}

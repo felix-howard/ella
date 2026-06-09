@@ -89,7 +89,15 @@ app.use(requireOrgAdmin) // Verify org:admin role (Clerk)
 **Frontend Auth (React):**
 - `ClerkAuthProvider` - Wraps root, sets JWT token getter, clears React Query cache on sign-out
 - `useAutoOrgSelection()` - Auto-selects first Clerk org on sign-in
-- `useOrgRole()` - Returns `{ isAdmin, role }` for RBAC checks
+- `useOrgRole()` - Returns capability flags: `{ isAdmin, isManager, canManageClients, canViewPhone, canManageTeam, ...role booleans }` for RBAC (Phase 4)
+
+**Frontend Capability-Flag Convention (Phase 4 - MANAGER Role):**
+- **Pattern:** Components consume semantic capability flags from `useOrgRole()`, never compare role string literals (`org:admin`, `'ADMIN'`, etc.) for permission checks.
+- **Flags in Hook:** (1) `isManager` - Staff.role === 'MANAGER'. (2) `canManageClients` - isAdmin || isManager (mirrors server admin-or-manager gate). (3) `canViewPhone` - isAdmin only (server masks via `serializePhone()`). (4) `canManageTeam` - isAdmin only.
+- **Example Anti-Pattern (BAD):** `if (orgRole === 'org:admin' || role === 'ADMIN') { ... }` in components. Use capability flag instead.
+- **Example Good Pattern:** `if (canManageTeam) { <Team nav item /> }` in sidebar; `if (canManageClients) { <Leads nav item /> }`.
+- **Phone Display Invariant:** `formatPhone()` passes server-masked values (containing '*') unchanged. Never strip or re-format masked values in UI; server masking via `serializePhone()` is authoritative source of truth.
+- **App-Level Roles (Phase 4):** `AppRole = 'ADMIN' | 'MANAGER' | 'MEMBER'` used in team invite/role-change payloads, mirrors backend `APP_ROLES` constant in `apps/api/src/lib/staff-role-mapping.ts`. Frontend mutates with AppRole; API returns Staff.role (database source of truth).
 
 ## Shared Types & Validation (@ella/shared)
 
@@ -352,13 +360,23 @@ export function MyComponent() {
 - Audit logging tracks all org-scoped changes
 
 **Permission Model:**
-- **ADMIN:** Full org access, manage team + assign clients
-- **STAFF:** Managed clients only via matching `ClientManager` links (legacy `managedById` still mirrors the primary manager during rollout), no team management
+- **ADMIN:** Full org access: team management (invite/role/deactivate), all clients, admin config, billing, leads, cases, campaigns, agreements, 1099-NEC, org settings, activity timeline
+- **MANAGER:** Client/operational management: admin config, clients (create/assign), leads, cases, campaigns, agreements, 1099-NEC, billing checkout, org settings, activity timeline. Blocked: team management endpoints. **Phone Privacy (Phase 3):** Server enforces masking via `serializePhone()` on all workspace-facing API responses—returns `*** *** {last4}` for MANAGER/STAFF/CPA across clients, leads, engagements, messages, cases, managed-clients, and team profiles. Internal logic (SMS send, lead-convert phone match, voice lookup) uses raw numbers.
+- **STAFF:** Managed clients only via matching `ClientManager` links (legacy `managedById` still mirrors the primary manager during rollout), no admin functions. Receives masked phone in all responses.
 - **CPA:** Future role for CPA firm integrations
 
 **Role-Based Middleware:**
-- `requireOrg` - All protected endpoints
-- `requireOrgAdmin` - Team management endpoints only
+- `requireOrg` - All protected endpoints (verify orgId in JWT)
+- `requireOrgAdmin` - Team management endpoints only (invite/role/deactivate staff)
+- `requireAdminOrManager` - All admin-gated endpoints except team management (org:admin, ADMIN, or MANAGER role)
+
+**Role-Check Helper Rule (MANDATORY):**
+- Backend role checks MUST use the central helpers — never inline role literals (`user.role === 'MANAGER'`, `orgRole === 'org:admin'`) in routes/services:
+  - `isAdminOrManager(user)` / `canSeeAllClients(user)` (`apps/api/src/lib/org-scope.ts`) — admin-or-manager tier predicate / org-wide client visibility
+  - `canViewFullPhone(user)` / `serializePhone(user, phone)` (`apps/api/src/lib/phone-privacy.ts`) — phone privacy (ADMIN-only full numbers); apply `serializePhone` at response-build points only, internal logic (SMS, lead-convert matching, voice lookup) keeps raw values
+  - `requireAdminOrManager` / `requireOrgAdmin` middleware (`apps/api/src/middleware/auth.ts`) — route gating
+- Rationale: the MANAGER tier is encoded in exactly one place (`isAdminOrManager`); inline literals silently drift when roles change
+- Regression tests enforce the matrix: `apps/api/src/routes/__tests__/manager-role-authorization.test.ts`
 
 ## Document Classification & AI
 

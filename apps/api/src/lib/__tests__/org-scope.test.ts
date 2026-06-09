@@ -15,7 +15,14 @@ vi.mock('../db', () => ({
   },
 }))
 
-import { buildClientScopeFilter, buildNestedClientScope, verifyClientAccess, verifyBusinessClient } from '../org-scope'
+import {
+  buildClientScopeFilter,
+  buildNestedClientScope,
+  verifyClientAccess,
+  verifyBusinessClient,
+  isAdminOrManager,
+  canSeeAllClients,
+} from '../org-scope'
 import { prisma } from '../db'
 
 function makeUser(overrides: Partial<AuthUser> = {}): AuthUser {
@@ -32,6 +39,33 @@ function makeUser(overrides: Partial<AuthUser> = {}): AuthUser {
   }
 }
 
+describe('isAdminOrManager / canSeeAllClients', () => {
+  it('true for Clerk org:admin regardless of app role', () => {
+    const user = makeUser({ orgRole: 'org:admin', role: 'STAFF' })
+    expect(isAdminOrManager(user)).toBe(true)
+    expect(canSeeAllClients(user)).toBe(true)
+  })
+
+  it('true for app-level ADMIN even when Clerk says org:member', () => {
+    const user = makeUser({ orgRole: 'org:member', role: 'ADMIN' })
+    expect(isAdminOrManager(user)).toBe(true)
+    expect(canSeeAllClients(user)).toBe(true)
+  })
+
+  it('true for app-level MANAGER (Clerk stays org:member)', () => {
+    const user = makeUser({ orgRole: 'org:member', role: 'MANAGER' })
+    expect(isAdminOrManager(user)).toBe(true)
+    expect(canSeeAllClients(user)).toBe(true)
+  })
+
+  it('false for STAFF and CPA', () => {
+    expect(isAdminOrManager(makeUser({ role: 'STAFF' }))).toBe(false)
+    expect(canSeeAllClients(makeUser({ role: 'STAFF' }))).toBe(false)
+    expect(isAdminOrManager(makeUser({ role: 'CPA' }))).toBe(false)
+    expect(canSeeAllClients(makeUser({ role: 'CPA' }))).toBe(false)
+  })
+})
+
 describe('buildClientScopeFilter', () => {
   it('admin: filters by org only, no manager filter', () => {
     const user = makeUser({ orgRole: 'org:admin' })
@@ -40,6 +74,39 @@ describe('buildClientScopeFilter', () => {
     expect(where).toEqual({ organizationId: 'org_1' })
     expect(where).not.toHaveProperty('managedById')
     expect(where).not.toHaveProperty('managers')
+  })
+
+  it('MANAGER: org-wide filter, no manager relation (sees all org clients)', () => {
+    // MANAGER tier: Clerk role stays org:member; app role drives the scope
+    const user = makeUser({ orgRole: 'org:member', role: 'MANAGER' })
+    const where = buildClientScopeFilter(user)
+
+    expect(where).toEqual({ organizationId: 'org_1' })
+    expect(where).not.toHaveProperty('managers')
+  })
+
+  it('MANAGER with no org: failsafe blocks access (no org-wide leak)', () => {
+    const user = makeUser({ organizationId: null, orgRole: 'org:member', role: 'MANAGER' })
+    const where = buildClientScopeFilter(user)
+
+    expect(where).toEqual({ id: '__NO_ACCESS__' })
+  })
+
+  it('app-level ADMIN with org:member Clerk role: org-wide filter', () => {
+    const user = makeUser({ orgRole: 'org:member', role: 'ADMIN' })
+    const where = buildClientScopeFilter(user)
+
+    expect(where).toEqual({ organizationId: 'org_1' })
+  })
+
+  it('CPA: filters by org + manager relation (assigned clients only)', () => {
+    const user = makeUser({ orgRole: 'org:member', role: 'CPA' })
+    const where = buildClientScopeFilter(user)
+
+    expect(where).toEqual({
+      organizationId: 'org_1',
+      managers: { some: { staffId: 'staff_1' } },
+    })
   })
 
   it('member: filters by org + manager relation', () => {
@@ -119,6 +186,13 @@ describe('buildNestedClientScope', () => {
         managers: { some: { staffId: 'staff_1' } },
       },
     })
+  })
+
+  it('MANAGER: nested filter is org-wide, no manager relation', () => {
+    const user = makeUser({ orgRole: 'org:member', role: 'MANAGER' })
+    const where = buildNestedClientScope(user)
+
+    expect(where).toEqual({ client: { organizationId: 'org_1' } })
   })
 
   it('returns failsafe nested when no scope applicable', () => {

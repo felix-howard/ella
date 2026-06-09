@@ -15,6 +15,7 @@ import { LeadListPagination } from '../../components/leads/lead-list-pagination'
 import { BulkSmsDialog } from '../../components/leads/bulk-sms-dialog'
 import { CampaignsTab } from '../../components/leads/campaigns-tab'
 import { AddLeadModal } from '../../components/leads/add-lead-modal'
+import { useLeadBulkSelection } from '../../components/leads/use-lead-bulk-selection'
 import { api } from '../../lib/api-client'
 import type { Lead, LeadStatus } from '../../lib/api-client'
 import { useDebouncedValue } from '../../hooks'
@@ -31,7 +32,6 @@ function LeadsPage() {
   const [statusFilter, setStatusFilter] = useState<LeadStatus | ''>('')
   const [tagFilter, setTagFilter] = useState('')
   const [showConverted, setShowConverted] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showBulkSms, setShowBulkSms] = useState(false)
   const [showAddLead, setShowAddLead] = useState(false)
   const [page, setPage] = useState(1)
@@ -44,7 +44,7 @@ function LeadsPage() {
     staleTime: 60_000,
   })
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isPlaceholderData } = useQuery({
     queryKey: ['leads', page, debouncedSearch, statusFilter, tagFilter, showConverted],
     queryFn: () => api.leads.list({
       page,
@@ -60,28 +60,43 @@ function LeadsPage() {
   const leads = useMemo(() => data?.data ?? [], [data?.data])
   const pagination = data?.pagination
   const totalPages = pagination?.totalPages ?? 1
-
-  const selectableLeads = useMemo(
-    () => leads.filter((l) => l.status !== 'CONVERTED'),
-    [leads],
-  )
+  const selectableTotal = data?.selectableTotal ?? 0
 
   const hasActiveFilters = Boolean(debouncedSearch || statusFilter || tagFilter)
-
-  const handleSelect = useCallback((id: string, selected: boolean) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (selected) next.add(id); else next.delete(id)
-      return next
-    })
-  }, [])
-
-  const handleSelectAll = useCallback((selected: boolean) => {
-    setSelectedIds(selected ? new Set(selectableLeads.map((l) => l.id)) : new Set())
-  }, [selectableLeads])
+  const getTruncatedMessage = useCallback(
+    (limit: number) => t('leads.bulkSmsTargetTruncated', { limit }),
+    [t],
+  )
+  const getTargetErrorMessage = useCallback(
+    (error: unknown) => error instanceof Error ? error.message : t('common.error', 'Error'),
+    [t],
+  )
+  const {
+    selectedIds,
+    selectedLeadIds,
+    selectionMode,
+    previewLead,
+    bulkSmsLimit,
+    isFetchingTargets,
+    targetPreviewError,
+    clearSelection,
+    handleSelect,
+    handleSelectAll,
+    handleSelectAllFiltered,
+  } = useLeadBulkSelection({
+    leads,
+    debouncedSearch,
+    statusFilter,
+    tagFilter,
+    showConverted,
+    selectableTotal,
+    bulkSmsMaxRecipients: data?.bulkSmsMaxRecipients,
+    getTruncatedMessage,
+    getErrorMessage: getTargetErrorMessage,
+  })
 
   // Reset selection + page whenever filters mutate
-  const resetPagingAndSelection = () => { setPage(1); setSelectedIds(new Set()) }
+  const resetPagingAndSelection = () => { setPage(1); clearSelection() }
 
   const handleSearchChange = (value: string) => { setSearch(value); resetPagingAndSelection() }
   const handleStatusChange = (status: LeadStatus | '') => { setStatusFilter(status); resetPagingAndSelection() }
@@ -90,14 +105,14 @@ function LeadsPage() {
   const handleClearFilters = () => {
     setSearch(''); setStatusFilter(''); setTagFilter(''); setShowConverted(false); resetPagingAndSelection()
   }
-  const handlePageChange = (newPage: number) => { setPage(newPage); setSelectedIds(new Set()) }
+  const handlePageChange = (newPage: number) => setPage(newPage)
   const handleRowClick = (lead: Lead) => {
     navigate({ to: '/leads/$leadId', params: { leadId: lead.id } })
   }
 
   const handleViewCampaignLeads = useCallback((tag: string) => {
-    setTagFilter(tag); setPage(1); setSelectedIds(new Set()); setActiveTab('leads')
-  }, [])
+    setTagFilter(tag); setPage(1); clearSelection(); setActiveTab('leads')
+  }, [clearSelection])
 
   return (
     <PageContainer>
@@ -157,8 +172,15 @@ function LeadsPage() {
           <LeadListTable
             leads={leads}
             selectedIds={selectedIds}
+            selectionMode={selectionMode}
+            selectableTotal={selectableTotal}
+            bulkSmsLimit={bulkSmsLimit}
+            isFetchingTargets={isFetchingTargets}
+            targetPreviewError={targetPreviewError}
+            selectionDisabled={isPlaceholderData}
             onSelect={handleSelect}
             onSelectAll={handleSelectAll}
+            onSelectAllFiltered={handleSelectAllFiltered}
             onRowClick={handleRowClick}
             isLoading={isLoading}
             hasActiveFilters={hasActiveFilters}
@@ -170,16 +192,22 @@ function LeadsPage() {
             <LeadListPagination page={page} totalPages={totalPages} onPageChange={handlePageChange} />
           )}
 
+          {selectedIds.size > 0 && <div className="h-20 sm:h-16" aria-hidden="true" />}
+
           <FloatingBulkBar
             selectedCount={selectedIds.size}
+            maxRecipients={bulkSmsLimit}
             onSendSms={() => setShowBulkSms(true)}
-            onClear={() => setSelectedIds(new Set())}
+            onClear={clearSelection}
           />
 
           {showBulkSms && (
             <BulkSmsDialog
-              leads={leads.filter((l) => selectedIds.has(l.id))}
-              onClose={() => { setShowBulkSms(false); setSelectedIds(new Set()) }}
+              leadIds={selectedLeadIds}
+              selectedCount={selectedIds.size}
+              previewLead={previewLead}
+              maxRecipients={bulkSmsLimit}
+              onClose={() => { setShowBulkSms(false); clearSelection() }}
             />
           )}
 

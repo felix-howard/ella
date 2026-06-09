@@ -18,7 +18,7 @@ export const basePricingInput: CheckoutPricingInput = {
     tiers: { basicMonthly: 75, proMonthly: 85, vipMonthly: 85 },
     payroll: { baseMonthly: 50 },
     cashPlan: { setup: 1000, perEmployeeMonthly: 5, perOwnerMonthly: 50 },
-    auditProtection: { monthly: 300, setup: 500 },
+    auditProtection: { monthly: 300, setup: 1000 },
     oneTime: {
       startLlc: 1500,
       holdingLlcNew: 4000,

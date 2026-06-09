@@ -16,7 +16,10 @@ import type { ClientWithActions, StaffManagerSummary } from '../../lib/api-clien
 interface ClientListTableProps {
   clients: ClientWithActions[]
   isLoading?: boolean
-  isAdmin?: boolean
+  /** ADMIN + MANAGER — shows Managed-By column */
+  canManageClients?: boolean
+  /** ADMIN only — full phone display (server masks for others; this is defense-in-depth) */
+  canViewPhone?: boolean
 }
 
 /** Row entry with grouping metadata */
@@ -82,13 +85,13 @@ function groupClients(clients: ClientWithActions[]): GroupedRow[] {
   return result
 }
 
-export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTableProps) {
+export function ClientListTable({ clients, isLoading, canManageClients, canViewPhone }: ClientListTableProps) {
   const { t } = useTranslation()
 
   const groupedRows = useMemo(() => groupClients(clients), [clients])
 
   if (isLoading) {
-    return <ClientListTableSkeleton isAdmin={isAdmin} />
+    return <ClientListTableSkeleton canManageClients={canManageClients} />
   }
 
   if (clients.length === 0) {
@@ -116,7 +119,7 @@ export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTable
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
                 {t('clients.documents')}
               </th>
-              {isAdmin && (
+              {canManageClients && (
                 <th className="text-left font-medium text-muted-foreground px-4 py-3">
                   {t('team.managedBy')}
                 </th>
@@ -139,7 +142,8 @@ export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTable
                 key={row.client.id}
                 client={row.client}
                 isLast={index === groupedRows.length - 1}
-                isAdmin={isAdmin}
+                canManageClients={canManageClients}
+                canViewPhone={canViewPhone}
                 isGroupedBusiness={row.isGroupedBusiness}
                 ownerName={row.ownerName}
               />
@@ -154,12 +158,13 @@ export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTable
 interface ClientRowProps {
   client: ClientWithActions
   isLast: boolean
-  isAdmin?: boolean
+  canManageClients?: boolean
+  canViewPhone?: boolean
   isGroupedBusiness?: boolean
   ownerName?: string
 }
 
-const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBusiness, ownerName }: ClientRowProps) {
+const ClientRow = memo(function ClientRow({ client, isLast, canManageClients, canViewPhone, isGroupedBusiness, ownerName }: ClientRowProps) {
   const { t, i18n } = useTranslation()
   const { computedStatus, actionCounts, latestCase, uploads } = client
   const isBusiness = client.clientType === 'BUSINESS'
@@ -227,7 +232,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
 
       {/* Phone column */}
       <td className="px-4 py-3 whitespace-nowrap align-middle">
-        <span className="text-muted-foreground">{isAdmin ? formatPhone(client.phone) : maskPhone(client.phone)}</span>
+        <span className="text-muted-foreground">{canViewPhone ? formatPhone(client.phone) : maskPhone(client.phone)}</span>
       </td>
 
       {/* Tax Year column */}
@@ -272,8 +277,8 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
         )}
       </td>
 
-      {/* Managed by column (admin only) */}
-      {isAdmin && (
+      {/* Managed by column (admin/manager only) */}
+      {canManageClients && (
         <td className="px-4 py-3 align-middle">
           {managers.length > 0 ? (
             <ManagerCell managers={managers} />
@@ -426,9 +431,9 @@ function ManagerAvatar({ manager }: { manager: StaffManagerSummary }) {
 }
 
 /**
- * Skeleton loader for table - accepts isAdmin to match live table column layout
+ * Skeleton loader for table - accepts canManageClients to match live table column layout
  */
-export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
+export function ClientListTableSkeleton({ canManageClients }: { canManageClients?: boolean }) {
   return (
     <div className="bg-card rounded-xl shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
@@ -450,7 +455,7 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
                 <div className="h-4 w-20 bg-muted rounded animate-pulse" />
               </th>
-              {isAdmin && (
+              {canManageClients && (
                 <th className="text-left font-medium text-muted-foreground px-4 py-3">
                   <div className="h-4 w-[150px] bg-muted rounded animate-pulse" />
                 </th>
@@ -491,7 +496,7 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
                 <td className="px-4 py-3 hidden lg:table-cell">
                   <div className="h-5 w-16 bg-muted rounded-full animate-pulse" />
                 </td>
-                {isAdmin && (
+                {canManageClients && (
                   <td className="px-4 py-3">
                     <div className="h-4 w-[150px] bg-muted rounded animate-pulse" />
                   </td>

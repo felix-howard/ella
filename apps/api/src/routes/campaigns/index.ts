@@ -9,7 +9,7 @@ import { prisma } from '../../lib/db'
 import { config } from '../../lib/config'
 import { sanitizeTextInput } from '../../lib/validation'
 import { sanitizeFormIntroContent } from '../../lib/sanitize-html'
-import { authMiddleware, requireOrgAdmin } from '../../middleware/auth'
+import { authMiddleware, requireAdminOrManager } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import type { AuthUser } from '../../services/auth'
 import { getSignedDownloadUrl, uploadFile } from '../../services/storage'
@@ -73,7 +73,7 @@ function getApiOrigin(requestUrl: string): string {
 campaignsRoute.get(
   '/',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   async (c) => {
     const { orgId } = getVerifiedAuth(c.get('user'))
 
@@ -141,7 +141,7 @@ campaignsRoute.get('/intro-images/:token', async (c) => {
 campaignsRoute.post(
   '/intro-images',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   async (c) => {
     const { orgId } = getVerifiedAuth(c.get('user'))
     const body = await c.req.parseBody()
@@ -182,7 +182,7 @@ campaignsRoute.post(
 campaignsRoute.post(
   '/',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('json', createCampaignSchema),
   async (c) => {
     const { orgId, staffId } = getVerifiedAuth(c.get('user'))
@@ -222,7 +222,7 @@ campaignsRoute.post(
 campaignsRoute.patch(
   '/:id',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', campaignIdParamSchema),
   zValidator('json', updateCampaignSchema),
   async (c) => {
@@ -270,7 +270,7 @@ campaignsRoute.patch(
 campaignsRoute.delete(
   '/:id',
   authMiddleware,
-  requireOrgAdmin,
+  requireAdminOrManager,
   zValidator('param', campaignIdParamSchema),
   async (c) => {
     const { orgId } = getVerifiedAuth(c.get('user'))

@@ -5,6 +5,7 @@
  */
 import type { WebhookEvent } from '@clerk/backend'
 import { prisma } from '../../lib/db'
+import { resolveStaffRoleFromClerk } from '../../lib/staff-role-mapping'
 import { getStaffFormSlugData } from '../staff-form-slug'
 
 // --- Type definitions for Clerk event data ---
@@ -32,6 +33,8 @@ interface OrganizationEventData {
 interface MembershipEventData {
   id: string
   role: string
+  /** Membership metadata - carries invitation publicMetadata (e.g. staffRole) after accept */
+  public_metadata?: Record<string, unknown> | null
   organization: {
     id: string
     name: string
@@ -48,10 +51,6 @@ interface MembershipEventData {
 }
 
 // --- Helpers ---
-
-function mapClerkRole(clerkRole: string): 'ADMIN' | 'STAFF' {
-  return clerkRole === 'org:admin' ? 'ADMIN' : 'STAFF'
-}
 
 function buildName(firstName: string | null, lastName: string | null): string {
   return [firstName, lastName].filter(Boolean).join(' ') || 'Unknown'
@@ -182,12 +181,28 @@ async function handleMembershipCreated(data: unknown): Promise<void> {
   // 2. Upsert staff member
   const { user_id, identifier: email, first_name, last_name, image_url } = d.public_user_data
   const name = buildName(first_name, last_name)
-  const role = mapClerkRole(d.role)
 
   // Check by email first (staff may exist before Clerk link)
   const existingByEmail = email
     ? await prisma.staff.findUnique({ where: { email } })
     : null
+  const existingByClerk = existingByEmail
+    ? null
+    : await prisma.staff.findUnique({ where: { clerkId: user_id } })
+
+  // Preserve app-level roles (MANAGER/CPA); invitation publicMetadata.staffRole
+  // carries the intended role on invite-accept.
+  // Trust metadata only on a true fresh join (no record, or record not an active member
+  // of this org - e.g. pre-created by user.created, or a deactivated member re-invited).
+  // On webhook replays for an active member, DB role is source of truth - stale invite
+  // metadata must not clobber later in-app role changes.
+  const existing = existingByEmail ?? existingByClerk
+  const isActiveMember = !!existing && existing.organizationId === org.id && existing.isActive
+  const role = resolveStaffRoleFromClerk(
+    d.role,
+    existing?.role ?? null,
+    isActiveMember ? undefined : d.public_metadata?.staffRole
+  )
 
   if (existingByEmail) {
     const formSlugData = await getStaffFormSlugData(prisma, org.id, existingByEmail)
@@ -204,7 +219,6 @@ async function handleMembershipCreated(data: unknown): Promise<void> {
       },
     })
   } else {
-    const existingByClerk = await prisma.staff.findUnique({ where: { clerkId: user_id } })
     const formSlugData = await getStaffFormSlugData(prisma, org.id, existingByClerk)
     await prisma.staff.upsert({
       where: { clerkId: user_id },
@@ -239,7 +253,15 @@ async function handleMembershipUpdated(data: unknown): Promise<void> {
     return
   }
 
-  const role = mapClerkRole(d.role)
+  // Resolve against current DB role so re-sync never downgrades MANAGER/CPA to STAFF.
+  // NOTE: invitation metadata deliberately NOT consulted here - it can be stale after
+  // an in-app role change (DB is source of truth); only membership.created uses it.
+  const existing = await prisma.staff.findFirst({
+    where: { clerkId: d.public_user_data.user_id },
+    select: { role: true },
+  })
+
+  const role = resolveStaffRoleFromClerk(d.role, existing?.role ?? null)
 
   await prisma.staff.updateMany({
     where: { clerkId: d.public_user_data.user_id },

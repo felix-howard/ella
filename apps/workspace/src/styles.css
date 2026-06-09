@@ -4,7 +4,7 @@
 @import "react-pdf/dist/Page/TextLayer.css";
 
 @source "../src/**/*.{ts,tsx}";
-@source "../../packages/ui/src/**/*.{ts,tsx}";
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
 
 /* Remove focus outline/ring globally on all form elements */
 input:focus,

@@ -7,6 +7,7 @@ import { Mail } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { formatPhone, getInitials, getAvatarColor, formatSmartRelativeTime } from '../../lib/formatters'
 import { LeadStatusBadge } from './lead-status-badge'
+import { LeadSmsStatusIndicator } from './lead-sms-status-indicator'
 import type { Lead } from '../../lib/api-client'
 
 interface LeadListRowProps {
@@ -14,11 +15,12 @@ interface LeadListRowProps {
   selected: boolean
   onSelect: (id: string, selected: boolean) => void
   onRowClick: (lead: Lead) => void
+  selectionDisabled?: boolean
   isLast: boolean
 }
 
 export const LeadListRow = memo(function LeadListRow({
-  lead, selected, onSelect, onRowClick, isLast,
+  lead, selected, onSelect, onRowClick, selectionDisabled = false, isLast,
 }: LeadListRowProps) {
   const { i18n } = useTranslation()
   const isConverted = lead.status === 'CONVERTED'
@@ -51,13 +53,13 @@ export const LeadListRow = memo(function LeadListRow({
     >
       <td className="px-4 w-10">
         <label
-          className={cn('relative flex items-center', isConverted ? 'cursor-not-allowed opacity-40' : 'cursor-pointer')}
+          className={cn('relative flex items-center', isConverted || selectionDisabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer')}
           onClick={(e) => e.stopPropagation()}
         >
           <input
             type="checkbox"
             checked={selected}
-            disabled={isConverted}
+            disabled={isConverted || selectionDisabled}
             onChange={(e) => onSelect(lead.id, e.target.checked)}
             className="peer sr-only"
             aria-label={`Select ${lead.firstName} ${lead.lastName}`}
@@ -100,7 +102,10 @@ export const LeadListRow = memo(function LeadListRow({
       </td>
 
       <td className="px-4">
-        <LeadStatusBadge status={lead.status} variant="dot" />
+        <div className="flex min-w-32 flex-col gap-1.5">
+          <LeadStatusBadge status={lead.status} variant="dot" />
+          <LeadSmsStatusIndicator sms={lead.latestSms} compact />
+        </div>
       </td>
 
       <td className="px-4 hidden sm:table-cell">

@@ -43,7 +43,7 @@ export function FloatingChatbox({
   unreadCount,
   onUnreadChange,
 }: FloatingChatboxProps) {
-  const { isAdmin } = useOrgRole()
+  const { canViewPhone } = useOrgRole()
   const [isOpen, setIsOpen] = useState(false)
 
   // Subscribe to realtime events scoped to this context.
@@ -170,7 +170,7 @@ export function FloatingChatbox({
           isMuted={voiceState.isMuted}
           duration={voiceState.duration}
           clientName={headerProps.title}
-          clientPhone={isAdmin ? formatPhone(phone) : maskPhone(phone)}
+          clientPhone={canViewPhone ? formatPhone(phone) : maskPhone(phone)}
           error={voiceState.error}
           onEndCall={voiceActions.endCall}
           onToggleMute={voiceActions.toggleMute}

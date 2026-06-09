@@ -59,6 +59,17 @@ export function checkRateLimit(
   return true
 }
 
+/**
+ * Refund one previously consumed slot for a key — used when the rate-limited
+ * action failed server-side (e.g. Stripe outage) so legitimate retries aren't
+ * penalized. No-op when the window already expired or nothing was consumed.
+ */
+export function releaseRateLimit(key: string): void {
+  const record = rateLimitMap.get(key)
+  if (!record || Date.now() > record.resetTime) return
+  if (record.count > 0) record.count--
+}
+
 export function isRateLimitExceeded(
   key: string,
   _windowMs: number = 60000,

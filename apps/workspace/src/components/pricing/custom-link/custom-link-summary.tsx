@@ -1,11 +1,15 @@
 import { Select } from '@ella/ui'
 import type { CouponSummary } from '../../../lib/api-client'
-import { formatCents, type CustomBillingInterval, type CustomDiscountMode } from './custom-link-types'
+import {
+  formatCents,
+  type CustomBillingInterval,
+  type CustomDiscountMode,
+} from './custom-link-types'
 
 interface CustomLinkSummaryProps {
-  interval: CustomBillingInterval
-  onIntervalChange: (interval: CustomBillingInterval) => void
-  totalCents: number
+  dueTodayCents: number
+  recurringCents: number
+  recurringInterval: Exclude<CustomBillingInterval, 'one_time'> | null
   validItemCount: number
   discountMode: CustomDiscountMode
   onDiscountModeChange: (mode: CustomDiscountMode) => void
@@ -15,12 +19,6 @@ interface CustomLinkSummaryProps {
   couponsLoading: boolean
 }
 
-const INTERVAL_OPTIONS = [
-  { value: 'one_time', label: 'One-time' },
-  { value: 'month', label: 'Monthly' },
-  { value: 'year', label: 'Yearly' },
-]
-
 const DISCOUNT_OPTIONS = [
   { value: 'none', label: 'No discount' },
   { value: 'coupon', label: 'Pre-apply a coupon' },
@@ -28,9 +26,9 @@ const DISCOUNT_OPTIONS = [
 ]
 
 export function CustomLinkSummary({
-  interval,
-  onIntervalChange,
-  totalCents,
+  dueTodayCents,
+  recurringCents,
+  recurringInterval,
   validItemCount,
   discountMode,
   onDiscountModeChange,
@@ -39,11 +37,15 @@ export function CustomLinkSummary({
   coupons,
   couponsLoading,
 }: CustomLinkSummaryProps) {
-  const isRecurring = interval !== 'one_time'
-  const totalSuffix = interval === 'month' ? ' / mo' : interval === 'year' ? ' / yr' : ''
+  const recurringSuffix =
+    recurringInterval === 'month' ? ' / mo' : recurringInterval === 'year' ? ' / yr' : ''
+  const recurringLabel = recurringInterval === 'year' ? 'Then yearly' : 'Then monthly'
 
   return (
-    <section className="rounded-lg border border-border bg-card p-4" aria-labelledby="custom-summary-title">
+    <section
+      className="rounded-lg border border-border bg-card p-4"
+      aria-labelledby="custom-summary-title"
+    >
       <header>
         <h2 id="custom-summary-title" className="text-sm font-semibold text-foreground">
           Billing & total
@@ -51,23 +53,6 @@ export function CustomLinkSummary({
       </header>
 
       <div className="mt-4 space-y-3">
-        <label htmlFor="custom-interval" className="block text-xs font-medium text-foreground">
-          Billing interval
-          <Select
-            id="custom-interval"
-            className="mt-1"
-            options={INTERVAL_OPTIONS}
-            value={interval}
-            onChange={(e) => onIntervalChange(e.target.value as CustomBillingInterval)}
-          />
-        </label>
-
-        {isRecurring && (
-          <p className="text-[11px] text-muted-foreground">
-            Recurring link. One-time setup add-ons aren't supported on recurring links yet.
-          </p>
-        )}
-
         <label htmlFor="custom-discount-mode" className="block text-xs font-medium text-foreground">
           Discount
           <Select
@@ -108,16 +93,34 @@ export function CustomLinkSummary({
           </p>
         )}
 
-        <div className="flex items-baseline justify-between rounded-lg border border-primary-light bg-primary-light/30 px-3 py-2">
-          <span className="text-xs font-medium text-foreground">
-            Total{validItemCount > 0 ? ` · ${validItemCount} item${validItemCount > 1 ? 's' : ''}` : ''}
-          </span>
-          <span className="text-lg font-semibold text-primary-dark">
-            {formatCents(totalCents)}
-            <span className="text-xs font-normal text-muted-foreground">{totalSuffix}</span>
-          </span>
+        <div className="space-y-2 rounded-lg border border-primary-light bg-primary-light/30 px-3 py-2">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-xs font-medium text-foreground">
+              Due today
+              {validItemCount > 0
+                ? ` · ${validItemCount} item${validItemCount > 1 ? 's' : ''}`
+                : ''}
+            </span>
+            <span className="text-lg font-semibold text-primary-dark">
+              {formatCents(dueTodayCents)}
+            </span>
+          </div>
+          {recurringInterval && recurringCents > 0 && (
+            <div className="flex items-baseline justify-between gap-3 border-t border-primary-light pt-2">
+              <span className="text-xs font-medium text-foreground">{recurringLabel}</span>
+              <span className="text-sm font-semibold text-foreground">
+                {formatCents(recurringCents)}
+                <span className="text-xs font-normal text-muted-foreground">{recurringSuffix}</span>
+              </span>
+            </div>
+          )}
         </div>
-        <p className="text-[11px] text-muted-foreground">Discounts are applied by Stripe at checkout.</p>
+        <p className="text-[11px] text-muted-foreground">
+          One-time rows are charged today. Recurring rows are charged today, then renew on schedule.
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          Discounts are applied by Stripe at checkout.
+        </p>
       </div>
     </section>
   )

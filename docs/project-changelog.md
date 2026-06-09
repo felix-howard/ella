@@ -7,6 +7,20 @@
 
 ## 2026-06-09
 
+### Workspace Custom Payment Links: Mixed Billing UI
+**Status:** Complete
+
+**Changed:**
+- Moved custom-link billing interval selection from quote-level to per-line item.
+- Added `Due today` plus `Then monthly/yearly` summary so one-time setup and first recurring period are shown together.
+- Grouped custom rows into recurring `items` plus one-time `oneTimeItems`, matching the existing Stripe backend contract.
+- Blocked mixed monthly + yearly rows in one link before submission; one-time + monthly/yearly remains supported.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- custom-link-money pricing-calculator` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api test -- custom-quote-builder checkout` pass
+
 ### Lead Bulk SMS Contract Update
 **Status:** Complete; browser QA pending
 

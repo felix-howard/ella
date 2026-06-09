@@ -1,4 +1,4 @@
-import { Button, Input } from '@ella/ui'
+import { Button, Input, Select } from '@ella/ui'
 import { Plus, Trash2 } from 'lucide-react'
 import {
   MAX_CUSTOM_ITEMS,
@@ -8,6 +8,12 @@ import {
   rowLineCents,
   type CustomItemDraft,
 } from './custom-link-types'
+
+const BILLING_OPTIONS = [
+  { value: 'one_time', label: 'One-time' },
+  { value: 'month', label: 'Monthly' },
+  { value: 'year', label: 'Yearly' },
+]
 
 interface CustomLinkItemRowsProps {
   items: CustomItemDraft[]
@@ -30,7 +36,10 @@ export function CustomLinkItemRows({ items, disabled, onChange }: CustomLinkItem
   }
 
   return (
-    <section className="rounded-lg border border-border bg-card p-4" aria-labelledby="custom-items-title">
+    <section
+      className="rounded-lg border border-border bg-card p-4"
+      aria-labelledby="custom-items-title"
+    >
       <header className="mb-3">
         <h2 id="custom-items-title" className="text-sm font-semibold text-foreground">
           Line items
@@ -42,13 +51,14 @@ export function CustomLinkItemRows({ items, disabled, onChange }: CustomLinkItem
 
       <ul className="space-y-3">
         {items.map((item, index) => {
-          const amountInvalid = item.amount.trim().length > 0 && dollarsToCents(item.amount) === null
+          const amountInvalid =
+            item.amount.trim().length > 0 && dollarsToCents(item.amount) === null
           const lineCents = rowLineCents(item)
           return (
             <li key={item.id} className="rounded-lg border border-border/70 bg-background p-3">
               <div className="flex items-start gap-2">
-                <div className="grid flex-1 gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_4.5rem]">
-                  <label className="block text-xs font-medium text-foreground sm:col-span-3">
+                <div className="grid flex-1 gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_7rem] lg:grid-cols-[minmax(0,1fr)_8rem_7rem_4.5rem]">
+                  <label className="block text-xs font-medium text-foreground sm:col-span-3 lg:col-span-4">
                     Item name
                     <Input
                       value={item.label}
@@ -60,7 +70,7 @@ export function CustomLinkItemRows({ items, disabled, onChange }: CustomLinkItem
                       aria-label={`Item ${index + 1} name`}
                     />
                   </label>
-                  <label className="block text-xs font-medium text-foreground sm:col-span-3">
+                  <label className="block text-xs font-medium text-foreground sm:col-span-3 lg:col-span-4">
                     Description optional
                     <Input
                       value={item.description}
@@ -87,6 +97,21 @@ export function CustomLinkItemRows({ items, disabled, onChange }: CustomLinkItem
                       aria-invalid={amountInvalid}
                       aria-describedby={amountInvalid ? `${item.id}-amount-error` : undefined}
                       aria-label={`Item ${index + 1} amount in dollars`}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium text-foreground">
+                    Billing
+                    <Select
+                      value={item.billingInterval}
+                      disabled={disabled}
+                      onChange={(e) =>
+                        updateItem(item.id, {
+                          billingInterval: e.target.value as CustomItemDraft['billingInterval'],
+                        })
+                      }
+                      className="mt-1"
+                      options={BILLING_OPTIONS}
+                      aria-label={`Item ${index + 1} billing interval`}
                     />
                   </label>
                   <label className="block text-xs font-medium text-foreground">

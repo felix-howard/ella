@@ -1,11 +1,3 @@
-/**
- * Types + pure helpers for the custom (free-form) payment-link builder.
- *
- * Drafts hold raw string inputs (what the user types); conversion to the
- * cents-based API shape happens only at submit time via `draftToApiItem`.
- * Limits mirror the API `customLineItemSchema` so the UI rejects bad rows
- * before a request is made.
- */
 import type { CustomLineItemInput } from '../../../lib/api-client'
 
 export type CustomBillingInterval = 'one_time' | 'month' | 'year'
@@ -22,12 +14,15 @@ export interface CustomItemDraft {
   amount: string
   /** Quantity as typed; converted to an integer on submit. */
   quantity: string
+  /** Per-row checkout cadence. One-time rows charge on the initial invoice. */
+  billingInterval: CustomBillingInterval
 }
 
 /** Items + interval + discount choice, assembled by the builder for both actions. */
 export interface CustomLinkCorePayload {
   billingInterval: CustomBillingInterval
   items: CustomLineItemInput[]
+  oneTimeItems?: CustomLineItemInput[]
   couponId?: string
   allowPromotionCodes?: boolean
 }
@@ -81,6 +76,40 @@ export function computeTotalCents(items: CustomItemDraft[]): number {
   return items.reduce((sum, item) => sum + (rowLineCents(item) ?? 0), 0)
 }
 
+export interface CustomBillingTotals {
+  dueTodayCents: number
+  recurringCents: number
+  oneTimeCents: number
+  recurringInterval: Exclude<CustomBillingInterval, 'one_time'> | null
+  hasMixedRecurringIntervals: boolean
+}
+
+export function computeBillingTotals(items: CustomItemDraft[]): CustomBillingTotals {
+  const recurringIntervals = new Set<Exclude<CustomBillingInterval, 'one_time'>>()
+  let oneTimeCents = 0
+  let recurringCents = 0
+
+  for (const item of items) {
+    const lineCents = rowLineCents(item)
+    if (lineCents === null) continue
+    if (item.billingInterval === 'one_time') {
+      oneTimeCents += lineCents
+      continue
+    }
+    recurringIntervals.add(item.billingInterval)
+    recurringCents += lineCents
+  }
+
+  const [recurringInterval = null] = [...recurringIntervals]
+  return {
+    dueTodayCents: oneTimeCents + recurringCents,
+    recurringCents,
+    oneTimeCents,
+    recurringInterval,
+    hasMixedRecurringIntervals: recurringIntervals.size > 1,
+  }
+}
+
 /** Convert a draft row to the API line-item shape, or null if invalid. */
 export function draftToApiItem(item: CustomItemDraft): CustomLineItemInput | null {
   const unitAmountCents = dollarsToCents(item.amount)
@@ -103,6 +132,46 @@ export function draftsToApiItems(items: CustomItemDraft[]): CustomLineItemInput[
   return mapped as CustomLineItemInput[]
 }
 
+export function draftsToCoreBillingPayload(
+  items: CustomItemDraft[]
+): Pick<CustomLinkCorePayload, 'billingInterval' | 'items' | 'oneTimeItems'> | null {
+  const mapped = items.map((draft) => ({ draft, apiItem: draftToApiItem(draft) }))
+  if (mapped.some(({ apiItem }) => apiItem === null)) return null
+
+  const recurringIntervals = [
+    ...new Set(
+      mapped
+        .map(({ draft }) => draft.billingInterval)
+        .filter(
+          (interval): interval is Exclude<CustomBillingInterval, 'one_time'> =>
+            interval !== 'one_time'
+        )
+    ),
+  ]
+  if (recurringIntervals.length > 1) return null
+
+  const recurringInterval = recurringIntervals[0]
+  if (!recurringInterval) {
+    return {
+      billingInterval: 'one_time',
+      items: mapped.map(({ apiItem }) => apiItem as CustomLineItemInput),
+    }
+  }
+
+  const recurringItems = mapped
+    .filter(({ draft }) => draft.billingInterval === recurringInterval)
+    .map(({ apiItem }) => apiItem as CustomLineItemInput)
+  const oneTimeItems = mapped
+    .filter(({ draft }) => draft.billingInterval === 'one_time')
+    .map(({ apiItem }) => apiItem as CustomLineItemInput)
+
+  return {
+    billingInterval: recurringInterval,
+    items: recurringItems,
+    ...(oneTimeItems.length > 0 ? { oneTimeItems } : {}),
+  }
+}
+
 const centsFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -117,8 +186,14 @@ export function formatCents(cents: number): string {
 
 let itemKeySeq = 0
 
-/** Create a blank draft row with a unique local key. */
 export function createEmptyItem(): CustomItemDraft {
   itemKeySeq += 1
-  return { id: `item-${itemKeySeq}`, label: '', description: '', amount: '', quantity: '1' }
+  return {
+    id: `item-${itemKeySeq}`,
+    label: '',
+    description: '',
+    amount: '',
+    quantity: '1',
+    billingInterval: 'one_time',
+  }
 }

@@ -5,11 +5,10 @@ import { CustomLinkActions } from './custom-link-actions'
 import { CouponManagerPanel } from './coupons/coupon-manager-panel'
 import { useActiveCoupons } from './use-active-coupons'
 import {
-  computeTotalCents,
+  computeBillingTotals,
   createEmptyItem,
-  draftsToApiItems,
+  draftsToCoreBillingPayload,
   isItemValid,
-  type CustomBillingInterval,
   type CustomDiscountMode,
   type CustomItemDraft,
   type CustomLinkCorePayload,
@@ -22,29 +21,32 @@ import {
  */
 export function CustomLinkBuilder() {
   const [items, setItems] = useState<CustomItemDraft[]>(() => [createEmptyItem()])
-  const [interval, setInterval] = useState<CustomBillingInterval>('one_time')
   const [discountMode, setDiscountMode] = useState<CustomDiscountMode>('none')
   const [couponId, setCouponId] = useState('')
 
   // Coupons are only needed once the user opts into pre-applying one.
   const { coupons, loading: couponsLoading } = useActiveCoupons(discountMode === 'coupon')
 
-  const totalCents = useMemo(() => computeTotalCents(items), [items])
+  const billingTotals = useMemo(() => computeBillingTotals(items), [items])
   const validItemCount = useMemo(() => items.filter(isItemValid).length, [items])
 
   const corePayload = useMemo<CustomLinkCorePayload | null>(() => {
-    const apiItems = draftsToApiItems(items)
-    if (!apiItems || apiItems.length === 0) return null
+    const billingPayload = draftsToCoreBillingPayload(items)
+    if (!billingPayload || billingPayload.items.length === 0) return null
     if (discountMode === 'coupon' && !couponId) return null
     return {
-      billingInterval: interval,
-      items: apiItems,
+      ...billingPayload,
       ...(discountMode === 'coupon' && couponId ? { couponId } : {}),
       ...(discountMode === 'promo' ? { allowPromotionCodes: true } : {}),
     }
-  }, [items, interval, discountMode, couponId])
+  }, [items, discountMode, couponId])
 
-  const disabledReason = getDisabledReason(items, discountMode, couponId)
+  const disabledReason = getDisabledReason(
+    items,
+    discountMode,
+    couponId,
+    billingTotals.hasMixedRecurringIntervals
+  )
 
   return (
     <div className="space-y-4">
@@ -52,9 +54,9 @@ export function CustomLinkBuilder() {
         <CustomLinkItemRows items={items} disabled={false} onChange={setItems} />
         <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
           <CustomLinkSummary
-            interval={interval}
-            onIntervalChange={setInterval}
-            totalCents={totalCents}
+            dueTodayCents={billingTotals.dueTodayCents}
+            recurringCents={billingTotals.recurringCents}
+            recurringInterval={billingTotals.recurringInterval}
             validItemCount={validItemCount}
             discountMode={discountMode}
             onDiscountModeChange={(mode) => {
@@ -77,11 +79,14 @@ export function CustomLinkBuilder() {
 function getDisabledReason(
   items: CustomItemDraft[],
   discountMode: CustomDiscountMode,
-  couponId: string
+  couponId: string,
+  hasMixedRecurringIntervals: boolean
 ): string | null {
   const validItems = items.filter(isItemValid)
   if (validItems.length === 0) return 'Add at least one item with a name, amount, and quantity.'
   if (items.some((item) => !isItemValid(item))) return 'Fix or remove the incomplete item rows.'
-  if (discountMode === 'coupon' && !couponId) return 'Select a coupon or choose a different discount option.'
+  if (hasMixedRecurringIntervals) return 'Use only one recurring interval per link.'
+  if (discountMode === 'coupon' && !couponId)
+    return 'Select a coupon or choose a different discount option.'
   return null
 }

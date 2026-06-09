@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   MAX_UNIT_AMOUNT_CENTS,
+  computeBillingTotals,
   computeTotalCents,
   dollarsToCents,
+  draftsToCoreBillingPayload,
   draftToApiItem,
   draftsToApiItems,
   parseQuantity,
@@ -11,7 +13,15 @@ import {
 } from '../custom-link-types'
 
 function draft(overrides: Partial<CustomItemDraft>): CustomItemDraft {
-  return { id: 'x', label: 'Item', description: '', amount: '10', quantity: '1', ...overrides }
+  return {
+    id: 'x',
+    label: 'Item',
+    description: '',
+    amount: '10',
+    quantity: '1',
+    billingInterval: 'one_time',
+    ...overrides,
+  }
 }
 
 describe('dollarsToCents', () => {
@@ -71,6 +81,32 @@ describe('rowLineCents + computeTotalCents', () => {
   })
 })
 
+describe('computeBillingTotals', () => {
+  it('counts recurring rows in due today and then-recurring totals', () => {
+    const totals = computeBillingTotals([
+      draft({ id: 'setup', amount: '100', billingInterval: 'one_time' }),
+      draft({ id: 'monthly', amount: '50', quantity: '2', billingInterval: 'month' }),
+    ])
+
+    expect(totals).toEqual({
+      dueTodayCents: 20_000,
+      recurringCents: 10_000,
+      oneTimeCents: 10_000,
+      recurringInterval: 'month',
+      hasMixedRecurringIntervals: false,
+    })
+  })
+
+  it('flags mixed monthly and yearly recurring rows', () => {
+    const totals = computeBillingTotals([
+      draft({ id: 'monthly', billingInterval: 'month' }),
+      draft({ id: 'yearly', billingInterval: 'year' }),
+    ])
+
+    expect(totals.hasMixedRecurringIntervals).toBe(true)
+  })
+})
+
 describe('draftToApiItem / draftsToApiItems', () => {
   it('maps a valid row, trimming and omitting empty description', () => {
     expect(draftToApiItem(draft({ label: '  Setup  ', amount: '20', quantity: '3' }))).toEqual({
@@ -88,5 +124,36 @@ describe('draftToApiItem / draftsToApiItems', () => {
 
   it('returns null when any row is invalid', () => {
     expect(draftsToApiItems([draft({}), draft({ amount: 'oops' })])).toBeNull()
+  })
+})
+
+describe('draftsToCoreBillingPayload', () => {
+  it('submits all-one-time rows as one-time primary items', () => {
+    expect(draftsToCoreBillingPayload([draft({ label: 'Setup', amount: '20' })])).toEqual({
+      billingInterval: 'one_time',
+      items: [{ label: 'Setup', unitAmountCents: 2000, quantity: 1 }],
+    })
+  })
+
+  it('splits mixed monthly and one-time rows into recurring items plus oneTimeItems', () => {
+    expect(
+      draftsToCoreBillingPayload([
+        draft({ id: 'setup', label: 'Setup', amount: '100', billingInterval: 'one_time' }),
+        draft({ id: 'retainer', label: 'Retainer', amount: '50', billingInterval: 'month' }),
+      ])
+    ).toEqual({
+      billingInterval: 'month',
+      items: [{ label: 'Retainer', unitAmountCents: 5000, quantity: 1 }],
+      oneTimeItems: [{ label: 'Setup', unitAmountCents: 10000, quantity: 1 }],
+    })
+  })
+
+  it('rejects mixed monthly and yearly recurring rows', () => {
+    expect(
+      draftsToCoreBillingPayload([
+        draft({ id: 'monthly', billingInterval: 'month' }),
+        draft({ id: 'yearly', billingInterval: 'year' }),
+      ])
+    ).toBeNull()
   })
 })

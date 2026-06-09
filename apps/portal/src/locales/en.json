@@ -512,7 +512,7 @@
   "quote.yearlyGroup": "Yearly",
   "quote.setupGroup": "Setup and one-time",
   "quote.dueToday": "Due today",
-  "quote.thenMonthly": "Then",
+  "quote.recurringAfterToday": "Recurring after today",
   "quote.intro.heading": "Review & complete your payment",
   "quote.intro.lead": "{{orgName}} prepared the quote on the right. Look it over and pay securely — it only takes a minute.",
   "quote.intro.leadNamed": "Hi {{firstName}}, {{orgName}} prepared your quote. Look it over and pay securely — it only takes a minute.",

@@ -86,6 +86,10 @@
   * {
     @apply border-border;
   }
+  html {
+    /* Raise Tailwind's rem-based type scale slightly for app readability. */
+    font-size: 106.25%;
+  }
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);

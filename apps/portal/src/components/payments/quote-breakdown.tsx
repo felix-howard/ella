@@ -37,7 +37,6 @@ export function QuoteBreakdown({ view, language }: QuoteBreakdownProps) {
           <LineGroup
             title={isYearly ? t('quote.yearlyGroup') : t('quote.monthlyGroup')}
             items={monthlyItems}
-            total={view.monthlyTotal}
             fmt={fmt}
           />
         )}
@@ -45,7 +44,6 @@ export function QuoteBreakdown({ view, language }: QuoteBreakdownProps) {
           <LineGroup
             title={t('quote.setupGroup')}
             items={setupItems}
-            total={view.setupTotal}
             fmt={fmt}
           />
         )}
@@ -55,7 +53,7 @@ export function QuoteBreakdown({ view, language }: QuoteBreakdownProps) {
         <TotalRow label={t('quote.dueToday')} value={fmt(view.dueToday)} strong />
         {view.monthlyTotal > 0 && (
           <TotalRow
-            label={t('quote.thenMonthly')}
+            label={t('quote.recurringAfterToday')}
             value={`${fmt(view.monthlyTotal)}${recurringSuffix}`}
           />
         )}
@@ -67,20 +65,17 @@ export function QuoteBreakdown({ view, language }: QuoteBreakdownProps) {
 function LineGroup({
   title,
   items,
-  total,
   fmt,
 }: {
   title: string
   items: QuoteLineView[]
-  total: number
   fmt: (value: number) => string
 }) {
   return (
     <div>
-      <div className="mb-3.5 flex items-center justify-between gap-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        <span>{title}</span>
-        <span className="tabular-nums">{fmt(total)}</span>
-      </div>
+      <h3 className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h3>
       <ul className="space-y-3.5">
         {items.map((item) => (
           <li

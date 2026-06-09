@@ -1,13 +1,12 @@
 /**
  * SMS side-effects for sent-quote fulfillment, mirroring
  * `notifyDepositPaymentPaid`: an ADMIN fan-out gated on a per-staff toggle plus
- * a client receipt, with phone dedupe so one handset never gets both messages.
+ * a client receipt.
  *
  * Kept separate from quote-fulfillment-service so the Payment-row plumbing and
- * the notification copy/dedupe can evolve independently.
+ * the notification copy can evolve independently.
  */
 import { smsOptedInAdmins } from '../agreements/agreement-post-sign-notifications'
-import { formatPhoneToE164 } from '../sms/twilio-client'
 import { sendSignerSmsAndPersist } from './signer-sms-delivery'
 import {
   buildAdminPaymentFailedMessage,
@@ -37,11 +36,8 @@ export async function notifyFirstQuotePayment(params: {
   if (!quote.organizationId) return
   const payerName = payerNameOf(signer)
 
-  // Phones already texted as admins — used to dedupe the receipt so a staff
-  // member who is also the payer (shared handset) gets only one message.
-  let notifiedAdminPhones: string[] = []
   try {
-    notifiedAdminPhones = await smsOptedInAdmins({
+    await smsOptedInAdmins({
       organizationId: quote.organizationId,
       toggle: 'notifyOnClientPayment',
       message: buildAdminQuotePaidMessage({ payerName, amountFormatted }),
@@ -58,23 +54,18 @@ export async function notifyFirstQuotePayment(params: {
     return
   }
 
-  const signerPhone = signer.phone ? formatPhoneToE164(signer.phone) : null
-  if (signerPhone && notifiedAdminPhones.includes(signerPhone)) {
-    console.warn(
-      `[QuoteFulfillment] Receipt SMS skipped for quote=${quote.id} — payer phone already notified as admin`,
-    )
-    return
-  }
+  const receiptTarget = {
+    signerId: signer.id,
+    signerKind: signer.kind,
+    organizationId: quote.organizationId,
+    sentById: quote.sentByStaffId,
+  } as const
+  const receiptMessage = buildQuoteReceiptMessage({ firstName: signer.firstName, amountFormatted })
 
   try {
     await sendSignerSmsAndPersist(
-      {
-        signerId: signer.id,
-        signerKind: signer.kind,
-        organizationId: quote.organizationId,
-        sentById: quote.sentByStaffId,
-      },
-      buildQuoteReceiptMessage({ firstName: signer.firstName, amountFormatted }),
+      receiptTarget,
+      receiptMessage,
       QUOTE_RECEIPT_TEMPLATE_NAME,
     )
   } catch (err) {

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { BULK_SMS_MAX_RECIPIENTS } from '../constants'
 
 // Common validation schemas
 export const emailSchema = z.string().email()
@@ -42,7 +43,7 @@ export const tagsSchema = z.array(
 // LEAD / MARKETING
 // ============================================
 
-export const leadStatusEnum = z.enum(['NEW', 'CONTACTED', 'CONVERTED', 'LOST'])
+export const leadStatusEnum = z.enum(['NEW', 'SENT', 'CONTACTED', 'CONVERTED', 'LOST'])
 export type LeadStatus = z.infer<typeof leadStatusEnum>
 
 export const createLeadSchema = z.object({
@@ -85,7 +86,7 @@ export const convertLeadSchema = z.object({
 export type ConvertLeadInput = z.infer<typeof convertLeadSchema>
 
 export const bulkSmsSchema = z.object({
-  leadIds: z.array(z.string().cuid()).min(1).max(100),
+  leadIds: z.array(z.string().cuid()).min(1).max(BULK_SMS_MAX_RECIPIENTS),
   message: z.string().min(1).max(500),
   formLinkType: z.enum(['org', 'staff']).default('org'),
   staffSlug: z.string().optional(),

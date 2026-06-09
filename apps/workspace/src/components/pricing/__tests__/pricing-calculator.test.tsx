@@ -204,32 +204,20 @@ describe('workspace pricing calculator', () => {
     expect(markup).not.toContain('value="0"')
   })
 
-  it('builds the checkout-session payload from workspace fields without a token field', async () => {
+  it('builds an anonymous checkout-session payload without token or customer fields', async () => {
     renderToStaticMarkup(<PricingCalculatorPage />)
     const mutationOptions = useMutationMock.mock.calls[0][0] as {
-      mutationFn: (payload: {
-        pricingInput: PricingCalculatorInput
-        fields: { customerEmail: string; customerName: string; businessName: string }
-      }) => Promise<unknown>
+      mutationFn: (payload: { pricingInput: PricingCalculatorInput }) => Promise<unknown>
     }
     const pricingInput = createDefaultPricingInput()
 
-    await mutationOptions.mutationFn({
-      pricingInput,
-      fields: {
-        customerEmail: ' client@example.com ',
-        customerName: ' Client One ',
-        businessName: ' ',
-      },
-    })
+    await mutationOptions.mutationFn({ pricingInput })
 
-    expect(createCheckoutSessionMock).toHaveBeenCalledWith({
-      pricingInput,
-      customerEmail: 'client@example.com',
-      customerName: 'Client One',
-      businessName: undefined,
-    })
+    expect(createCheckoutSessionMock).toHaveBeenCalledWith({ pricingInput })
     expect(createCheckoutSessionMock.mock.calls[0][0]).not.toHaveProperty('bearerToken')
     expect(createCheckoutSessionMock.mock.calls[0][0]).not.toHaveProperty('token')
+    expect(createCheckoutSessionMock.mock.calls[0][0]).not.toHaveProperty('customerEmail')
+    expect(createCheckoutSessionMock.mock.calls[0][0]).not.toHaveProperty('customerName')
+    expect(createCheckoutSessionMock.mock.calls[0][0]).not.toHaveProperty('businessName')
   })
 })

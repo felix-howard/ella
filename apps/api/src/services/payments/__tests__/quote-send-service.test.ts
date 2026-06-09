@@ -339,7 +339,7 @@ describe('createSendableQuote', () => {
 
       try {
         await createSendableQuote(input, context)
-      } catch (e) {
+      } catch {
         // Expected
       }
 

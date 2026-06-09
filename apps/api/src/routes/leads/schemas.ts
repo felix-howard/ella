@@ -3,6 +3,7 @@
  * Validation for lead management endpoints
  */
 import { z } from 'zod'
+import { BULK_SMS_MAX_RECIPIENTS } from '@ella/shared/constants'
 
 /** Create lead (public endpoint from registration form) */
 export const createLeadSchema = z.object({
@@ -75,8 +76,14 @@ export const convertLeadSchema = z.object({
 
 /** Bulk SMS */
 export const bulkSmsSchema = z.object({
-  leadIds: z.array(z.string().cuid()).min(1).max(200),
+  leadIds: z.array(z.string().cuid()).min(1),
   message: z.string().min(1).max(500),
   formLinkType: z.enum(['org', 'staff']).default('org'),
   staffSlug: z.string().optional(),
 })
+
+export const bulkSmsPreviewTargetsSchema = listLeadsQuerySchema
+  .pick({ status: true, search: true, tag: true, includeConverted: true })
+  .extend({
+    limit: z.coerce.number().min(1).max(BULK_SMS_MAX_RECIPIENTS).default(BULK_SMS_MAX_RECIPIENTS),
+  })

@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { Button, Combobox, Input, type ComboboxItem } from '@ella/ui'
+import { Button, Combobox, type ComboboxItem } from '@ella/ui'
 import { Link2, Loader2, Send, X } from 'lucide-react'
 import type { CreateCustomCheckoutInput } from '../../../lib/api-client'
 import { toast } from '../../../stores/toast-store'
-import { trimOptional } from '../pricing-format'
 import { useRecipientSearch, decodeRecipientId } from '../use-recipient-search'
 import { CustomLinkCreateResult, CustomLinkSendResult } from './custom-link-result'
 import { useCreateCustomLink, useSendCustomQuote } from './use-custom-link'
@@ -17,26 +16,16 @@ interface CustomLinkActionsProps {
 }
 
 export function CustomLinkActions({ corePayload, disabledReason }: CustomLinkActionsProps) {
-  const [email, setEmail] = useState('')
-  const [name, setName] = useState('')
-  const [business, setBusiness] = useState('')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<ComboboxItem | null>(null)
   const { items, loading } = useRecipientSearch(query)
   const createLink = useCreateCustomLink()
   const sendQuote = useSendCustomQuote()
 
-  const emailInvalid = email.trim().length > 0 && !isValidEmail(email.trim())
-  const customerFields = {
-    customerEmail: trimOptional(email),
-    customerName: trimOptional(name),
-    businessName: trimOptional(business),
-  }
-
   const buildPayload = (): CreateCustomCheckoutInput | null =>
-    corePayload ? { ...corePayload, ...customerFields } : null
+    corePayload ? { ...corePayload } : null
 
-  const blocked = Boolean(disabledReason) || emailInvalid || !corePayload
+  const blocked = Boolean(disabledReason) || !corePayload
   const createDisabled = blocked || createLink.isPending
   const sendDisabled = blocked || !selected || sendQuote.isPending
   const errorMessage =
@@ -83,37 +72,6 @@ export function CustomLinkActions({ corePayload, disabledReason }: CustomLinkAct
       </header>
 
       <div className="mt-4 space-y-3">
-        <label htmlFor="custom-email" className="block text-xs font-medium text-foreground">
-          Customer email optional
-          <Input
-            id="custom-email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1"
-            placeholder="client@example.com"
-            aria-invalid={emailInvalid}
-            aria-describedby={emailInvalid ? 'custom-email-error' : undefined}
-          />
-        </label>
-        {emailInvalid && (
-          <p id="custom-email-error" className="text-xs text-error">
-            Enter a valid email or leave it blank.
-          </p>
-        )}
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-          <label htmlFor="custom-name" className="block text-xs font-medium text-foreground">
-            Customer name
-            <Input id="custom-name" value={name} onChange={(e) => setName(e.target.value)} className="mt-1" placeholder="Jane Nguyen" />
-          </label>
-          <label htmlFor="custom-business" className="block text-xs font-medium text-foreground">
-            Business
-            <Input id="custom-business" value={business} onChange={(e) => setBusiness(e.target.value)} className="mt-1" placeholder="Salon LLC" />
-          </label>
-        </div>
-
         <Button type="button" className="w-full" onClick={handleCreate} disabled={createDisabled}>
           {createLink.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
           Create payment link
@@ -171,8 +129,4 @@ export function CustomLinkActions({ corePayload, disabledReason }: CustomLinkAct
       </div>
     </section>
   )
-}
-
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }

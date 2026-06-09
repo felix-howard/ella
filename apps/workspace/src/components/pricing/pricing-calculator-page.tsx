@@ -15,29 +15,23 @@ import { PricingSendQuotePanel } from './pricing-send-quote-panel'
 import { PricingPrintPanel } from './pricing-print-panel'
 import { PricingSummaryPanel } from './pricing-summary-panel'
 import { CustomLinkBuilder } from './custom-link/custom-link-builder'
-import { serializePricingInput, trimOptional } from './pricing-format'
-import type { PricingCheckout, PricingCustomerFields } from './pricing-calculator-types'
+import { serializePricingInput } from './pricing-format'
+import type { PricingCheckout } from './pricing-calculator-types'
 
 type BuilderMode = 'calculator' | 'custom'
 
 interface CreateLinkPayload {
   pricingInput: PricingCalculatorInput
-  fields: PricingCustomerFields
 }
 
 export function PricingCalculatorPage() {
   const [mode, setMode] = useState<BuilderMode>('calculator')
   const [input, setInput] = useState<PricingCalculatorInput>(() => createDefaultPricingInput())
-  const [customerFields, setCustomerFields] = useState<PricingCustomerFields>({
-    customerEmail: '',
-    customerName: '',
-    businessName: '',
-  })
   const [checkout, setCheckout] = useState<PricingCheckout>(null)
   const [quoteChanged, setQuoteChanged] = useState(false)
   const [lastCheckoutSignature, setLastCheckoutSignature] = useState<string | null>(null)
   const result = useMemo(() => calculatePricing(input), [input])
-  const currentCheckoutSignature = makeCheckoutSignature(input, customerFields)
+  const currentCheckoutSignature = makeCheckoutSignature(input)
   const currentCheckoutSignatureRef = useRef(currentCheckoutSignature)
 
   useEffect(() => {
@@ -45,15 +39,12 @@ export function PricingCalculatorPage() {
   }, [currentCheckoutSignature])
 
   const createLinkMutation = useMutation({
-    mutationFn: ({ pricingInput, fields }: CreateLinkPayload) =>
+    mutationFn: ({ pricingInput }: CreateLinkPayload) =>
       api.billing.createCheckoutSession({
         pricingInput,
-        customerEmail: trimOptional(fields.customerEmail),
-        customerName: trimOptional(fields.customerName),
-        businessName: trimOptional(fields.businessName),
       }),
     onSuccess: (response, variables) => {
-      const responseSignature = makeCheckoutSignature(variables.pricingInput, variables.fields)
+      const responseSignature = makeCheckoutSignature(variables.pricingInput)
       if (currentCheckoutSignatureRef.current !== responseSignature) {
         setCheckout(null)
         setQuoteChanged(true)
@@ -78,7 +69,7 @@ export function PricingCalculatorPage() {
     if (
       checkout &&
       lastCheckoutSignature &&
-      makeCheckoutSignature(nextInput, customerFields) !== lastCheckoutSignature
+      makeCheckoutSignature(nextInput) !== lastCheckoutSignature
     ) {
       setCheckout(null)
       setQuoteChanged(true)
@@ -86,20 +77,8 @@ export function PricingCalculatorPage() {
     setInput(nextInput)
   }
 
-  const handleCustomerFieldsChange = (nextFields: PricingCustomerFields) => {
-    if (
-      checkout &&
-      lastCheckoutSignature &&
-      makeCheckoutSignature(input, nextFields) !== lastCheckoutSignature
-    ) {
-      setCheckout(null)
-      setQuoteChanged(true)
-    }
-    setCustomerFields(nextFields)
-  }
-
-  const handleCreate = async (fields: PricingCustomerFields) => {
-    await createLinkMutation.mutateAsync({ pricingInput: input, fields })
+  const handleCreate = async () => {
+    await createLinkMutation.mutateAsync({ pricingInput: input })
   }
 
   return (
@@ -127,15 +106,12 @@ export function PricingCalculatorPage() {
               checkout={checkout}
               disabledReason={disabledReason}
               errorMessage={errorMessage}
-              fields={customerFields}
               isCreating={createLinkMutation.isPending}
               quoteChanged={quoteChanged}
-              onFieldsChange={handleCustomerFieldsChange}
               onCreate={handleCreate}
             />
             <PricingSendQuotePanel
               pricingInput={input}
-              fields={customerFields}
               disabledReason={disabledReason}
             />
           </aside>
@@ -196,14 +172,8 @@ function getCreateDisabledReason(
   return null
 }
 
-function makeCheckoutSignature(
-  input: PricingCalculatorInput,
-  fields: PricingCustomerFields
-): string {
+function makeCheckoutSignature(input: PricingCalculatorInput): string {
   return JSON.stringify({
     pricingInput: JSON.parse(serializePricingInput(input)) as PricingCalculatorInput,
-    customerEmail: trimOptional(fields.customerEmail),
-    customerName: trimOptional(fields.customerName),
-    businessName: trimOptional(fields.businessName),
   })
 }

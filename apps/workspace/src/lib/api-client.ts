@@ -4,7 +4,10 @@
  * Features: timeout, retry logic, env validation
  */
 import type { MessageReaction } from '@ella/shared'
+import { BULK_SMS_MAX_RECIPIENTS } from '@ella/shared/constants'
 import type { PricingCalculatorInput } from '@ella/shared/pricing'
+
+export { BULK_SMS_MAX_RECIPIENTS }
 
 // Environment validation
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002'
@@ -72,7 +75,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     public code: string,
-    message: string
+    message: string,
+    public payload?: unknown
   ) {
     super(message)
     this.name = 'ApiError'
@@ -267,11 +271,12 @@ async function attemptRequest<T>(url: string, fetchOptions: RequestInit, timeout
     }
 
     if (!response.ok) {
-      const errorData = data as { error?: string; message?: string }
+      const errorData = data as { code?: string; error?: string; message?: string }
       throw new ApiError(
         response.status,
-        errorData.error || 'UNKNOWN_ERROR',
-        errorData.message || errorData.error || 'An unknown error occurred'
+        errorData.code || errorData.error || 'UNKNOWN_ERROR',
+        errorData.message || errorData.error || 'An unknown error occurred',
+        errorData
       )
     }
 
@@ -1680,7 +1685,13 @@ export const api = {
   // Leads management (admin-only)
   leads: {
     list: (params?: { page?: number; limit?: number; status?: string; search?: string; tag?: string; includeConverted?: boolean }) =>
-      request<{ success: boolean; data: Lead[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>('/leads', { params }),
+      request<{
+        success: boolean
+        data: Lead[]
+        pagination: { page: number; limit: number; total: number; totalPages: number }
+        selectableTotal: number
+        bulkSmsMaxRecipients: number
+      }>('/leads', { params }),
 
     create: (data: { firstName: string; lastName: string; phone: string; email?: string | null; notes?: string | null }) =>
       request<{ success: boolean; data: Lead }>('/leads/admin', { method: 'POST', body: JSON.stringify(data) }),
@@ -1715,7 +1726,10 @@ export const api = {
       request<{ success: boolean; clientId: string; engagementId: string }>(`/leads/${id}/convert`, { method: 'POST', body: JSON.stringify(data) }),
 
     bulkSms: (data: { leadIds: string[]; message: string; formLinkType: 'org' | 'staff'; staffSlug?: string }) =>
-      request<{ success: boolean; sent: number; failed: number; errors?: string[] }>('/leads/bulk-sms', { method: 'POST', body: JSON.stringify(data) }),
+      request<BulkSmsResponse>('/leads/bulk-sms', { method: 'POST', body: JSON.stringify(data) }),
+
+    previewBulkSmsTargets: (data: { status?: string; search?: string; tag?: string; includeConverted?: boolean; limit?: number }) =>
+      request<{ success: boolean; data: BulkSmsTargetPreview }>('/leads/bulk-sms/preview-targets', { method: 'POST', body: JSON.stringify(data) }),
 
     delete: (id: string) =>
       request<{ success: boolean }>(`/leads/${id}`, { method: 'DELETE' }),
@@ -1906,8 +1920,15 @@ export type LeadStatus = 'NEW' | 'SENT' | 'CONTACTED' | 'CONVERTED' | 'LOST'
 
 export interface SmsSendLog {
   id: string
-  message: string
+  message?: string
   status: string
+  error?: string | null
+  sentAt: string
+}
+
+export interface LatestLeadSms {
+  status: 'SENT' | 'DELIVERED' | 'UNDELIVERED' | 'FAILED'
+  error: string | null
   sentAt: string
 }
 
@@ -1931,6 +1952,31 @@ export interface Lead {
   createdAt: string
   updatedAt: string
   smsSendLogs?: SmsSendLog[]
+  latestSms?: LatestLeadSms | null
+}
+
+export interface BulkSmsTargetPreview {
+  total: number
+  selectableTotal: number
+  returnedIds: string[]
+  limit: number
+  truncated: boolean
+}
+
+export interface BulkSmsResult {
+  leadId: string
+  name: string
+  status: 'sent' | 'failed'
+  error?: string
+}
+
+export interface BulkSmsResponse {
+  success: boolean
+  sent: number
+  failed: number
+  limit: number
+  results: BulkSmsResult[]
+  errors?: string[]
 }
 
 export type NdaStatus = 'DRAFT' | 'SENT' | 'SIGNED' | 'EXPIRED' | 'VOIDED'

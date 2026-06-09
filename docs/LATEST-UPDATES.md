@@ -1,5 +1,39 @@
 # Latest Documentation Updates
 
+**Date:** 2026-06-09 | **Feature:** Lead Bulk SMS Contract Update COMPLETE | **Status:** Complete; browser QA pending
+
+## Lead Bulk SMS Contract Update
+
+**Date:** 2026-06-09 | **Status:** Complete; browser QA pending
+
+**In One Sentence:** Tightened the lead bulk SMS contract around a shared 200-recipient cap, added all-filtered selection support, surfaced lead SMS delivery state (`latestSms`, `selectableTotal`, `bulkSmsMaxRecipients`), added a preview-targets endpoint, and returned per-recipient send results with converted-lead rejection.
+
+**Key Components Shipped:**
+
+### Shared Constants
+- `BULK_SMS_MAX_RECIPIENTS = 200` now lives in `@ella/shared/constants` and is reused by shared schemas, API validation, and workspace client types.
+
+### Backend API
+- `GET /leads` now returns `latestSms` per lead plus `selectableTotal` and `bulkSmsMaxRecipients` for bulk planning.
+- `POST /leads/bulk-sms/preview-targets` previews eligible lead ids before send.
+- `POST /leads/bulk-sms` rejects converted leads up front, returns per-recipient `results`, and surfaces structured limit/error codes.
+- `POST /webhooks/twilio/status` continues to move delivered lead SMS from `NEW`/`SENT` to `CONTACTED` and persists failed/undelivered states for latest-SMS UI.
+
+### Workspace UI
+- `apps/workspace/src/lib/api-client.ts` now types the updated list response and preview/send payloads against the shared 200-recipient ceiling.
+- Leads list selection now supports all filtered eligible leads up to 200 recipients and shows over-limit narrowing guidance.
+- Lead rows/detail surfaces show compact SMS delivery indicators, and the bulk SMS dialog keeps the per-recipient send summary visible for retry/diagnosis.
+
+### Documentation Sync
+- `docs/system-architecture.md`, `docs/codebase-summary.md`, and `docs/project-changelog.md` now match the updated SMS contract.
+
+### Validation
+- API bulk SMS + Twilio status webhook tests pass.
+- Workspace transparency test, touched package type-checks, and workspace build pass.
+- Manual browser QA checklist is recorded in the Phase 04 plan file and remains pending for an authenticated seeded workspace.
+
+---
+
 **Date:** 2026-06-08 | **Feature:** Custom Payment Links + Coupons (Phases 1-7) COMPLETE | **Status:** Complete
 
 ---

@@ -4,19 +4,17 @@ import { Copy, Loader2, Send, UserPlus, X } from 'lucide-react'
 import type { PricingCalculatorInput } from '@ella/shared/pricing'
 import { copyToClipboard } from '../../lib/clipboard'
 import { toast } from '../../stores/toast-store'
-import { serializePricingInput, trimOptional } from './pricing-format'
+import { serializePricingInput } from './pricing-format'
 import { useRecipientSearch, decodeRecipientId } from './use-recipient-search'
 import { useSendQuote } from './use-send-quote'
-import type { PricingCustomerFields } from './pricing-calculator-types'
 
 interface PricingSendQuotePanelProps {
   pricingInput: PricingCalculatorInput
-  fields: PricingCustomerFields
   /** Same guard the link panel uses; non-null disables sending. */
   disabledReason: string | null
 }
 
-export function PricingSendQuotePanel({ pricingInput, fields, disabledReason }: PricingSendQuotePanelProps) {
+export function PricingSendQuotePanel({ pricingInput, disabledReason }: PricingSendQuotePanelProps) {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<ComboboxItem | null>(null)
   const [sentSignature, setSentSignature] = useState<string | null>(null)
@@ -62,9 +60,6 @@ export function PricingSendQuotePanel({ pricingInput, fields, disabledReason }: 
       const response = await sendQuote.mutateAsync({
         pricingInput,
         recipient,
-        customerEmail: trimOptional(fields.customerEmail),
-        customerName: trimOptional(fields.customerName),
-        businessName: trimOptional(fields.businessName),
       })
       setSentSignature(currentSignature)
       if (response.smsSent) {

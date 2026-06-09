@@ -1,9 +1,28 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-07 ICT
+> **Last Updated:** 2026-06-09 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+## 2026-06-09
+
+### Lead Bulk SMS Contract Update
+**Status:** Complete; browser QA pending
+
+**Changed:**
+- Centralized the bulk SMS recipient cap at `200` in `@ella/shared/constants` and reused it in shared validation, workspace client types, and API responses.
+- Extended `GET /leads` with `latestSms`, `selectableTotal`, and `bulkSmsMaxRecipients` so the workspace can plan sends from the list view.
+- Added `POST /leads/bulk-sms/preview-targets` to preview eligible recipient ids before send.
+- Updated `POST /leads/bulk-sms` to reject converted leads before sending, return per-recipient `results`, and surface structured limit/error codes.
+- Updated workspace lead selection so "select all" can target all filtered eligible leads up to the 200-recipient cap, with over-limit guidance.
+- Added lead-list/detail SMS delivery indicators and persistent bulk-send result summaries so immediate failures and later delivery failures stay visible.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/leads/__tests__/bulk-sms.test.ts src/routes/webhooks/__tests__/twilio-status.test.ts` pass
+- `pnpm -F @ella/workspace test -- src/components/leads/bulk-sms-transparency.test.tsx` pass
+- `pnpm -F @ella/api type-check`, `pnpm -F @ella/shared type-check`, `pnpm -F @ella/workspace type-check`, and `pnpm -F @ella/workspace build` pass
+- Manual browser QA checklist recorded in Phase 04; authenticated seeded workspace validation remains pending.
 
 ## 2026-06-07
 

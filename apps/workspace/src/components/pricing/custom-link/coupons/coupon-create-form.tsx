@@ -21,8 +21,12 @@ const DURATION_OPTIONS = [
   { value: 'repeating', label: 'Repeating (months)' },
 ]
 
+interface CouponCreateFormProps {
+  onCreated?: () => void
+}
+
 /** Create-coupon form with conditional fields driven by discountType/duration. */
-export function CouponCreateForm() {
+export function CouponCreateForm({ onCreated }: CouponCreateFormProps) {
   const [form, setForm] = useState<CouponFormState>(createEmptyCouponForm)
   const [errors, setErrors] = useState<CouponFormErrors>({})
   const createCoupon = useCreateCoupon()
@@ -36,9 +40,10 @@ export function CouponCreateForm() {
     if (!payload) return
     try {
       const coupon = await createCoupon.mutateAsync(payload)
-      toast.success(`Coupon ${coupon.code} created`)
+      toast.success(`Discount code ${coupon.code} created`)
       setForm(createEmptyCouponForm())
       setErrors({})
+      onCreated?.()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not create coupon')
     }
@@ -164,7 +169,7 @@ export function CouponCreateForm() {
           ) : (
             <Plus className="h-4 w-4" />
           )}
-          Create coupon
+          Create discount code
         </Button>
       </div>
     </form>

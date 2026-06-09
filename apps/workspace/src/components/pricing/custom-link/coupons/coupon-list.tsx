@@ -34,7 +34,7 @@ export function CouponList({ coupons, loading, error }: CouponListProps) {
   if (coupons.length === 0) {
     return (
       <p className="py-4 text-xs text-muted-foreground">
-        No coupons yet. Create one above to pre-apply discounts on custom links.
+        No coupons yet. Add a discount code to pre-apply discounts on custom links.
       </p>
     )
   }

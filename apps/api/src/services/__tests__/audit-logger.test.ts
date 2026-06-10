@@ -112,7 +112,7 @@ describe('Audit Logger', () => {
       mockCreateMany.mockResolvedValueOnce({ count: 1 })
 
       const changes: FieldChange[] = [
-        { field: 'intakeAnswers.email', oldValue: 'test@example.com', newValue: null },
+        { field: 'intakeAnswers.hasW2', oldValue: true, newValue: null },
       ]
 
       await logProfileChanges('client-123', changes)
@@ -120,11 +120,35 @@ describe('Audit Logger', () => {
       expect(mockCreateMany).toHaveBeenCalledWith({
         data: [
           expect.objectContaining({
-            oldValue: 'test@example.com',
+            oldValue: true,
             // newValue should be Prisma.JsonNull for explicit null
           }),
         ],
       })
+    })
+
+    it('should redact PII values before persistence (SSN/email/phone)', async () => {
+      mockCreateMany.mockResolvedValueOnce({ count: 3 })
+
+      const changes: FieldChange[] = [
+        // Sensitive field name → value dropped regardless of type
+        { field: 'intakeAnswers.email', oldValue: 'test@example.com', newValue: 'new@example.com' },
+        // Sensitive value pattern (SSN) under a generic field name → still redacted
+        { field: 'intakeAnswers.taxpayerId', oldValue: null, newValue: '123-45-6789' },
+        // Non-sensitive primitive → preserved so the audit trail stays useful
+        { field: 'intakeAnswers.hasW2', oldValue: false, newValue: true },
+      ]
+
+      await logProfileChanges('client-123', changes, 'staff-456')
+
+      const callData = mockCreateMany.mock.calls[0]?.[0]?.data as Array<Record<string, unknown>>
+      const byField = Object.fromEntries(callData.map((e) => [e.field, e]))
+
+      expect(byField['intakeAnswers.email'].oldValue).toBe('[REDACTED]')
+      expect(byField['intakeAnswers.email'].newValue).toBe('[REDACTED]')
+      expect(byField['intakeAnswers.taxpayerId'].newValue).toBe('[REDACTED]')
+      expect(byField['intakeAnswers.hasW2'].oldValue).toBe(false)
+      expect(byField['intakeAnswers.hasW2'].newValue).toBe(true)
     })
 
     it('should handle database errors gracefully', async () => {

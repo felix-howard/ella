@@ -12,7 +12,7 @@ import {
   sharedDocExpiryFromNow,
 } from './validators'
 import { buildPortalUrl, serializeDocument, serializeMagicLink } from './response-builders'
-import { scopedDocWhere } from './scope'
+import { scopedDocWhere, requireParam } from './scope'
 
 type AuthContext = Context<{ Variables: AuthVariables }>
 
@@ -24,7 +24,7 @@ type AuthContext = Context<{ Variables: AuthVariables }>
  * - Magic link token preserved (updated to point to new document id)
  */
 export async function uploadVersion(c: AuthContext) {
-  const id = c.req.param('id')
+  const id = requireParam(c, 'id')
   const user = c.get('user')
   const staffId = user.staffId
   if (!staffId) return c.json({ error: 'STAFF_REQUIRED', message: 'Staff account required' }, 403)
@@ -107,7 +107,7 @@ export async function uploadVersion(c: AuthContext) {
  * Signed URL for current version PDF.
  */
 export async function getSignedUrl(c: AuthContext) {
-  const id = c.req.param('id')
+  const id = requireParam(c, 'id')
   const user = c.get('user')
 
   const doc = await prisma.shareableDocument.findFirst({
@@ -128,8 +128,8 @@ export async function getSignedUrl(c: AuthContext) {
  * Anchors section identity by (taxCaseId, title) and filters soft-deleted versions.
  */
 export async function getVersionSignedUrl(c: AuthContext) {
-  const id = c.req.param('id')
-  const versionStr = c.req.param('version')
+  const id = requireParam(c, 'id')
+  const versionStr = requireParam(c, 'version')
   const version = parseInt(versionStr, 10)
   const user = c.get('user')
 

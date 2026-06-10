@@ -157,6 +157,28 @@ export function redactActivityMetadata(metadata: unknown): Prisma.InputJsonValue
   return redacted as Prisma.InputJsonValue
 }
 
+/**
+ * Redact a single audit-log field value before persistence.
+ * Mirrors the activity-log redaction policy so AuditLog never stores plaintext PII:
+ * - If the FIELD name is sensitive (ssn/tin/ein/phone/email/token/notes/...), the
+ *   value is dropped to [REDACTED] regardless of type.
+ * - Otherwise the VALUE itself is scanned (SSN/TIN/email/phone/JWT/URL/storage-key/
+ *   long-text patterns + nested sensitive object keys) via the shared redactValue.
+ * Non-sensitive primitives (booleans, enums, counts) pass through so the audit
+ * trail stays useful. `null`/`undefined` are preserved for the caller's JsonNull mapping.
+ */
+export function redactAuditValue(field: string, value: unknown): unknown {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  if (
+    SENSITIVE_METADATA_KEY_PATTERN.test(field) &&
+    !SAFE_IDENTIFIER_KEY_PATTERN.test(field)
+  ) {
+    return REDACTED_VALUE
+  }
+  return redactValue(value)
+}
+
 export function getChangedFieldNames(input: Record<string, unknown>): string[] {
   return Object.entries(input)
     .filter(([, value]) => value !== undefined)

@@ -12,7 +12,7 @@ import { prisma } from '../../lib/db'
 import type { AuthVariables } from '../../middleware/auth'
 import type { AuthUser } from '../../services/auth'
 import { sharedDocExpiryFromNow } from './validators'
-import { scopedDocWhere } from './scope'
+import { scopedDocWhere, requireParam } from './scope'
 import { serializeMagicLink } from './response-builders'
 
 type AuthContext = Context<{ Variables: AuthVariables }>
@@ -54,7 +54,7 @@ async function findScopedDoc(user: AuthUser, id: string) {
  * Idempotent — returns success even if no active link existed.
  */
 export async function pauseSection(c: AuthContext) {
-  const id = c.req.param('id')
+  const id = requireParam(c, 'id')
   const user = c.get('user')
 
   const doc = await findScopedDoc(user, id)
@@ -92,7 +92,7 @@ export function __resetDeprecationWarnedForTests() {
  * Errors with LINK_NOT_FOUND when the section has never had a magic link.
  */
 export async function resumeSection(c: AuthContext) {
-  const id = c.req.param('id')
+  const id = requireParam(c, 'id')
   const user = c.get('user')
 
   const doc = await findScopedDoc(user, id)
@@ -130,7 +130,7 @@ export async function resumeSection(c: AuthContext) {
  * 'never' sets expiresAt=null (link never expires); portal paths treat null as not-expired.
  */
 export async function extendSection(c: AuthContext) {
-  const id = c.req.param('id')
+  const id = requireParam(c, 'id')
   const user = c.get('user')
 
   const doc = await findScopedDoc(user, id)
@@ -170,7 +170,7 @@ export async function extendSection(c: AuthContext) {
  * the button after click to avoid concurrent submits (schema-level unique index is future work).
  */
 export async function generateLink(c: AuthContext) {
-  const id = c.req.param('id')
+  const id = requireParam(c, 'id')
   const user = c.get('user')
 
   const doc = await findScopedDoc(user, id)

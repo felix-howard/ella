@@ -14,6 +14,7 @@ import { ActivityRiskLevel } from '@ella/db'
 import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 import { buildClientScopeFilter } from '../../lib/org-scope'
+import type { AuthUser } from '../../services/auth'
 
 const voiceRoutes = new Hono<{ Variables: AuthVariables }>()
 
@@ -440,16 +441,24 @@ voiceRoutes.patch(
 /**
  * Helper to verify user has access to a recording via message ownership
  */
-async function verifyRecordingAccess(recordingSid: string): Promise<boolean> {
-  // Find message with this recording URL
+async function verifyRecordingAccess(recordingSid: string, user: AuthUser): Promise<boolean> {
+  // Tenant isolation: only match a recording that belongs to the caller's org,
+  // reached via the conversation's client OR the originating lead. Without this
+  // org scope, any authenticated staffer could stream another org's call audio
+  // just by knowing/guessing a RecordingSid.
+  if (!user.organizationId) return false
+
   const message = await prisma.message.findFirst({
     where: {
       recordingUrl: { contains: recordingSid },
       channel: 'CALL',
+      OR: [
+        { conversation: { taxCase: { client: { organizationId: user.organizationId } } } },
+        { lead: { organizationId: user.organizationId } },
+      ],
     },
     select: { id: true },
   })
-  // Return true if recording exists in our database (staff made this call)
   return !!message
 }
 
@@ -476,7 +485,7 @@ voiceRoutes.get('/recordings/:recordingSid', async (c) => {
 
   try {
     // Verify user has access to this recording
-    const hasAccess = await verifyRecordingAccess(recordingSid)
+    const hasAccess = await verifyRecordingAccess(recordingSid, user)
     if (!hasAccess) {
       return c.json({ error: 'RECORDING_NOT_FOUND' }, 404)
     }
@@ -514,7 +523,7 @@ voiceRoutes.get('/recordings/:recordingSid/audio', async (c) => {
 
   try {
     // Verify user has access to this recording
-    const hasAccess = await verifyRecordingAccess(recordingSid)
+    const hasAccess = await verifyRecordingAccess(recordingSid, user)
     if (!hasAccess) {
       return c.json({ error: 'RECORDING_NOT_FOUND' }, 404)
     }

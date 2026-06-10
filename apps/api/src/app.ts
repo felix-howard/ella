@@ -1,6 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
+import { secureHeaders } from 'hono/secure-headers'
 import { errorHandler } from './middleware/error-handler'
 import { clerkMiddleware, authMiddleware } from './middleware/auth'
 import { deprecationHeadersMiddleware } from './middleware/deprecation'
@@ -64,6 +65,12 @@ app.use(
     credentials: true,
   })
 )
+
+// Security headers (nosniff, frame-options, HSTS, referrer-policy, cross-origin
+// policies). CSP is intentionally NOT enabled here — this API serves JSON to a
+// cross-origin SPA, and a default CSP would risk breaking clients with no benefit
+// for non-HTML responses. Tune a CSP later if the API ever serves HTML.
+app.use('*', secureHeaders())
 
 // Clerk middleware - parses JWT from Authorization header (runs on all routes)
 app.use('*', clerkMiddleware())

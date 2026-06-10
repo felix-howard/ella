@@ -6,6 +6,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PDFDocument } from 'pdf-lib'
+import type * as PdfSignaturePageModule from '../pdf-signature-page'
 
 vi.mock('../../../lib/db', () => ({
   prisma: {
@@ -21,7 +22,7 @@ vi.mock('../../storage', () => ({
 }))
 
 vi.mock('../pdf-signature-page', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../pdf-signature-page')>()
+  const actual = await importOriginal<typeof PdfSignaturePageModule>()
   return {
     ...actual,
     generateSignaturePagePdf: vi.fn(actual.generateSignaturePagePdf),

@@ -47,7 +47,7 @@ function freshToken() {
 const paymentView = {
   amount: '300',
   currency: 'usd',
-  description: 'Retainer – 2026 Engagement Letter',
+  description: 'Initial payment - 2026 Engagement Letter',
   status: 'PENDING',
   clientFirstName: 'Anna',
   organizationName: 'Acme Tax',

@@ -29,6 +29,10 @@ import {
   BUILTIN_ENGAGEMENT_LETTER_TEMPLATE,
   BUILTIN_NDA_TEMPLATE,
 } from './template-sentinels'
+import {
+  formatPaymentAmountInput,
+  sanitizePaymentAmountInput,
+} from './initial-payment-amount'
 import { api } from '../../../lib/api-client'
 import type { AgreementType } from '../../../lib/api-client'
 import type { EntityRef } from '../types'
@@ -693,10 +697,12 @@ export function Step3ContentEditor({
               <input
                 type="text"
                 inputMode="decimal"
-                value={effectiveDepositAmount}
-                onChange={(e) => patch({ depositAmountOverride: e.target.value })}
+                value={formatPaymentAmountInput(effectiveDepositAmount)}
+                onChange={(e) =>
+                  patch({ depositAmountOverride: sanitizePaymentAmountInput(e.target.value) })
+                }
                 disabled={isSubmitting}
-                placeholder="500.00"
+                placeholder="$500.00"
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50"
               />
               {!depositValid && (

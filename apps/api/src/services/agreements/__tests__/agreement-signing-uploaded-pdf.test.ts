@@ -20,8 +20,26 @@ vi.mock('../../storage', () => ({
   fetchFileBuffer: vi.fn(),
 }))
 
+vi.mock('../pdf-signature-page', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../pdf-signature-page')>()
+  return {
+    ...actual,
+    generateSignaturePagePdf: vi.fn(actual.generateSignaturePagePdf),
+  }
+})
+
+vi.mock('../agreement-post-sign-notifications', () => ({
+  notifyAdminsAgreementSigned: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('../../payments/deposit-payment-service', () => ({
+  createDepositPaymentForAgreement: vi.fn().mockResolvedValue(undefined),
+}))
+
 import { prisma } from '../../../lib/db'
 import { uploadFile, fetchFileBuffer } from '../../storage'
+import { generateSignaturePagePdf } from '../pdf-signature-page'
+import { createDepositPaymentForAgreement } from '../../payments/deposit-payment-service'
 import { signAgreement } from '../agreement-signing-service'
 import { countPdfPages } from '../pdf-merge'
 
@@ -29,10 +47,12 @@ const mockFindUnique = vi.mocked(prisma.agreement.findUnique)
 const mockUpdateMany = vi.mocked(prisma.agreement.updateMany)
 const mockUpload = vi.mocked(uploadFile)
 const mockFetchFile = vi.mocked(fetchFileBuffer)
+const mockGenerateSignaturePagePdf = vi.mocked(generateSignaturePagePdf)
+const mockCreateDepositPayment = vi.mocked(createDepositPaymentForAgreement)
 
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 const VALID_PNG_DATA_URL =
-  'data:image/png;base64,' + Buffer.concat([PNG_MAGIC, Buffer.from('sig')]).toString('base64')
+  'data:image/png;base64,' +
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
 
 async function makeBasePdf(pages: number): Promise<Buffer> {
   const doc = await PDFDocument.create()
@@ -51,10 +71,12 @@ function uploadedAgreement(overrides: Record<string, unknown> = {}) {
     isActive: true,
     type: 'ENGAGEMENT_LETTER',
     title: 'Engagement Agreement',
+    createdByUserId: 'staff-1',
     templateVersion: 'engagement-letter-v1',
     customContentHtml: null,
     uploadedPdfKey: 'agreements/uploads/client-1/abc.pdf',
     depositAmount: '500.00',
+    depositStatus: 'PENDING',
     expiresAt: new Date('2030-01-01T00:00:00Z'),
     createdAt: new Date('2026-06-01T00:00:00Z'),
     firmSignaturePngKey: 'agreement-firm-sigs/staff-1/x.png',
@@ -95,6 +117,22 @@ describe('signAgreement — uploaded PDF path', () => {
     expect(pdfUpload).toBeDefined()
     const storedPdf = pdfUpload![1] as Buffer
     expect(await countPdfPages(storedPdf)).toBe(3)
+    expect(mockGenerateSignaturePagePdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentTitle: 'Engagement Agreement',
+        depositAmountLabel: '$500.00',
+      }),
+    )
+    expect(mockCreateDepositPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'agr-1',
+        title: 'Engagement Agreement',
+        createdByUserId: 'staff-1',
+        depositAmount: '500.00',
+        depositStatus: 'PENDING',
+        signer: expect.objectContaining({ id: 'client-1', kind: 'client' }),
+      }),
+    )
   })
 
   it('errors when the uploaded source PDF cannot be loaded', async () => {

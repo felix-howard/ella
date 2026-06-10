@@ -13,7 +13,7 @@ export interface PublicPaymentView {
   amount: string
   /** Lowercase ISO currency code, e.g. "usd". */
   currency: string
-  /** e.g. "Retainer – Engagement Letter" — null for legacy rows. */
+  /** e.g. "Initial payment - Engagement Letter" — null for legacy rows. */
   description: string | null
   status: PaymentPublicStatus
   clientFirstName: string | null

@@ -31,7 +31,7 @@ describe('renderDefaultAgreementHtml — template v1', () => {
     expect(html).toContain('<h2>2. Definition of Confidential Information</h2>')
     expect(html).toContain('<h2>3. Obligations</h2>')
     expect(html).toContain('<h2>4. Term</h2>')
-    expect(html).toContain('5. Deposit Acknowledgement')
+    expect(html).toContain('5. Initial Payment Acknowledgement')
     expect(html).toContain('<h2>6. Governing Law</h2>')
     expect(html).toContain('<h2>7. Signature</h2>')
   })
@@ -45,8 +45,8 @@ describe('renderDefaultAgreementHtml — template v1', () => {
 
   it('embeds depositAmount in section 5 heading and paragraph', () => {
     const html = renderDefaultAgreementHtml(buildVars({ depositAmount: '$777' }), templateV1)
-    expect(html).toContain('<h2>5. Deposit Acknowledgement ($777)</h2>')
-    expect(html).toContain('non-refundable engagement deposit of $777')
+    expect(html).toContain('<h2>5. Initial Payment Acknowledgement ($777)</h2>')
+    expect(html).toContain('non-refundable initial payment of $777')
   })
 
   it('escapes HTML-meta characters in variable values', () => {

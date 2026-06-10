@@ -1,11 +1,29 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-09 ICT
+> **Last Updated:** 2026-06-10 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
 
 ## 2026-06-09
+
+### Agreement Payment Copy Consistency
+**Status:** Complete
+
+**Changed:**
+- Normalized user-facing agreement payment copy from deposit/retainer to initial payment across portal locales, SMS templates, built-in agreement templates, and payment descriptions.
+- Kept internal `deposit*` services and `Payment.type='DEPOSIT'` unchanged; legacy persisted descriptions are normalized only at user-facing boundaries.
+- Verified post-sign payment creation remains agreement-type agnostic for Engagement Letter, Service Agreement, Custom, and uploaded-PDF paths.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/workspace test -- initial-payment-amount` pass, 2 tests
+- `pnpm -F @ella/api test -- agreement-signing-service` pass, 28 tests
+- `pnpm -F @ella/api test -- deposit-payment-service` pass, 11 tests
+- `pnpm -F @ella/api test -- staff-handlers payments-staff public-payment-handlers deposit-checkout-service payment-sms-templates agreement-post-sign-notifications agreement-signing-uploaded-pdf template-v1 render-default-html` pass, 144 tests
+- `pnpm i18n:check` pass, workspace 2761 keys and portal 520 keys
 
 ### Workspace Custom Payment Links: Mixed Billing UI
 **Status:** Complete

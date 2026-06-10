@@ -44,10 +44,10 @@ function render(vars: TemplateVars): TemplateSection[] {
       ],
     },
     {
-      heading: `5. Deposit Acknowledgement (${vars.depositAmount})`,
+      heading: `5. Initial Payment Acknowledgement (${vars.depositAmount})`,
       paragraphs: [
-        `The Recipient acknowledges that a non-refundable engagement deposit of ${vars.depositAmount} is due to secure professional services. The deposit is recorded separately and is not governed by the terms of this Agreement beyond this acknowledgement.`,
-        'The deposit may be applied toward the final engagement fee at the Company\'s discretion, or forfeited in the event of non-engagement under the Company\'s published policy.',
+        `The Recipient acknowledges that a non-refundable initial payment of ${vars.depositAmount} is due to secure professional services. The initial payment is recorded separately and is not governed by the terms of this Agreement beyond this acknowledgement.`,
+        'The initial payment may be applied toward the final engagement fee at the Company\'s discretion, or forfeited in the event of non-engagement under the Company\'s published policy.',
       ],
     },
     {

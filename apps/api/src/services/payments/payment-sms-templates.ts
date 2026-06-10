@@ -36,7 +36,7 @@ export function buildDepositPayLinkMessage(params: {
 }): string {
   return (
     `Hi ${params.firstName}, thanks for signing! Please pay your ` +
-    `${params.amountFormatted} retainer here: ${params.url}`
+    `${params.amountFormatted} initial payment here: ${params.url}`
   )
 }
 
@@ -45,7 +45,7 @@ export function buildDepositReceiptMessage(params: {
   firstName: string
   amountFormatted: string
 }): string {
-  return `Hi ${params.firstName}, we received your ${params.amountFormatted} retainer payment. Thank you!`
+  return `Hi ${params.firstName}, we received your ${params.amountFormatted} initial payment. Thank you!`
 }
 
 /** Admin SMS: a client signed an agreement (deposit line only when one applies). */
@@ -55,7 +55,7 @@ export function buildAdminAgreementSignedMessage(params: {
   amountFormatted: string | null
 }): string {
   const depositSuffix = params.amountFormatted
-    ? ` (${params.amountFormatted} deposit pending)`
+    ? ` (${params.amountFormatted} initial payment pending)`
     : ''
   return `${params.signerName} signed ${params.agreementTitle}${depositSuffix}`
 }

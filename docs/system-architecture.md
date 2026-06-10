@@ -2443,12 +2443,12 @@ All avatar/notes UI will need i18n keys in workspace:
 - `profile.notesPlaceholder` - Editor hint text
 - Error keys for validation failures
 
-## Deposit Payment Flow (Post-Agreement Signing)
+## Initial Payment Flow (Post-Agreement Signing)
 
-**Overview:** After client signs agreement with deposit amount, system auto-creates Payment record + SMS to client with portal pay link + Stripe checkout session. Webhook marks payment PAID → SMS admins + client receipt. Staff can resend links + view payment status on client profile.
+**Overview:** After client signs an agreement with an initial payment amount, system auto-creates Payment record + SMS to client with portal pay link + Stripe checkout session. Webhook marks payment PAID → SMS admins + client receipt. Staff can resend links + view payment status on client profile. Internal service/model names still use `deposit*` and `Payment.type='DEPOSIT'`.
 
 **Models & Data:**
-- **Payment** - `organizationId, clientId, leadId, agreementId` (FKs with SetNull), `type='DEPOSIT'`, `status` (PENDING|PAID|FAILED|CANCELED|REFUNDED), `payToken` (unique per-token rate limit 3/hour with auto-refund on server failure), `amount` (cents), `stripeCheckoutSessionId`, `paidAt`, `failedAt`
+- **Payment** - `organizationId, clientId, leadId, agreementId` (FKs with SetNull), `type='DEPOSIT'`, `status` (PENDING|PAID|FAILED|CANCELED|REFUNDED), `payToken` (unique per-token rate limit 3/hour with auto-refund on server failure), `amount` (Decimal USD amount; converted to cents for Stripe), `stripeCheckoutSessionId`, `paidAt`, `failedAt`
 - **Staff Notifications** - ADMIN-only toggles: `notifyOnAgreementSigned` (SMS to admins when client signs), `notifyOnClientPayment` (SMS to admins when client pays)
 
 **Post-Sign Hook** (`agreement-signing-service.ts`):

@@ -3,6 +3,7 @@
  * Conversation and messaging operations
  */
 import { Hono } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
 import {
@@ -22,11 +23,14 @@ import {
   sendBatchMissingReminders,
 } from '../../services/sms'
 import {
+  getStorageStatus,
   getSafeStorageError,
   getSafeStorageReference,
   getSignedDownloadUrl,
   resolveAvatarUrl,
   SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS,
+  uploadFile,
+  deleteFile,
 } from '../../services/storage'
 import { ActivityRiskLevel, type MessageChannel, type MessageDirection } from '@ella/db'
 import { buildClientScopeFilter, isAdminOrManager } from '../../lib/org-scope'
@@ -36,6 +40,13 @@ import { inngest } from '../../lib/inngest'
 import type { AuthVariables } from '../../middleware/auth'
 import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
+import {
+  generateMessageAttachmentKey,
+  generateMessageAttachmentUploadId,
+  getMessageAttachmentValues,
+  MAX_MMS_REQUEST_BYTES,
+  validateMessageImageFiles,
+} from './message-attachment-upload'
 
 /**
  * Extract R2 keys from signed R2 URLs
@@ -59,7 +70,7 @@ function extractR2KeysFromUrls(urls: string[]): string[] {
       // The pathname starts with /, so we remove it
       const key = urlObj.pathname.substring(1)
 
-      if (key && key.startsWith('cases/')) {
+      if (key && (key.startsWith('cases/') || key.startsWith('message-attachments/'))) {
         keys.push(key)
       }
     } catch {
@@ -72,6 +83,22 @@ function extractR2KeysFromUrls(urls: string[]): string[] {
 }
 
 const messagesRoute = new Hono<{ Variables: AuthVariables }>()
+
+function withoutAttachmentR2Keys<T extends object>(message: T): Omit<T, 'attachmentR2Keys'> {
+  const copy = { ...message } as T & { attachmentR2Keys?: unknown }
+  delete copy.attachmentR2Keys
+  return copy
+}
+
+function getOptionalFormString(formData: FormData, key: string): string | null {
+  const value = formData.get(key)
+  if (value === null) return null
+  return typeof value === 'string' ? value : null
+}
+
+async function cleanupUploadedMessageAttachments(keys: string[]): Promise<void> {
+  await Promise.all(keys.map((key) => deleteFile(key).catch(() => false)))
+}
 
 function getTwilioStatusCategory(status: string | null): string | null {
   if (!status) return null
@@ -182,7 +209,13 @@ messagesRoute.get(
         },
         lastMessage: conv.messages[0]
           ? {
-              ...conv.messages[0],
+              ...withoutAttachmentR2Keys(conv.messages[0]),
+              attachmentUrls: conv.messages[0].attachmentUrls?.length
+                ? Array.from(
+                    { length: conv.messages[0].attachmentUrls.length },
+                    (_, i) => `/messages/media/${conv.messages[0].id}/${i}`
+                  )
+                : [],
               sentBy: conv.messages[0].sentBy
                 ? {
                     id: conv.messages[0].sentBy.id,
@@ -431,7 +464,7 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
       : m.attachmentUrls || []
 
     return {
-      ...m,
+      ...withoutAttachmentR2Keys(m),
       attachmentUrls: proxyUrls,
       sentBy: m.sentBy
         ? { id: m.sentBy.id, name: m.sentBy.name, avatarUrl: avatarCache.get(m.sentBy.id) ?? null }
@@ -602,8 +635,275 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
   return c.json(
     {
       message: {
-        ...message,
+        ...withoutAttachmentR2Keys(message),
         twilioStatus,
+        sentBy: message.sentBy
+          ? { id: message.sentBy.id, name: message.sentBy.name, avatarUrl: await resolveAvatarUrl(message.sentBy.avatarUrl) }
+          : null,
+        createdAt: message.createdAt.toISOString(),
+        updatedAt: message.updatedAt.toISOString(),
+      },
+      sent: smsSent,
+      smsEnabled: isSmsEnabled(),
+      error: smsError,
+    },
+    201
+  )
+})
+
+// POST /messages/send-with-attachments - Send case message with optional MMS images
+messagesRoute.post('/send-with-attachments', bodyLimit({ maxSize: MAX_MMS_REQUEST_BYTES }), async (c) => {
+  const user = c.get('user')
+  if (!user.organizationId) {
+    return c.json({ error: 'NO_ORGANIZATION', message: 'Organization required' }, 403)
+  }
+
+  let formData: FormData
+  try {
+    formData = await c.req.formData()
+  } catch {
+    return c.json({ error: 'INVALID_MULTIPART', message: 'Expected multipart form data' }, 400)
+  }
+
+  const caseIdValue = getOptionalFormString(formData, 'caseId')
+  const contentValue = getOptionalFormString(formData, 'content')
+  const templateNameValue = getOptionalFormString(formData, 'templateName')
+
+  if (
+    caseIdValue === null ||
+    (formData.has('content') && contentValue === null) ||
+    (formData.has('templateName') && templateNameValue === null)
+  ) {
+    return c.json({ error: 'VALIDATION_ERROR', message: 'Invalid multipart field type' }, 400)
+  }
+
+  const caseId = caseIdValue.trim()
+  const content = (contentValue ?? '').trim()
+  const templateName = templateNameValue?.trim() || undefined
+
+  if (!caseId) {
+    return c.json({ error: 'VALIDATION_ERROR', message: 'Case ID is required' }, 400)
+  }
+
+  if (content.length > 1000) {
+    return c.json({ error: 'VALIDATION_ERROR', message: 'Message content must be 1000 characters or less' }, 400)
+  }
+
+  const validation = await validateMessageImageFiles(getMessageAttachmentValues(formData))
+  if (!validation.ok) {
+    return c.json({ error: validation.error, message: validation.message }, validation.status)
+  }
+
+  if (!content && validation.images.length === 0) {
+    return c.json({ error: 'EMPTY_MESSAGE', message: 'Message content or image attachment is required' }, 400)
+  }
+
+  if (validation.images.length > 0 && !getStorageStatus().configured) {
+    return c.json({ error: 'STORAGE_NOT_CONFIGURED', message: 'Image message storage is not configured' }, 503)
+  }
+
+  // Verify case exists and belongs to user's org
+  const taxCase = await prisma.taxCase.findFirst({
+    where: { id: caseId, client: buildClientScopeFilter(user) },
+    include: { client: true },
+  })
+
+  if (!taxCase) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  // Prevent messaging on business cases linked to an individual via group
+  if (isBizWithGroup(taxCase.client)) {
+    console.warn(`[Messages] Blocked send to business case ${caseId} — use individual's case`)
+    return c.json({ error: 'BUSINESS_CASE', message: 'Use the individual owner\'s case for messaging' }, 400)
+  }
+
+  const attachmentR2Keys: string[] = []
+  const attachmentUrls: string[] = []
+  const uploadId = generateMessageAttachmentUploadId()
+
+  for (const [index, image] of validation.images.entries()) {
+    const key = generateMessageAttachmentKey({
+      organizationId: user.organizationId,
+      caseId,
+      uploadId,
+      extension: image.extension,
+      index,
+    })
+
+    try {
+      const upload = await uploadFile(key, image.buffer, image.contentType)
+      if (!upload.url) {
+        await cleanupUploadedMessageAttachments([...attachmentR2Keys, upload.key])
+        return c.json({ error: 'STORAGE_NOT_CONFIGURED', message: 'Image message storage is not configured' }, 503)
+      }
+      attachmentR2Keys.push(upload.key)
+      attachmentUrls.push(upload.url)
+    } catch (error) {
+      await cleanupUploadedMessageAttachments([...attachmentR2Keys, key])
+      console.error('[Messages] Failed to upload message attachment', {
+        object: getSafeStorageReference(key),
+        error: getSafeStorageError(error),
+      })
+      return c.json({ error: 'UPLOAD_FAILED', message: 'Failed to upload image attachment' }, 500)
+    }
+  }
+
+  const persisted = await (async () => {
+    try {
+      // Get or create conversation using upsert to prevent race conditions
+      const conversation = await prisma.conversation.upsert({
+        where: { caseId },
+        update: {},
+        create: { caseId },
+        include: {
+          taxCase: { include: { client: true } },
+        },
+      })
+
+      // Create message record with sender info
+      const message = await prisma.message.create({
+        data: {
+          conversationId: conversation.id,
+          channel: 'SMS' as MessageChannel,
+          direction: 'OUTBOUND' as MessageDirection,
+          content,
+          templateUsed: templateName,
+          sentById: user.staffId,
+          ...(attachmentUrls.length > 0 ? { attachmentUrls, attachmentR2Keys } : {}),
+        },
+        include: {
+          sentBy: {
+            select: { id: true, name: true, avatarUrl: true },
+          },
+        },
+      })
+
+      return { ok: true as const, conversation, message }
+    } catch (error) {
+      await cleanupUploadedMessageAttachments(attachmentR2Keys)
+      console.error('[Messages] Failed to persist message attachment record', {
+        attachmentCount: attachmentR2Keys.length,
+        error: {
+          name: error instanceof Error ? error.name : undefined,
+          message: 'Message attachment persistence failed',
+        },
+      })
+      return { ok: false as const }
+    }
+  })()
+
+  if (!persisted.ok) {
+    return c.json({ error: 'MESSAGE_CREATE_FAILED', message: 'Failed to create image message' }, 500)
+  }
+
+  const { conversation, message } = persisted
+
+  // Publish realtime event (non-blocking)
+  publishMessageEventFromConversation(conversation.id, {
+    id: message.id,
+    direction: 'OUTBOUND',
+    channel: 'SMS',
+  }).catch(() => {})
+
+  // Update conversation timestamp
+  await prisma.conversation.update({
+    where: { id: conversation.id },
+    data: { lastMessageAt: new Date() },
+  })
+
+  // Update case last contact
+  await prisma.taxCase.update({
+    where: { id: caseId },
+    data: { lastContactAt: new Date() },
+  })
+
+  // Send SMS/MMS if Twilio is configured
+  let smsSent = false
+  let smsError: string | undefined
+  let twilioStatus: string | null = null
+
+  if (isSmsEnabled()) {
+    const result = await sendSmsOnly(
+      taxCase.client.phone,
+      content,
+      attachmentUrls.length > 0 ? { mediaUrls: attachmentUrls } : undefined
+    )
+    smsSent = result.success
+    smsError = result.error
+
+    if (result.success && result.sid) {
+      twilioStatus = result.status || 'queued'
+      await prisma.message.update({
+        where: { id: message.id },
+        data: {
+          twilioSid: result.sid,
+          twilioStatus,
+        },
+      })
+    } else if (!result.success) {
+      twilioStatus = `ERROR: ${smsError}`
+      await prisma.message.update({
+        where: { id: message.id },
+        data: {
+          twilioSid: null,
+          twilioStatus,
+        },
+      })
+    }
+  }
+
+  // Emit chat monitoring event for staff outbound messages
+  if (user.staffId) {
+    const clientName = taxCase.client.name ||
+      `${taxCase.client.firstName} ${taxCase.client.lastName || ''}`.trim()
+    inngest.send({
+      name: 'message/staff-sent',
+      data: {
+        staffId: user.staffId,
+        staffName: message.sentBy?.name || 'Staff',
+        caseId,
+        clientName,
+        staffCaseKey: `${user.staffId}-${caseId}`,
+      },
+    }).catch((err) => {
+      console.error('[Messages] Failed to emit staff chat event:', err)
+    })
+  }
+
+  if (user.staffId) {
+    await logStaffActivity({
+      organizationId: user.organizationId,
+      clientId: taxCase.client.id,
+      caseId,
+      actorStaffId: user.staffId,
+      category: ACTIVITY_CATEGORIES.MESSAGE,
+      targetType: ACTIVITY_TARGET_TYPES.MESSAGE,
+      targetId: message.id,
+      targetLabel: taxCase.client.name,
+      summary: attachmentUrls.length > 0 ? 'Sent MMS to client' : 'Sent SMS to client',
+      action: ACTIVITY_ACTIONS.MESSAGE.SENT,
+      riskLevel: ActivityRiskLevel.LOW,
+      coalesceKey: `message.sent:SMS:${caseId}:${user.staffId}`,
+      metadata: {
+        channel: 'SMS',
+        messageId: message.id,
+        conversationId: conversation.id,
+        templateName,
+        smsSent,
+        attachmentCount: attachmentUrls.length,
+        twilioStatusCategory: getTwilioStatusCategory(twilioStatus),
+      },
+      request: getAuditRequestContext(c),
+    })
+  }
+
+  return c.json(
+    {
+      message: {
+        ...withoutAttachmentR2Keys(message),
+        twilioStatus,
+        attachmentUrls: attachmentR2Keys.map((_, i) => `/messages/media/${message.id}/${i}`),
         sentBy: message.sentBy
           ? { id: message.sentBy.id, name: message.sentBy.name, avatarUrl: await resolveAvatarUrl(message.sentBy.avatarUrl) }
           : null,

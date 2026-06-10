@@ -17,6 +17,7 @@ export interface MessageBubbleProps {
   message: Message & { _optimistic?: 'sending' | 'failed'; reactions?: MessageReaction[] }
   showTime?: boolean
   onRetry?: (message: Message) => void
+  onImageClick?: (messageId: string, attachmentIndex: number) => void
 }
 
 // Channel icons (labels are i18n keys)
@@ -89,7 +90,7 @@ const SMS_STATUS_CONFIG: Record<string, { icon: React.ReactNode; labelKey: strin
   failed: { icon: <XCircle className="w-3 h-3" />, labelKey: 'messages.smsStatus.failed', color: 'text-destructive' },
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, showTime = true, onRetry }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, showTime = true, onRetry, onImageClick }: MessageBubbleProps) {
   const { t } = useTranslation()
   const isOutbound = message.direction === 'OUTBOUND'
   const isSystem = message.channel === 'SYSTEM'
@@ -197,7 +198,13 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
           <div className="flex items-end gap-2 max-w-[280px]">
             <div className="flex flex-col gap-1.5">
               {message.attachmentUrls!.map((url, index) => (
-                <MessageImage key={index} url={url} isOutbound isStandalone />
+                <MessageImage
+                  key={index}
+                  url={url}
+                  isOutbound
+                  isStandalone
+                  onClick={() => onImageClick?.(message.id, index)}
+                />
               ))}
             </div>
             <StaffAvatar sentBy={message.sentBy} />
@@ -210,7 +217,13 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
       <div className="flex flex-col w-full items-start">
         <div className="flex flex-col gap-1.5 max-w-[280px]">
           {message.attachmentUrls!.map((url, index) => (
-            <MessageImage key={index} url={url} isOutbound={false} isStandalone />
+            <MessageImage
+              key={index}
+              url={url}
+              isOutbound={false}
+              isStandalone
+              onClick={() => onImageClick?.(message.id, index)}
+            />
           ))}
         </div>
         {showTime && (
@@ -234,7 +247,13 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
             {hasAttachments && (
               <div className="flex flex-col">
                 {message.attachmentUrls!.map((url, index) => (
-                  <MessageImage key={index} url={url} isOutbound isStandalone={false} />
+                  <MessageImage
+                    key={index}
+                    url={url}
+                    isOutbound
+                    isStandalone={false}
+                    onClick={() => onImageClick?.(message.id, index)}
+                  />
                 ))}
               </div>
             )}
@@ -294,7 +313,13 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
         {hasAttachments && (
           <div className="flex flex-col">
             {message.attachmentUrls!.map((url, index) => (
-              <MessageImage key={index} url={url} isOutbound={false} isStandalone={false} />
+              <MessageImage
+                key={index}
+                url={url}
+                isOutbound={false}
+                isStandalone={false}
+                onClick={() => onImageClick?.(message.id, index)}
+              />
             ))}
           </div>
         )}
@@ -406,9 +431,10 @@ interface MessageImageProps {
   url: string
   isOutbound: boolean
   isStandalone?: boolean
+  onClick?: () => void
 }
 
-function MessageImage({ url, isOutbound: _isOutbound, isStandalone = false }: MessageImageProps) {
+function MessageImage({ url, isOutbound: _isOutbound, isStandalone = false, onClick }: MessageImageProps) {
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
@@ -482,23 +508,32 @@ function MessageImage({ url, isOutbound: _isOutbound, isStandalone = false }: Me
         </div>
       )}
       {blobUrl && (
-        <img
-          src={blobUrl}
-          alt="Attachment"
+        <button
+          type="button"
           className={cn(
-            'cursor-pointer transition-all duration-200 hover:brightness-95',
-            isStandalone
-              ? 'max-w-[280px] max-h-[280px] w-auto h-auto object-cover'
-              : 'w-full max-h-[300px] object-cover',
-            loading && 'opacity-0'
+            'block cursor-pointer overflow-hidden text-left transition-all duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+            isStandalone ? 'rounded-2xl' : 'w-full'
           )}
-          onLoad={() => setLoading(false)}
-          onError={() => {
-            setLoading(false)
-            setError(true)
-          }}
-          onClick={() => window.open(blobUrl, '_blank')}
-        />
+          onClick={onClick}
+          aria-label="Open attachment image"
+        >
+          <img
+            src={blobUrl}
+            alt="Attachment"
+            className={cn(
+              'transition-all duration-200',
+              isStandalone
+                ? 'max-w-[280px] max-h-[280px] w-auto h-auto object-cover'
+                : 'w-full max-h-[300px] object-cover',
+              loading && 'opacity-0'
+            )}
+            onLoad={() => setLoading(false)}
+            onError={() => {
+              setLoading(false)
+              setError(true)
+            }}
+          />
+        </button>
       )}
     </div>
   )

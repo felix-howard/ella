@@ -23,6 +23,9 @@ const prismaMocks = vi.hoisted(() => ({
 
 const serviceMocks = vi.hoisted(() => ({
   buildPaymentPayUrl: vi.fn((token: string) => `http://portal.test/pay/${token}`),
+  normalizeDepositPaymentDescription: vi.fn((description: string | null) =>
+    description?.replace(/^Retainer\s+[–-]\s*/i, 'Initial payment - ') ?? null,
+  ),
   resendDepositPayLink: vi.fn(),
 }))
 
@@ -74,6 +77,10 @@ beforeEach(() => {
   serviceMocks.buildPaymentPayUrl.mockImplementation(
     (token: string) => `http://portal.test/pay/${token}`,
   )
+  serviceMocks.normalizeDepositPaymentDescription.mockImplementation(
+    (description: string | null) =>
+      description?.replace(/^Retainer\s+[–-]\s*/i, 'Initial payment - ') ?? null,
+  )
 })
 
 describe('GET /clients/:clientId/payments', () => {
@@ -110,7 +117,7 @@ describe('GET /clients/:clientId/payments', () => {
         status: 'PENDING',
         amount: { toString: () => '300' },
         currency: 'usd',
-        description: 'Retainer – 2026 Engagement Letter',
+        description: 'Initial payment - 2026 Engagement Letter',
         paidAt: null,
         createdAt: new Date('2026-06-07T10:00:00Z'),
         payToken: 'tok_abc',
@@ -131,11 +138,58 @@ describe('GET /clients/:clientId/payments', () => {
       expect.objectContaining({
         id: 'pay_1',
         amount: '300',
+        description: 'Initial payment - 2026 Engagement Letter',
         status: 'PENDING',
         payUrl: 'http://portal.test/pay/tok_abc',
         agreement: { id: 'agr_1', title: '2026 Engagement Letter' },
       }),
     ])
+  })
+
+  it('normalizes legacy retainer descriptions in the staff payments list', async () => {
+    prismaMocks.payment.findMany.mockResolvedValue([
+      {
+        id: 'pay_1',
+        type: 'DEPOSIT',
+        status: 'PENDING',
+        amount: { toString: () => '300' },
+        currency: 'usd',
+        description: 'Retainer – 2026 Engagement Letter',
+        paidAt: null,
+        createdAt: new Date('2026-06-07T10:00:00Z'),
+        payToken: 'tok_abc',
+        agreement: { id: 'agr_1', title: '2026 Engagement Letter' },
+      },
+    ])
+
+    const res = await buildApp().request(`/clients/${CLIENT_ID}/payments`)
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.data[0].description).toBe('Initial payment - 2026 Engagement Letter')
+  })
+
+  it('leaves non-deposit retainer descriptions unchanged in the staff payments list', async () => {
+    prismaMocks.payment.findMany.mockResolvedValue([
+      {
+        id: 'pay_1',
+        type: 'OTHER',
+        status: 'PENDING',
+        amount: { toString: () => '300' },
+        currency: 'usd',
+        description: 'Retainer - Monthly advisory',
+        paidAt: null,
+        createdAt: new Date('2026-06-07T10:00:00Z'),
+        payToken: 'tok_abc',
+        agreement: null,
+      },
+    ])
+
+    const res = await buildApp().request(`/clients/${CLIENT_ID}/payments`)
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.data[0].description).toBe('Retainer - Monthly advisory')
   })
 })
 

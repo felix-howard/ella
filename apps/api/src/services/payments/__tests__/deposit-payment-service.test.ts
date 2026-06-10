@@ -25,6 +25,7 @@ vi.mock('../signer-sms-delivery', () => smsMocks)
 import {
   buildPaymentPayUrl,
   createDepositPaymentForAgreement,
+  normalizeDepositPaymentDescription,
   resendDepositPayLink,
 } from '../deposit-payment-service'
 import type { PostSignAgreementContext } from '../../agreements/agreement-post-sign-notifications'
@@ -67,7 +68,7 @@ describe('createDepositPaymentForAgreement', () => {
         status: 'PENDING',
         amount: '300',
         payToken: expect.any(String),
-        description: 'Retainer – 2026 Engagement Letter',
+        description: 'Initial payment - 2026 Engagement Letter',
       }),
     })
 
@@ -80,6 +81,8 @@ describe('createDepositPaymentForAgreement', () => {
       sentById: 'staff_1',
     })
     expect(message).toContain('$300.00')
+    expect(message).toContain('initial payment')
+    expect(message).not.toContain('deposit')
     expect(message).toContain('http://portal.test/pay/tok_abc')
     expect(template).toBe('deposit_pay_link')
   })
@@ -155,7 +158,7 @@ describe('resendDepositPayLink', () => {
     prismaMocks.payment.findFirst.mockResolvedValue(null)
 
     await expect(resendDepositPayLink(params)).rejects.toMatchObject(
-      new HTTPException(404, { message: 'No deposit payment found for this agreement' }),
+      new HTTPException(404, { message: 'No initial payment found for this agreement' }),
     )
     expect(smsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
   })
@@ -178,6 +181,8 @@ describe('resendDepositPayLink', () => {
       expect.objectContaining({ signerId: 'client_1', signerKind: 'client' }),
     )
     expect(message).toContain('$300.00')
+    expect(message).toContain('initial payment')
+    expect(message).not.toContain('deposit')
     expect(message).not.toContain('$999')
     expect(message).toContain('http://portal.test/pay/tok_resend')
   })
@@ -206,5 +211,23 @@ describe('resendDepositPayLink', () => {
 describe('buildPaymentPayUrl', () => {
   it('builds the portal pay page URL', () => {
     expect(buildPaymentPayUrl('tok_x')).toBe('http://portal.test/pay/tok_x')
+  })
+})
+
+describe('normalizeDepositPaymentDescription', () => {
+  it('rewrites legacy retainer descriptions for user-facing payment surfaces', () => {
+    expect(normalizeDepositPaymentDescription('Retainer – 2026 Engagement Letter')).toBe(
+      'Initial payment - 2026 Engagement Letter',
+    )
+    expect(normalizeDepositPaymentDescription('Retainer - 2026 Engagement Letter')).toBe(
+      'Initial payment - 2026 Engagement Letter',
+    )
+  })
+
+  it('leaves current and empty descriptions unchanged', () => {
+    expect(normalizeDepositPaymentDescription('Initial payment - 2026 Engagement Letter')).toBe(
+      'Initial payment - 2026 Engagement Letter',
+    )
+    expect(normalizeDepositPaymentDescription(null)).toBeNull()
   })
 })

@@ -72,14 +72,14 @@ describe('deposit pay-link message', () => {
     expect(message).toContain('http://portal.test/pay/tok_abc')
   })
 
-  it('includes retainer language', () => {
+  it('includes initial payment language', () => {
     const message = buildDepositPayLinkMessage({
       firstName: 'John',
       amountFormatted: '$1000.00',
       url: 'http://pay.test',
     })
 
-    expect(message).toContain('retainer')
+    expect(message).toContain('initial payment')
   })
 
   it('matches exact copy format', () => {
@@ -90,7 +90,7 @@ describe('deposit pay-link message', () => {
     })
 
     expect(message).toMatch(/Hi Test, thanks for signing!/)
-    expect(message).toMatch(/Please pay your \$500\.00 retainer/)
+    expect(message).toMatch(/Please pay your \$500\.00 initial payment/)
   })
 })
 
@@ -105,14 +105,13 @@ describe('deposit receipt message', () => {
     expect(message).toContain('$1000.00')
   })
 
-  it('includes retainer language', () => {
+  it('includes initial payment language', () => {
     const message = buildDepositReceiptMessage({
       firstName: 'Anna',
       amountFormatted: '$300.00',
     })
 
-    expect(message).toContain('retainer')
-    expect(message).toContain('payment')
+    expect(message).toContain('initial payment')
   })
 
   it('matches exact copy format', () => {
@@ -121,7 +120,7 @@ describe('deposit receipt message', () => {
       amountFormatted: '$250.00',
     })
 
-    expect(message).toBe('Hi Test, we received your $250.00 retainer payment. Thank you!')
+    expect(message).toBe('Hi Test, we received your $250.00 initial payment. Thank you!')
   })
 })
 
@@ -137,7 +136,7 @@ describe('admin agreement signed message', () => {
     expect(message).toContain('2026 Engagement Letter')
   })
 
-  it('includes deposit amount when provided', () => {
+  it('includes initial payment amount when provided', () => {
     const message = buildAdminAgreementSignedMessage({
       signerName: 'Anna',
       agreementTitle: 'Service Agreement',
@@ -145,21 +144,21 @@ describe('admin agreement signed message', () => {
     })
 
     expect(message).toContain('$300.00')
-    expect(message).toContain('deposit')
+    expect(message).toContain('initial payment')
   })
 
-  it('omits deposit suffix when amount is null', () => {
+  it('omits initial payment suffix when amount is null', () => {
     const message = buildAdminAgreementSignedMessage({
       signerName: 'Test',
       agreementTitle: 'Agreement',
       amountFormatted: null,
     })
 
-    expect(message).not.toContain('deposit')
+    expect(message).not.toContain('initial payment')
     expect(message).toBe('Test signed Agreement')
   })
 
-  it('marks deposit as pending in the suffix', () => {
+  it('marks initial payment as pending in the suffix', () => {
     const message = buildAdminAgreementSignedMessage({
       signerName: 'User',
       agreementTitle: 'Letter',
@@ -299,8 +298,8 @@ describe('quote receipt message', () => {
     })
 
     expect(depositMsg).not.toBe(quoteMsg)
-    expect(depositMsg).toContain('retainer')
-    expect(quoteMsg).not.toContain('retainer')
+    expect(depositMsg).toContain('initial payment')
+    expect(quoteMsg).not.toContain('initial payment')
   })
 })
 

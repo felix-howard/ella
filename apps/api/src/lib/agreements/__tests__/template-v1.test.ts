@@ -33,7 +33,7 @@ describe('NDA template v1', () => {
       '2. Definition of Confidential Information',
       '3. Obligations',
       '4. Term',
-      expect.stringMatching(/^5\. Deposit Acknowledgement/),
+      expect.stringMatching(/^5\. Initial Payment Acknowledgement/),
       '6. Governing Law',
       '7. Signature',
     ])

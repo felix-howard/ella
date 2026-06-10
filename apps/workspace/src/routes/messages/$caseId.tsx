@@ -24,23 +24,72 @@ export const Route = createFileRoute('/messages/$caseId')({
 
 // Fallback polling interval (60 seconds — realtime handles instant updates)
 const FALLBACK_POLLING_INTERVAL = 60000
+const OPTIMISTIC_MATCH_WINDOW_MS = 60000
+
+type LocalMessage = Message & {
+  _optimistic?: 'sending' | 'failed'
+  _attachmentFiles?: File[]
+}
+
+function isLikelyServerCopy(optimistic: LocalMessage, message: Message): boolean {
+  if (!optimistic.id.startsWith('temp-') || message.id.startsWith('temp-')) return false
+  if (message.direction !== optimistic.direction || message.channel !== optimistic.channel) return false
+  if (message.content !== optimistic.content) return false
+
+  const optimisticAttachmentCount = optimistic.attachmentUrls?.length ?? 0
+  const messageAttachmentCount = message.attachmentUrls?.length ?? 0
+  if (optimisticAttachmentCount !== messageAttachmentCount) return false
+
+  const optimisticTime = new Date(optimistic.createdAt).getTime()
+  const messageTime = new Date(message.createdAt).getTime()
+  return messageTime >= optimisticTime - 1000 && messageTime <= optimisticTime + OPTIMISTIC_MATCH_WINDOW_MS
+}
+
+function dedupeMessagesById(messages: LocalMessage[]): LocalMessage[] {
+  return Array.from(new Map(messages.map((message) => [message.id, message])).values())
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+}
 
 function ConversationDetailView() {
   const { t } = useTranslation()
   const { canViewPhone } = useOrgRole()
   const { caseId } = Route.useParams()
   const queryClient = useQueryClient()
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<LocalMessage[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isSendingMessage, setIsSendingMessage] = useState(false)
   const [caseData, setCaseData] = useState<{
     client: { id: string; name: string; phone: string; language: Language }
     taxCase: { id: string; taxYear: number; status: TaxCaseStatus }
   } | null>(null)
   const prevCaseIdRef = useRef<string>(caseId)
+  const currentCaseIdRef = useRef<string>(caseId)
+  const isSendingMessageRef = useRef(false)
+  const optimisticPreviewUrlsRef = useRef<Set<string>>(new Set())
+  currentCaseIdRef.current = caseId
 
   // Voice call state
   const [voiceState, voiceActions] = useVoiceCall()
   const [showCallModal, setShowCallModal] = useState(false)
+
+  const revokeOptimisticPreviewUrls = useCallback((urls?: string[]) => {
+    urls?.forEach((url) => {
+      if (!url.startsWith('blob:')) return
+      URL.revokeObjectURL(url)
+      optimisticPreviewUrlsRef.current.delete(url)
+    })
+  }, [])
+
+  const revokeAllOptimisticPreviewUrls = useCallback(() => {
+    optimisticPreviewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
+    optimisticPreviewUrlsRef.current.clear()
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      revokeAllOptimisticPreviewUrls()
+    }
+  }, [revokeAllOptimisticPreviewUrls])
 
   // Fetch messages
   const fetchMessages = useCallback(async (silent = false) => {
@@ -54,7 +103,12 @@ function ConversationDetailView() {
       // Merge fetched messages with existing, keeping optimistic (temp-*) messages
       setMessages((prev) => {
         // Keep optimistic messages that are still pending
-        const optimisticMessages = prev.filter((m) => m.id.startsWith('temp-'))
+        const optimisticMessages = prev.filter((m) => {
+          if (!m.id.startsWith('temp-')) return false
+          if (!fetchedMessages.some((message) => isLikelyServerCopy(m, message))) return true
+          revokeOptimisticPreviewUrls(m.attachmentUrls)
+          return false
+        })
         const messageMap = new Map(fetchedMessages.map((m) => [m.id, m]))
         // Add back optimistic messages (they'll be replaced when API responds)
         optimisticMessages.forEach((m) => messageMap.set(m.id, m))
@@ -69,7 +123,7 @@ function ConversationDetailView() {
     } finally {
       setIsLoading(false)
     }
-  }, [caseId])
+  }, [caseId, revokeOptimisticPreviewUrls])
 
   // Fetch case data for header
   const fetchCaseData = useCallback(async () => {
@@ -105,6 +159,7 @@ function ConversationDetailView() {
   useEffect(() => {
     if (prevCaseIdRef.current !== caseId) {
       // Reset state when navigating to different conversation
+      revokeAllOptimisticPreviewUrls()
       setMessages([])
       setIsLoading(true)
       setCaseData(null)
@@ -112,7 +167,7 @@ function ConversationDetailView() {
     }
     fetchMessages()
     fetchCaseData()
-  }, [caseId, fetchMessages, fetchCaseData])
+  }, [caseId, fetchMessages, fetchCaseData, revokeAllOptimisticPreviewUrls])
 
   // Fallback polling (realtime handles instant updates)
   useEffect(() => {
@@ -125,57 +180,104 @@ function ConversationDetailView() {
 
   // Handle message send with true optimistic update
   const handleSend = useCallback(
-    async (content: string, channel: 'SMS' | 'PORTAL') => {
+    async (content: string, channel: 'SMS' | 'PORTAL', attachments: File[] = []) => {
+      if (isSendingMessageRef.current) {
+        throw new Error('Message send already in progress')
+      }
+      isSendingMessageRef.current = true
+      setIsSendingMessage(true)
+      const sendCaseId = caseId
+
       // Generate a temporary ID and show the message immediately
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-      const optimisticMessage: Message & { _optimistic?: 'sending' | 'failed' } = {
+      const attachmentUrls = attachments.map((file) => {
+        const url = URL.createObjectURL(file)
+        optimisticPreviewUrlsRef.current.add(url)
+        return url
+      })
+      const optimisticMessage: LocalMessage = {
         id: tempId,
         conversationId: caseId,
         channel,
         direction: 'OUTBOUND',
         content,
+        attachmentUrls,
         createdAt: new Date().toISOString(),
         _optimistic: 'sending',
+        _attachmentFiles: attachments.length > 0 ? attachments : undefined,
       }
 
       // Show message in UI instantly
       setMessages((prev) => [...prev, optimisticMessage])
 
       try {
-        const response = await api.messages.send({ caseId, content, channel })
+        const response = attachments.length > 0
+          ? await api.messages.sendWithAttachments({ caseId: sendCaseId, content, images: attachments })
+          : await api.messages.send({ caseId: sendCaseId, content, channel })
+        if (currentCaseIdRef.current !== sendCaseId) {
+          revokeOptimisticPreviewUrls(attachmentUrls)
+          return
+        }
+
+        const confirmedMessage: LocalMessage = {
+          ...response.message,
+          channel,
+          direction: 'OUTBOUND',
+          content,
+          createdAt: response.message.createdAt || optimisticMessage.createdAt,
+        }
 
         // Replace temp message with real server data
         setMessages((prev) =>
-          prev.map((m) =>
-            m.id === tempId
-              ? { ...response.message, channel, direction: 'OUTBOUND' as const, content, createdAt: response.message.createdAt || optimisticMessage.createdAt }
-              : m
-          )
+          dedupeMessagesById([
+            ...prev.filter((m) => m.id !== tempId && m.id !== response.message.id),
+            confirmedMessage,
+          ])
         )
+        revokeOptimisticPreviewUrls(attachmentUrls)
         queryClient.invalidateQueries({ queryKey: ['activity'] })
       } catch (error) {
         if (import.meta.env.DEV) {
           console.error('Failed to send message:', error)
         }
+        if (currentCaseIdRef.current !== sendCaseId) {
+          revokeOptimisticPreviewUrls(attachmentUrls)
+          return
+        }
+
         // Mark as failed so user can retry
-        setMessages((prev) =>
-          prev.map((m) =>
+        setMessages((prev) => {
+          const hasServerCopy = prev.some((m) => isLikelyServerCopy(optimisticMessage, m))
+          if (hasServerCopy) {
+            revokeOptimisticPreviewUrls(attachmentUrls)
+            return prev.filter((m) => m.id !== tempId)
+          }
+          return prev.map((m) =>
             m.id === tempId ? { ...m, _optimistic: 'failed' } : m
           )
-        )
+        })
+        throw error
+      } finally {
+        isSendingMessageRef.current = false
+        setIsSendingMessage(false)
       }
     },
-    [caseId, queryClient]
+    [caseId, queryClient, revokeOptimisticPreviewUrls]
   )
 
   // Retry a failed optimistic message
   const handleRetry = useCallback(
-    (failedMessage: Message & { _optimistic?: string }) => {
+    (failedMessage: LocalMessage) => {
       // Remove the failed message and re-send
       setMessages((prev) => prev.filter((m) => m.id !== failedMessage.id))
-      handleSend(failedMessage.content, failedMessage.channel as 'SMS' | 'PORTAL')
+      revokeOptimisticPreviewUrls(failedMessage.attachmentUrls)
+      handleSend(
+        failedMessage.content,
+        failedMessage.channel as 'SMS' | 'PORTAL',
+        failedMessage._attachmentFiles ?? []
+      ).catch(() => undefined)
     },
-    [handleSend]
+    [handleSend, revokeOptimisticPreviewUrls]
   )
 
   // Handle call button click
@@ -282,6 +384,7 @@ function ConversationDetailView() {
           clientId={caseData.client.id}
           caseId={caseId}
           defaultChannel="SMS"
+          isSending={isSendingMessage}
         />
       )}
 

@@ -84,7 +84,7 @@ function render(vars: TemplateVars): TemplateSection[] {
         'Monthly fee, if applicable: [Monthly Fee Amount]',
         'Rush fee, if applicable: [Rush Fee Amount]',
         'Payment deadline: [Payment Deadline]',
-        'The Firm may pause work until required payments, retainers, or deposits are received.',
+        'The Firm may pause work until required payments or initial payments are received.',
       ],
     },
     {

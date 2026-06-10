@@ -77,7 +77,7 @@ function paymentRow(overrides: Record<string, unknown> = {}) {
     status: 'PENDING',
     amount: { toString: () => '300' },
     currency: 'usd',
-    description: 'Retainer – 2026 Engagement Letter',
+    description: 'Initial payment - 2026 Engagement Letter',
     payToken: 'tok_abc',
     paidAt: null,
     organization: { name: 'Acme Tax' },
@@ -115,12 +115,22 @@ describe('getPublicPaymentView', () => {
     expect(view).toEqual({
       amount: '300',
       currency: 'usd',
-      description: 'Retainer – 2026 Engagement Letter',
+      description: 'Initial payment - 2026 Engagement Letter',
       status: 'PENDING',
       clientFirstName: 'Anna',
       organizationName: 'Acme Tax',
       paidAt: null,
     })
+  })
+
+  it('normalizes legacy retainer descriptions before returning public view', async () => {
+    prismaMocks.payment.findUnique.mockResolvedValue(
+      paymentRow({ description: 'Retainer – 2026 Engagement Letter' }),
+    )
+
+    const view = await getPublicPaymentView('tok_abc')
+
+    expect(view?.description).toBe('Initial payment - 2026 Engagement Letter')
   })
 })
 
@@ -162,7 +172,7 @@ describe('createDepositCheckoutSession', () => {
           price_data: {
             currency: 'usd',
             unit_amount: 30000, // 300 USD from DB — never from the request
-            product_data: { name: 'Retainer – 2026 Engagement Letter' },
+            product_data: { name: 'Initial payment - 2026 Engagement Letter' },
           },
         },
       ],
@@ -176,6 +186,26 @@ describe('createDepositCheckoutSession', () => {
       where: { id: 'pay_1' },
       data: { stripeSessionId: 'cs_dep_123' },
     })
+  })
+
+  it('normalizes legacy retainer descriptions in Stripe product names', async () => {
+    prismaMocks.payment.findUnique.mockResolvedValue(
+      paymentRow({ description: 'Retainer – 2026 Engagement Letter' }),
+    )
+
+    await createDepositCheckoutSession('tok_abc')
+
+    expect(stripeMocks.sessionsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        line_items: [
+          expect.objectContaining({
+            price_data: expect.objectContaining({
+              product_data: { name: 'Initial payment - 2026 Engagement Letter' },
+            }),
+          }),
+        ],
+      }),
+    )
   })
 
   it('throws STRIPE_MISSING_URL when Stripe returns no URL', async () => {

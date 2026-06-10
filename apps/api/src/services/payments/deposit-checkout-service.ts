@@ -16,7 +16,10 @@ import { prisma } from '../../lib/db'
 import { isUnsafeProductionReturnUrl } from '../stripe/checkout'
 import { smsOptedInAdmins } from '../agreements/agreement-post-sign-notifications'
 import { formatPhoneToE164 } from '../sms/twilio-client'
-import { buildPaymentPayUrl } from './deposit-payment-service'
+import {
+  buildPaymentPayUrl,
+  normalizeDepositPaymentDescription,
+} from './deposit-payment-service'
 import { sendSignerSmsAndPersist } from './signer-sms-delivery'
 import {
   buildAdminPaymentReceivedMessage,
@@ -87,7 +90,7 @@ export async function getPublicPaymentView(payToken: string): Promise<PublicPaym
   return {
     amount: payment.amount.toString(),
     currency: payment.currency,
-    description: payment.description,
+    description: normalizeDepositPaymentDescription(payment.description),
     status: payment.status,
     // Signer resolution mirrors the signing service: prefer lead when present.
     clientFirstName: payment.lead?.firstName ?? payment.client?.firstName ?? null,
@@ -164,7 +167,9 @@ export async function createDepositCheckoutSession(
         price_data: {
           currency: payment.currency,
           unit_amount: Math.round(Number(payment.amount.toString()) * 100),
-          product_data: { name: payment.description ?? 'Deposit payment' },
+          product_data: {
+            name: normalizeDepositPaymentDescription(payment.description) ?? 'Initial payment',
+          },
         },
       },
     ],

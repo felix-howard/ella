@@ -154,7 +154,7 @@ describe('notifyAdminsAgreementSigned', () => {
 
     expect(twilioMocks.sendSms).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: 'Anna Nguyen signed 2026 Engagement Letter ($300.00 deposit pending)',
+        body: 'Anna Nguyen signed 2026 Engagement Letter ($300.00 initial payment pending)',
       }),
     )
   })

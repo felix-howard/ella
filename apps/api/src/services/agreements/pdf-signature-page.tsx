@@ -60,8 +60,8 @@ function SignaturePageDocument(input: SignaturePageInput) {
 
         {input.depositAmountLabel ? (
           <Text style={s.paragraph}>
-            A deposit of {input.depositAmountLabel} applies to this engagement and is
-            payable as set out in the attached agreement.
+            An initial payment of {input.depositAmountLabel} applies to this engagement
+            and is payable as set out in the attached agreement.
           </Text>
         ) : null}
 

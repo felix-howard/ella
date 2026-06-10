@@ -48,7 +48,10 @@ vi.mock('../../../services/storage', () => ({
     keyHash: 'safehash',
   })),
   getSignedDownloadUrl: vi.fn(),
+  getStorageStatus: vi.fn(),
   resolveAvatarUrl: vi.fn(),
+  uploadFile: vi.fn(),
+  deleteFile: vi.fn(),
 }))
 
 import { prisma } from '../../../lib/db'

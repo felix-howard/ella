@@ -3,11 +3,12 @@
  * Renders messages in chronological order with date separators
  */
 
-import { useEffect, useRef, useMemo } from 'react'
+import { useCallback, useEffect, useRef, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { MessageSquare } from 'lucide-react'
 import { MessageBubble, TypingIndicator } from './message-bubble'
+import { MessageImageViewerModal, type MessageImageGalleryItem } from './message-image-viewer-modal'
 import { buildMessagesWithTapbackReactions } from '../../lib/message-reactions'
 import type { Message } from '../../lib/api-client'
 
@@ -31,6 +32,7 @@ export function MessageThread({
   const bottomRef = useRef<HTMLDivElement>(null)
   const prevMessagesLengthRef = useRef(0)
   const hasScrolledInitialRef = useRef(false)
+  const [activeImageId, setActiveImageId] = useState<string | null>(null)
 
   const displayMessages = useMemo(
     () => buildMessagesWithTapbackReactions(messages),
@@ -65,6 +67,36 @@ export function MessageThread({
 
     return groups
   }, [displayMessages, i18n.language])
+
+  const imageGalleryItems = useMemo<MessageImageGalleryItem[]>(
+    () =>
+      displayMessages.flatMap((message) =>
+        (message.attachmentUrls ?? []).map((url, attachmentIndex) => ({
+          id: `${message.id}:${attachmentIndex}`,
+          url,
+          messageId: message.id,
+          attachmentIndex,
+          createdAt: message.createdAt,
+        }))
+      ),
+    [displayMessages]
+  )
+
+  const activeImageIndex = activeImageId
+    ? imageGalleryItems.findIndex((item) => item.id === activeImageId)
+    : -1
+
+  const handleImageClick = useCallback((messageId: string, attachmentIndex: number) => {
+    setActiveImageId(`${messageId}:${attachmentIndex}`)
+  }, [])
+
+  const handleSelectImageIndex = useCallback(
+    (index: number) => {
+      const image = imageGalleryItems[index]
+      if (image) setActiveImageId(image.id)
+    },
+    [imageGalleryItems]
+  )
 
   // Reset scroll state when messages are cleared (e.g., navigating between conversations)
   useEffect(() => {
@@ -153,7 +185,12 @@ export function MessageThread({
           {/* Messages for this date */}
           <div className="space-y-2">
             {group.messages.map((message) => (
-              <MessageBubble key={message.id} message={message} onRetry={onRetry} />
+              <MessageBubble
+                key={message.id}
+                message={message}
+                onRetry={onRetry}
+                onImageClick={handleImageClick}
+              />
             ))}
           </div>
         </div>
@@ -164,6 +201,14 @@ export function MessageThread({
 
       {/* Scroll anchor */}
       <div ref={bottomRef} />
+
+      <MessageImageViewerModal
+        images={imageGalleryItems}
+        activeIndex={activeImageIndex}
+        open={activeImageIndex >= 0}
+        onClose={() => setActiveImageId(null)}
+        onSelectIndex={handleSelectImageIndex}
+      />
     </div>
   )
 }

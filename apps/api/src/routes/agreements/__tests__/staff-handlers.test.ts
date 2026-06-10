@@ -168,6 +168,36 @@ describe('Staff NDA handlers', () => {
       expect(created.customContentHtml).toBe('<p>Custom <strong>terms</strong></p>')
     })
 
+    it.each([
+      'ENGAGEMENT_LETTER',
+      'SERVICE_AGREEMENT',
+      'CUSTOM',
+    ] as const)('accepts depositAmount when creating %s agreements', async (type) => {
+      mockLeadFindFirst.mockResolvedValueOnce(lead() as any)
+      mockNdaCreate.mockResolvedValueOnce(
+        nda({
+          id: `${type.toLowerCase().replaceAll('_', '-')}-1`,
+          type,
+          title: `${type} Test`,
+          depositAmount: '500.00',
+          depositStatus: 'PENDING',
+        }) as any,
+      )
+
+      const res = await createReq({
+        type,
+        title: `${type} Test`,
+        contentHtml: '<p>Agreement terms</p>',
+        depositAmount: '500.00',
+      })
+
+      expect(res.status).toBe(201)
+      const created = (mockNdaCreate.mock.calls[0][0] as any).data
+      expect(created.type).toBe(type)
+      expect(created.depositAmount).toBe('500.00')
+      expect(created.depositStatus).toBe('PENDING')
+    })
+
     it('strips disallowed tags via sanitizer (script removed)', async () => {
       mockLeadFindFirst.mockResolvedValueOnce(lead() as any)
       mockNdaCreate.mockResolvedValueOnce(nda() as any)

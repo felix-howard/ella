@@ -1,6 +1,6 @@
 /**
- * Deposit Payment creation + client pay-link SMS, fired after an agreement
- * with "Collect a deposit" is signed.
+ * Initial-payment Payment creation + client pay-link SMS, fired after an
+ * agreement with "Collect an initial payment" is signed.
  *
  * Idempotency: at most one PENDING/PAID Payment per agreement — re-triggers
  * (sign endpoint retry, double hook fire) are no-ops. SMS failure leaves the
@@ -31,10 +31,16 @@ export function buildPaymentPayUrl(payToken: string): string {
   return `${PORTAL_URL}/pay/${payToken}`
 }
 
+/** Hide legacy persisted copy from user-facing payment surfaces. */
+export function normalizeDepositPaymentDescription(description: string | null): string | null {
+  if (!description) return description
+  return description.replace(/^Retainer\s+[–-]\s*/i, 'Initial payment - ')
+}
+
 /**
- * Create the PENDING deposit Payment for a just-signed agreement and SMS the
- * client the portal pay link. No-op when the agreement has no pending deposit
- * or a Payment already exists (idempotent).
+ * Create the PENDING initial-payment Payment for a just-signed agreement and
+ * SMS the client the portal pay link. No-op when the agreement has no pending
+ * initial payment or a Payment already exists (idempotent).
  */
 export async function createDepositPaymentForAgreement(
   ctx: PostSignAgreementContext,
@@ -55,7 +61,7 @@ export async function createDepositPaymentForAgreement(
   })
   if (existing) {
     console.warn(
-      `[Payment] Deposit payment already exists for agreement=${ctx.id} — skipping create`,
+      `[Payment] Initial payment already exists for agreement=${ctx.id} — skipping create`,
     )
     return
   }
@@ -70,7 +76,7 @@ export async function createDepositPaymentForAgreement(
       status: 'PENDING',
       amount: depositAmount.toString(),
       payToken: generatePayToken(),
-      description: `Retainer – ${ctx.title}`,
+      description: `Initial payment - ${ctx.title}`,
     },
   })
 
@@ -136,7 +142,7 @@ export async function resendDepositPayLink(params: {
     },
   })
   if (!payment || !payment.agreement) {
-    throw new HTTPException(404, { message: 'No deposit payment found for this agreement' })
+    throw new HTTPException(404, { message: 'No initial payment found for this agreement' })
   }
   if (payment.status !== 'PENDING') {
     throw new HTTPException(409, { message: 'Payment is not pending — link cannot be resent' })

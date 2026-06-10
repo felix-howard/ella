@@ -19,35 +19,15 @@ import {
   EXPIRY_DAYS_MIN,
   EXPIRY_DAYS_PRESETS,
 } from './step3-content-editor'
+import {
+  formatPaymentAmountInput,
+  sanitizePaymentAmountInput,
+} from './initial-payment-amount'
 import type { AgreementType, UploadedPdfResult } from '../../../lib/api-client'
 import type { EntityRef } from '../types'
 
 const MAX_PDF_BYTES = 15 * 1024 * 1024
 const DEFAULT_DEPOSIT_AMOUNT = '500.00'
-
-/**
- * Strip user input down to a plain numeric string (digits + at most one dot,
- * max two decimals). This is the value stored in state, validated, and sent.
- */
-function sanitizeAmount(input: string): string {
-  let cleaned = input.replace(/[^\d.]/g, '')
-  const firstDot = cleaned.indexOf('.')
-  if (firstDot !== -1) {
-    cleaned =
-      cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '')
-    cleaned = cleaned.slice(0, firstDot + 3)
-  }
-  return cleaned
-}
-
-/** Render a raw numeric string as USD, e.g. "1500" → "$1,500", "1500.5" → "$1,500.5". */
-function formatAmount(raw: string): string {
-  if (!raw) return ''
-  const [intPart, decPart] = raw.split('.')
-  const grouped = intPart ? Number(intPart).toLocaleString('en-US') : '0'
-  const dollars = `$${grouped}`
-  return decPart !== undefined ? `${dollars}.${decPart}` : dollars
-}
 
 export interface UploadStep3Resolved {
   uploadedPdfKey: string
@@ -239,8 +219,8 @@ export function Step3UploadEditor({ entity, type, isSubmitting, onCancel, onSubm
               <input
                 type="text"
                 inputMode="decimal"
-                value={formatAmount(depositAmount)}
-                onChange={(e) => setDepositAmount(sanitizeAmount(e.target.value))}
+                value={formatPaymentAmountInput(depositAmount)}
+                onChange={(e) => setDepositAmount(sanitizePaymentAmountInput(e.target.value))}
                 disabled={isSubmitting}
                 placeholder="$500.00"
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"

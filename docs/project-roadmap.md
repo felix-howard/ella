@@ -30,6 +30,26 @@
 
 ---
 
+### Manager Payment Access Restriction ✅
+**Started:** 2026-06-10
+**Completed:** 2026-06-10
+**Status:** COMPLETE
+**Objective:** Keep Manager role out of payment/quote tools and client payment history.
+
+**Delivered:**
+- Added Admin-only `canManagePayments` capability.
+- Removed Payments sidebar item and client detail Payments tab for Manager.
+- Blocked direct pricing calculator and client payments tab rendering for Manager.
+- Changed staff billing/client payment API guards to Admin-only.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/layout/__tests__/sidebar-nav-items.test.ts` pass
+- `pnpm -F @ella/api test -- src/routes/clients/__tests__/payments-staff.test.ts src/routes/billing/__tests__/billing-route-auth.test.ts` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api type-check` pass
+
+---
+
 ### Workspace Pricing Calculator Payment Links ✅
 **Started:** 2026-06-01
 **Completed:** 2026-06-01

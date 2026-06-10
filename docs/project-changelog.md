@@ -7,6 +7,21 @@
 
 ## 2026-06-10
 
+### Manager Payment Access Restriction
+**Status:** Complete
+
+**Changed:**
+- Added Admin-only `canManagePayments` capability for workspace payment surfaces.
+- Hid sidebar Payments nav from Manager role while keeping Leads visible.
+- Hid client detail Payments tab and overview payments summary from Manager role; direct `tab=payments` falls back to Files.
+- Changed staff billing and client payment endpoints from Admin/Manager to Admin-only.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/layout/__tests__/sidebar-nav-items.test.ts` pass, 3 tests
+- `pnpm -F @ella/api test -- src/routes/clients/__tests__/payments-staff.test.ts src/routes/billing/__tests__/billing-route-auth.test.ts` pass, 15 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api type-check` pass
+
 ### Workspace Messages Image Viewer Modal
 **Status:** Complete
 

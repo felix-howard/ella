@@ -38,9 +38,9 @@ vi.mock('../../../middleware/auth', () => ({
     }
     await next()
   },
-  requireAdminOrManager: async (c: Context<{ Variables: AuthVariables }>, next: Next) => {
+  requireOrgAdmin: async (c: Context<{ Variables: AuthVariables }>, next: Next) => {
     const user = c.get('user')
-    if (!(user.orgRole === 'org:admin' || user.role === 'ADMIN' || user.role === 'MANAGER')) {
+    if (!(user.orgRole === 'org:admin' || user.role === 'ADMIN')) {
       return c.json({ message: 'Admin access required' }, 403)
     }
     await next()
@@ -92,6 +92,18 @@ describe('billing route auth', () => {
   it('rejects checkout session creation for non-admin staff', async () => {
     authState.organizationId = 'org_1'
     authState.role = 'STAFF'
+    authState.orgRole = 'org:member'
+
+    const res = await buildApp().request('/billing/checkout-sessions', { method: 'POST' })
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ message: 'Admin access required' })
+    expect(checkoutMocks.createCheckoutSession).not.toHaveBeenCalled()
+  })
+
+  it('rejects checkout session creation for managers', async () => {
+    authState.organizationId = 'org_1'
+    authState.role = 'MANAGER'
     authState.orgRole = 'org:member'
 
     const res = await buildApp().request('/billing/checkout-sessions', { method: 'POST' })

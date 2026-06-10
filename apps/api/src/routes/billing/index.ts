@@ -1,7 +1,7 @@
 import { Hono, type Context } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { strictRateLimit } from '../../middleware/rate-limiter'
-import { authMiddleware, requireOrg, requireAdminOrManager, type AuthVariables } from '../../middleware/auth'
+import { authMiddleware, requireOrg, requireOrgAdmin, type AuthVariables } from '../../middleware/auth'
 import { CheckoutQuoteError, createCheckoutSession } from '../../services/stripe'
 import { createCustomCheckoutSession } from '../../services/stripe/custom-checkout'
 import { createSendableQuote } from '../../services/payments/quote-send-service'
@@ -20,7 +20,7 @@ billingRoute.post(
   '/checkout-sessions',
   authMiddleware,
   requireOrg,
-  requireAdminOrManager,
+  requireOrgAdmin,
   strictRateLimit,
   zValidator('json', createCheckoutSessionSchema),
   async (c) => {
@@ -41,7 +41,7 @@ billingRoute.post(
   '/checkout-sessions/custom',
   authMiddleware,
   requireOrg,
-  requireAdminOrManager,
+  requireOrgAdmin,
   strictRateLimit,
   zValidator('json', createCustomCheckoutSchema),
   async (c) => {
@@ -62,7 +62,7 @@ billingRoute.post(
   '/quotes/send',
   authMiddleware,
   requireOrg,
-  requireAdminOrManager,
+  requireOrgAdmin,
   strictRateLimit,
   zValidator('json', sendQuoteInputSchema),
   async (c) => {
@@ -83,7 +83,7 @@ billingRoute.post(
   '/quotes/send/custom',
   authMiddleware,
   requireOrg,
-  requireAdminOrManager,
+  requireOrgAdmin,
   strictRateLimit,
   zValidator('json', sendCustomQuoteSchema),
   async (c) => {

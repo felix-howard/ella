@@ -4,7 +4,7 @@ import { Button } from '@ella/ui'
 import { PricingCalculatorPage } from './pricing-calculator-page'
 
 interface PricingCalculatorShellProps {
-  /** ADMIN + MANAGER can access the pricing calculator */
+  /** ADMIN can access payment and quote tools */
   canAccess: boolean
   isLoading: boolean
   hasRoleError: boolean

@@ -1,6 +1,6 @@
 /**
  * Tests for the staff-facing client payment endpoints: payments list for the
- * profile tab (ADMIN/MANAGER only, org-scoped) and the rate-limited
+ * profile tab (ADMIN only, org-scoped) and the rate-limited
  * "Resend payment link" action.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -91,8 +91,15 @@ describe('GET /clients/:clientId/payments', () => {
     expect(prismaMocks.payment.findMany).not.toHaveBeenCalled()
   })
 
-  it.each(['ADMIN', 'MANAGER'] as const)('allows %s role', async (role) => {
-    const res = await buildApp(role).request(`/clients/${CLIENT_ID}/payments`)
+  it('rejects MANAGER role with 403', async () => {
+    const res = await buildApp('MANAGER').request(`/clients/${CLIENT_ID}/payments`)
+
+    expect(res.status).toBe(403)
+    expect(prismaMocks.payment.findMany).not.toHaveBeenCalled()
+  })
+
+  it('allows ADMIN role', async () => {
+    const res = await buildApp('ADMIN').request(`/clients/${CLIENT_ID}/payments`)
 
     expect(res.status).toBe(200)
   })
@@ -196,6 +203,16 @@ describe('GET /clients/:clientId/payments', () => {
 describe('POST /clients/:clientId/agreements/:id/resend-payment-link', () => {
   it('rejects STAFF role with 403', async () => {
     const res = await buildApp('STAFF').request(
+      `/clients/${CLIENT_ID}/agreements/${freshAgreementId()}/resend-payment-link`,
+      { method: 'POST' },
+    )
+
+    expect(res.status).toBe(403)
+    expect(serviceMocks.resendDepositPayLink).not.toHaveBeenCalled()
+  })
+
+  it('rejects MANAGER role with 403', async () => {
+    const res = await buildApp('MANAGER').request(
       `/clients/${CLIENT_ID}/agreements/${freshAgreementId()}/resend-payment-link`,
       { method: 'POST' },
     )

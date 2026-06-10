@@ -91,8 +91,12 @@ const VALID_TAB_PARAMS: TabType[] = [
 ]
 const DEFAULT_CLIENT_TAB: TabType = 'files'
 
-function getAvailableTabIds(client: { clientType: 'INDIVIDUAL' | 'BUSINESS'; businessType?: BusinessType | null } | null | undefined): TabType[] {
+function getAvailableTabIds(
+  client: { clientType: 'INDIVIDUAL' | 'BUSINESS'; businessType?: BusinessType | null } | null | undefined,
+  flags: { canManagePayments: boolean } = { canManagePayments: true },
+): TabType[] {
   if (!client) return VALID_TAB_PARAMS
+  const paymentsTabs = flags.canManagePayments ? (['payments'] as TabType[]) : []
 
   if (client.clientType === 'BUSINESS') {
     return [
@@ -101,12 +105,12 @@ function getAvailableTabIds(client: { clientType: 'INDIVIDUAL' | 'BUSINESS'; bus
       'contractors',
       'data-entry',
       'shared-docs',
-      'payments',
+      ...paymentsTabs,
       ...(isScheduleCEligibleBusiness(client) ? (['schedule-c'] as TabType[]) : []),
     ]
   }
 
-  return ['overview', 'files', 'agreements', 'payments', 'data-entry', 'shared-docs', 'schedule-c', 'schedule-e']
+  return ['overview', 'files', 'agreements', ...paymentsTabs, 'data-entry', 'shared-docs', 'schedule-c', 'schedule-e']
 }
 
 export const Route = createFileRoute('/clients/$clientId')({
@@ -150,7 +154,12 @@ function ClientDetailPage() {
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
-  const { canViewPhone, canManageClients } = useOrgRole()
+  const {
+    canViewPhone,
+    canManageClients,
+    canManagePayments,
+    isLoading: isRoleLoading,
+  } = useOrgRole()
   // Multi-year engagement state
   const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null)
   const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)
@@ -387,8 +396,8 @@ function ClientDetailPage() {
   }, [clientId, navigate, tabFromSearch, startTabTransition])
 
   useEffect(() => {
-    const availableTabIds = getAvailableTabIds(client)
-    if (!client || availableTabIds.includes(activeTab)) return
+    const availableTabIds = getAvailableTabIds(client, { canManagePayments })
+    if (!client || isRoleLoading || availableTabIds.includes(activeTab)) return
     startTabTransition(() => {
       setActiveTab(DEFAULT_CLIENT_TAB)
       navigate({
@@ -398,7 +407,7 @@ function ClientDetailPage() {
         replace: true,
       })
     })
-  }, [activeTab, client, clientId, navigate, startTabTransition])
+  }, [activeTab, canManagePayments, client, clientId, isRoleLoading, navigate, startTabTransition])
 
   // Fetch engagements for this client (multi-year support)
   const { data: engagementsData } = useQuery({
@@ -717,14 +726,14 @@ function ClientDetailPage() {
         { id: 'contractors', label: 'Contractors', icon: UserCircle },
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
         { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
-        paymentsTab,
+        ...(canManagePayments ? [paymentsTab] : []),
         ...(showScheduleCTab ? [scheduleCTab] : []),
       ]
     : [
         { id: 'overview', label: t('clientOverview.title'), icon: User },
         { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
         agreementsTab,
-        paymentsTab,
+        ...(canManagePayments ? [paymentsTab] : []),
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
         { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
         scheduleCTab,
@@ -992,6 +1001,7 @@ function ClientDetailPage() {
       {activeTab === 'overview' && (
         <ClientOverviewTab
           client={client}
+          canManagePayments={canManagePayments}
           parentScheduleC={
             !isBusiness && scheduleCExpense && selectedEngagement
               ? { id: scheduleCExpense.id, taxYear: selectedEngagement.taxYear }
@@ -1048,7 +1058,7 @@ function ClientDetailPage() {
       )}
 
       {/* Payments Tab - deposits/balances collected from this client */}
-      {activeTab === 'payments' && <ClientPaymentsTab clientId={clientId} />}
+      {activeTab === 'payments' && canManagePayments && <ClientPaymentsTab clientId={clientId} />}
 
       {/* Checklist Tab - Requirement-based document view (renamed from Documents) */}
       {activeTab === 'checklist' && (

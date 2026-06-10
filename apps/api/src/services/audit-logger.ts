@@ -10,6 +10,7 @@
 import { prisma } from '../lib/db'
 import { Prisma } from '@ella/db'
 import type { AuditEntityType } from '@ella/db'
+import { redactAuditValue } from './activity-log'
 
 /** Represents a single field change */
 export interface FieldChange {
@@ -32,15 +33,21 @@ export async function logProfileChanges(
   if (changes.length === 0) return
 
   try {
-    const auditEntries: Prisma.AuditLogCreateManyInput[] = changes.map((change) => ({
-      entityType: 'CLIENT_PROFILE' as AuditEntityType,
-      entityId: clientId,
-      field: change.field,
-      // Prisma requires Prisma.JsonNull for explicit null, undefined for missing
-      oldValue: change.oldValue !== undefined ? (change.oldValue as Prisma.InputJsonValue) : Prisma.JsonNull,
-      newValue: change.newValue !== undefined ? (change.newValue as Prisma.InputJsonValue) : Prisma.JsonNull,
-      changedById: staffId || undefined,
-    }))
+    const auditEntries: Prisma.AuditLogCreateManyInput[] = changes.map((change) => {
+      // Redact PII before persistence (SSN/TIN/email/phone/etc.) so AuditLog never
+      // stores plaintext sensitive values that are encrypted everywhere else.
+      const oldValue = redactAuditValue(change.field, change.oldValue)
+      const newValue = redactAuditValue(change.field, change.newValue)
+      return {
+        entityType: 'CLIENT_PROFILE' as AuditEntityType,
+        entityId: clientId,
+        field: change.field,
+        // Prisma requires Prisma.JsonNull for explicit null, undefined for missing
+        oldValue: oldValue !== undefined ? (oldValue as Prisma.InputJsonValue) : Prisma.JsonNull,
+        newValue: newValue !== undefined ? (newValue as Prisma.InputJsonValue) : Prisma.JsonNull,
+        changedById: staffId || undefined,
+      }
+    })
 
     // Batch insert audit entries (async, doesn't block API response)
     await prisma.auditLog.createMany({
@@ -126,14 +133,18 @@ export async function logEngagementChanges(
   if (changes.length === 0) return
 
   try {
-    const auditEntries: Prisma.AuditLogCreateManyInput[] = changes.map((change) => ({
-      entityType: 'TAX_ENGAGEMENT' as AuditEntityType,
-      entityId: engagementId,
-      field: change.field,
-      oldValue: change.oldValue !== undefined ? (change.oldValue as Prisma.InputJsonValue) : Prisma.JsonNull,
-      newValue: change.newValue !== undefined ? (change.newValue as Prisma.InputJsonValue) : Prisma.JsonNull,
-      changedById: staffId || undefined,
-    }))
+    const auditEntries: Prisma.AuditLogCreateManyInput[] = changes.map((change) => {
+      const oldValue = redactAuditValue(change.field, change.oldValue)
+      const newValue = redactAuditValue(change.field, change.newValue)
+      return {
+        entityType: 'TAX_ENGAGEMENT' as AuditEntityType,
+        entityId: engagementId,
+        field: change.field,
+        oldValue: oldValue !== undefined ? (oldValue as Prisma.InputJsonValue) : Prisma.JsonNull,
+        newValue: newValue !== undefined ? (newValue as Prisma.InputJsonValue) : Prisma.JsonNull,
+        changedById: staffId || undefined,
+      }
+    })
 
     await prisma.auditLog.createMany({
       data: auditEntries,
@@ -162,13 +173,15 @@ export async function logTeamAction(
   metadata?: Record<string, unknown>
 ): Promise<void> {
   try {
+    const oldValue = redactAuditValue(action, metadata?.oldValue)
+    const newValue = redactAuditValue(action, metadata?.newValue)
     await prisma.auditLog.create({
       data: {
         entityType: 'ORGANIZATION' as AuditEntityType,
         entityId: targetStaffId,
         field: action,
-        oldValue: metadata?.oldValue !== undefined ? (metadata.oldValue as Prisma.InputJsonValue) : Prisma.JsonNull,
-        newValue: metadata?.newValue !== undefined ? (metadata.newValue as Prisma.InputJsonValue) : Prisma.JsonNull,
+        oldValue: oldValue !== undefined ? (oldValue as Prisma.InputJsonValue) : Prisma.JsonNull,
+        newValue: newValue !== undefined ? (newValue as Prisma.InputJsonValue) : Prisma.JsonNull,
         changedById: performedById || undefined,
       },
     })

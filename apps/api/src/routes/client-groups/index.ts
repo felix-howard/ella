@@ -8,7 +8,7 @@ import { HTTPException } from 'hono/http-exception'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
 import { getPaginationParams, buildPaginationResponse } from '../../lib/constants'
-import { buildClientScopeFilter } from '../../lib/org-scope'
+import { buildClientScopeFilter, canSeeAllClients } from '../../lib/org-scope'
 import { serializePhone } from '../../lib/phone-privacy'
 import type { AuthVariables } from '../../middleware/auth'
 import type { AuthUser } from '../../services/auth'
@@ -34,6 +34,28 @@ function getVerifiedAuth(user: AuthUser): { orgId: string; staffId: string } {
     throw new HTTPException(403, { message: 'Staff record required' })
   }
   return { orgId: user.organizationId, staffId: user.staffId }
+}
+
+/**
+ * Group-access where clause. ADMIN/MANAGER see all groups in their org; STAFF/CPA
+ * see only groups containing at least one client they manage (tenant isolation —
+ * STAFF must not read groups/documents for clients outside their assignment).
+ */
+function groupScopeWhere(user: AuthUser, orgId: string): Record<string, unknown> {
+  const where: Record<string, unknown> = { organizationId: orgId }
+  if (!canSeeAllClients(user)) {
+    where.clients = { some: buildClientScopeFilter(user) }
+  }
+  return where
+}
+
+/**
+ * Filter for the `clients` relation include: ADMIN/MANAGER see every client in the
+ * group; STAFF see only their managed clients. Returns undefined (no filter) for
+ * admins/managers so Prisma includes all.
+ */
+function groupClientsWhere(user: AuthUser): Record<string, unknown> | undefined {
+  return canSeeAllClients(user) ? undefined : buildClientScopeFilter(user)
 }
 
 // Client preview fields included in group responses
@@ -122,7 +144,7 @@ clientGroupsRoute.get(
     const { orgId } = getVerifiedAuth(user)
     const { skip } = getPaginationParams(page, limit)
 
-    const where: Record<string, unknown> = { organizationId: orgId }
+    const where: Record<string, unknown> = groupScopeWhere(user, orgId)
     if (search) {
       where.name = { contains: search, mode: 'insensitive' }
     }
@@ -131,7 +153,7 @@ clientGroupsRoute.get(
       prisma.clientGroup.findMany({
         where,
         include: {
-          clients: { select: clientPreviewSelect, take: 20 },
+          clients: { where: groupClientsWhere(user), select: clientPreviewSelect, take: 20 },
           _count: { select: { clients: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -161,9 +183,9 @@ clientGroupsRoute.get(
     const { orgId } = getVerifiedAuth(user)
 
     const group = await prisma.clientGroup.findFirst({
-      where: { id, organizationId: orgId },
+      where: { id, ...groupScopeWhere(user, orgId) },
       include: {
-        clients: { select: clientPreviewSelect },
+        clients: { where: groupClientsWhere(user), select: clientPreviewSelect },
       },
     })
 
@@ -195,7 +217,7 @@ clientGroupsRoute.patch(
 
     // Verify group exists and belongs to org
     const existing = await prisma.clientGroup.findFirst({
-      where: { id, organizationId: orgId },
+      where: { id, ...groupScopeWhere(user, orgId) },
       select: { id: true },
     })
     if (!existing) {
@@ -269,7 +291,7 @@ clientGroupsRoute.delete(
     const { orgId } = getVerifiedAuth(user)
 
     const existing = await prisma.clientGroup.findFirst({
-      where: { id, organizationId: orgId },
+      where: { id, ...groupScopeWhere(user, orgId) },
       select: { id: true },
     })
     if (!existing) {
@@ -308,21 +330,23 @@ clientGroupsRoute.get(
     const { orgId } = getVerifiedAuth(user)
     const taxYear = taxYearParam || new Date().getFullYear()
 
-    // Verify group exists and belongs to org
+    // Verify group exists and is accessible (STAFF: must manage a client in it)
     const group = await prisma.clientGroup.findFirst({
-      where: { id, organizationId: orgId },
+      where: { id, ...groupScopeWhere(user, orgId) },
       select: { id: true },
     })
     if (!group) {
       throw new HTTPException(404, { message: 'Client group not found' })
     }
 
-    // Get all cases in group for this tax year with their images
+    // Get all cases in group for this tax year with their images.
+    // Scope by buildClientScopeFilter so STAFF only sees images of clients they
+    // manage; ADMIN/MANAGER see every client in the group (tenant isolation).
     let cases = await prisma.taxCase.findMany({
       where: {
         client: {
           clientGroupId: id,
-          organizationId: orgId,
+          ...buildClientScopeFilter(user),
         },
         taxYear,
       },
@@ -343,7 +367,7 @@ clientGroupsRoute.get(
           where: {
             client: {
               clientGroupId: id,
-              organizationId: orgId,
+              ...buildClientScopeFilter(user),
             },
             taxYear,
           },

@@ -13,6 +13,8 @@
 
 import sharp from 'sharp'
 import { prisma } from '../../lib/db'
+import { buildNestedClientScope } from '../../lib/org-scope'
+import type { AuthUser } from '../auth'
 import type { DocType } from '@ella/db'
 
 // Constants
@@ -205,8 +207,21 @@ export async function assignToImageGroup(
  */
 export async function selectBestImage(
   groupId: string,
-  bestImageId: string
+  bestImageId: string,
+  user: AuthUser
 ): Promise<void> {
+  // Tenant isolation: confirm the group belongs to the caller's org (and, for
+  // STAFF, an assigned client) before mutating it. ImageGroup has no org column,
+  // so we scope through taxCase -> client -> organizationId.
+  const group = await prisma.imageGroup.findFirst({
+    where: { id: groupId, taxCase: buildNestedClientScope(user) },
+    select: { id: true },
+  })
+
+  if (!group) {
+    throw new Error('Image group not found')
+  }
+
   // Verify the image belongs to this group
   const image = await prisma.rawImage.findUnique({
     where: { id: bestImageId },
@@ -226,9 +241,11 @@ export async function selectBestImage(
 /**
  * Get all images in a group with their details
  */
-export async function getGroupImages(groupId: string) {
-  const group = await prisma.imageGroup.findUnique({
-    where: { id: groupId },
+export async function getGroupImages(groupId: string, user: AuthUser) {
+  // Tenant isolation: scope through taxCase -> client -> organizationId so a
+  // staffer can only read groups belonging to their org (and assigned clients).
+  const group = await prisma.imageGroup.findFirst({
+    where: { id: groupId, taxCase: buildNestedClientScope(user) },
     include: {
       images: {
         select: {

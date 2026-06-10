@@ -24,6 +24,27 @@ import type { TwilioIncomingMessage } from './webhook-handler'
 const MEDIA_DOWNLOAD_TIMEOUT = 15000 // 15s timeout for Twilio URL fetch (increased from 10s)
 const MAX_MEDIA_COUNT = 10 // Twilio supports up to 10 media items
 
+// Only these host suffixes may receive the Twilio Basic-Auth credentials.
+// Inbound webhooks supply MediaUrlN; without this allow-list a forged/replayed
+// webhook could point the URL at an attacker host and the server would fetch it
+// (SSRF) while leaking the Twilio Account SID + Auth Token (ELLA-SEC-004).
+const TWILIO_MEDIA_HOST_SUFFIXES = ['.twilio.com', '.twiliocdn.com']
+
+/**
+ * True only for https URLs whose host is a Twilio-owned domain. The leading dot
+ * in each suffix prevents look-alikes (e.g. `eviltwilio.com`, `api.twilio.com.evil.com`).
+ */
+export function isAllowedTwilioMediaUrl(rawUrl: string): boolean {
+  try {
+    const u = new URL(rawUrl)
+    if (u.protocol !== 'https:') return false
+    const host = u.hostname.toLowerCase()
+    return TWILIO_MEDIA_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix))
+  } catch {
+    return false
+  }
+}
+
 export interface MmsMediaResult {
   attachmentUrls: string[]
   attachmentR2Keys: string[]  // Permanent keys for refreshing expired URLs
@@ -221,6 +242,14 @@ export async function processMmsMedia(
  * Uses Basic Auth with Twilio Account SID and Auth Token for secure access
  */
 async function downloadFromTwilioUrl(url: string, timeout: number): Promise<Buffer | null> {
+  // Tenant/credential safety: never fetch (or attach Twilio credentials to) a URL
+  // that isn't a Twilio host. Blocks SSRF + Account SID/Auth Token exfiltration via
+  // a forged MediaUrl in an inbound webhook (ELLA-SEC-004).
+  if (!isAllowedTwilioMediaUrl(url)) {
+    console.error('[MMS] Refusing to download media from non-Twilio host')
+    return null
+  }
+
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 

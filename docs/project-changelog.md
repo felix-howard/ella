@@ -1,11 +1,82 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-09 ICT
+> **Last Updated:** 2026-06-10 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
 
+## 2026-06-10
+
+### Workspace Messages Image Viewer Modal
+**Status:** Complete
+
+**Changed:**
+- Replaced new-tab message image opening with an in-app viewer modal for workspace message attachments.
+- Added previous/next image navigation, keyboard arrow support, close control, and a thumbnail strip across all images in the active conversation.
+- Rendered the viewer through a body-level portal so it covers the full app shell, including the sidebar, and restyled it for Ella's light-mode UI.
+- Kept protected media loading through the existing authenticated message media proxy and preserved optimistic blob previews.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass, 0 errors and 9 existing warnings outside this change
+- `git diff --check` pass
+
+### Message Composer Attachment Send-State Polish
+**Status:** Complete
+
+**Fixed:**
+- Cleared selected image thumbnails from the message composer immediately when the user sends a case MMS message, while preserving the optimistic message preview in the thread.
+- Restored the composer text and image attachments if the send request fails, so retry behavior does not lose user input.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test src/lib/message-attachment-validation.test.ts` pass, 4 tests
+- `pnpm -F @ella/workspace lint` pass, 0 errors and 9 existing warnings outside this change
+- `git diff --check` pass
+
+### Messages: Client/Case MMS Image Attachments
+**Status:** Complete
+
+**Changed:**
+- Added the case-only outbound MMS send path on `POST /messages/send-with-attachments` for multipart image uploads plus optional text.
+- Stored staff chat images in R2 under `message-attachments/{orgId}/{caseId}/{uploadId}/...`, persisted `Message.attachmentUrls` plus `attachmentR2Keys`, and returned proxy media URLs only.
+- Sent Twilio MMS via `mediaUrl[]` with provider retries disabled for attachment sends; text-only `/messages/send` behavior stayed unchanged.
+- Added image picker, clipboard paste, thumbnail preview/removal, and image-only send support to the shared staff composer used by `/messages/:caseId` and the floating case chatbox.
+- Kept lead MMS intentionally out of scope; lead chatboxes do not expose attachment UI and lead sends reject attachment payloads.
+- Enforced image-only attachments, max 4 images, and max 5 MB total MMS image payload on client and server.
+- Cleaned up uploaded R2 objects when image message persistence fails before a message row exists.
+- Made floating case chat optimistic replacement duplicate-resistant if realtime/refetch inserts the server copy first.
+- Extended storage log redaction to the `message-attachments/...` prefix and avoided raw persistence error messages in attachment-send logs.
+- Kept org-scoped validation, business-case blocking, realtime publish, and activity logging aligned with the existing messages flow.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api test -- messages storage-logging` pass, 5 files / 31 tests
+- `pnpm -F @ella/workspace test src/lib/message-attachment-validation.test.ts` pass, 4 tests
+- `pnpm i18n:check` pass, workspace 2768 keys and portal 520 keys
+- `git diff --check` pass
+- Manual real-MMS browser QA not run in this non-interactive session; requires authenticated workspace plus configured R2 and MMS-capable Twilio number.
+
 ## 2026-06-09
+
+### Agreement Payment Copy Consistency
+**Status:** Complete
+
+**Changed:**
+- Normalized user-facing agreement payment copy from deposit/retainer to initial payment across portal locales, SMS templates, built-in agreement templates, and payment descriptions.
+- Kept internal `deposit*` services and `Payment.type='DEPOSIT'` unchanged; legacy persisted descriptions are normalized only at user-facing boundaries.
+- Verified post-sign payment creation remains agreement-type agnostic for Engagement Letter, Service Agreement, Custom, and uploaded-PDF paths.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/workspace test -- initial-payment-amount` pass, 2 tests
+- `pnpm -F @ella/api test -- agreement-signing-service` pass, 28 tests
+- `pnpm -F @ella/api test -- deposit-payment-service` pass, 11 tests
+- `pnpm -F @ella/api test -- staff-handlers payments-staff public-payment-handlers deposit-checkout-service payment-sms-templates agreement-post-sign-notifications agreement-signing-uploaded-pdf template-v1 render-default-html` pass, 144 tests
+- `pnpm i18n:check` pass, workspace 2761 keys and portal 520 keys
 
 ### Workspace Custom Payment Links: Mixed Billing UI
 **Status:** Complete

@@ -16,6 +16,7 @@ import type { AuthUser } from '../../services/auth'
 import { prisma } from '../../lib/db'
 import {
   buildPaymentPayUrl,
+  normalizeDepositPaymentDescription,
   resendDepositPayLink,
 } from '../../services/payments/deposit-payment-service'
 import {
@@ -74,7 +75,10 @@ clientsPaymentsStaffRoute.get(
         status: payment.status,
         amount: payment.amount.toString(),
         currency: payment.currency,
-        description: payment.description,
+        description:
+          payment.type === 'DEPOSIT'
+            ? normalizeDepositPaymentDescription(payment.description)
+            : payment.description,
         paidAt: payment.paidAt,
         createdAt: payment.createdAt,
         agreement: payment.agreement,

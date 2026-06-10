@@ -91,8 +91,16 @@ describe('storage signed URL and logging hardening', () => {
     expect(logs).toContain('keyHash')
   })
 
-  it('redacts storage paths and URLs from storage error logs', async () => {
-    const key = 'cases/case_1/docs/2025_W2_John.pdf'
+  it.each([
+    {
+      key: 'cases/case_1/docs/2025_W2_John.pdf',
+      filename: '2025_W2_John.pdf',
+    },
+    {
+      key: 'message-attachments/org_1/case_1/upload/private-photo.png',
+      filename: 'private-photo.png',
+    },
+  ])('redacts storage path $key and URLs from storage error logs', async ({ key, filename }) => {
     mockGetSignedUrl.mockRejectedValueOnce(
       new Error(`failed for ${key} at https://signed.example.com/private.pdf?token=secret`)
     )
@@ -102,7 +110,7 @@ describe('storage signed URL and logging hardening', () => {
     const errors = serializedConsoleCalls(vi.mocked(console.error))
 
     expect(errors).not.toContain(key)
-    expect(errors).not.toContain('2025_W2_John.pdf')
+    expect(errors).not.toContain(filename)
     expect(errors).not.toContain('https://signed.example.com')
     expect(errors).toContain('[REDACTED_KEY]')
     expect(errors).toContain('[REDACTED_URL]')

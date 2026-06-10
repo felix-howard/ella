@@ -24,16 +24,26 @@ vi.mock('../pdf-generator', () => ({
   generateSignedPdf: vi.fn().mockResolvedValue(Buffer.from('%PDF-1.4\n...signed...')),
 }))
 
+vi.mock('../agreement-post-sign-notifications', () => ({
+  notifyAdminsAgreementSigned: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('../../payments/deposit-payment-service', () => ({
+  createDepositPaymentForAgreement: vi.fn().mockResolvedValue(undefined),
+}))
+
 import { prisma } from '../../../lib/db'
 import { uploadFile, getSignedDownloadUrl } from '../../storage'
 import { generateSignedPdf } from '../pdf-generator'
-import { loadNdaByToken, toPublicView, signNda } from '../agreement-signing-service'
+import { createDepositPaymentForAgreement } from '../../payments/deposit-payment-service'
+import { loadNdaByToken, toPublicView, signAgreement, signNda } from '../agreement-signing-service'
 
 const mockFindUnique = vi.mocked(prisma.agreement.findUnique)
 const mockUpdateMany = vi.mocked(prisma.agreement.updateMany)
 const mockUpload = vi.mocked(uploadFile)
 const mockGetSigned = vi.mocked(getSignedDownloadUrl)
 const mockGenPdf = vi.mocked(generateSignedPdf)
+const mockCreateDepositPayment = vi.mocked(createDepositPaymentForAgreement)
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 const VALID_PNG_DATA_URL =
@@ -45,11 +55,17 @@ function activeNda(overrides: Record<string, unknown> = {}) {
     leadId: 'lead-1',
     clientId: null,
     organizationId: 'org-1',
+    createdByUserId: 'staff-1',
     token: 'tok-abc',
     status: 'SENT',
     isActive: true,
+    type: 'NDA',
+    title: 'Non-Disclosure Agreement',
     templateVersion: 'v1',
+    customContentHtml: null,
+    uploadedPdfKey: null,
     depositAmount: '300.00',
+    depositStatus: 'PENDING',
     expiresAt: new Date('2030-01-01T00:00:00Z'),
     createdAt: new Date('2026-04-23T00:00:00Z'),
     signedAt: null,
@@ -270,7 +286,62 @@ describe('signNda', () => {
       signerUserAgent: 'Mozilla/5.0 Test',
       isActive: false,
     })
+    expect(mockCreateDepositPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'nda-1',
+        title: 'Non-Disclosure Agreement',
+        organizationId: 'org-1',
+        createdByUserId: 'staff-1',
+        depositAmount: '300.00',
+        depositStatus: 'PENDING',
+      }),
+    )
   })
+
+  it.each([
+    {
+      type: 'ENGAGEMENT_LETTER',
+      title: '2026 Engagement Letter',
+      contentHtml: '<p>Engagement terms</p>',
+    },
+    {
+      type: 'SERVICE_AGREEMENT',
+      title: 'Monthly Advisory Service Agreement',
+      contentHtml: '<p>Service agreement terms</p>',
+    },
+    {
+      type: 'CUSTOM',
+      title: 'Custom Tax Advisory Agreement',
+      contentHtml: '<p>Custom agreement terms</p>',
+    },
+  ])(
+    'dispatches the initial-payment hook for signed $type inline agreements',
+    async ({ type, title, contentHtml }) => {
+      mockFindUnique.mockResolvedValueOnce(
+        activeNda({
+          id: `agr-${type.toLowerCase().replaceAll('_', '-')}`,
+          type,
+          title,
+          customContentHtml: contentHtml,
+          depositAmount: '750.00',
+          depositStatus: 'PENDING',
+        }) as any,
+      )
+      mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+
+      await signAgreement(baseInput)
+
+      expect(mockCreateDepositPayment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: `agr-${type.toLowerCase().replaceAll('_', '-')}`,
+          title,
+          depositAmount: '750.00',
+          depositStatus: 'PENDING',
+          signer: expect.objectContaining({ id: 'lead-1', kind: 'lead' }),
+        }),
+      )
+    },
+  )
 
   it('uses nonced keys (unique per attempt) for R2 uploads', async () => {
     mockFindUnique.mockResolvedValueOnce(activeNda() as any)

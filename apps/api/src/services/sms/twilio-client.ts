@@ -33,6 +33,7 @@ export function isTwilioConfigured(): boolean {
 export interface SendSmsOptions {
   to: string
   body: string
+  mediaUrl?: string[]
   statusCallback?: string
 }
 
@@ -41,6 +42,10 @@ export interface SendSmsResult {
   sid?: string
   error?: string
   status?: string
+}
+
+function sanitizeTwilioErrorMessage(message: string): string {
+  return message.replace(/https?:\/\/[^\s"'<>]+/g, '[REDACTED_URL]')
 }
 
 /**
@@ -54,7 +59,7 @@ export async function sendSms(options: SendSmsOptions): Promise<SendSmsResult> {
   }
 
   const client = getTwilioClient()
-  const maxRetries = 2
+  const maxRetries = options.mediaUrl?.length ? 0 : 2
   let lastError: Error | null = null
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -67,6 +72,7 @@ export async function sendSms(options: SendSmsOptions): Promise<SendSmsResult> {
         to: options.to,
         from: config.twilio.phoneNumber,
         body: options.body,
+        ...(options.mediaUrl?.length ? { mediaUrl: options.mediaUrl } : {}),
         statusCallback,
       })
 
@@ -91,7 +97,7 @@ export async function sendSms(options: SendSmsOptions): Promise<SendSmsResult> {
       ) {
         return {
           success: false,
-          error: `TWILIO_ERROR_${errorCode}:${twilioMessage || 'Unknown error'}`,
+          error: `TWILIO_ERROR_${errorCode}:${sanitizeTwilioErrorMessage(twilioMessage || 'Unknown error')}`,
         }
       }
 
@@ -105,7 +111,7 @@ export async function sendSms(options: SendSmsOptions): Promise<SendSmsResult> {
 
   return {
     success: false,
-    error: lastError?.message || 'TWILIO_SEND_FAILED',
+    error: lastError?.message ? sanitizeTwilioErrorMessage(lastError.message) : 'TWILIO_SEND_FAILED',
   }
 }
 

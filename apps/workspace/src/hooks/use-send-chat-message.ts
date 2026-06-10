@@ -14,6 +14,7 @@ import type { Message } from '../lib/api-client'
 export interface SendChatMessageVariables {
   content: string
   channel: 'SMS' | 'PORTAL'
+  attachments?: File[]
 }
 
 export interface UseSendChatMessageOptions {
@@ -26,6 +27,8 @@ interface MessagesPage {
   [key: string]: unknown
 }
 
+type LocalMessage = Message & { _optimistic: 'sending' }
+
 export function useSendChatMessage(context: ChatContext, options: UseSendChatMessageOptions = {}) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -35,7 +38,17 @@ export function useSendChatMessage(context: ChatContext, options: UseSendChatMes
   return useMutation({
     mutationFn: (vars: SendChatMessageVariables) => {
       if (context.type === 'case') {
-        return api.messages.send({ caseId: context.caseId, ...vars })
+        if (vars.attachments && vars.attachments.length > 0) {
+          return api.messages.sendWithAttachments({
+            caseId: context.caseId,
+            content: vars.content,
+            images: vars.attachments,
+          })
+        }
+        return api.messages.send({ caseId: context.caseId, content: vars.content, channel: vars.channel })
+      }
+      if (vars.attachments && vars.attachments.length > 0) {
+        throw new Error('Lead message attachments are not supported')
       }
       // Lead SMS is always SMS channel; API enforces but pass explicit for clarity.
       return api.leads.messages.send(context.leadId, { content: vars.content, channel: 'SMS' })
@@ -44,13 +57,19 @@ export function useSendChatMessage(context: ChatContext, options: UseSendChatMes
       await queryClient.cancelQueries({ queryKey })
       const previous = queryClient.getQueryData<MessagesPage>(queryKey)
 
-      const tempMessage: Message & { _optimistic: 'sending' } = {
-        id: `temp-${Date.now()}`,
+      const tempId = `temp-${Date.now()}`
+      const previewUrls = context.type === 'case'
+        ? (vars.attachments ?? []).map((file) => URL.createObjectURL(file))
+        : []
+
+      const tempMessage: LocalMessage = {
+        id: tempId,
         conversationId: context.type === 'case' ? context.caseId : null,
         leadId: context.type === 'lead' ? context.leadId : null,
         channel: vars.channel,
         direction: 'OUTBOUND',
         content: vars.content,
+        attachmentUrls: previewUrls,
         createdAt: new Date().toISOString(),
         _optimistic: 'sending',
       }
@@ -60,9 +79,21 @@ export function useSendChatMessage(context: ChatContext, options: UseSendChatMes
         messages: [...(old?.messages ?? []), tempMessage],
       }))
 
-      return { previous }
+      return { previous, tempId, previewUrls }
     },
-    onSuccess: () => {
+    onSuccess: (data, _vars, ctx) => {
+      if (ctx?.tempId) {
+        queryClient.setQueryData<MessagesPage>(queryKey, (old) => ({
+          ...(old ?? { messages: [] }),
+          messages: [
+            ...(old?.messages ?? []).filter((message) =>
+              message.id !== ctx.tempId && message.id !== data.message.id
+            ),
+            data.message,
+          ],
+        }))
+      }
+      ctx?.previewUrls.forEach((url) => URL.revokeObjectURL(url))
       queryClient.invalidateQueries({ queryKey })
       queryClient.invalidateQueries({ queryKey: ['activity'] })
       onSent?.()
@@ -71,6 +102,7 @@ export function useSendChatMessage(context: ChatContext, options: UseSendChatMes
       if (ctx?.previous) {
         queryClient.setQueryData(queryKey, ctx.previous)
       }
+      ctx?.previewUrls.forEach((url) => URL.revokeObjectURL(url))
       toast.error(t('chat.sendError'))
     },
   })

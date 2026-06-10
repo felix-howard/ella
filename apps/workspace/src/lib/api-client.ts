@@ -1056,6 +1056,19 @@ export const api = {
         body: JSON.stringify(data),
       }),
 
+    sendWithAttachments: (data: SendMessageWithAttachmentsInput) => {
+      const formData = new FormData()
+      formData.append('caseId', data.caseId)
+      if (data.content) formData.append('content', data.content)
+      if (data.templateName) formData.append('templateName', data.templateName)
+      data.images.forEach((image) => formData.append('images', image))
+      return request<SendMessageResponse>('/messages/send-with-attachments', {
+        method: 'POST',
+        body: formData,
+        retries: 0,
+      })
+    },
+
     // Unified inbox - list all conversations
     listConversations: (params?: { page?: number; limit?: number; unreadOnly?: boolean }) =>
       request<ConversationsResponse>('/messages/conversations', { params }),
@@ -2976,6 +2989,13 @@ export interface SendMessageInput {
   caseId: string
   content: string
   channel?: 'SMS' | 'PORTAL'
+}
+
+export interface SendMessageWithAttachmentsInput {
+  caseId: string
+  content?: string
+  templateName?: string
+  images: File[]
 }
 
 // Messages response types

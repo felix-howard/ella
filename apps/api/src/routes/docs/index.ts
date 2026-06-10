@@ -642,8 +642,9 @@ function generatePlaceholderExtractedData(docType: DocType): Record<string, unkn
 // GET /docs/groups/:groupId - Get image group with all images
 docsRoute.get('/groups/:groupId', async (c) => {
   const groupId = c.req.param('groupId')
+  const user = c.get('user')
 
-  const group = await getGroupImages(groupId)
+  const group = await getGroupImages(groupId, user)
 
   if (!group) {
     return c.json({ error: 'NOT_FOUND', message: 'Image group not found' }, 404)
@@ -667,9 +668,10 @@ docsRoute.post(
   async (c) => {
     const groupId = c.req.param('groupId')
     const { imageId } = c.req.valid('json')
+    const user = c.get('user')
 
     try {
-      await selectBestImage(groupId, imageId)
+      await selectBestImage(groupId, imageId, user)
 
       return c.json({
         success: true,
@@ -678,6 +680,14 @@ docsRoute.post(
         bestImageId: imageId,
       })
     } catch (error) {
+      if (error instanceof Error && error.message.includes('not found')) {
+        // Group outside the caller's org/assignment scope — treat as not found
+        // (don't reveal existence of another tenant's group).
+        return c.json(
+          { error: 'NOT_FOUND', message: 'Image group not found' },
+          404
+        )
+      }
       if (error instanceof Error && error.message.includes('does not belong')) {
         return c.json(
           { error: 'INVALID_IMAGE', message: error.message },

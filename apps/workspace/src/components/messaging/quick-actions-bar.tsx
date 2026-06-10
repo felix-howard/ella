@@ -240,17 +240,27 @@ export function QuickActionsBar({
     const trimmed = stripHtmlTags(message).trim()
     if ((!trimmed && attachments.length === 0) || isSending || disabled) return
 
-    try {
-      await onSend(trimmed, 'SMS', attachments.map((attachment) => attachment.file))
-    } catch {
-      return
-    }
+    const previousMessage = message
+    const attachmentFiles = attachments.map((attachment) => attachment.file)
+
     setMessage('')
     clearAttachments()
-
-    // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
+    }
+
+    try {
+      await onSend(trimmed, 'SMS', attachmentFiles)
+    } catch {
+      setMessage(previousMessage)
+      setAttachments(() =>
+        attachmentFiles.map((file) => ({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          file,
+          previewUrl: URL.createObjectURL(file),
+        }))
+      )
+      return
     }
   }
 

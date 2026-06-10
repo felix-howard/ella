@@ -7,6 +7,19 @@
 
 ## 2026-06-10
 
+### Message Composer Attachment Send-State Polish
+**Status:** Complete
+
+**Fixed:**
+- Cleared selected image thumbnails from the message composer immediately when the user sends a case MMS message, while preserving the optimistic message preview in the thread.
+- Restored the composer text and image attachments if the send request fails, so retry behavior does not lose user input.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test src/lib/message-attachment-validation.test.ts` pass, 4 tests
+- `pnpm -F @ella/workspace lint` pass, 0 errors and 9 existing warnings outside this change
+- `git diff --check` pass
+
 ### Messages: Client/Case MMS Image Attachments
 **Status:** Complete
 

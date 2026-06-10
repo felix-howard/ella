@@ -16,7 +16,7 @@ import {
   sharedDocExpiryFromNow,
 } from './validators'
 import { buildPortalUrl, serializeDocument, serializeMagicLink } from './response-builders'
-import { scopedDocWhere } from './scope'
+import { scopedDocWhere, requireParam } from './scope'
 
 type AuthContext = Context<{ Variables: AuthVariables }>
 
@@ -59,7 +59,7 @@ async function assertTitleUnique(
  * Create a new section (title + PDF). Always creates new document + new magic link.
  */
 export async function createSection(c: AuthContext) {
-  const caseId = c.req.param('caseId')
+  const caseId = requireParam(c, 'caseId')
   const user = c.get('user')
   const staffId = user.staffId
   if (!staffId) return c.json({ error: 'STAFF_REQUIRED', message: 'Staff account required' }, 403)
@@ -136,7 +136,7 @@ export async function createSection(c: AuthContext) {
  * List all non-deleted sections (ACTIVE or REVOKED) for a case with their magic link if any.
  */
 export async function listSections(c: AuthContext) {
-  const caseId = c.req.param('caseId')
+  const caseId = requireParam(c, 'caseId')
   const user = c.get('user')
 
   const taxCase = await prisma.taxCase.findFirst({
@@ -177,7 +177,7 @@ export async function listSections(c: AuthContext) {
  * Rename propagates title to all versions, so title is a stable grouping key.
  */
 export async function getSection(c: AuthContext) {
-  const id = c.req.param('id')
+  const id = requireParam(c, 'id')
   const user = c.get('user')
 
   const doc = await findScopedDocument(user, id)
@@ -211,7 +211,7 @@ export async function getSection(c: AuthContext) {
  * so (taxCaseId, title) remains a stable grouping key for version history.
  */
 export async function renameSection(c: AuthContext) {
-  const id = c.req.param('id')
+  const id = requireParam(c, 'id')
   const user = c.get('user')
 
   const body = (await c.req.json().catch(() => ({}))) as { title?: unknown }
@@ -253,7 +253,7 @@ export async function renameSection(c: AuthContext) {
  * (Status is left untouched — `deletedAt` alone signals "removed" across all queries.)
  */
 export async function deleteSection(c: AuthContext) {
-  const id = c.req.param('id')
+  const id = requireParam(c, 'id')
   const user = c.get('user')
 
   const existing = await prisma.shareableDocument.findFirst({

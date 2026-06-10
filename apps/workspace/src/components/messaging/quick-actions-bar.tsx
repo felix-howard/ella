@@ -4,23 +4,40 @@
  * Includes dropdown for inserting various client links (portal, schedule E/C, shared docs)
  */
 
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, type KeyboardEvent } from 'react'
+import {
+  useState,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  type ChangeEvent,
+  type ClipboardEvent,
+  type KeyboardEvent,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
-import { Send, Link2, ChevronDown, Home, Briefcase, FileText, User } from 'lucide-react'
+import { Send, Link2, ChevronDown, Home, Briefcase, FileText, User, ImagePlus } from 'lucide-react'
 import { stripHtmlTags } from '../../lib/formatters'
 import { api } from '../../lib/api-client'
+import {
+  ALLOWED_MESSAGE_IMAGE_TYPES,
+  MAX_MESSAGE_IMAGE_COUNT,
+  validateMessageAttachments,
+  type MessageAttachmentValidationError,
+} from '../../lib/message-attachment-validation'
 import { useScheduleE } from '../../hooks/use-schedule-e'
 import { useScheduleC } from '../../hooks/use-schedule-c'
 import { useSharedDocs } from '../../hooks/use-shared-docs'
 import type { ChatContext } from '../../types/chat-context'
 import { getQuickTemplates } from '../../lib/chat-quick-templates'
 import { ChatTemplateDropdown } from './chat-template-dropdown'
+import { AttachmentPreviewStrip, type ComposerAttachment } from './attachment-preview-strip'
 
+const ACCEPTED_MESSAGE_IMAGE_TYPES = ALLOWED_MESSAGE_IMAGE_TYPES.join(',')
 
 export interface QuickActionsBarProps {
-  onSend: (message: string, channel: 'SMS' | 'PORTAL') => void
+  onSend: (message: string, channel: 'SMS' | 'PORTAL', attachments?: File[]) => void | Promise<void>
   isSending?: boolean
   disabled?: boolean
   clientName?: string
@@ -56,7 +73,11 @@ export function QuickActionsBar({
   const [isLoadingPortalLink, setIsLoadingPortalLink] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
+  const [attachments, setAttachments] = useState<ComposerAttachment[]>([])
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const attachmentsRef = useRef<ComposerAttachment[]>([])
   const dropdownTriggerRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -90,6 +111,16 @@ export function QuickActionsBar({
       })
     }
   }, [autoFocus])
+
+  useEffect(() => {
+    attachmentsRef.current = attachments
+  }, [attachments])
+
+  useEffect(() => {
+    return () => {
+      attachmentsRef.current.forEach((attachment) => URL.revokeObjectURL(attachment.previewUrl))
+    }
+  }, [])
 
   // Calculate dropdown position
   const updateDropdownPosition = useCallback(() => {
@@ -138,13 +169,84 @@ export function QuickActionsBar({
     }
   }, [isDropdownOpen])
 
-  // Handle send - sanitize input before sending (always SMS)
-  const handleSend = () => {
-    const trimmed = stripHtmlTags(message).trim()
-    if (!trimmed || isSending || disabled) return
+  const getAttachmentErrorMessage = useCallback((error: MessageAttachmentValidationError) => {
+    const keyByError: Record<MessageAttachmentValidationError, string> = {
+      too_many: 'messages.attachmentLimit',
+      unsupported_type: 'messages.attachmentUnsupportedType',
+      too_large: 'messages.attachmentTooLarge',
+      empty_file: 'messages.attachmentEmptyFile',
+    }
+    return t(keyByError[error])
+  }, [t])
 
-    onSend(trimmed, 'SMS')
+  const addAttachments = useCallback((files: File[]) => {
+    if (files.length === 0) return
+
+    const nextFiles = [...attachmentsRef.current.map((attachment) => attachment.file), ...files]
+    const validation = validateMessageAttachments(nextFiles)
+    if (!validation.ok && validation.error) {
+      setAttachmentError(getAttachmentErrorMessage(validation.error))
+      return
+    }
+
+    setAttachmentError(null)
+    setAttachments((current) => [
+      ...current,
+      ...files.map((file) => ({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+      })),
+    ])
+  }, [getAttachmentErrorMessage])
+
+  const clearAttachments = useCallback(() => {
+    setAttachments((current) => {
+      current.forEach((attachment) => URL.revokeObjectURL(attachment.previewUrl))
+      return []
+    })
+    setAttachmentError(null)
+  }, [])
+
+  const removeAttachment = useCallback((id: string) => {
+    setAttachments((current) => {
+      const attachment = current.find((item) => item.id === id)
+      if (attachment) URL.revokeObjectURL(attachment.previewUrl)
+      return current.filter((item) => item.id !== id)
+    })
+    setAttachmentError(null)
+  }, [])
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    addAttachments(Array.from(event.target.files ?? []))
+    event.target.value = ''
+  }
+
+  const handlePaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    if (isLeadContext || disabled || isSending) return
+
+    const pastedFiles = Array.from(event.clipboardData.items)
+      .filter((item) => item.kind === 'file')
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => !!file && file.type.startsWith('image/'))
+
+    if (pastedFiles.length === 0) return
+    event.preventDefault()
+    addAttachments(pastedFiles)
+  }
+
+  // Handle send - sanitize input before sending (always SMS)
+  const handleSend = async () => {
+    const trimmed = stripHtmlTags(message).trim()
+    if ((!trimmed && attachments.length === 0) || isSending || disabled) return
+
+    try {
+      await onSend(trimmed, 'SMS', attachments.map((attachment) => attachment.file))
+    } catch {
+      return
+    }
     setMessage('')
+    clearAttachments()
 
     // Reset textarea height
     if (textareaRef.current) {
@@ -190,7 +292,8 @@ export function QuickActionsBar({
     }
   }
 
-  const canSend = message.trim().length > 0 && !isSending && !disabled
+  const canAttachImages = !isLeadContext
+  const canSend = (message.trim().length > 0 || attachments.length > 0) && !isSending && !disabled
 
   // Insert text from a chat template into the composer.
   const handleTemplateInsert = (text: string) => {
@@ -265,6 +368,14 @@ export function QuickActionsBar({
 
   return (
     <div className="bg-card px-3 py-2.5 shadow-[0_-1px_4px_-1px_rgba(0,0,0,0.04)]">
+        <AttachmentPreviewStrip
+          attachments={attachments}
+          error={attachmentError}
+          removeLabel={t('messages.removeAttachment')}
+          selectedLabel={t('messages.attachmentSelectedCount', { count: attachments.length })}
+          onRemove={removeAttachment}
+        />
+
         {/* Input area - vertically centered */}
         <div className="flex items-center gap-2">
           {/* Lead context: templates dropdown */}
@@ -273,6 +384,34 @@ export function QuickActionsBar({
               templates={leadTemplates}
               onInsert={handleTemplateInsert}
             />
+          )}
+
+          {canAttachImages && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ACCEPTED_MESSAGE_IMAGE_TYPES}
+                multiple
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={disabled || isSending || attachments.length >= MAX_MESSAGE_IMAGE_COUNT}
+                className={cn(
+                  'p-2 rounded-lg transition-colors',
+                  'text-muted-foreground hover:text-foreground hover:bg-muted',
+                  'focus:outline-none focus:ring-2 focus:ring-primary/30',
+                  (disabled || isSending || attachments.length >= MAX_MESSAGE_IMAGE_COUNT) && 'opacity-50 cursor-not-allowed'
+                )}
+                aria-label={t('messages.attachImage')}
+                title={t('messages.attachImage')}
+              >
+                <ImagePlus className="w-[18px] h-[18px]" />
+              </button>
+            </>
           )}
 
           {/* Case context: link dropdown button */}
@@ -326,8 +465,9 @@ export function QuickActionsBar({
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               placeholder={t('messages.inputPlaceholder')}
-              disabled={disabled}
+              disabled={disabled || isSending}
               rows={1}
               className={cn(
                 'w-full px-3.5 py-2 rounded-xl bg-muted/50 border border-transparent',

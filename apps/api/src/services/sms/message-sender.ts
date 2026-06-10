@@ -218,7 +218,8 @@ export async function sendCustomMessage(
  */
 export async function sendSmsOnly(
   phone: string,
-  content: string
+  content: string,
+  options: { mediaUrls?: string[] } = {}
 ): Promise<{ success: boolean; sid?: string; status?: string; error?: string }> {
   if (!isTwilioConfigured()) {
     return { success: false, error: 'SMS_NOT_CONFIGURED' }
@@ -228,6 +229,7 @@ export async function sendSmsOnly(
   const result = await sendSms({
     to: formattedPhone,
     body: content,
+    mediaUrl: options.mediaUrls,
   })
 
   return {

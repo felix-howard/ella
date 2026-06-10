@@ -60,8 +60,8 @@ export function FloatingChatbox({
     onSent: () => onUnreadChange?.(),
   })
 
-  const handleSend = (content: string, channel: 'SMS' | 'PORTAL') => {
-    sendMessageMutation.mutate({ content, channel })
+  const handleSend = async (content: string, channel: 'SMS' | 'PORTAL', attachments?: File[]) => {
+    await sendMessageMutation.mutateAsync({ content, channel, attachments })
   }
 
   const handleToggle = () => setIsOpen(!isOpen)

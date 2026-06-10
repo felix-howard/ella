@@ -40,6 +40,9 @@ vi.mock('../../../services/storage', () => ({
   getSafeStorageReference: vi.fn(),
   getSignedDownloadUrl: vi.fn(),
   resolveAvatarUrl: vi.fn((url: string | null) => Promise.resolve(url)),
+  getStorageStatus: vi.fn(),
+  uploadFile: vi.fn(),
+  deleteFile: vi.fn(),
 }))
 
 vi.mock('../../../services/activity-log', () => ({

@@ -5,6 +5,32 @@
 
 ---
 
+## 2026-06-10
+
+### Messages: Client/Case MMS Image Attachments
+**Status:** Complete
+
+**Changed:**
+- Added the case-only outbound MMS send path on `POST /messages/send-with-attachments` for multipart image uploads plus optional text.
+- Stored staff chat images in R2 under `message-attachments/{orgId}/{caseId}/{uploadId}/...`, persisted `Message.attachmentUrls` plus `attachmentR2Keys`, and returned proxy media URLs only.
+- Sent Twilio MMS via `mediaUrl[]` with provider retries disabled for attachment sends; text-only `/messages/send` behavior stayed unchanged.
+- Added image picker, clipboard paste, thumbnail preview/removal, and image-only send support to the shared staff composer used by `/messages/:caseId` and the floating case chatbox.
+- Kept lead MMS intentionally out of scope; lead chatboxes do not expose attachment UI and lead sends reject attachment payloads.
+- Enforced image-only attachments, max 4 images, and max 5 MB total MMS image payload on client and server.
+- Cleaned up uploaded R2 objects when image message persistence fails before a message row exists.
+- Made floating case chat optimistic replacement duplicate-resistant if realtime/refetch inserts the server copy first.
+- Extended storage log redaction to the `message-attachments/...` prefix and avoided raw persistence error messages in attachment-send logs.
+- Kept org-scoped validation, business-case blocking, realtime publish, and activity logging aligned with the existing messages flow.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api test -- messages storage-logging` pass, 5 files / 31 tests
+- `pnpm -F @ella/workspace test src/lib/message-attachment-validation.test.ts` pass, 4 tests
+- `pnpm i18n:check` pass, workspace 2768 keys and portal 520 keys
+- `git diff --check` pass
+- Manual real-MMS browser QA not run in this non-interactive session; requires authenticated workspace plus configured R2 and MMS-capable Twilio number.
+
 ## 2026-06-09
 
 ### Agreement Payment Copy Consistency

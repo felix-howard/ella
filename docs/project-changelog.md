@@ -13,6 +13,7 @@
 **Changed:**
 - Replaced new-tab message image opening with an in-app viewer modal for workspace message attachments.
 - Added previous/next image navigation, keyboard arrow support, close control, and a thumbnail strip across all images in the active conversation.
+- Rendered the viewer through a body-level portal so it covers the full app shell, including the sidebar, and restyled it for Ella's light-mode UI.
 - Kept protected media loading through the existing authenticated message media proxy and preserved optimistic blob previews.
 
 **Validation:**

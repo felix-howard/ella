@@ -56,8 +56,8 @@ export function ResolvedMessageImage({
 
   if (error) {
     return (
-      <div className={cn('flex items-center justify-center bg-white/5', className)}>
-        <ImageOff className="h-8 w-8 text-white/50" aria-hidden="true" />
+      <div className={cn('flex items-center justify-center bg-slate-100', className)}>
+        <ImageOff className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
       </div>
     )
   }
@@ -65,8 +65,8 @@ export function ResolvedMessageImage({
   return (
     <div className={cn('relative flex items-center justify-center overflow-hidden', className)}>
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/5">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-100">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-primary" />
         </div>
       )}
       {displayUrl && (

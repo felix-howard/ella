@@ -14,7 +14,7 @@ Phase 3.2 implements a unified message inbox for workspace staff, allowing centr
 
 **Route:** `apps/api/src/routes/messages/index.ts`
 
-#### Endpoints (4 new/enhanced)
+#### Endpoints (5 new/enhanced)
 
 1. **GET /messages/conversations** - List all conversations
    - Returns paginated list of conversations
@@ -40,6 +40,15 @@ Phase 3.2 implements a unified message inbox for workspace staff, allowing centr
    - Sends templated SMS reminder for missing documents
    - Verifies case exists before sending
    - Returns success status + message ID
+
+5. **POST /messages/:messageId/translate** - Translate case message text
+   - Fetches stored message content by `messageId`; browser-sent text is ignored
+   - Verifies org scope through conversation → tax case → client
+   - Uses Gemini text generation to return an English translation
+   - Rate limited per staff account to protect Gemini quota
+   - Supports case messages only; lead messages, call messages, system messages, and empty/image-only messages are not translated
+   - Does not persist translations or write message bodies/translations into activity logs
+   - Workspace-only surface; no lead or client portal translation UI
 
 #### Database Patterns
 
@@ -122,6 +131,7 @@ if (conversation.unreadCount > 0) {
 - Empty states with helpful UI guidance
 - Unread badges on conversation items
 - Optimistic message updates
+- Bubble-level English translation for inbound/outbound case text messages. Vietnamese-looking text gets a prominent action; other text keeps a visible fallback action for short/no-diacritic messages.
 - Silent refresh (non-blocking background updates)
 
 ### State Management

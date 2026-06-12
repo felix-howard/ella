@@ -12,6 +12,8 @@ import type { Message } from '../../lib/api-client'
 import type { MessageReaction } from '../../lib/message-reactions'
 import { fetchMediaBlobUrl } from '../../lib/api-client'
 import { AudioPlayer } from './audio-player'
+import { MessageTranslationPanel } from './message-translation-panel'
+import { isMessageTranslationEligible } from '../../lib/message-translation-eligibility'
 
 export interface MessageBubbleProps {
   message: Message & { _optimistic?: 'sending' | 'failed'; reactions?: MessageReaction[] }
@@ -113,6 +115,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
   const safeContent = sanitizeText(message.content)
   const hasText = safeContent && safeContent.trim().length > 0
   const isImageOnly = hasAttachments && !hasText
+  const canTranslate = isMessageTranslationEligible(message)
 
   // Parse SMS delivery status for outbound SMS messages
   const smsStatus = isOutbound && message.channel === 'SMS'
@@ -264,6 +267,13 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
                 </p>
               )}
               {hasLoveReaction && <MessageReactionBadge label="Loved" />}
+              {canTranslate && (
+                <MessageTranslationPanel
+                  messageId={message.id}
+                  content={safeContent}
+                  isOutbound={isOutbound}
+                />
+              )}
             </div>
           </div>
           {/* Staff avatar */}
@@ -330,6 +340,13 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
             </p>
           )}
           {hasLoveReaction && <MessageReactionBadge label="Loved" />}
+          {canTranslate && (
+            <MessageTranslationPanel
+              messageId={message.id}
+              content={safeContent}
+              isOutbound={isOutbound}
+            />
+          )}
         </div>
       </div>
       {/* Time below bubble — matching outbound style */}

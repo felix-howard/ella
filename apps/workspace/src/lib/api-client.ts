@@ -1136,6 +1136,13 @@ export const api = {
       })
     },
 
+    translate: (messageId: string, data: TranslateMessageInput = { targetLanguage: 'EN' }) =>
+      request<TranslateMessageResponse>(`/messages/${messageId}/translate`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+
     // Unified inbox - list all conversations
     listConversations: (params?: { page?: number; limit?: number; unreadOnly?: boolean }) =>
       request<ConversationsResponse>('/messages/conversations', { params }),
@@ -3063,6 +3070,17 @@ export interface SendMessageWithAttachmentsInput {
   content?: string
   templateName?: string
   images: File[]
+}
+
+export interface TranslateMessageInput {
+  targetLanguage: 'EN'
+}
+
+export interface TranslateMessageResponse {
+  messageId: string
+  sourceLanguage: 'unknown'
+  targetLanguage: 'EN'
+  translatedText: string
 }
 
 // Messages response types

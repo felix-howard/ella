@@ -7,6 +7,22 @@
 
 ## 2026-06-12
 
+### Message Translation
+**Status:** Complete
+
+**Changed:**
+- Added org-scoped `POST /messages/:messageId/translate` for case-message translation to English through existing Gemini text generation.
+- Added staff-scoped rate limiting for translation requests to protect Gemini quota.
+- Kept translations transient: fetched from stored message content, returned to the caller, and not persisted or activity-logged.
+- Added shared workspace bubble-level translation UI for inbound and outbound case text messages, inherited by the full Messages page and floating case chatbox.
+- Added frontend Vietnamese detection for prominent translate actions, with a visible fallback action for short or no-diacritic messages.
+
+**Validation:**
+- `pnpm -F @ella/api test -- message-translation message-translator` pass, 12 tests
+- `pnpm -F @ella/workspace test -- message-language-detection message-translation-eligibility` pass, 6 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+
 ### Payment Templates Database Foundation
 **Status:** Complete
 

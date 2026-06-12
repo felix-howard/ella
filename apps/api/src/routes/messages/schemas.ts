@@ -11,6 +11,10 @@ export const sendMessageSchema = z.object({
   templateName: z.string().optional(),
 })
 
+export const translateMessageSchema = z.object({
+  targetLanguage: z.string().default('EN'),
+})
+
 // Query params for listing messages
 export const listMessagesQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -30,5 +34,6 @@ export const listConversationsQuerySchema = z.object({
 
 // Type exports
 export type SendMessageInput = z.infer<typeof sendMessageSchema>
+export type TranslateMessageInput = z.infer<typeof translateMessageSchema>
 export type ListMessagesQuery = z.infer<typeof listMessagesQuerySchema>
 export type ListConversationsQuery = z.infer<typeof listConversationsQuerySchema>

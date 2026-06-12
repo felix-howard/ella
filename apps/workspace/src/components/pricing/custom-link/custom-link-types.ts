@@ -2,10 +2,8 @@ import type { CustomLineItemInput } from '../../../lib/api-client'
 
 export type CustomBillingInterval = 'one_time' | 'month' | 'year'
 
-/** Discount choice — mutually exclusive per Stripe checkout-session limits. */
 export type CustomDiscountMode = 'none' | 'coupon' | 'promo'
 
-/** A single editable row in the builder. `id` is a stable local key only. */
 export interface CustomItemDraft {
   id: string
   label: string
@@ -18,7 +16,6 @@ export interface CustomItemDraft {
   billingInterval: CustomBillingInterval
 }
 
-/** Items + interval + discount choice, assembled by the builder for both actions. */
 export interface CustomLinkCorePayload {
   billingInterval: CustomBillingInterval
   items: CustomLineItemInput[]
@@ -179,7 +176,6 @@ const centsFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 })
 
-/** Format integer cents as a 2-decimal USD string (e.g. 4999 → "$49.99"). */
 export function formatCents(cents: number): string {
   return centsFormatter.format(cents / 100)
 }
@@ -187,13 +183,17 @@ export function formatCents(cents: number): string {
 let itemKeySeq = 0
 
 export function createEmptyItem(): CustomItemDraft {
-  itemKeySeq += 1
   return {
-    id: `item-${itemKeySeq}`,
+    id: createItemId(),
     label: '',
     description: '',
     amount: '',
     quantity: '1',
     billingInterval: 'one_time',
   }
+}
+
+function createItemId(): string {
+  itemKeySeq += 1
+  return `item-${itemKeySeq}`
 }

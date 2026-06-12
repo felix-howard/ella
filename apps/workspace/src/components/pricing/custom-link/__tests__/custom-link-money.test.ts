@@ -11,6 +11,10 @@ import {
   rowLineCents,
   type CustomItemDraft,
 } from '../custom-link-types'
+import {
+  draftsToTemplatePayload,
+  templatePayloadToDrafts,
+} from '../custom-link-template-conversion'
 
 function draft(overrides: Partial<CustomItemDraft>): CustomItemDraft {
   return {
@@ -155,5 +159,46 @@ describe('draftsToCoreBillingPayload', () => {
         draft({ id: 'yearly', billingInterval: 'year' }),
       ])
     ).toBeNull()
+  })
+})
+
+describe('payment template conversion helpers', () => {
+  it('saves valid draft rows without discount fields', () => {
+    expect(
+      draftsToTemplatePayload([
+        draft({ id: 'setup', label: 'Setup', amount: '100', billingInterval: 'one_time' }),
+        draft({ id: 'retainer', label: 'Retainer', amount: '50', billingInterval: 'month' }),
+      ])
+    ).toEqual({
+      billingInterval: 'month',
+      items: [{ label: 'Retainer', unitAmountCents: 5000, quantity: 1 }],
+      oneTimeItems: [{ label: 'Setup', unitAmountCents: 10000, quantity: 1 }],
+    })
+  })
+
+  it('loads template payloads into editable draft rows with fresh ids', () => {
+    const drafts = templatePayloadToDrafts({
+      billingInterval: 'month',
+      items: [{ label: 'Retainer', description: 'monthly', unitAmountCents: 5000, quantity: 2 }],
+      oneTimeItems: [{ label: 'Setup', unitAmountCents: 10000, quantity: 1 }],
+    })
+
+    expect(drafts).toMatchObject([
+      {
+        label: 'Setup',
+        description: '',
+        amount: '100.00',
+        quantity: '1',
+        billingInterval: 'one_time',
+      },
+      {
+        label: 'Retainer',
+        description: 'monthly',
+        amount: '50.00',
+        quantity: '2',
+        billingInterval: 'month',
+      },
+    ])
+    expect(drafts[0].id).not.toBe(drafts[1].id)
   })
 })

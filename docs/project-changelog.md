@@ -1,7 +1,53 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-10 ICT
+> **Last Updated:** 2026-06-12 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-06-12
+
+### Payment Templates Database Foundation
+**Status:** Complete
+
+**Changed:**
+- Added org-scoped `PaymentTemplate` Prisma model for reusable `Payments > Custom link` line-item presets.
+- Added migrations for table creation, indexes, foreign keys, tenant-guard trigger, staff org-change cleanup trigger, and row-lock validation hardening.
+- Kept template data separate from frozen `PaymentQuote` snapshots so edits to reusable presets do not mutate sent quotes.
+- Left API, workspace UI, and release-note phases pending per the feature plan.
+
+### Payment Templates API Service and Routes
+**Status:** Complete
+
+**Changed:**
+- Added admin-only `/billing/payment-templates` CRUD for org-scoped reusable custom-link presets.
+- Reused the existing custom line-item schema and `buildCustomQuote()` validation so templates follow the same business rules as custom quotes.
+- Returned normalized summaries with item counts and totals for list/load flows, and soft-archived templates via `archivedAt` without calling Stripe.
+- Kept frontend integration and release-note work for later phases at this checkpoint.
+
+### Payment Templates Workspace UI and Validation
+**Status:** Complete
+
+**Changed:**
+- Added workspace custom-link template controls for saving current rows, loading saved org templates, and archiving presets.
+- Added API client methods and React Query hooks for `/billing/payment-templates`.
+- Added draft/template conversion helpers so loaded rows get fresh local ids and remain editable before create/send.
+- Reset discount state on template load because discounts/coupons are intentionally not part of templates.
+
+**Validation:**
+- `pnpm -F @ella/api test -- payment-template billing-route-auth` pass, 35 tests
+- `pnpm -F @ella/workspace test -- custom-link` pass, 38 tests
+- `pnpm type-check` pass
+- `pnpm lint` pass with pre-existing warnings outside payment-template files
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass
+
+### Payment Templates Docs and Release Notes
+**Status:** Complete
+
+**Changed:**
+- Documented the org-scoped payment-template flow in architecture, roadmap, and codebase summary docs.
+- Clarified that templates save reusable custom-link line-item payloads only and do not store recipients, discounts/coupons, Stripe sessions/links, sent status, or customer fields.
+- Documented snapshot safety so creating or sending a quote copies the current template rows into `PaymentQuote`, and later template edits do not mutate historical quotes.
 
 ---
 

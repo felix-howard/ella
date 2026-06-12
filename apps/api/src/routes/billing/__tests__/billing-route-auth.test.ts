@@ -112,4 +112,31 @@ describe('billing route auth', () => {
     expect(await res.json()).toEqual({ message: 'Admin access required' })
     expect(checkoutMocks.createCheckoutSession).not.toHaveBeenCalled()
   })
+
+  it('rejects payment template listing for non-admin staff', async () => {
+    authState.organizationId = 'org_1'
+    authState.role = 'STAFF'
+    authState.orgRole = 'org:member'
+
+    const res = await buildApp().request('/billing/payment-templates')
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ message: 'Admin access required' })
+  })
+
+  it('rejects payment template listing without authentication', async () => {
+    authState.authenticated = false
+
+    const res = await buildApp().request('/billing/payment-templates')
+
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ message: 'Authentication required' })
+  })
+
+  it('rejects payment template listing without an organization context', async () => {
+    const res = await buildApp().request('/billing/payment-templates')
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ message: 'Please select an organization' })
+  })
 })

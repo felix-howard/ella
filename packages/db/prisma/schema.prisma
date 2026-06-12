@@ -485,6 +485,7 @@ model Staff {
   agreementTemplatesCreated      AgreementTemplate[]             @relation("AgreementTemplateCreatedBy")
   createdPaymentQuotes           PaymentQuote[]                  @relation("PaymentQuoteCreatedBy")
   sentQuotes                     PaymentQuote[]                  @relation("QuoteSentBy")
+  createdPaymentTemplates        PaymentTemplate[]               @relation("PaymentTemplateCreatedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -602,6 +603,7 @@ model Organization {
   clientGroups                   ClientGroup[]
   leads                          Lead[]
   paymentQuotes                  PaymentQuote[]
+  paymentTemplates               PaymentTemplate[]
   coupons                        Coupon[]
   payments                       Payment[]
   smsSendLogs                    SmsSendLog[]
@@ -1730,6 +1732,23 @@ model Coupon {
 
   @@unique([organizationId, code])
   @@index([organizationId, active])
+}
+
+model PaymentTemplate {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name             String       @db.VarChar(120)
+  description      String?      @db.VarChar(500)
+  items            Json
+  createdByStaffId String?
+  createdByStaff   Staff?       @relation("PaymentTemplateCreatedBy", fields: [createdByStaffId], references: [id], onDelete: SetNull)
+  archivedAt       DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([organizationId, archivedAt, updatedAt])
+  @@index([organizationId, name])
 }
 
 model StripeCheckoutSession {

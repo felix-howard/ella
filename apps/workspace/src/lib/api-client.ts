@@ -174,6 +174,38 @@ export interface SendCustomQuoteInput extends CreateCustomCheckoutInput {
   recipient: SendQuoteRecipient
 }
 
+export type PaymentTemplatePayload = Pick<
+  CreateCustomCheckoutInput,
+  'billingInterval' | 'items' | 'oneTimeItems'
+>
+
+export interface PaymentTemplateSummary {
+  id: string
+  name: string
+  description: string | null
+  template: PaymentTemplatePayload
+  itemCount: number
+  totalCents: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreatePaymentTemplateInput {
+  name: string
+  description?: string
+  template: PaymentTemplatePayload
+}
+
+export interface UpdatePaymentTemplateInput {
+  name?: string
+  description?: string | null
+  template?: PaymentTemplatePayload
+}
+
+export interface ListPaymentTemplatesResponse {
+  templates: PaymentTemplateSummary[]
+}
+
 /**
  * Coupon summary returned by `GET /coupons`. Used both by the custom-link
  * discount picker (active coupons) and the management panel (all fields).
@@ -419,6 +451,41 @@ export const api = {
         body: JSON.stringify(data),
         retries: 0,
       }),
+
+    listPaymentTemplates: () =>
+      request<ListPaymentTemplatesResponse>('/billing/payment-templates'),
+
+    createPaymentTemplate: async (data: CreatePaymentTemplateInput) => {
+      const response = await request<{ template: PaymentTemplateSummary }>(
+        '/billing/payment-templates',
+        {
+          method: 'POST',
+          body: JSON.stringify(data),
+          retries: 0,
+        }
+      )
+      return response.template
+    },
+
+    updatePaymentTemplate: async (id: string, data: UpdatePaymentTemplateInput) => {
+      const response = await request<{ template: PaymentTemplateSummary }>(
+        `/billing/payment-templates/${id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+          retries: 0,
+        }
+      )
+      return response.template
+    },
+
+    archivePaymentTemplate: async (id: string) => {
+      const response = await request<{ template: PaymentTemplateSummary }>(
+        `/billing/payment-templates/${id}`,
+        { method: 'DELETE', retries: 0 }
+      )
+      return response.template
+    },
   },
 
   // Recipient search (combined Clients + Leads) for sending pricing quotes

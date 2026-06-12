@@ -13,6 +13,7 @@ import {
   sendCustomQuoteSchema,
   sendQuoteInputSchema,
 } from './schemas'
+import { paymentTemplateRoute } from './payment-template-routes'
 
 const billingRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -99,6 +100,8 @@ billingRoute.post(
     }
   }
 )
+
+billingRoute.route('/', paymentTemplateRoute)
 
 /** Map billing/Stripe errors to stable codes; rethrow anything unrecognized. */
 function handleBillingError(c: Context, error: unknown) {

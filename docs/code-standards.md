@@ -224,6 +224,13 @@ app.get('/clients/:clientId/contractors', async (c) => {
 - Migration: Existing agreements auto-populate `templateVersion: 'v1'`; new NDAs default to `templateVersion: 'v2'`
 - Pattern: `if (agreement.templateVersion === 'v2') { renderV2Template() } else { renderV1Template() }`
 
+## Storage Conventions (@ella/api)
+
+- Use `generateStaffFileKey()` for staff uploads. Personal documents must land under `staff-files/{orgId}/{staffId}/documents/{uuid}.{ext}` and invoices under `staff-files/{orgId}/{staffId}/invoices/{yyyy-mm}/{uuid}.{ext}`.
+- `kind: 'INVOICE'` requires both `invoiceYear` and `invoiceMonth`; the month is zero-padded in the storage path.
+- Never log raw `staff-files/...` keys. Use `getSafeStorageReference()` and `getSafeStorageError()` for storage logging and error handling.
+- Staff-file mutations should emit the canonical document activity actions: `document.staff_file_uploaded`, `document.staff_file_deleted`, `document.staff_file_downloaded`, and `document.staff_invoice_status_updated`.
+
 ## Frontend Patterns (@ella/workspace & @ella/portal)
 
 **React Query Integration:**

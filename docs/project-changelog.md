@@ -1,9 +1,41 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-12 ICT
+> **Last Updated:** 2026-06-14 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+## 2026-06-14
+
+### Staff Documents, Invoices, and Profile Tabs
+**Status:** Complete
+
+**Changed:**
+- Added staff profile Documents and Invoices tabs with own-profile upload/list/download/delete flows and admin-only cross-member visibility.
+- Added team staff-file APIs for presigned upload, metadata-verified upload confirmation, listing, short-lived download URLs, soft delete, and admin invoice status updates.
+- Enforced one active invoice per staff/month, retained replaced invoice history, blocked staff deletion/replacement of paid invoices, and logged redacted document activity.
+- Added targeted API and workspace tests for permission boundaries, invoice replacement/race handling, paid invoice guard, status transitions, tab visibility, and paid invoice actions.
+
+**Validation:**
+- `pnpm -F @ella/db migrate status` pass
+- `pnpm -F @ella/db generate` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test -- staff-files` pass, 19 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- profile` pass, 9 tests
+- `pnpm i18n:check` pass, workspace 2824 keys and portal 520 keys
+
+### Staff Files DB/Storage Contract
+**Status:** Complete
+
+**Changed:**
+- Added org-scoped `StaffFile` Prisma model for personal documents and invoices.
+- Hardened the contract with invoice-only metadata checks, partial active invoice uniqueness, org-scoped composite foreign keys, and unique `r2Key`.
+- Added `generateStaffFileKey()` path conventions for personal docs and invoices under `staff-files/{org}/{staff}/...`.
+- Redacted `staff-files/...` keys from storage logs and added canonical document activity constants for staff-file upload, delete, download, and invoice-status updates.
+
+**Validation:**
+- Docs sync only.
 
 ## 2026-06-12
 

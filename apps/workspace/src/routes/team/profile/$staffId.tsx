@@ -6,13 +6,11 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Loader2, User, Archive, ArchiveRestore, AlertTriangle } from 'lucide-react'
-import { cn, Button, Badge } from '@ella/ui'
+import { ArrowLeft, Loader2, User, ArchiveRestore, AlertTriangle } from 'lucide-react'
+import { Button } from '@ella/ui'
 import { PageContainer } from '../../../components/layout'
-import { ProfileForm } from '../../../components/profile/profile-form'
-import { AssignedClientsList } from '../../../components/profile/assigned-clients-list'
-import { AvatarUploader } from '../../../components/profile/avatar-uploader'
-import { StaffFormLinkCard } from '../../../components/profile/staff-form-link-card'
+import { StaffProfileHeaderCard } from '../../../components/profile/staff-profile-header-card'
+import { StaffProfileTabs } from '../../../components/profile/staff-profile-tabs'
 import { api, type AppRole } from '../../../lib/api-client'
 import { toast } from '../../../stores/toast-store'
 import { useOrgRole } from '../../../hooks/use-org-role'
@@ -111,13 +109,6 @@ function ProfilePage() {
   const canArchive = canManageTeam && staffId !== currentUserStaffId
   const isOwnProfile = staff.id === currentUserStaffId || staffId === 'me'
   const isArchived = !staff.isActive
-  const roleLabel = staff.role === 'ADMIN'
-    ? t('team.admin')
-    : staff.role === 'MANAGER'
-      ? t('team.manager')
-      : staff.role === 'CPA'
-        ? t('team.cpa', 'CPA')
-        : t('team.member')
 
   return (
     <PageContainer>
@@ -161,116 +152,31 @@ function ProfilePage() {
         </div>
       )}
 
-      {/* Header Card */}
-      <div className="bg-card rounded-xl shadow-sm p-6 mb-6">
-        <div className="flex items-center gap-5">
-          {/* Avatar with uploader */}
-          <AvatarUploader
-            staffId={staffId}
-            currentAvatarUrl={staff.avatarUrl}
-            name={staff.name}
-            canEdit={canEdit}
-          />
+      <StaffProfileHeaderCard staff={staff} staffId={staffId} canEdit={canEdit} />
 
-          {/* Name & Meta */}
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold text-foreground">{staff.name}</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{staff.email}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className={cn(
-                'inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full',
-                staff.role === 'ADMIN'
-                  ? 'bg-primary/10 text-primary'
-                  : 'bg-muted text-muted-foreground'
-              )}>
-                <span className={cn(
-                  'w-1.5 h-1.5 rounded-full',
-                  staff.role === 'ADMIN' ? 'bg-primary' : 'bg-muted-foreground'
-                )} />
-                {roleLabel}
-              </span>
-              {staff.isContractorAgent && (
-                <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 bg-amber-50 dark:text-amber-300 dark:border-amber-800 dark:bg-amber-950/30">
-                  {t('team.contractorAgent', 'Contractor Agent')}
-                </Badge>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profile Form - 2/3 width on desktop */}
-        <div className="lg:col-span-2">
-          <ProfileForm
-            staff={staff}
-            canEdit={canEdit}
-            staffId={staffId}
-            canChangeRole={canChangeRole}
-            onRoleChange={async (role) => {
-              await roleMutation.mutateAsync(role)
-            }}
-            isRoleChangePending={roleMutation.isPending}
-            canManageContractorAgent={canManageTeam}
-            canViewContractorAgreement={isOwnProfile || canManageTeam}
-            hideNotifications
-          />
-        </div>
-
-        {/* Assigned Clients - 1/3 width on desktop */}
-        <div className="lg:col-span-1">
-          <AssignedClientsList
-            clients={managedClients}
-            totalCount={managedCount}
-          />
-        </div>
-      </div>
-
-      {/* Staff Form Link */}
-      <div className="mt-6">
-        <StaffFormLinkCard
-          staffId={staffId}
-          formSlug={staff.formSlug}
-          orgSlug={orgSettings?.slug || null}
-          canEdit={canEdit}
-          canEditAutoSend={isOwnProfile}
-          autoSendUploadLink={staff.autoSendUploadLink ?? false}
-          defaultUploadLinkTemplateId={staff.defaultUploadLinkTemplateId}
-          templateLanguage={orgSettings?.smsLanguage ?? 'VI'}
-        />
-      </div>
-
-      {/* Archive Section - Admin viewing active other member */}
-      {canArchive && !isArchived && (
-        <div className="mt-6 pt-6 border-t border-border">
-          <div className="bg-card rounded-xl shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-2">
-              {t('team.dangerZone')}
-            </h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              {t('team.archiveDescription')}
-            </p>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (confirm(t('team.confirmArchive', { name: staff.name }))) {
-                  archiveMutation.mutate()
-                }
-              }}
-              disabled={archiveMutation.isPending}
-              className="border-destructive/50 text-destructive hover:bg-destructive/10"
-            >
-              {archiveMutation.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Archive className="w-4 h-4 mr-2" />
-              )}
-              {t('team.archiveMember')}
-            </Button>
-          </div>
-        </div>
-      )}
+      <StaffProfileTabs
+        staff={staff}
+        staffId={staffId}
+        managedClients={managedClients}
+        managedCount={managedCount}
+        canEdit={canEdit}
+        canChangeRole={canChangeRole}
+        canManageTeam={canManageTeam}
+        isOwnProfile={isOwnProfile}
+        canArchive={canArchive}
+        isArchived={isArchived}
+        orgSettings={orgSettings}
+        onRoleChange={async (role) => {
+          await roleMutation.mutateAsync(role)
+        }}
+        isRoleChangePending={roleMutation.isPending}
+        onArchive={() => {
+          if (confirm(t('team.confirmArchive', { name: staff.name }))) {
+            archiveMutation.mutate()
+          }
+        }}
+        isArchivePending={archiveMutation.isPending}
+      />
     </PageContainer>
   )
 }

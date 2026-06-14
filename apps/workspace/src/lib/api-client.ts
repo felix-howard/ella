@@ -1576,6 +1576,38 @@ export const api = {
         body: JSON.stringify({ r2Key }),
       }),
 
+    getStaffFiles: (staffId: string, params?: StaffFileListParams) =>
+      request<{ data: StaffFileListItem[] }>(`/team/members/${staffId}/files`, { params }),
+
+    getStaffFileUploadUrl: (staffId: string, data: StaffFilePresignedUrlInput) =>
+      request<StaffFileUploadUrlResponse>(`/team/members/${staffId}/files/presigned-url`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    confirmStaffFileUpload: (staffId: string, data: StaffFileConfirmUploadInput) =>
+      request<{ success: boolean; file: StaffFileListItem }>(`/team/members/${staffId}/files`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    getStaffFileDownloadUrl: (staffId: string, fileId: string) =>
+      request<StaffFileDownloadUrlResponse>(`/team/members/${staffId}/files/${fileId}/download-url`),
+
+    deleteStaffFile: (staffId: string, fileId: string) =>
+      request<{ success: boolean; file: StaffFileListItem }>(`/team/members/${staffId}/files/${fileId}`, {
+        method: 'DELETE',
+      }),
+
+    updateStaffInvoiceStatus: (staffId: string, fileId: string, data: UpdateStaffInvoiceStatusInput) =>
+      request<{ success: boolean; file: StaffFileListItem }>(
+        `/team/members/${staffId}/files/${fileId}/invoice-status`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        }
+      ),
+
     archive: (staffId: string) =>
       request<{ success: boolean }>(`/team/members/${staffId}/archive`, { method: 'PATCH' }),
 
@@ -3853,6 +3885,77 @@ export interface AvatarPresignedUrlResponse {
   presignedUrl: string
   key: string
   expiresIn: number
+}
+
+export type StaffFileKind = 'PERSONAL_DOCUMENT' | 'INVOICE'
+
+export type StaffInvoiceStatus = 'SUBMITTED' | 'APPROVED' | 'PAID' | 'REJECTED'
+
+export type StaffFileContentType = 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp'
+
+export interface StaffFileListItem {
+  id: string
+  staffId: string
+  uploadedByStaffId: string
+  kind: StaffFileKind
+  title: string
+  category: string | null
+  originalFilename: string
+  mimeType: StaffFileContentType
+  fileSize: number
+  checksumSha256: string | null
+  invoiceYear: number | null
+  invoiceMonth: number | null
+  invoiceStatus: StaffInvoiceStatus | null
+  replacedById: string | null
+  isActive: boolean
+  reviewedByStaffId: string | null
+  reviewedAt: string | null
+  paidAt: string | null
+  adminNote: string | null
+  deletedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface StaffFileListParams extends Record<string, string | number | boolean | undefined> {
+  kind?: StaffFileKind
+  year?: number
+  month?: number
+}
+
+export interface StaffFileUploadMetadataInput {
+  kind: StaffFileKind
+  contentType: StaffFileContentType
+  fileSize: number
+  originalFilename: string
+  invoiceYear?: number
+  invoiceMonth?: number
+}
+
+export type StaffFilePresignedUrlInput = StaffFileUploadMetadataInput
+
+export interface StaffFileUploadUrlResponse {
+  uploadUrl: string
+  uploadKey: string
+  expiresIn: number
+}
+
+export interface StaffFileConfirmUploadInput extends StaffFileUploadMetadataInput {
+  uploadKey: string
+  title: string
+  category?: string
+  checksumSha256?: string
+}
+
+export interface StaffFileDownloadUrlResponse {
+  downloadUrl: string
+  expiresIn: number
+}
+
+export interface UpdateStaffInvoiceStatusInput {
+  status: StaffInvoiceStatus
+  adminNote?: string | null
 }
 
 // Shared Docs types — multi-section document sharing per tax case

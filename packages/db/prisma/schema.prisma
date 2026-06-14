@@ -422,6 +422,18 @@ enum ClientType {
   BUSINESS
 }
 
+enum StaffFileKind {
+  PERSONAL_DOCUMENT
+  INVOICE
+}
+
+enum StaffInvoiceStatus {
+  SUBMITTED
+  APPROVED
+  PAID
+  REJECTED
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -479,6 +491,10 @@ model Staff {
 
   termsAcceptances               TermsAcceptance[]
   contractorAgreementAcceptances ContractorAgreementAcceptance[]
+  staffFiles                     StaffFile[]                     @relation("StaffFiles")
+  uploadedStaffFiles             StaffFile[]                     @relation("UploadedStaffFiles")
+  reviewedStaffFiles             StaffFile[]                     @relation("ReviewedStaffFiles")
+  deletedStaffFiles              StaffFile[]                     @relation("DeletedStaffFiles")
   sentSmsLogs                    SmsSendLog[]                    @relation("SentSmsLogs")
   createdCampaigns               Campaign[]                      @relation("CreatedCampaigns")
   agreementsCreated              Agreement[]                     @relation("AgreementCreatedBy")
@@ -494,6 +510,49 @@ model Staff {
   @@unique([id, organizationId])
   @@index([clerkId])
   @@index([organizationId])
+}
+
+model StaffFile {
+  id                String       @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staffId           String
+  staff             Staff        @relation("StaffFiles", fields: [staffId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  uploadedByStaffId String
+  uploadedBy        Staff        @relation("UploadedStaffFiles", fields: [uploadedByStaffId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  kind             StaffFileKind
+  title            String
+  category         String?
+  originalFilename String
+  mimeType         String
+  fileSize         Int
+  r2Key            String @unique
+  checksumSha256   String?
+
+  invoiceYear   Int?
+  invoiceMonth  Int?
+  invoiceStatus StaffInvoiceStatus?
+  replacedById  String?
+  replacedBy    StaffFile?          @relation("StaffFileReplacement", fields: [replacedById, organizationId], references: [id, organizationId], onDelete: NoAction)
+  replaces      StaffFile[]         @relation("StaffFileReplacement")
+  isActive      Boolean             @default(true)
+
+  reviewedByStaffId String?
+  reviewedBy        Staff?    @relation("ReviewedStaffFiles", fields: [reviewedByStaffId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  reviewedAt        DateTime?
+  paidAt            DateTime?
+  adminNote         String?   @db.Text
+  deletedAt         DateTime?
+  deletedByStaffId  String?
+  deletedBy         Staff?    @relation("DeletedStaffFiles", fields: [deletedByStaffId, organizationId], references: [id, organizationId], onDelete: NoAction)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([id, organizationId])
+  @@index([organizationId, staffId, kind])
+  @@index([organizationId, kind, invoiceYear, invoiceMonth])
 }
 
 // Staff presence tracking for inbound call routing
@@ -598,6 +657,7 @@ model Organization {
   firmWebsite     String?
 
   staff                          Staff[]
+  staffFiles                     StaffFile[]
   clients                        Client[]
   clientManagers                 ClientManager[]
   clientGroups                   ClientGroup[]

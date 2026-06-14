@@ -1,11 +1,148 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-10 ICT
+> **Last Updated:** 2026-06-14 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
 
+## 2026-06-14
+
+### Quote Portal Coupon Preview
+**Status:** Complete
+
+**Fixed:**
+- Public quote portal now includes active pre-applied coupon details in the quote payload.
+- Quote breakdown shows subtotal, coupon discount, discounted due-today total, and discounted recurring amount when the coupon applies beyond the first invoice.
+- Pay button and paid confirmation now use the discounted due-today amount instead of the pre-discount quote subtotal.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/payments/__tests__/quote-checkout-service.test.ts` pass, 16 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+
+### Staff File Actions Polish
+**Status:** Complete
+
+**Changed:**
+- Fixed staff file `Download` to fetch through authenticated API blob endpoint instead of opening cross-origin R2 image URLs in a browser tab.
+- Replaced native Rename prompt with inline row editing for staff documents and invoices.
+- Replaced native Delete confirm with dedicated destructive confirmation modal.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/team/__tests__/staff-files.test.ts` pass, 21 tests
+- `pnpm -F @ella/workspace test -- src/components/profile/__tests__/profile-tabs.test.tsx` pass, 4 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with pre-existing warnings only
+
+### Staff Documents, Invoices, and Profile Tabs
+**Status:** Complete
+
+**Changed:**
+- Added staff profile Documents and Invoices tabs with own-profile upload/list/download/delete flows and admin-only cross-member visibility.
+- Added team staff-file APIs for presigned upload, metadata-verified upload confirmation, listing, short-lived download URLs, soft delete, and admin invoice status updates.
+- Enforced one active invoice per staff/month, retained replaced invoice history, blocked staff deletion/replacement of paid invoices, and logged redacted document activity.
+- Added targeted API and workspace tests for permission boundaries, invoice replacement/race handling, paid invoice guard, status transitions, tab visibility, and paid invoice actions.
+
+**Validation:**
+- `pnpm -F @ella/db migrate status` pass
+- `pnpm -F @ella/db generate` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test -- staff-files` pass, 19 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- profile` pass, 9 tests
+- `pnpm i18n:check` pass, workspace 2824 keys and portal 520 keys
+
+### Staff Files DB/Storage Contract
+**Status:** Complete
+
+**Changed:**
+- Added org-scoped `StaffFile` Prisma model for personal documents and invoices.
+- Hardened the contract with invoice-only metadata checks, partial active invoice uniqueness, org-scoped composite foreign keys, and unique `r2Key`.
+- Added `generateStaffFileKey()` path conventions for personal docs and invoices under `staff-files/{org}/{staff}/...`.
+- Redacted `staff-files/...` keys from storage logs and added canonical document activity constants for staff-file upload, delete, download, and invoice-status updates.
+
+**Validation:**
+- Docs sync only.
+
+## 2026-06-12
+
+### Message Translation
+**Status:** Complete
+
+**Changed:**
+- Added org-scoped `POST /messages/:messageId/translate` for case-message translation to English through existing Gemini text generation.
+- Added staff-scoped rate limiting for translation requests to protect Gemini quota.
+- Kept translations transient: fetched from stored message content, returned to the caller, and not persisted or activity-logged.
+- Added shared workspace bubble-level translation UI for inbound and outbound case text messages, inherited by the full Messages page and floating case chatbox.
+- Added frontend Vietnamese detection for prominent translate actions, with a visible fallback action for short or no-diacritic messages.
+
+**Validation:**
+- `pnpm -F @ella/api test -- message-translation message-translator` pass, 12 tests
+- `pnpm -F @ella/workspace test -- message-language-detection message-translation-eligibility` pass, 6 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+
+### Payment Templates Database Foundation
+**Status:** Complete
+
+**Changed:**
+- Added org-scoped `PaymentTemplate` Prisma model for reusable `Payments > Custom link` line-item presets.
+- Added migrations for table creation, indexes, foreign keys, tenant-guard trigger, staff org-change cleanup trigger, and row-lock validation hardening.
+- Kept template data separate from frozen `PaymentQuote` snapshots so edits to reusable presets do not mutate sent quotes.
+- Left API, workspace UI, and release-note phases pending per the feature plan.
+
+### Payment Templates API Service and Routes
+**Status:** Complete
+
+**Changed:**
+- Added admin-only `/billing/payment-templates` CRUD for org-scoped reusable custom-link presets.
+- Reused the existing custom line-item schema and `buildCustomQuote()` validation so templates follow the same business rules as custom quotes.
+- Returned normalized summaries with item counts and totals for list/load flows, and soft-archived templates via `archivedAt` without calling Stripe.
+- Kept frontend integration and release-note work for later phases at this checkpoint.
+
+### Payment Templates Workspace UI and Validation
+**Status:** Complete
+
+**Changed:**
+- Added workspace custom-link template controls for saving current rows, loading saved org templates, and archiving presets.
+- Added API client methods and React Query hooks for `/billing/payment-templates`.
+- Added draft/template conversion helpers so loaded rows get fresh local ids and remain editable before create/send.
+- Reset discount state on template load because discounts/coupons are intentionally not part of templates.
+
+**Validation:**
+- `pnpm -F @ella/api test -- payment-template billing-route-auth` pass, 35 tests
+- `pnpm -F @ella/workspace test -- custom-link` pass, 38 tests
+- `pnpm type-check` pass
+- `pnpm lint` pass with pre-existing warnings outside payment-template files
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass
+
+### Payment Templates Docs and Release Notes
+**Status:** Complete
+
+**Changed:**
+- Documented the org-scoped payment-template flow in architecture, roadmap, and codebase summary docs.
+- Clarified that templates save reusable custom-link line-item payloads only and do not store recipients, discounts/coupons, Stripe sessions/links, sent status, or customer fields.
+- Documented snapshot safety so creating or sending a quote copies the current template rows into `PaymentQuote`, and later template edits do not mutate historical quotes.
+
+---
+
 ## 2026-06-10
+
+### Manager Payment Access Restriction
+**Status:** Complete
+
+**Changed:**
+- Added Admin-only `canManagePayments` capability for workspace payment surfaces.
+- Hid sidebar Payments nav from Manager role while keeping Leads visible.
+- Hid client detail Payments tab and overview payments summary from Manager role; direct `tab=payments` falls back to Files.
+- Changed staff billing and client payment endpoints from Admin/Manager to Admin-only.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/layout/__tests__/sidebar-nav-items.test.ts` pass, 3 tests
+- `pnpm -F @ella/api test -- src/routes/clients/__tests__/payments-staff.test.ts src/routes/billing/__tests__/billing-route-auth.test.ts` pass, 15 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api type-check` pass
 
 ### Workspace Messages Image Viewer Modal
 **Status:** Complete

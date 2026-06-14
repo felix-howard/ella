@@ -73,6 +73,13 @@ interface QuoteLineView {
   kind: 'monthly' | 'setup'
 }
 
+interface QuoteDiscountView {
+  code: string
+  name: string | null
+  amount: number
+  recurringAmount: number
+}
+
 /** Recurring cadence of the monthly group; null when the quote is one-time only. */
 export type QuoteBillingInterval = 'month' | 'year' | null
 
@@ -83,9 +90,11 @@ export interface PublicQuoteView {
   lineItems: QuoteLineView[]
   monthlyTotal: number
   setupTotal: number
+  subtotal: number
+  discount: QuoteDiscountView | null
   /** Recurring cadence for the "Then $X/…" row; null = one-time only. */
   billingInterval: QuoteBillingInterval
-  /** Charged at checkout: monthlyTotal (first invoice) + setupTotal. */
+  /** Charged at checkout after any pre-applied coupon. */
   dueToday: number
   status: string
   /** ISO timestamp once settled; null otherwise. */
@@ -96,6 +105,18 @@ const quoteWithRecipientInclude = {
   organization: { select: { name: true } },
   client: { select: { firstName: true } },
   lead: { select: { firstName: true } },
+  appliedCoupon: {
+    select: {
+      code: true,
+      name: true,
+      discountType: true,
+      percentOff: true,
+      amountOffCents: true,
+      duration: true,
+      active: true,
+      stripeCouponId: true,
+    },
+  },
 } as const
 
 /** Load the public quote view for a payToken. Null when the token is unknown. */
@@ -109,6 +130,13 @@ export async function getPublicQuoteView(payToken: string): Promise<PublicQuoteV
   const snapshot = parseResultSnapshot(quote.resultSnapshot)
   const monthlyTotal = quote.monthlyTotalCents / 100
   const setupTotal = quote.setupTotalCents / 100
+  const dueTodayCents = quote.monthlyTotalCents + quote.setupTotalCents
+  const discount = calculateQuoteDiscount({
+    coupon: quote.appliedCoupon,
+    dueTodayCents,
+    recurringCents: quote.monthlyTotalCents,
+  })
+  const discountAmountCents = discount ? dollarsToCents(discount.amount) : 0
 
   return {
     orgName: quote.organization?.name ?? 'us',
@@ -117,8 +145,10 @@ export async function getPublicQuoteView(payToken: string): Promise<PublicQuoteV
     lineItems: snapshot,
     monthlyTotal,
     setupTotal,
+    subtotal: monthlyTotal + setupTotal,
+    discount,
     billingInterval: normalizeBillingInterval(quote.billingInterval),
-    dueToday: monthlyTotal + setupTotal,
+    dueToday: centsToDollars(dueTodayCents - discountAmountCents),
     status: quote.status,
     paidAt:
       isPaidStatus(quote.status) && quote.lastStripeEventAt
@@ -255,4 +285,59 @@ function toLineViews(items: unknown, kind: 'monthly' | 'setup'): QuoteLineView[]
 /** Narrow the stored interval column ("month" | "year" | null) to the public union. */
 function normalizeBillingInterval(value: string | null): QuoteBillingInterval {
   return value === 'month' || value === 'year' ? value : null
+}
+
+interface DiscountableCoupon {
+  code: string
+  name: string | null
+  discountType: string
+  percentOff: number | null
+  amountOffCents: number | null
+  duration: string
+  active: boolean
+  stripeCouponId: string | null
+}
+
+function calculateQuoteDiscount({
+  coupon,
+  dueTodayCents,
+  recurringCents,
+}: {
+  coupon: DiscountableCoupon | null
+  dueTodayCents: number
+  recurringCents: number
+}): QuoteDiscountView | null {
+  if (!coupon?.active || !coupon.stripeCouponId) return null
+
+  const amountCents = discountCentsForSubtotal(coupon, dueTodayCents)
+  if (amountCents <= 0) return null
+
+  const recurringAmountCents =
+    coupon.duration === 'once' ? 0 : discountCentsForSubtotal(coupon, recurringCents)
+
+  return {
+    code: coupon.code,
+    name: coupon.name,
+    amount: centsToDollars(amountCents),
+    recurringAmount: centsToDollars(recurringAmountCents),
+  }
+}
+
+function discountCentsForSubtotal(coupon: DiscountableCoupon, subtotalCents: number): number {
+  if (subtotalCents <= 0) return 0
+  if (coupon.discountType === 'percent' && coupon.percentOff != null) {
+    return Math.min(subtotalCents, Math.round((subtotalCents * coupon.percentOff) / 100))
+  }
+  if (coupon.discountType === 'amount' && coupon.amountOffCents != null) {
+    return Math.min(subtotalCents, coupon.amountOffCents)
+  }
+  return 0
+}
+
+function centsToDollars(cents: number): number {
+  return Math.max(0, cents) / 100
+}
+
+function dollarsToCents(amount: number): number {
+  return Math.round(amount * 100)
 }

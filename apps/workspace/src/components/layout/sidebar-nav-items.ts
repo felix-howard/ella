@@ -18,6 +18,10 @@ const BASE_NAV_ITEMS = [
 // Visible to ADMIN + MANAGER (client/lead management tier)
 const MANAGEMENT_NAV_ITEMS = [
   { path: '/leads', i18nKey: 'nav.leads', icon: Megaphone },
+] as const satisfies readonly NavItem[]
+
+// Visible to ADMIN only (payment links and payment history)
+const PAYMENTS_NAV_ITEM = [
   { path: '/pricing-calculator', i18nKey: 'nav.pricingCalculator', icon: WalletCards },
 ] as const satisfies readonly NavItem[]
 
@@ -36,11 +40,13 @@ const SETTINGS_NAV_ITEM = {
 
 export function getSidebarNavItems(flags: {
   canManageClients: boolean
+  canManagePayments: boolean
   canManageTeam: boolean
 }): NavItem[] {
   return [
     ...BASE_NAV_ITEMS,
     ...(flags.canManageClients ? MANAGEMENT_NAV_ITEMS : []),
+    ...(flags.canManagePayments ? PAYMENTS_NAV_ITEM : []),
     ...(flags.canManageTeam ? [TEAM_NAV_ITEM] : []),
     SETTINGS_NAV_ITEM,
   ]

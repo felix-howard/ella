@@ -3,7 +3,11 @@ import { getSidebarNavItems } from '../sidebar-nav-items'
 
 describe('getSidebarNavItems', () => {
   it('hides management nav from staff users', () => {
-    const paths = getSidebarNavItems({ canManageClients: false, canManageTeam: false }).map(
+    const paths = getSidebarNavItems({
+      canManageClients: false,
+      canManagePayments: false,
+      canManageTeam: false,
+    }).map(
       (item) => item.path
     )
 
@@ -12,7 +16,11 @@ describe('getSidebarNavItems', () => {
   })
 
   it('shows management nav without Team to manager users', () => {
-    const paths = getSidebarNavItems({ canManageClients: true, canManageTeam: false }).map(
+    const paths = getSidebarNavItems({
+      canManageClients: true,
+      canManagePayments: false,
+      canManageTeam: false,
+    }).map(
       (item) => item.path
     )
 
@@ -21,14 +29,18 @@ describe('getSidebarNavItems', () => {
       '/clients',
       '/messages',
       '/leads',
-      '/pricing-calculator',
       '/settings',
     ])
+    expect(paths).not.toContain('/pricing-calculator')
     expect(paths).not.toContain('/team')
   })
 
   it('shows all nav including Team to admin users', () => {
-    const paths = getSidebarNavItems({ canManageClients: true, canManageTeam: true }).map(
+    const paths = getSidebarNavItems({
+      canManageClients: true,
+      canManagePayments: true,
+      canManageTeam: true,
+    }).map(
       (item) => item.path
     )
 

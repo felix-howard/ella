@@ -1,7 +1,7 @@
 /**
  * Staff-facing payment endpoints for the Client entity — mounted on
  * `/clients`, so paths are relative to `/clients/:clientId/...`. Mirrors the
- * agreements-staff split: ADMIN/MANAGER guard, same response envelopes.
+ * agreements-staff split: ADMIN-only guard, same response envelopes.
  *
  * Powers the phase-5 workspace UI: client profile Payments tab + the
  * "Resend payment link" button on a pending deposit.
@@ -9,7 +9,7 @@
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { zValidator } from '@hono/zod-validator'
-import { requireAdminOrManager } from '../../middleware/auth'
+import { requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import { checkRateLimit } from '../../middleware/rate-limiter'
 import type { AuthUser } from '../../services/auth'
@@ -36,7 +36,7 @@ function getOrgId(user: AuthUser): string {
 // GET /:clientId/payments — payments list for the client profile tab
 clientsPaymentsStaffRoute.get(
   '/:clientId/payments',
-  requireAdminOrManager,
+  requireOrgAdmin,
   zValidator('param', clientIdParamSchema),
   async (c) => {
     const orgId = getOrgId(c.get('user'))
@@ -92,7 +92,7 @@ clientsPaymentsStaffRoute.get(
 // for the agreement's PENDING deposit Payment.
 clientsPaymentsStaffRoute.post(
   '/:clientId/agreements/:id/resend-payment-link',
-  requireAdminOrManager,
+  requireOrgAdmin,
   zValidator('param', clientAndAgreementIdParamSchema),
   async (c) => {
     const orgId = getOrgId(c.get('user'))

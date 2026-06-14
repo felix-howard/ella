@@ -4,6 +4,7 @@ import { CustomLinkSummary } from './custom-link-summary'
 import { CustomLinkActions } from './custom-link-actions'
 import { CouponManagerPanel } from './coupons/coupon-manager-panel'
 import { useActiveCoupons } from './use-active-coupons'
+import { PaymentTemplatePanel } from './templates/payment-template-panel'
 import {
   computeBillingTotals,
   createEmptyItem,
@@ -13,6 +14,7 @@ import {
   type CustomItemDraft,
   type CustomLinkCorePayload,
 } from './custom-link-types'
+import { loadedTemplateToCustomLinkState } from './custom-link-template-conversion'
 
 /**
  * Container for the free-form payment-link builder. Owns the line items,
@@ -47,11 +49,27 @@ export function CustomLinkBuilder() {
     couponId,
     billingTotals.hasMixedRecurringIntervals
   )
+  const templateDisabledReason = getLineItemDisabledReason(
+    items,
+    billingTotals.hasMixedRecurringIntervals
+  )
 
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <CustomLinkItemRows items={items} disabled={false} onChange={setItems} />
+        <div className="space-y-4">
+          <PaymentTemplatePanel
+            items={items}
+            disabledReason={templateDisabledReason}
+            onLoadTemplate={(template) => {
+              const nextState = loadedTemplateToCustomLinkState(template)
+              setItems(nextState.items)
+              setDiscountMode(nextState.discountMode)
+              setCouponId(nextState.couponId)
+            }}
+          />
+          <CustomLinkItemRows items={items} disabled={false} onChange={setItems} />
+        </div>
         <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
           <CustomLinkSummary
             dueTodayCents={billingTotals.dueTodayCents}
@@ -82,11 +100,20 @@ function getDisabledReason(
   couponId: string,
   hasMixedRecurringIntervals: boolean
 ): string | null {
+  const lineItemReason = getLineItemDisabledReason(items, hasMixedRecurringIntervals)
+  if (lineItemReason) return lineItemReason
+  if (discountMode === 'coupon' && !couponId)
+    return 'Select a coupon or choose a different discount option.'
+  return null
+}
+
+function getLineItemDisabledReason(
+  items: CustomItemDraft[],
+  hasMixedRecurringIntervals: boolean
+): string | null {
   const validItems = items.filter(isItemValid)
   if (validItems.length === 0) return 'Add at least one item with a name, amount, and quantity.'
   if (items.some((item) => !isItemValid(item))) return 'Fix or remove the incomplete item rows.'
   if (hasMixedRecurringIntervals) return 'Use only one recurring interval per link.'
-  if (discountMode === 'coupon' && !couponId)
-    return 'Select a coupon or choose a different discount option.'
   return null
 }

@@ -12,9 +12,11 @@ import {
 } from '../../lib/constants'
 import {
   sendMessageSchema,
+  translateMessageSchema,
   listMessagesQuerySchema,
   listConversationsQuerySchema,
 } from './schemas'
+import { translateMessageToEnglish } from '../../services/ai'
 import { publishMessageEventFromConversation } from '../../services/realtime/message-publisher'
 import {
   sendSmsOnly,
@@ -37,6 +39,7 @@ import { buildClientScopeFilter, isAdminOrManager } from '../../lib/org-scope'
 import { serializePhone } from '../../lib/phone-privacy'
 import { isBizWithGroup } from '../../lib/client-helpers'
 import { inngest } from '../../lib/inngest'
+import { rateLimiter } from '../../middleware/rate-limiter'
 import type { AuthVariables } from '../../middleware/auth'
 import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
@@ -83,6 +86,11 @@ function extractR2KeysFromUrls(urls: string[]): string[] {
 }
 
 const messagesRoute = new Hono<{ Variables: AuthVariables }>()
+const messageTranslationRateLimit = rateLimiter({
+  keyPrefix: 'message-translation',
+  maxRequests: 10,
+  windowMs: 60000,
+})
 
 function withoutAttachmentR2Keys<T extends object>(message: T): Omit<T, 'attachmentR2Keys'> {
   const copy = { ...message } as T & { attachmentR2Keys?: unknown }
@@ -354,6 +362,88 @@ messagesRoute.get('/media/:messageId/:index', async (c) => {
     return c.json({ error: 'PROXY_ERROR', message: 'Failed to serve attachment' }, 500)
   }
 })
+
+messagesRoute.post(
+  '/:messageId/translate',
+  messageTranslationRateLimit,
+  zValidator('json', translateMessageSchema),
+  async (c) => {
+    const messageId = c.req.param('messageId')
+    const { targetLanguage } = c.req.valid('json')
+    const user = c.get('user')
+
+    if (targetLanguage !== 'EN') {
+      return c.json({
+        error: 'UNSUPPORTED_TARGET_LANGUAGE',
+        message: 'Only English translation is supported',
+      }, 400)
+    }
+
+    const message = await prisma.message.findFirst({
+      where: {
+        id: messageId,
+        conversation: { taxCase: { client: buildClientScopeFilter(user) } },
+      },
+      select: {
+        id: true,
+        content: true,
+        channel: true,
+      },
+    })
+
+    if (!message) {
+      return c.json({ error: 'NOT_FOUND', message: 'Message not found' }, 404)
+    }
+
+    if (message.channel === 'SYSTEM' || message.channel === 'CALL') {
+      return c.json({
+        error: 'EMPTY_MESSAGE',
+        message: 'Message has no translatable text',
+      }, 400)
+    }
+
+    if (!message.content.trim()) {
+      return c.json({
+        error: 'EMPTY_MESSAGE',
+        message: 'Message has no translatable text',
+      }, 400)
+    }
+
+    const translation = await translateMessageToEnglish(message.content)
+
+    if (!translation.success) {
+      if (translation.error === 'AI_NOT_CONFIGURED') {
+        return c.json({
+          error: 'AI_NOT_CONFIGURED',
+          message: 'Translation service is not configured',
+        }, 503)
+      }
+
+      if (translation.error === 'EMPTY_MESSAGE') {
+        return c.json({
+          error: 'EMPTY_MESSAGE',
+          message: 'Message has no translatable text',
+        }, 400)
+      }
+
+      console.error('[Messages] Translation failed', {
+        messageId,
+        error: translation.error,
+      })
+      return c.json({
+        error: 'TRANSLATION_FAILED',
+        message: 'Unable to translate message',
+      }, 502)
+    }
+
+    return c.json({
+      messageId: message.id,
+      sourceLanguage: translation.sourceLanguage,
+      targetLanguage: translation.targetLanguage,
+      translatedText: translation.translatedText,
+    })
+  }
+)
 
 // GET /messages/:caseId/unread - Get unread count for a specific case
 messagesRoute.get('/:caseId/unread', async (c) => {

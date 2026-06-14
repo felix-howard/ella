@@ -511,6 +511,8 @@
   "quote.monthlyGroup": "Monthly",
   "quote.yearlyGroup": "Yearly",
   "quote.setupGroup": "Setup and one-time",
+  "quote.subtotal": "Subtotal",
+  "quote.discountLabel": "Discount ({{code}})",
   "quote.dueToday": "Due today",
   "quote.recurringAfterToday": "Recurring after today",
   "quote.intro.heading": "Review & complete your payment",

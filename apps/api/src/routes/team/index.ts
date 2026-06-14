@@ -31,6 +31,7 @@ import { APP_ROLE_TO_CLERK_ROLE, APP_ROLE_TO_STAFF_ROLE } from '../../lib/staff-
 import { serializePhone } from '../../lib/phone-privacy'
 import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
+import { staffFilesRoute } from './staff-files'
 
 const teamRoute = new Hono<{ Variables: AuthVariables }>()
 const NOTIFICATION_SUBSCRIPTION_ACTIVITY_WINDOW_MS = 10 * 60 * 1000
@@ -73,6 +74,7 @@ async function logTeamMemberActivity(
 
 // All team routes require active org
 teamRoute.use('*', requireOrg)
+teamRoute.route('/', staffFilesRoute)
 
 // GET /team/members - List active staff in current org
 teamRoute.get('/members', async (c) => {

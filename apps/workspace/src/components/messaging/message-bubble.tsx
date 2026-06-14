@@ -260,9 +260,9 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
                 ))}
               </div>
             )}
-            <div className="px-3.5 py-2">
+            <div className="relative px-3.5 py-2">
               {hasText && (
-                <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words text-gray-700 dark:text-gray-200">
+                <p className={cn('text-[14px] leading-relaxed whitespace-pre-wrap break-words text-gray-700 dark:text-gray-200', canTranslate && 'pr-8')}>
                   <LinkifiedText text={safeContent} isOutbound />
                 </p>
               )}
@@ -270,7 +270,6 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
               {canTranslate && (
                 <MessageTranslationPanel
                   messageId={message.id}
-                  content={safeContent}
                   isOutbound={isOutbound}
                 />
               )}
@@ -333,9 +332,9 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
             ))}
           </div>
         )}
-        <div className="px-3.5 py-2">
+        <div className="relative px-3.5 py-2">
           {hasText && (
-            <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
+            <p className={cn('text-[14px] leading-relaxed whitespace-pre-wrap break-words', canTranslate && 'pr-8')}>
               <LinkifiedText text={safeContent} isOutbound={false} />
             </p>
           )}
@@ -343,7 +342,6 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
           {canTranslate && (
             <MessageTranslationPanel
               messageId={message.id}
-              content={safeContent}
               isOutbound={isOutbound}
             />
           )}

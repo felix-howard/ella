@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Archive, FileText, Link2, Loader2, Receipt, ShieldAlert, User } from 'lucide-react'
+import { Archive, FileText, Link2, Loader2, Receipt, User } from 'lucide-react'
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@ella/ui'
 import type { AppRole, OrgSettings, ProfileResponse } from '../../lib/api-client'
 import { ProfileForm } from './profile-form'
@@ -49,21 +49,13 @@ export function StaffProfileTabs({
 }: StaffProfileTabsProps) {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('overview')
-  const canShowAdminTab = canArchive && !isArchived
+  const canShowDangerZone = canArchive && !isArchived
   const canAccessStaffFiles = isOwnProfile || canManageTeam
   const activeTabAvailable =
     activeTab === 'overview' ||
     activeTab === 'form-link' ||
-    (activeTab === 'admin' && canShowAdminTab) ||
     ((activeTab === 'documents' || activeTab === 'invoices') && canAccessStaffFiles)
   const visibleActiveTab = activeTabAvailable ? activeTab : 'overview'
-
-  useEffect(() => {
-    if (activeTab === 'admin' && !canShowAdminTab) setActiveTab('overview')
-    if ((activeTab === 'documents' || activeTab === 'invoices') && !canAccessStaffFiles) {
-      setActiveTab('overview')
-    }
-  }, [activeTab, canAccessStaffFiles, canShowAdminTab])
 
   return (
     <Tabs
@@ -95,12 +87,6 @@ export function StaffProfileTabs({
             <Link2 className="w-4 h-4" />
             {t('profile.tabs.formLink')}
           </TabsTrigger>
-          {canShowAdminTab && (
-            <TabsTrigger value="admin" className="gap-2">
-              <ShieldAlert className="w-4 h-4" />
-              {t('profile.tabs.admin')}
-            </TabsTrigger>
-          )}
         </TabsList>
       </div>
 
@@ -124,6 +110,26 @@ export function StaffProfileTabs({
             <AssignedClientsList clients={managedClients} totalCount={managedCount} />
           </div>
         </div>
+
+        {canShowDangerZone && (
+          <div className="bg-card rounded-xl shadow-sm p-6 mt-6">
+            <h3 className="text-lg font-semibold text-foreground mb-2">{t('team.dangerZone')}</h3>
+            <p className="text-sm text-muted-foreground mb-4">{t('team.archiveDescription')}</p>
+            <Button
+              variant="outline"
+              onClick={onArchive}
+              disabled={isArchivePending}
+              className="border-destructive/50 text-destructive hover:bg-destructive/10"
+            >
+              {isArchivePending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Archive className="w-4 h-4 mr-2" />
+              )}
+              {t('team.archiveMember')}
+            </Button>
+          </div>
+        )}
       </TabsContent>
 
       {canAccessStaffFiles && (
@@ -155,27 +161,6 @@ export function StaffProfileTabs({
         />
       </TabsContent>
 
-      {canShowAdminTab && (
-        <TabsContent value="admin">
-          <div className="bg-card rounded-xl shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-2">{t('team.dangerZone')}</h3>
-            <p className="text-sm text-muted-foreground mb-4">{t('team.archiveDescription')}</p>
-            <Button
-              variant="outline"
-              onClick={onArchive}
-              disabled={isArchivePending}
-              className="border-destructive/50 text-destructive hover:bg-destructive/10"
-            >
-              {isArchivePending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Archive className="w-4 h-4 mr-2" />
-              )}
-              {t('team.archiveMember')}
-            </Button>
-          </div>
-        </TabsContent>
-      )}
     </Tabs>
   )
 }

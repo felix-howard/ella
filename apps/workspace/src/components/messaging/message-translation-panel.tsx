@@ -1,19 +1,16 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@ella/ui'
+import { cn, Tooltip } from '@ella/ui'
 import { AlertCircle, Languages, Loader2 } from 'lucide-react'
 import { api, ApiError, type TranslateMessageResponse } from '../../lib/api-client'
-import { isLikelyVietnamese } from '../../lib/message-language-detection'
 
 interface MessageTranslationPanelProps {
   messageId: string
-  content: string
   isOutbound: boolean
 }
 
 export function MessageTranslationPanel({
   messageId,
-  content,
   isOutbound,
 }: MessageTranslationPanelProps) {
   const { t } = useTranslation()
@@ -21,7 +18,6 @@ export function MessageTranslationPanel({
   const [isTranslating, setIsTranslating] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const prominent = isLikelyVietnamese(content)
 
   const handleTranslate = async () => {
     if (translation) {
@@ -48,43 +44,43 @@ export function MessageTranslationPanel({
     }
   }
 
+  const actionLabel = isTranslating
+    ? t('messages.translating')
+    : translation && isVisible
+      ? t('messages.hideTranslation')
+      : t('messages.translate')
+
   return (
-    <div
-      className={cn(
-        'mt-2 flex max-w-full flex-col gap-1.5',
-        isOutbound ? 'items-end' : 'items-start'
-      )}
-    >
-      <button
-        type="button"
-        onClick={handleTranslate}
-        disabled={isTranslating}
-        className={cn(
-          'inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-          'disabled:cursor-not-allowed disabled:opacity-60',
-          prominent
-            ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-200'
-            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-          isTranslating && 'cursor-wait'
-        )}
-        aria-busy={isTranslating}
-      >
-        {isTranslating ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-        ) : (
-          <Languages className="h-3.5 w-3.5" aria-hidden="true" />
-        )}
-        {isTranslating
-          ? t('messages.translating')
-          : translation && isVisible
-            ? t('messages.hideTranslation')
-            : t('messages.translate')}
-      </button>
+    <>
+      <div className={cn('absolute top-1.5 z-10', isOutbound ? 'right-1.5' : 'right-1.5')}>
+        <Tooltip content={actionLabel} position="top-right" className="whitespace-nowrap !bg-slate-800 !text-white" showArrow={false}>
+          <button
+            type="button"
+            onClick={handleTranslate}
+            disabled={isTranslating}
+            className={cn(
+              'inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground/70 transition-colors',
+              'hover:bg-background/70 hover:text-foreground',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
+              'disabled:cursor-not-allowed disabled:opacity-60',
+              translation && isVisible && 'bg-emerald-100/80 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-200',
+              isTranslating && 'cursor-wait'
+            )}
+            aria-label={actionLabel}
+            aria-busy={isTranslating}
+          >
+            {isTranslating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <Languages className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
+          </button>
+        </Tooltip>
+      </div>
 
       {translation && isVisible && (
         <div
-          className="max-w-full rounded-md border border-emerald-200/70 bg-emerald-50/70 px-3 py-2 text-[13px] leading-relaxed text-emerald-950 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
+          className="mt-2 max-w-full rounded-md border border-emerald-200/70 bg-emerald-50/70 px-3 py-2 text-[13px] leading-relaxed text-emerald-950 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
           aria-label={t('messages.translationLabel')}
           aria-live="polite"
         >
@@ -98,12 +94,12 @@ export function MessageTranslationPanel({
       {error && (
         <div
           role="alert"
-          className="flex max-w-full items-start gap-1.5 text-[11px] text-destructive"
+          className="mt-1 flex max-w-full items-start gap-1.5 text-[11px] text-destructive"
         >
           <AlertCircle className="mt-0.5 h-3 w-3 flex-shrink-0" aria-hidden="true" />
           <span>{error}</span>
         </div>
       )}
-    </div>
+    </>
   )
 }

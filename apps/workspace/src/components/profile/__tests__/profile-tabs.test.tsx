@@ -107,18 +107,21 @@ function invoice(overrides: Partial<StaffFileListItem> = {}): StaffFileListItem 
 }
 
 describe('StaffProfileTabs', () => {
-  it('renders profile tabs and admin tab for archive-capable admins', () => {
+  it('renders profile tabs and overview danger zone for archive-capable admins', () => {
     const markup = renderTabs(true)
 
     expect(markup).toContain('profile.tabs.overview')
     expect(markup).toContain('profile.tabs.documents')
     expect(markup).toContain('profile.tabs.invoices')
     expect(markup).toContain('profile.tabs.formLink')
-    expect(markup).toContain('profile.tabs.admin')
+    expect(markup).not.toContain('profile.tabs.admin')
+    expect(markup).toContain('team.dangerZone')
+    expect(markup).toContain('team.archiveMember')
   })
 
-  it('hides admin tab when archive controls are not available', () => {
+  it('hides overview danger zone when archive controls are not available', () => {
     expect(renderTabs(false)).not.toContain('profile.tabs.admin')
+    expect(renderTabs(false)).not.toContain('team.dangerZone')
   })
 
   it('hides staff file tabs when viewer cannot access staff files', () => {

@@ -9,12 +9,13 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   CopyObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { generateDocumentName, type DocumentNamingComponents } from '@ella/shared'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { prisma } from '../lib/db'
 
 // R2 client configuration
@@ -40,7 +41,7 @@ const isR2Configured =
   process.env.R2_SECRET_ACCESS_KEY
 
 const STORAGE_PATH_PATTERN =
-  /\b(?:avatars|client-avatars|cases|terms|agreements|staff-signatures|contractor-agreements|raw-images|portal|message-attachments)\/[^\s"'<>]+/g
+  /\b(?:avatars|client-avatars|cases|terms|agreements|staff-signatures|staff-files|contractor-agreements|raw-images|portal|message-attachments)\/[^\s"'<>]+/g
 const URL_PATTERN = /https?:\/\/[^\s"'<>]+/g
 
 export function getSafeStorageReference(key: string): {
@@ -175,6 +176,53 @@ export function generateClientAvatarKey(clientId: string, contentType?: string):
   return `client-avatars/${clientId}/${timestamp}-${random}.${ext}`
 }
 
+type StaffFileKindForKey = 'PERSONAL_DOCUMENT' | 'INVOICE'
+
+const MIME_EXTENSION_MAP: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'text/plain': 'txt',
+  'text/csv': 'csv',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+}
+
+function getStorageExtension(filename: string | undefined, contentType: string | undefined): string {
+  const fromMime = contentType ? MIME_EXTENSION_MAP[contentType.toLowerCase()] : undefined
+  if (fromMime) return fromMime
+
+  const extension = filename?.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '')
+  return extension || 'bin'
+}
+
+export function generateStaffFileKey(input: {
+  organizationId: string
+  staffId: string
+  kind: StaffFileKindForKey
+  filename?: string
+  contentType?: string
+  invoiceYear?: number
+  invoiceMonth?: number
+}): string {
+  const ext = getStorageExtension(input.filename, input.contentType)
+  const objectId = randomUUID()
+
+  if (input.kind === 'INVOICE') {
+    if (!input.invoiceYear || !input.invoiceMonth) {
+      throw new Error('invoiceYear and invoiceMonth are required for invoice staff file keys')
+    }
+    const invoiceMonth = String(input.invoiceMonth).padStart(2, '0')
+    return `staff-files/${input.organizationId}/${input.staffId}/invoices/${input.invoiceYear}-${invoiceMonth}/${objectId}.${ext}`
+  }
+
+  return `staff-files/${input.organizationId}/${input.staffId}/documents/${objectId}.${ext}`
+}
+
 /**
  * Resolve an avatarUrl field from the database to a usable URL.
  * - If null/undefined → returns null
@@ -213,6 +261,38 @@ export async function getSignedDownloadUrl(
     return await getSignedUrl(s3Client, command, { expiresIn })
   } catch (error) {
     console.error('[Storage] Failed to generate signed URL', {
+      object,
+      error: getSafeStorageError(error),
+    })
+    return null
+  }
+}
+
+export async function getStorageObjectMetadata(key: string): Promise<{
+  contentLength: number | null
+  contentType: string | null
+} | null> {
+  const object = getSafeStorageReference(key)
+
+  if (!isR2Configured) {
+    console.warn('[Storage] R2 not configured, cannot verify object metadata', { object })
+    return null
+  }
+
+  try {
+    const result = await s3Client.send(
+      new HeadObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: key,
+      })
+    )
+
+    return {
+      contentLength: result.ContentLength ?? null,
+      contentType: result.ContentType ?? null,
+    }
+  } catch (error) {
+    console.error('[Storage] Failed to verify object metadata', {
       object,
       error: getSafeStorageError(error),
     })

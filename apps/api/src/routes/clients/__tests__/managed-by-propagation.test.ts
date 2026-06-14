@@ -36,6 +36,19 @@ vi.mock('../../../services/storage', () => ({
 
 vi.mock('../../../middleware/auth', () => ({
   requireOrg: async (_c: unknown, next: () => Promise<void>) => next(),
+  requireOrgAdmin: async (
+    c: {
+      get: (key: string) => { orgRole?: string | null; role?: string | null }
+      json: (body: unknown, status?: number) => Response
+    },
+    next: () => Promise<void>
+  ) => {
+    const user = c.get('user')
+    if (!(user?.orgRole === 'org:admin' || user?.role === 'ADMIN')) {
+      return c.json({ error: 'Admin access required' }, 403)
+    }
+    return next()
+  },
   requireAdminOrManager: async (
     c: {
       get: (key: string) => { orgRole?: string | null; role?: string | null }

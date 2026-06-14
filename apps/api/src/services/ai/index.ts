@@ -18,6 +18,12 @@ export {
   type ImageData,
 } from './gemini-client'
 
+export {
+  translateMessageToEnglish,
+  cleanTranslatedText,
+  type MessageTranslationResult,
+} from './message-translator'
+
 // Document Classifier
 export {
   classifyDocument,

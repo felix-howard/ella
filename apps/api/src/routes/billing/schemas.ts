@@ -78,7 +78,7 @@ export const sendQuoteInputSchema = z.object({
 // rejected at the edge before any Stripe/DB work.
 
 const MAX_CUSTOM_UNIT_AMOUNT_CENTS = 1_000_000_00
-const MAX_CUSTOM_ITEMS = 50
+export const MAX_CUSTOM_ITEMS = 50
 
 export const customLineItemSchema = z.object({
   label: z.string().trim().min(1).max(120),
@@ -87,7 +87,7 @@ export const customLineItemSchema = z.object({
   quantity: z.number().int().min(1).max(1000),
 })
 
-const customBillingIntervalEnum = z.enum(['one_time', 'month', 'year'])
+export const customBillingIntervalEnum = z.enum(['one_time', 'month', 'year'])
 
 /** Fields shared by the anonymous-create and send-to-recipient custom flows. */
 const customQuoteFields = {
@@ -131,9 +131,40 @@ export const sendCustomQuoteSchema = z
   .refine(notBothDiscounts, NOT_BOTH_DISCOUNTS_ERROR)
   .refine(oneTimeItemsOnlyRecurring, ONE_TIME_ITEMS_ERROR)
 
+export const paymentTemplateItemsSchema = z
+  .object({
+    billingInterval: customBillingIntervalEnum,
+    items: z.array(customLineItemSchema).min(1).max(MAX_CUSTOM_ITEMS),
+    oneTimeItems: z.array(customLineItemSchema).max(MAX_CUSTOM_ITEMS).optional(),
+  })
+  .refine(oneTimeItemsOnlyRecurring, ONE_TIME_ITEMS_ERROR)
+
+export const createPaymentTemplateSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(500).optional(),
+  template: paymentTemplateItemsSchema,
+})
+
+export const updatePaymentTemplateSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    description: z.string().trim().max(500).nullable().optional(),
+    template: paymentTemplateItemsSchema.optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'At least one field is required',
+  })
+
+export const paymentTemplateIdParamSchema = z.object({
+  id: z.string().trim().min(1),
+})
+
 export type CheckoutPricingInput = z.infer<typeof checkoutPricingInputSchema>
 export type CreateCheckoutSessionInput = z.infer<typeof createCheckoutSessionSchema>
 export type SendQuoteInput = z.infer<typeof sendQuoteInputSchema>
 export type CustomLineItemSchema = z.infer<typeof customLineItemSchema>
 export type CreateCustomCheckoutInput = z.infer<typeof createCustomCheckoutSchema>
 export type SendCustomQuoteInput = z.infer<typeof sendCustomQuoteSchema>
+export type PaymentTemplateItemsInput = z.infer<typeof paymentTemplateItemsSchema>
+export type CreatePaymentTemplateInput = z.infer<typeof createPaymentTemplateSchema>
+export type UpdatePaymentTemplateInput = z.infer<typeof updatePaymentTemplateSchema>

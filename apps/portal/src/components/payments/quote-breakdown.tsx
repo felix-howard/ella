@@ -21,6 +21,10 @@ export function QuoteBreakdown({ view, language }: QuoteBreakdownProps) {
   // Custom yearly links bill once a year; everything else is monthly cadence.
   const isYearly = view.billingInterval === 'year'
   const recurringSuffix = isYearly ? '/yr' : '/mo'
+  const recurringTotal = Math.max(0, view.monthlyTotal - (view.discount?.recurringAmount ?? 0))
+  const discountLabel = view.discount
+    ? t('quote.discountLabel', { code: view.discount.code })
+    : ''
 
   return (
     <section aria-labelledby="quote-summary-title">
@@ -50,11 +54,17 @@ export function QuoteBreakdown({ view, language }: QuoteBreakdownProps) {
       </div>
 
       <dl className="mt-6 divide-y divide-border rounded-xl border border-border/70 bg-muted/30">
+        {view.discount && (
+          <>
+            <TotalRow label={t('quote.subtotal')} value={fmt(view.subtotal)} />
+            <TotalRow label={discountLabel} value={`-${fmt(view.discount.amount)}`} />
+          </>
+        )}
         <TotalRow label={t('quote.dueToday')} value={fmt(view.dueToday)} strong />
         {view.monthlyTotal > 0 && (
           <TotalRow
             label={t('quote.recurringAfterToday')}
-            value={`${fmt(view.monthlyTotal)}${recurringSuffix}`}
+            value={`${fmt(recurringTotal)}${recurringSuffix}`}
           />
         )}
       </dl>

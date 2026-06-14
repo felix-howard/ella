@@ -18,12 +18,13 @@ import { ClientPaymentsSummaryCard } from './client-payments-summary-card'
 
 interface ClientOverviewTabProps {
   client: ClientDetail
+  canManagePayments: boolean
   /** Parent individual's Schedule C summary for the active tax year (drives migration prompt). */
   parentScheduleC?: { id: string; taxYear: number } | null
   onDeleteClick?: () => void
 }
 
-export function ClientOverviewTab({ client, parentScheduleC, onDeleteClick }: ClientOverviewTabProps) {
+export function ClientOverviewTab({ client, canManagePayments, parentScheduleC, onDeleteClick }: ClientOverviewTabProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
 
@@ -60,7 +61,7 @@ export function ClientOverviewTab({ client, parentScheduleC, onDeleteClick }: Cl
       {client.clientType !== 'BUSINESS' && <ClientNdaSection client={client} />}
 
       {/* Payments summary - hidden until the client has at least one payment */}
-      <ClientPaymentsSummaryCard clientId={client.id} />
+      {canManagePayments && <ClientPaymentsSummaryCard clientId={client.id} />}
 
       {/* Two column layout: Notes (wider) + Assigned Staff (narrower) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

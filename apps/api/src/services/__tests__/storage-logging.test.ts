@@ -100,6 +100,10 @@ describe('storage signed URL and logging hardening', () => {
       key: 'message-attachments/org_1/case_1/upload/private-photo.png',
       filename: 'private-photo.png',
     },
+    {
+      key: 'staff-files/org_1/staff_1/documents/file-uuid.pdf',
+      filename: 'file-uuid.pdf',
+    },
   ])('redacts storage path $key and URLs from storage error logs', async ({ key, filename }) => {
     mockGetSignedUrl.mockRejectedValueOnce(
       new Error(`failed for ${key} at https://signed.example.com/private.pdf?token=secret`)
@@ -114,5 +118,46 @@ describe('storage signed URL and logging hardening', () => {
     expect(errors).not.toContain('https://signed.example.com')
     expect(errors).toContain('[REDACTED_KEY]')
     expect(errors).toContain('[REDACTED_URL]')
+  })
+
+  it('generates staff personal document keys without original filenames', () => {
+    const key = storage.generateStaffFileKey({
+      organizationId: 'org_1',
+      staffId: 'staff_1',
+      kind: 'PERSONAL_DOCUMENT',
+      filename: 'passport Fiona.pdf',
+      contentType: 'application/pdf',
+    })
+
+    expect(key).toMatch(/^staff-files\/org_1\/staff_1\/documents\/[0-9a-f-]+\.pdf$/)
+    expect(key).not.toContain('passport')
+    expect(key).not.toContain('Fiona')
+  })
+
+  it('generates staff invoice keys with year-month folder', () => {
+    const key = storage.generateStaffFileKey({
+      organizationId: 'org_1',
+      staffId: 'staff_1',
+      kind: 'INVOICE',
+      filename: 'June invoice.xlsx',
+      invoiceYear: 2026,
+      invoiceMonth: 6,
+    })
+
+    expect(key).toMatch(
+      /^staff-files\/org_1\/staff_1\/invoices\/2026-06\/[0-9a-f-]+\.xlsx$/
+    )
+    expect(key).not.toContain('June invoice')
+  })
+
+  it('requires invoice metadata for staff invoice keys', () => {
+    expect(() =>
+      storage.generateStaffFileKey({
+        organizationId: 'org_1',
+        staffId: 'staff_1',
+        kind: 'INVOICE',
+        filename: 'invoice.pdf',
+      })
+    ).toThrow('invoiceYear and invoiceMonth are required')
   })
 })

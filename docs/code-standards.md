@@ -93,9 +93,9 @@ app.use(requireOrgAdmin) // Verify org:admin role (Clerk)
 
 **Frontend Capability-Flag Convention (Phase 4 - MANAGER Role):**
 - **Pattern:** Components consume semantic capability flags from `useOrgRole()`, never compare role string literals (`org:admin`, `'ADMIN'`, etc.) for permission checks.
-- **Flags in Hook:** (1) `isManager` - Staff.role === 'MANAGER'. (2) `canManageClients` - isAdmin || isManager (mirrors server admin-or-manager gate). (3) `canViewPhone` - isAdmin only (server masks via `serializePhone()`). (4) `canManageTeam` - isAdmin only.
+- **Flags in Hook:** (1) `isManager` - Staff.role === 'MANAGER'. (2) `canManageClients` - isAdmin || isManager (mirrors server admin-or-manager gate). (3) `canManagePayments` - isAdmin only (payment pages, quotes, links, and payment history). (4) `canViewPhone` - isAdmin only (server masks via `serializePhone()`). (5) `canManageTeam` - isAdmin only.
 - **Example Anti-Pattern (BAD):** `if (orgRole === 'org:admin' || role === 'ADMIN') { ... }` in components. Use capability flag instead.
-- **Example Good Pattern:** `if (canManageTeam) { <Team nav item /> }` in sidebar; `if (canManageClients) { <Leads nav item /> }`.
+- **Example Good Pattern:** `if (canManageTeam) { <Team nav item /> }` in sidebar; `if (canManageClients) { <Leads nav item /> }`; `if (canManagePayments) { <Payments nav item /> }`.
 - **Phone Display Invariant:** `formatPhone()` passes server-masked values (containing '*') unchanged. Never strip or re-format masked values in UI; server masking via `serializePhone()` is authoritative source of truth.
 - **App-Level Roles (Phase 4):** `AppRole = 'ADMIN' | 'MANAGER' | 'MEMBER'` used in team invite/role-change payloads, mirrors backend `APP_ROLES` constant in `apps/api/src/lib/staff-role-mapping.ts`. Frontend mutates with AppRole; API returns Staff.role (database source of truth).
 
@@ -223,6 +223,13 @@ app.get('/clients/:clientId/contractors', async (c) => {
 - All PDF rendering paths must check `templateVersion` to avoid breaking existing data
 - Migration: Existing agreements auto-populate `templateVersion: 'v1'`; new NDAs default to `templateVersion: 'v2'`
 - Pattern: `if (agreement.templateVersion === 'v2') { renderV2Template() } else { renderV1Template() }`
+
+## Storage Conventions (@ella/api)
+
+- Use `generateStaffFileKey()` for staff uploads. Personal documents must land under `staff-files/{orgId}/{staffId}/documents/{uuid}.{ext}` and invoices under `staff-files/{orgId}/{staffId}/invoices/{yyyy-mm}/{uuid}.{ext}`.
+- `kind: 'INVOICE'` requires both `invoiceYear` and `invoiceMonth`; the month is zero-padded in the storage path.
+- Never log raw `staff-files/...` keys. Use `getSafeStorageReference()` and `getSafeStorageError()` for storage logging and error handling.
+- Staff-file mutations should emit the canonical document activity actions: `document.staff_file_uploaded`, `document.staff_file_deleted`, `document.staff_file_downloaded`, and `document.staff_invoice_status_updated`.
 
 ## Frontend Patterns (@ella/workspace & @ella/portal)
 

@@ -26,13 +26,15 @@ export function UploadLinkConfirmModal({
   const { t } = useTranslation()
 
   return (
-    <Modal open={open} onClose={onCancel} size="sm">
+    <Modal open={open} onClose={onCancel} size="lg">
       <ModalHeader>
         <div className="flex items-center gap-2">
           <AlertTriangle className={variant === 'destructive' ? 'h-5 w-5 text-destructive' : 'h-5 w-5 text-amber-600'} />
           <ModalTitle>{title}</ModalTitle>
         </div>
-        <ModalDescription>{description}</ModalDescription>
+        <ModalDescription className="break-words leading-relaxed [overflow-wrap:anywhere]">
+          {description}
+        </ModalDescription>
       </ModalHeader>
       <ModalFooter>
         <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>

@@ -30,6 +30,7 @@ vi.mock('../../../lib/db', () => ({
 vi.mock('../../../services/storage', () => ({
   getSignedUploadUrl: vi.fn(),
   generateAvatarKey: vi.fn(),
+  generateStaffFileKey: vi.fn(),
   getSignedDownloadUrl: vi.fn(),
   resolveAvatarUrl: vi.fn().mockImplementation((url: string | null) => Promise.resolve(url)),
 }))

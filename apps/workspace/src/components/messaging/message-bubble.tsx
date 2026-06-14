@@ -12,6 +12,8 @@ import type { Message } from '../../lib/api-client'
 import type { MessageReaction } from '../../lib/message-reactions'
 import { fetchMediaBlobUrl } from '../../lib/api-client'
 import { AudioPlayer } from './audio-player'
+import { MessageTranslationPanel } from './message-translation-panel'
+import { isMessageTranslationEligible } from '../../lib/message-translation-eligibility'
 
 export interface MessageBubbleProps {
   message: Message & { _optimistic?: 'sending' | 'failed'; reactions?: MessageReaction[] }
@@ -113,6 +115,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
   const safeContent = sanitizeText(message.content)
   const hasText = safeContent && safeContent.trim().length > 0
   const isImageOnly = hasAttachments && !hasText
+  const canTranslate = isMessageTranslationEligible(message)
 
   // Parse SMS delivery status for outbound SMS messages
   const smsStatus = isOutbound && message.channel === 'SMS'
@@ -243,9 +246,9 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
       <div className="flex flex-col w-full items-end">
         <div className={cn('flex items-end gap-2 max-w-[75%]', isSending && 'opacity-70')}>
           {/* Message bubble - light green, only text */}
-          <div className="rounded-[20px] rounded-br-[6px] bg-emerald-50 dark:bg-emerald-900/30 overflow-hidden">
+          <div className="relative overflow-visible rounded-[20px] rounded-br-[6px] bg-emerald-50 dark:bg-emerald-900/30">
             {hasAttachments && (
-              <div className="flex flex-col">
+              <div className="flex flex-col overflow-hidden rounded-t-[20px]">
                 {message.attachmentUrls!.map((url, index) => (
                   <MessageImage
                     key={index}
@@ -257,13 +260,19 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
                 ))}
               </div>
             )}
-            <div className="px-3.5 py-2">
+            <div className="relative px-3.5 py-2">
               {hasText && (
-                <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words text-gray-700 dark:text-gray-200">
+                <p className={cn('text-[14px] leading-relaxed whitespace-pre-wrap break-words text-gray-700 dark:text-gray-200', canTranslate && 'pr-8')}>
                   <LinkifiedText text={safeContent} isOutbound />
                 </p>
               )}
               {hasLoveReaction && <MessageReactionBadge label="Loved" />}
+              {canTranslate && (
+                <MessageTranslationPanel
+                  messageId={message.id}
+                  isOutbound={isOutbound}
+                />
+              )}
             </div>
           </div>
           {/* Staff avatar */}
@@ -305,13 +314,13 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
     <div className="flex flex-col w-full items-start">
       <div
         className={cn(
-          'max-w-[75%] overflow-hidden',
+          'relative max-w-[75%] overflow-visible',
           'rounded-[20px] rounded-bl-[6px]',
           'bg-card text-foreground shadow-[0_1px_3px_-1px_rgba(0,0,0,0.08)]'
         )}
       >
         {hasAttachments && (
-          <div className="flex flex-col">
+          <div className="flex flex-col overflow-hidden rounded-t-[20px]">
             {message.attachmentUrls!.map((url, index) => (
               <MessageImage
                 key={index}
@@ -323,13 +332,19 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
             ))}
           </div>
         )}
-        <div className="px-3.5 py-2">
+        <div className="relative px-3.5 py-2">
           {hasText && (
-            <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
+            <p className={cn('text-[14px] leading-relaxed whitespace-pre-wrap break-words', canTranslate && 'pr-8')}>
               <LinkifiedText text={safeContent} isOutbound={false} />
             </p>
           )}
           {hasLoveReaction && <MessageReactionBadge label="Loved" />}
+          {canTranslate && (
+            <MessageTranslationPanel
+              messageId={message.id}
+              isOutbound={isOutbound}
+            />
+          )}
         </div>
       </div>
       {/* Time below bubble — matching outbound style */}

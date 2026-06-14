@@ -246,9 +246,9 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
       <div className="flex flex-col w-full items-end">
         <div className={cn('flex items-end gap-2 max-w-[75%]', isSending && 'opacity-70')}>
           {/* Message bubble - light green, only text */}
-          <div className="rounded-[20px] rounded-br-[6px] bg-emerald-50 dark:bg-emerald-900/30 overflow-hidden">
+          <div className="relative overflow-visible rounded-[20px] rounded-br-[6px] bg-emerald-50 dark:bg-emerald-900/30">
             {hasAttachments && (
-              <div className="flex flex-col">
+              <div className="flex flex-col overflow-hidden rounded-t-[20px]">
                 {message.attachmentUrls!.map((url, index) => (
                   <MessageImage
                     key={index}
@@ -314,13 +314,13 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
     <div className="flex flex-col w-full items-start">
       <div
         className={cn(
-          'max-w-[75%] overflow-hidden',
+          'relative max-w-[75%] overflow-visible',
           'rounded-[20px] rounded-bl-[6px]',
           'bg-card text-foreground shadow-[0_1px_3px_-1px_rgba(0,0,0,0.08)]'
         )}
       >
         {hasAttachments && (
-          <div className="flex flex-col">
+          <div className="flex flex-col overflow-hidden rounded-t-[20px]">
             {message.attachmentUrls!.map((url, index) => (
               <MessageImage
                 key={index}

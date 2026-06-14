@@ -101,7 +101,22 @@ function quoteRow(overrides: Record<string, unknown> = {}) {
     organization: { name: 'Acme Tax' },
     client: { firstName: 'Anna' },
     lead: null,
+    appliedCoupon: null,
     payToken: 'tok_abcdefghij',
+    ...overrides,
+  }
+}
+
+function couponRow(overrides: Record<string, unknown> = {}) {
+  return {
+    code: 'SAVE10',
+    name: 'Welcome',
+    discountType: 'percent',
+    percentOff: 10,
+    amountOffCents: null,
+    duration: 'once',
+    active: true,
+    stripeCouponId: 'coupon_123',
     ...overrides,
   }
 }
@@ -127,8 +142,66 @@ describe('getPublicQuoteView', () => {
     ])
     expect(view?.monthlyTotal).toBe(85)
     expect(view?.setupTotal).toBe(1500)
+    expect(view?.subtotal).toBe(1585)
+    expect(view?.discount).toBeNull()
     expect(view?.dueToday).toBe(1585)
     expect(view?.paidAt).toBeNull()
+  })
+
+  it('previews an active pre-applied percent coupon on the public quote', async () => {
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(
+      quoteRow({ appliedCoupon: couponRow() }),
+    )
+
+    const view = await getPublicQuoteView('tok_abcdefghij')
+
+    expect(view?.subtotal).toBe(1585)
+    expect(view?.discount).toEqual({
+      code: 'SAVE10',
+      name: 'Welcome',
+      amount: 158.5,
+      recurringAmount: 0,
+    })
+    expect(view?.dueToday).toBe(1426.5)
+  })
+
+  it('previews future recurring discount for forever amount coupons', async () => {
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(
+      quoteRow({
+        monthlyTotalCents: 9900,
+        setupTotalCents: 80000,
+        appliedCoupon: couponRow({
+          code: 'SAVE100',
+          discountType: 'amount',
+          percentOff: null,
+          amountOffCents: 10000,
+          duration: 'forever',
+        }),
+      }),
+    )
+
+    const view = await getPublicQuoteView('tok_abcdefghij')
+
+    expect(view?.discount).toEqual({
+      code: 'SAVE100',
+      name: 'Welcome',
+      amount: 100,
+      recurringAmount: 99,
+    })
+    expect(view?.dueToday).toBe(799)
+  })
+
+  it('does not preview inactive or unsynced coupons', async () => {
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(
+      quoteRow({
+        appliedCoupon: couponRow({ active: false, stripeCouponId: null }),
+      }),
+    )
+
+    const view = await getPublicQuoteView('tok_abcdefghij')
+
+    expect(view?.discount).toBeNull()
+    expect(view?.dueToday).toBe(1585)
   })
 
   it('derives paidAt from lastStripeEventAt once settled', async () => {

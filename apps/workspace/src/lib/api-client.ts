@@ -1594,9 +1594,18 @@ export const api = {
     getStaffFileDownloadUrl: (staffId: string, fileId: string) =>
       request<StaffFileDownloadUrlResponse>(`/team/members/${staffId}/files/${fileId}/download-url`),
 
+    downloadStaffFile: (staffId: string, fileId: string) =>
+      fetchMediaBlob(`/team/members/${staffId}/files/${fileId}/download`),
+
     deleteStaffFile: (staffId: string, fileId: string) =>
       request<{ success: boolean; file: StaffFileListItem }>(`/team/members/${staffId}/files/${fileId}`, {
         method: 'DELETE',
+      }),
+
+    updateStaffFile: (staffId: string, fileId: string, data: UpdateStaffFileInput) =>
+      request<{ success: boolean; file: StaffFileListItem }>(`/team/members/${staffId}/files/${fileId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
       }),
 
     updateStaffInvoiceStatus: (staffId: string, fileId: string, data: UpdateStaffInvoiceStatusInput) =>
@@ -3951,6 +3960,10 @@ export interface StaffFileConfirmUploadInput extends StaffFileUploadMetadataInpu
 export interface StaffFileDownloadUrlResponse {
   downloadUrl: string
   expiresIn: number
+}
+
+export interface UpdateStaffFileInput {
+  title: string
 }
 
 export interface UpdateStaffInvoiceStatusInput {

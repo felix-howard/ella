@@ -7,6 +7,34 @@
 
 ## 2026-06-14
 
+### Quote Portal Coupon Preview
+**Status:** Complete
+
+**Fixed:**
+- Public quote portal now includes active pre-applied coupon details in the quote payload.
+- Quote breakdown shows subtotal, coupon discount, discounted due-today total, and discounted recurring amount when the coupon applies beyond the first invoice.
+- Pay button and paid confirmation now use the discounted due-today amount instead of the pre-discount quote subtotal.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/payments/__tests__/quote-checkout-service.test.ts` pass, 16 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+
+### Staff File Actions Polish
+**Status:** Complete
+
+**Changed:**
+- Fixed staff file `Download` to fetch through authenticated API blob endpoint instead of opening cross-origin R2 image URLs in a browser tab.
+- Replaced native Rename prompt with inline row editing for staff documents and invoices.
+- Replaced native Delete confirm with dedicated destructive confirmation modal.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/team/__tests__/staff-files.test.ts` pass, 21 tests
+- `pnpm -F @ella/workspace test -- src/components/profile/__tests__/profile-tabs.test.tsx` pass, 4 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with pre-existing warnings only
+
 ### Staff Documents, Invoices, and Profile Tabs
 **Status:** Complete
 

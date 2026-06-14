@@ -141,7 +141,6 @@ export function StaffProfileTabs({
           <TabsContent value="invoices">
             <StaffInvoicesTab
               staffId={staffId}
-              canManageInvoiceStatus={canManageTeam}
               isOwnProfile={isOwnProfile}
             />
           </TabsContent>

@@ -511,6 +511,8 @@
   "quote.monthlyGroup": "Hàng tháng",
   "quote.yearlyGroup": "Hàng năm",
   "quote.setupGroup": "Thiết lập và một lần",
+  "quote.subtotal": "Tạm tính",
+  "quote.discountLabel": "Giảm giá ({{code}})",
   "quote.dueToday": "Thanh toán hôm nay",
   "quote.recurringAfterToday": "Định kỳ sau hôm nay",
   "quote.intro.heading": "Xem lại & hoàn tất thanh toán",

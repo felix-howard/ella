@@ -66,6 +66,7 @@ export const ACTIVITY_ACTIONS = {
     RETENTION_EXTENDED: 'document.retention_extended',
     RETENTION_SCHEDULED: 'document.retention_scheduled',
     STAFF_FILE_UPLOADED: 'document.staff_file_uploaded',
+    STAFF_FILE_RENAMED: 'document.staff_file_renamed',
     STAFF_FILE_DELETED: 'document.staff_file_deleted',
     STAFF_FILE_DOWNLOADED: 'document.staff_file_downloaded',
     STAFF_INVOICE_STATUS_UPDATED: 'document.staff_invoice_status_updated',

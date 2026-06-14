@@ -146,6 +146,10 @@ export const listStaffFilesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
+export const updateStaffFileSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+})
+
 export const updateStaffInvoiceStatusSchema = z.object({
   status: z.enum(['SUBMITTED', 'APPROVED', 'PAID', 'REJECTED']),
   adminNote: z.string().trim().max(1000).optional().nullable(),

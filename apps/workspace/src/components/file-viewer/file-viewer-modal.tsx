@@ -241,7 +241,7 @@ export function FileViewerModal({
           "flex-1 overflow-auto flex justify-center p-4",
           fileType === 'pdf' ? 'items-start pt-8' : 'items-center'
         )}
-        onClick={e => e.stopPropagation()}
+        onClick={handleBackdropClick}
       >
         {isLoading ? (
           <div className="flex flex-col items-center gap-4">

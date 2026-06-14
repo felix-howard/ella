@@ -133,17 +133,51 @@ describe('StaffProfileTabs', () => {
 })
 
 describe('StaffInvoiceMonthList', () => {
+  it('opens invoices from the display name instead of making the month row clickable', () => {
+    const markup = renderToStaticMarkup(
+      <StaffInvoiceMonthList
+        staffId="staff-1"
+        months={[
+          {
+            year: 2026,
+            month: 6,
+            active: invoice({ title: 'invoice-6', originalFilename: 'june-contractor-invoice.pdf' }),
+            history: [],
+            isCurrentMonth: true,
+          },
+        ]}
+        isLoading={false}
+        canDelete={() => true}
+        onOpen={() => undefined}
+        onOpenInNewTab={() => undefined}
+        onDownload={() => undefined}
+        onRename={() => undefined}
+        onStartRename={() => undefined}
+        onCancelRename={() => undefined}
+        onDelete={() => undefined}
+      />
+    )
+
+    expect(markup).toContain('type="button"')
+    expect(markup).toContain('invoice-6')
+    expect(markup).not.toContain('june-contractor-invoice.pdf')
+    expect(markup).not.toContain('role="button"')
+  })
+
   it('hides delete action when paid invoice cannot be deleted', () => {
     const markup = renderToStaticMarkup(
       <StaffInvoiceMonthList
+        staffId="staff-1"
         months={[{ year: 2026, month: 6, active: invoice(), history: [], isCurrentMonth: true }]}
         isLoading={false}
-        canManageInvoiceStatus={false}
         canDelete={() => false}
-        onUpload={() => undefined}
+        onOpen={() => undefined}
+        onOpenInNewTab={() => undefined}
         onDownload={() => undefined}
+        onRename={() => undefined}
+        onStartRename={() => undefined}
+        onCancelRename={() => undefined}
         onDelete={() => undefined}
-        onStatusChange={() => undefined}
       />
     )
 

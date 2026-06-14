@@ -3,21 +3,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Button } from '@ella/ui'
-import { api, type StaffFileListItem, type StaffInvoiceStatus } from '../../lib/api-client'
+import { api, type StaffFileListItem } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
-import { StaffFileUploadDialog } from './staff-file-upload-dialog'
+import { UploadLinkConfirmModal } from '../upload-links/upload-link-confirm-modal'
 import { StaffInvoiceMonthList, type StaffInvoiceMonth } from './staff-invoice-month-list'
+import { StaffFileUploadButton } from './staff-file-upload-button'
+import { StaffFileViewer } from './staff-file-viewer'
 
 interface StaffInvoicesTabProps {
   staffId: string
-  canManageInvoiceStatus: boolean
   isOwnProfile: boolean
-}
-
-interface UploadTarget {
-  year: number
-  month: number
-  replacingExisting: boolean
 }
 
 function buildInvoiceMonths(files: StaffFileListItem[], year: number): StaffInvoiceMonth[] {
@@ -37,20 +32,21 @@ function buildInvoiceMonths(files: StaffFileListItem[], year: number): StaffInvo
 }
 
 function canUploadForSlot(month: StaffInvoiceMonth): boolean {
-  return !month.active || month.active.invoiceStatus !== 'PAID'
+  return !month.active
 }
 
 export function StaffInvoicesTab({
   staffId,
-  canManageInvoiceStatus,
   isOwnProfile,
 }: StaffInvoicesTabProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
-  const [uploadTarget, setUploadTarget] = useState<UploadTarget | null>(null)
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null)
   const [updatingFileId, setUpdatingFileId] = useState<string | null>(null)
+  const [renamingFileId, setRenamingFileId] = useState<string | null>(null)
+  const [fileToDelete, setFileToDelete] = useState<StaffFileListItem | null>(null)
+  const [viewingFile, setViewingFile] = useState<StaffFileListItem | null>(null)
   const currentDate = new Date()
   const defaultUploadMonth = selectedYear === currentDate.getFullYear()
     ? currentDate.getMonth() + 1
@@ -75,39 +71,63 @@ export function StaffInvoicesTab({
     onMutate: (fileId) => setDeletingFileId(fileId),
     onSuccess: () => {
       toast.success(t('profile.staffFiles.deleteSuccess'))
+      setFileToDelete(null)
       invalidateInvoices()
     },
     onError: (error: Error) => toast.error(error.message || t('profile.staffFiles.deleteFailed')),
     onSettled: () => setDeletingFileId(null),
   })
 
-  const statusMutation = useMutation({
-    mutationFn: ({ file, status }: { file: StaffFileListItem; status: StaffInvoiceStatus }) =>
-      api.team.updateStaffInvoiceStatus(staffId, file.id, { status }),
+  const updateMutation = useMutation({
+    mutationFn: ({ file, title }: { file: StaffFileListItem; title: string }) =>
+      api.team.updateStaffFile(staffId, file.id, { title }),
     onMutate: ({ file }) => setUpdatingFileId(file.id),
     onSuccess: () => {
-      toast.success(t('profile.staffFiles.statusUpdated'))
+      toast.success(t('classify.fileRenamed'))
+      setRenamingFileId(null)
       invalidateInvoices()
     },
-    onError: (error: Error) => toast.error(error.message || t('profile.staffFiles.statusUpdateFailed')),
+    onError: (error: Error) => toast.error(error.message || t('profile.staffFiles.uploadFailed')),
     onSettled: () => setUpdatingFileId(null),
   })
 
-  const handleDownload = async (file: StaffFileListItem) => {
+  const getDownloadUrl = async (file: StaffFileListItem) => {
+    const { downloadUrl } = await api.team.getStaffFileDownloadUrl(staffId, file.id)
+    return downloadUrl
+  }
+
+  const handleOpenInNewTab = async (file: StaffFileListItem) => {
     try {
-      const { downloadUrl } = await api.team.getStaffFileDownloadUrl(staffId, file.id)
-      window.open(downloadUrl, '_blank', 'noopener,noreferrer')
+      window.open(await getDownloadUrl(file), '_blank', 'noopener,noreferrer')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('profile.staffFiles.downloadFailed'))
     }
   }
 
-  const handleDelete = (file: StaffFileListItem) => {
-    if (!confirm(t('profile.staffFiles.deleteConfirm', { title: file.title }))) return
-    deleteMutation.mutate(file.id)
+  const handleDownload = async (file: StaffFileListItem) => {
+    try {
+      const blob = await api.team.downloadStaffFile(staffId, file.id)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = file.originalFilename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.setTimeout(() => URL.revokeObjectURL(url), 0)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('profile.staffFiles.downloadFailed'))
+    }
   }
 
-  const currentMonth = months.find((month) => month.isCurrentMonth)
+  const handleRename = (file: StaffFileListItem, title: string) => {
+    updateMutation.mutate({ file, title })
+  }
+
+  const handleDelete = (file: StaffFileListItem) => {
+    setFileToDelete(file)
+  }
+
   const defaultUploadSlot =
     months.find((month) => month.month === defaultUploadMonth && canUploadForSlot(month)) ??
     months.find(canUploadForSlot)
@@ -117,13 +137,7 @@ export function StaffInvoicesTab({
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground">{t('profile.tabs.invoices')}</h2>
-          <p className="text-sm text-muted-foreground">
-            {currentMonth?.active
-              ? t('profile.staffFiles.currentMonthStatus', {
-                  status: t(`profile.staffFiles.${currentMonth.active.invoiceStatus?.toLowerCase() ?? 'submitted'}`),
-                })
-              : t('profile.staffFiles.invoiceEmptyDesc')}
-          </p>
+          <p className="text-sm text-muted-foreground">{t('profile.staffFiles.invoiceEmptyDesc')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setSelectedYear((year) => year - 1)}>
@@ -135,20 +149,16 @@ export function StaffInvoicesTab({
             {selectedYear + 1}
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button
+          <StaffFileUploadButton
+            staffId={staffId}
+            kind="INVOICE"
+            invoiceYear={selectedYear}
+            invoiceMonth={defaultUploadSlot?.month}
             disabled={!defaultUploadSlot}
-            onClick={() => {
-              if (!defaultUploadSlot) return
-              setUploadTarget({
-                year: selectedYear,
-                month: defaultUploadSlot.month,
-                replacingExisting: Boolean(defaultUploadSlot.active),
-              })
-            }}
           >
             <Plus className="mr-2 h-4 w-4" />
             {t('profile.staffFiles.addInvoice')}
-          </Button>
+          </StaffFileUploadButton>
         </div>
       </div>
 
@@ -158,30 +168,37 @@ export function StaffInvoicesTab({
         </div>
       ) : (
         <StaffInvoiceMonthList
+          staffId={staffId}
           months={months}
           isLoading={filesQuery.isLoading}
-          canManageInvoiceStatus={canManageInvoiceStatus}
           canDelete={(file) => !isOwnProfile || file.invoiceStatus !== 'PAID'}
           deletingFileId={deletingFileId}
-          updatingFileId={updatingFileId}
-          onUpload={(year, month, replacingExisting) => setUploadTarget({ year, month, replacingExisting })}
+          onOpen={setViewingFile}
+          onOpenInNewTab={handleOpenInNewTab}
           onDownload={handleDownload}
+          onRename={handleRename}
+          onStartRename={(file) => setRenamingFileId(file.id)}
+          onCancelRename={() => setRenamingFileId(null)}
           onDelete={handleDelete}
-          onStatusChange={(file, status) => statusMutation.mutate({ file, status })}
+          renamingFileId={renamingFileId}
+          updatingFileId={updatingFileId}
         />
       )}
 
-      {uploadTarget && (
-        <StaffFileUploadDialog
-          open
-          onClose={() => setUploadTarget(null)}
-          staffId={staffId}
-          kind="INVOICE"
-          defaultYear={uploadTarget.year}
-          defaultMonth={uploadTarget.month}
-          replacingExisting={uploadTarget.replacingExisting}
-        />
-      )}
+      <UploadLinkConfirmModal
+        open={Boolean(fileToDelete)}
+        title={t('fileActions.deleteConfirmTitle')}
+        description={t('fileActions.deleteConfirmMessage', { filename: fileToDelete?.title ?? '' })}
+        confirmLabel={t('profile.staffFiles.delete')}
+        variant="destructive"
+        isPending={deleteMutation.isPending}
+        onCancel={() => {
+          if (!deleteMutation.isPending) setFileToDelete(null)
+        }}
+        onConfirm={() => fileToDelete && deleteMutation.mutate(fileToDelete.id)}
+      />
+
+      <StaffFileViewer staffId={staffId} file={viewingFile} onClose={() => setViewingFile(null)} />
     </div>
   )
 }

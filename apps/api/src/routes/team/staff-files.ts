@@ -4,6 +4,7 @@ import { ActivityRiskLevel, type Prisma, type StaffFile } from '@ella/db'
 import { prisma } from '../../lib/db'
 import type { AuthVariables } from '../../middleware/auth'
 import {
+  fetchFileBuffer,
   generateStaffFileKey,
   getStorageObjectMetadata,
   getSignedDownloadUrl,
@@ -16,6 +17,7 @@ import {
   listStaffFilesQuerySchema,
   staffFileConfirmUploadSchema,
   staffFilePresignedUrlSchema,
+  updateStaffFileSchema,
   updateStaffInvoiceStatusSchema,
 } from './schemas'
 
@@ -117,6 +119,11 @@ function isUniqueConstraintError(error: unknown): boolean {
 
 function normalizeContentType(contentType: string | null): string | null {
   return contentType?.split(';')[0]?.trim().toLowerCase() ?? null
+}
+
+function attachmentDisposition(filename: string): string {
+  const fallback = filename.replace(/[^\w.-]/g, '_') || 'staff-file'
+  return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`
 }
 
 async function assertTargetStaff(organizationId: string, targetStaffId: string) {
@@ -354,6 +361,40 @@ staffFilesRoute.get('/members/:staffId/files/:fileId/download-url', async (c) =>
   return c.json({ downloadUrl, expiresIn: SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS })
 })
 
+staffFilesRoute.get('/members/:staffId/files/:fileId/download', async (c) => {
+  const user = c.get('user')
+  const organizationId = user.organizationId
+  if (!organizationId) return c.json({ error: 'Organization required' }, 403)
+
+  const targetStaffId = resolveTargetStaffId(user, c.req.param('staffId'))
+  if (!targetStaffId) return c.json({ error: 'Staff ID required' }, 400)
+  if (!canAccessStaffFiles(user, targetStaffId)) return c.json({ error: 'Forbidden' }, 403)
+
+  const file = await prisma.staffFile.findFirst({
+    where: { id: c.req.param('fileId'), organizationId, staffId: targetStaffId, deletedAt: null },
+  })
+  if (!file) return c.json({ error: 'File not found' }, 404)
+
+  const buffer = await fetchFileBuffer(file.r2Key)
+  if (!buffer) return c.json({ error: 'Storage not configured' }, 503)
+
+  await logStaffFileActivity(c, user, file, {
+    summary: 'Downloaded staff file',
+    action: ACTIVITY_ACTIONS.DOCUMENT.STAFF_FILE_DOWNLOADED,
+  })
+
+  return new Response(new Uint8Array(buffer), {
+    headers: {
+      'Content-Type': file.mimeType || 'application/octet-stream',
+      'Content-Disposition': attachmentDisposition(file.originalFilename),
+      'Content-Length': String(buffer.byteLength),
+      'Cache-Control': 'private, no-store, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0',
+    },
+  })
+})
+
 staffFilesRoute.delete('/members/:staffId/files/:fileId', async (c) => {
   const user = c.get('user')
   const organizationId = user.organizationId
@@ -404,6 +445,39 @@ staffFilesRoute.delete('/members/:staffId/files/:fileId', async (c) => {
 
   return c.json({ success: true, file: serializeStaffFile(deleted) })
 })
+
+staffFilesRoute.patch(
+  '/members/:staffId/files/:fileId',
+  zValidator('json', updateStaffFileSchema),
+  async (c) => {
+    const user = c.get('user')
+    const organizationId = user.organizationId
+    if (!organizationId) return c.json({ error: 'Organization required' }, 403)
+
+    const targetStaffId = resolveTargetStaffId(user, c.req.param('staffId'))
+    if (!targetStaffId) return c.json({ error: 'Staff ID required' }, 400)
+    if (!canAccessStaffFiles(user, targetStaffId)) return c.json({ error: 'Forbidden' }, 403)
+
+    const file = await prisma.staffFile.findFirst({
+      where: { id: c.req.param('fileId'), organizationId, staffId: targetStaffId, deletedAt: null },
+    })
+    if (!file) return c.json({ error: 'File not found' }, 404)
+
+    const input = c.req.valid('json')
+    const updated = await prisma.staffFile.update({
+      where: { id_organizationId: { id: file.id, organizationId } },
+      data: { title: input.title },
+    })
+
+    await logStaffFileActivity(c, user, updated, {
+      summary: 'Renamed staff file',
+      action: ACTIVITY_ACTIONS.DOCUMENT.STAFF_FILE_RENAMED,
+      metadata: { previousTitleLength: file.title.length, newTitleLength: updated.title.length },
+    })
+
+    return c.json({ success: true, file: serializeStaffFile(updated) })
+  }
+)
 
 staffFilesRoute.patch(
   '/members/:staffId/files/:fileId/invoice-status',

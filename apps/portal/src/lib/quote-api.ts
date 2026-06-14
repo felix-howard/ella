@@ -15,6 +15,13 @@ export interface QuoteLineView {
   kind: 'monthly' | 'setup'
 }
 
+export interface QuoteDiscountView {
+  code: string
+  name: string | null
+  amount: number
+  recurringAmount: number
+}
+
 /** Recurring cadence of the monthly group; null when the quote is one-time only. */
 export type QuoteBillingInterval = 'month' | 'year' | null
 
@@ -25,9 +32,11 @@ export interface PublicQuoteView {
   lineItems: QuoteLineView[]
   monthlyTotal: number
   setupTotal: number
+  subtotal: number
+  discount: QuoteDiscountView | null
   /** Recurring cadence for the "Then $X/…" row; null = one-time only. */
   billingInterval: QuoteBillingInterval
-  /** Charged at checkout: monthlyTotal (first invoice) + setupTotal. */
+  /** Charged at checkout after any pre-applied coupon. */
   dueToday: number
   status: QuotePublicStatus
   /** ISO timestamp once settled; null otherwise. */

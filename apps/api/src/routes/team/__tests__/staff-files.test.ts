@@ -24,6 +24,7 @@ vi.mock('../../../lib/db', () => ({
 
 vi.mock('../../../services/storage', () => ({
   generateStaffFileKey: vi.fn(),
+  fetchFileBuffer: vi.fn(),
   getSignedUploadUrl: vi.fn(),
   getSignedDownloadUrl: vi.fn(),
   getStorageObjectMetadata: vi.fn(),
@@ -80,6 +81,7 @@ import { Hono } from 'hono'
 import { prisma } from '../../../lib/db'
 import { logStaffActivity } from '../../../services/activity-log'
 import {
+  fetchFileBuffer,
   generateStaffFileKey,
   getSignedDownloadUrl,
   getSignedUploadUrl,
@@ -505,6 +507,32 @@ describe('Team staff file routes', () => {
     expect(JSON.stringify(activityPayload.metadata)).not.toContain('invoice.pdf')
   })
 
+  it('renames a staff file without logging filenames', async () => {
+    vi.mocked(prisma.staffFile.findFirst).mockResolvedValueOnce(
+      staffFileRow({ kind: 'PERSONAL_DOCUMENT', title: 'Old title', invoiceStatus: null }) as never
+    )
+    vi.mocked(prisma.staffFile.update).mockResolvedValueOnce(
+      staffFileRow({ kind: 'PERSONAL_DOCUMENT', title: 'New title', invoiceStatus: null }) as never
+    )
+
+    const app = createApp(staffUser())
+    const res = await app.request('/team/members/me/files/file_1', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'New title' }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(vi.mocked(prisma.staffFile.update)).toHaveBeenCalledWith({
+      where: { id_organizationId: { id: 'file_1', organizationId: 'org_1' } },
+      data: { title: 'New title' },
+    })
+    const activityPayload = vi.mocked(logStaffActivity).mock.calls.at(-1)?.[0] as { metadata?: Record<string, unknown> }
+    expect(activityPayload).toMatchObject({ action: 'document.staff_file_renamed' })
+    expect(JSON.stringify(activityPayload.metadata)).not.toContain('Old title')
+    expect(JSON.stringify(activityPayload.metadata)).not.toContain('New title')
+  })
+
   it('forbids non-admin invoice status mutation', async () => {
     const app = createApp(staffUser())
     const res = await app.request('/team/members/me/files/file_1/invoice-status', {
@@ -622,5 +650,23 @@ describe('Team staff file routes', () => {
 
     expect(res.status).toBe(200)
     expect(body).toEqual({ downloadUrl: 'https://download.test', expiresIn: 900 })
+  })
+
+  it('downloads a staff file as an attachment through the API', async () => {
+    vi.mocked(prisma.staffFile.findFirst).mockResolvedValueOnce(staffFileRow({
+      originalFilename: 'invoice june.pdf',
+      mimeType: 'application/pdf',
+    }) as never)
+    vi.mocked(fetchFileBuffer).mockResolvedValueOnce(Buffer.from('pdf bytes'))
+
+    const app = createApp(staffUser())
+    const res = await app.request('/team/members/me/files/file_1/download')
+    const body = await res.text()
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toBe('application/pdf')
+    expect(res.headers.get('content-disposition')).toContain('attachment')
+    expect(res.headers.get('content-disposition')).toContain('invoice_june.pdf')
+    expect(body).toBe('pdf bytes')
   })
 })

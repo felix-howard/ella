@@ -19,6 +19,7 @@ interface UseStaffFileUploadOptions {
   staffId: string
   kind: StaffFileKind
   onSuccess?: (file: StaffFileListItem) => void
+  notifyOnError?: boolean
 }
 
 interface UseStaffFileUploadResult {
@@ -34,6 +35,7 @@ export function useStaffFileUpload({
   staffId,
   kind,
   onSuccess,
+  notifyOnError = false,
 }: UseStaffFileUploadOptions): UseStaffFileUploadResult {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -57,6 +59,7 @@ export function useStaffFileUpload({
         const message = t(validated.messageKey)
         setStatus('error')
         setError(message)
+        if (notifyOnError) toast.error(message)
         return null
       }
 
@@ -94,10 +97,11 @@ export function useStaffFileUpload({
         const message = t('profile.staffFiles.uploadFailed')
         setStatus('error')
         setError(message)
+        if (notifyOnError) toast.error(message)
         return null
       }
     },
-    [kind, onSuccess, queryClient, staffId, t]
+    [kind, notifyOnError, onSuccess, queryClient, staffId, t]
   )
 
   const isUploading = useMemo(

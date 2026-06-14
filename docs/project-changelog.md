@@ -7,6 +7,23 @@
 
 ## 2026-06-14
 
+### Self Team Profile Access
+**Status:** Complete
+
+**Changed:**
+- Opened `/team` to active non-admin staff in self-mode while keeping invite, role, archive, contractor-agent, and invoice-status controls admin-only.
+- Hardened Team APIs so non-admins list only themselves and can read only `me` or their own staff profile.
+- Routed sidebar avatar/profile setup flows to the Team profile and removed the user-facing Settings/Profile tab.
+- Added `/staff/assignable` for admin/manager assignment selectors so self-scoped Team lists do not feed manager dropdowns.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/team/__tests__/team-routes.test.ts src/routes/__tests__/manager-role-authorization.test.ts` pass, 51 tests
+- `pnpm -F @ella/workspace test -- src/components/layout/__tests__/sidebar-nav-items.test.ts src/components/profile/__tests__/profile-tabs.test.tsx` pass, 10 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass, workspace 2824 keys and portal 522 keys
+- `pnpm type-check` pass
+
 ### Quote Portal Coupon Preview
 **Status:** Complete
 

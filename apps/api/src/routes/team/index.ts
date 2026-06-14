@@ -38,7 +38,11 @@ const NOTIFICATION_SUBSCRIPTION_ACTIVITY_WINDOW_MS = 10 * 60 * 1000
 
 /** Check if requester can edit target staff (self or org admin) */
 function canEditStaff(user: { staffId: string | null; orgRole: string | null }, targetStaffId: string): boolean {
-  return targetStaffId === user.staffId || user.orgRole === 'org:admin'
+  return targetStaffId === user.staffId || isOrgAdmin(user)
+}
+
+function isOrgAdmin(user: { orgRole: string | null; role?: string | null }): boolean {
+  return user.orgRole === 'org:admin' || user.role === 'ADMIN'
 }
 
 async function logTeamMemberActivity(
@@ -80,11 +84,20 @@ teamRoute.route('/', staffFilesRoute)
 teamRoute.get('/members', async (c) => {
   const user = c.get('user')
   const includeArchived = c.req.query('includeArchived') === 'true'
+  const isAdmin = isOrgAdmin(user)
+
+  if (!isAdmin && !user.staffId) {
+    return c.json({ error: 'Staff ID required' }, 400)
+  }
+
+  const visibilityFilter = isAdmin
+    ? includeArchived ? {} : { isActive: true }
+    : { id: user.staffId!, isActive: true }
 
   const members = await prisma.staff.findMany({
     where: {
       organizationId: user.organizationId,
-      ...(includeArchived ? {} : { isActive: true }),
+      ...visibilityFilter,
     },
     select: {
       id: true,
@@ -534,6 +547,10 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
 
   if (!targetStaffId) {
     return c.json({ error: 'Staff ID required' }, 400)
+  }
+
+  if (!isOrgAdmin(user) && targetStaffId !== user.staffId) {
+    return c.json({ error: 'Forbidden' }, 403)
   }
 
   // Verify staff belongs to same org (allow viewing archived profiles)

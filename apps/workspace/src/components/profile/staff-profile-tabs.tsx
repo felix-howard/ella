@@ -8,6 +8,7 @@ import { AssignedClientsList } from './assigned-clients-list'
 import { StaffFormLinkCard } from './staff-form-link-card'
 import { StaffDocumentsTab } from './staff-documents-tab'
 import { StaffInvoicesTab } from './staff-invoices-tab'
+import { SignaturePadCard } from './signature-pad-card'
 
 type Staff = ProfileResponse['staff']
 type ManagedClient = ProfileResponse['managedClients'][number]
@@ -49,7 +50,9 @@ export function StaffProfileTabs({
 }: StaffProfileTabsProps) {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('overview')
-  const canShowDangerZone = canArchive && !isArchived
+  const canShowDangerZone = canArchive && !isOwnProfile && !isArchived
+  const canShowRoleControl = canChangeRole && !isOwnProfile
+  const canShowContractorAgentControl = canManageTeam && !isOwnProfile
   const canAccessStaffFiles = isOwnProfile || canManageTeam
   const activeTabAvailable =
     activeTab === 'overview' ||
@@ -97,12 +100,13 @@ export function StaffProfileTabs({
               staff={staff}
               canEdit={canEdit}
               staffId={staffId}
-              canChangeRole={canChangeRole}
+              canChangeRole={canShowRoleControl}
               onRoleChange={onRoleChange}
               isRoleChangePending={isRoleChangePending}
-              canManageContractorAgent={canManageTeam}
+              canManageContractorAgent={canShowContractorAgentControl}
               canViewContractorAgreement={isOwnProfile || canManageTeam}
               hideNotifications
+              isOwnProfile={isOwnProfile}
             />
           </div>
 
@@ -110,6 +114,12 @@ export function StaffProfileTabs({
             <AssignedClientsList clients={managedClients} totalCount={managedCount} />
           </div>
         </div>
+
+        {isOwnProfile && (
+          <div className="mt-6">
+            <SignaturePadCard />
+          </div>
+        )}
 
         {canShowDangerZone && (
           <div className="bg-card rounded-xl shadow-sm p-6 mt-6">

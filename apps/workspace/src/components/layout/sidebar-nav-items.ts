@@ -25,7 +25,7 @@ const PAYMENTS_NAV_ITEM = [
   { path: '/pricing-calculator', i18nKey: 'nav.pricingCalculator', icon: WalletCards },
 ] as const satisfies readonly NavItem[]
 
-// Visible to ADMIN only (team management stays admin-gated)
+// Visible to all active org staff; management actions stay admin-gated in Team routes.
 const TEAM_NAV_ITEM = {
   path: '/team',
   i18nKey: 'nav.team',
@@ -41,13 +41,13 @@ const SETTINGS_NAV_ITEM = {
 export function getSidebarNavItems(flags: {
   canManageClients: boolean
   canManagePayments: boolean
-  canManageTeam: boolean
+  canViewTeam: boolean
 }): NavItem[] {
   return [
     ...BASE_NAV_ITEMS,
     ...(flags.canManageClients ? MANAGEMENT_NAV_ITEMS : []),
     ...(flags.canManagePayments ? PAYMENTS_NAV_ITEM : []),
-    ...(flags.canManageTeam ? [TEAM_NAV_ITEM] : []),
+    ...(flags.canViewTeam ? [TEAM_NAV_ITEM] : []),
     SETTINGS_NAV_ITEM,
   ]
 }

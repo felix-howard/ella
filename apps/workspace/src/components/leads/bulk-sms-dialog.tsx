@@ -38,8 +38,8 @@ export function BulkSmsDialog({ leadIds, selectedCount, previewLead, maxRecipien
 
   // Fetch staff list for staff-specific form link dropdown
   const { data: staffData } = useQuery({
-    queryKey: ['team-members'],
-    queryFn: () => api.team.listMembers(),
+    queryKey: ['assignable-staff'],
+    queryFn: () => api.staff.listAssignable(),
     enabled: formLinkType === 'staff',
   })
 

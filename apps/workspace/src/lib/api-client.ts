@@ -1467,6 +1467,9 @@ export const api = {
         defaultUploadLinkTemplateId: UploadLinkTemplateId | null
       }>('/staff/me'),
 
+    listAssignable: () =>
+      request<{ data: StaffAssignableMember[] }>('/staff/assignable'),
+
     updateLanguage: (language: Language) =>
       request<{ id: string; language: Language }>('/staff/me/language', {
         method: 'PATCH',
@@ -2487,6 +2490,10 @@ export interface StaffManagerSummary {
   id: string
   name: string
   avatarUrl?: string | null
+}
+
+export interface StaffAssignableMember extends StaffManagerSummary {
+  formSlug: string | null
 }
 
 // Client with computed status and action counts for list view

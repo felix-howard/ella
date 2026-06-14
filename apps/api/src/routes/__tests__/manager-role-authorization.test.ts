@@ -44,6 +44,14 @@ vi.mock('../../lib/clerk-client', () => ({
   },
 }))
 
+vi.mock('../../services/storage', () => ({
+  resolveAvatarUrl: vi.fn((url: string | null) => Promise.resolve(url)),
+  getSignedUploadUrl: vi.fn(),
+  generateAvatarKey: vi.fn(),
+  getSignedDownloadUrl: vi.fn(),
+  generateStaffFileKey: vi.fn(),
+}))
+
 import { getAuth } from '@hono/clerk-auth'
 import { prisma } from '../../lib/db'
 import { authMiddleware } from '../../middleware/auth'
@@ -51,15 +59,18 @@ import { clientsRoute } from '../clients'
 import { adminRoute } from '../admin'
 import { teamRoute } from '../team'
 import { leadsRoute } from '../leads'
+import { staffRoute } from '../staff'
 
 // Test app mirrors app.ts mounting (leads applies authMiddleware inline)
 const app = new Hono()
 app.use('/clients/*', authMiddleware)
 app.use('/admin/*', authMiddleware)
 app.use('/team/*', authMiddleware)
+app.use('/staff/*', authMiddleware)
 app.route('/clients', clientsRoute)
 app.route('/admin', adminRoute)
 app.route('/team', teamRoute)
+app.route('/staff', staffRoute)
 app.route('/leads', leadsRoute)
 
 const FULL_PHONE = '+14155551234'
@@ -195,8 +206,81 @@ describe('MANAGER permission matrix (route integration)', () => {
     })
   })
 
+  describe('ADMIN: staff selection access (200)', () => {
+    beforeEach(() => loginAs('ADMIN'))
+
+    it('GET /staff/assignable → 200 with active org staff list', async () => {
+      vi.mocked(prisma.staff.findMany).mockResolvedValueOnce([
+        { id: 'staff_admin', name: 'Admin User', avatarUrl: null, formSlug: 'admin' },
+      ] as never)
+
+      const res = await app.request('/staff/assignable')
+      const body = await res.json() as { data: Array<{ id: string; name: string }> }
+
+      expect(res.status).toBe(200)
+      expect(body.data).toEqual([
+        expect.objectContaining({ id: 'staff_admin', name: 'Admin User' }),
+      ])
+      expect(vi.mocked(prisma.staff.findMany)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { organizationId: 'org_1', isActive: true },
+        })
+      )
+    })
+  })
+
   describe('MANAGER: team management blocked (403)', () => {
     beforeEach(() => loginAs('MANAGER'))
+
+    it('GET /team/members → 200 with self-only scope', async () => {
+      vi.mocked(prisma.staff.findMany).mockResolvedValueOnce([
+        {
+          id: 'staff_manager',
+          clerkId: 'user_manager',
+          email: 'manager@test.com',
+          name: 'MANAGER User',
+          role: 'MANAGER',
+          avatarUrl: null,
+          lastLoginAt: null,
+          isActive: true,
+          isContractorAgent: false,
+          formSlug: null,
+          _count: { managedClientLinks: 0 },
+        },
+      ] as never)
+
+      const res = await app.request('/team/members?includeArchived=true')
+      const body = await res.json() as { data: Array<{ id: string }> }
+
+      expect(res.status).toBe(200)
+      expect(body.data).toEqual([expect.objectContaining({ id: 'staff_manager' })])
+      expect(vi.mocked(prisma.staff.findMany)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { organizationId: 'org_1', id: 'staff_manager', isActive: true },
+        })
+      )
+    })
+
+    it('GET /staff/assignable → 200 with active org staff list', async () => {
+      vi.mocked(prisma.staff.findMany).mockResolvedValueOnce([
+        { id: 'staff_admin', name: 'Admin User', avatarUrl: null, formSlug: 'admin' },
+        { id: 'staff_manager', name: 'Manager User', avatarUrl: null, formSlug: 'manager' },
+      ] as never)
+
+      const res = await app.request('/staff/assignable')
+      const body = await res.json() as { data: Array<{ id: string; name: string }> }
+
+      expect(res.status).toBe(200)
+      expect(body.data).toEqual([
+        expect.objectContaining({ id: 'staff_admin', name: 'Admin User' }),
+        expect.objectContaining({ id: 'staff_manager', name: 'Manager User' }),
+      ])
+      expect(vi.mocked(prisma.staff.findMany)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { organizationId: 'org_1', isActive: true },
+        })
+      )
+    })
 
     it('POST /team/invite → 403', async () => {
       const res = await app.request('/team/invite', {
@@ -253,6 +337,11 @@ describe('MANAGER permission matrix (route integration)', () => {
         organizationId: 'org_1',
         managers: { some: { staffId: 'staff_staff' } },
       })
+    })
+
+    it('GET /staff/assignable → 403', async () => {
+      const res = await app.request('/staff/assignable')
+      expect(res.status).toBe(403)
     })
   })
 

@@ -99,6 +99,8 @@ export const ACTIVITY_ACTIONS = {
     MEMBER_UNARCHIVED: 'team.member_unarchived',
     INVITATION_REVOKED: 'team.invitation_revoked',
     NOTIFICATION_SUBSCRIPTIONS_UPDATED: 'team.notification_subscriptions_updated',
+    PAYMENT_INFO_UPDATED: 'team.payment_info_updated',
+    PAYMENT_INFO_CLEARED: 'team.payment_info_cleared',
   },
   LEAD: {
     CREATED: 'lead.created',

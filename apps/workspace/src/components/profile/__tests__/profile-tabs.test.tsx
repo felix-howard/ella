@@ -61,6 +61,7 @@ function staff(overrides: Partial<ProfileResponse['staff']> = {}): ProfileRespon
     formSlug: null,
     autoSendUploadLink: false,
     defaultUploadLinkTemplateId: null,
+    paymentInfos: [],
     _count: { managedClients: 0 },
     isActive: true,
     deactivatedAt: null,

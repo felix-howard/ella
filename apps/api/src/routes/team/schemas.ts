@@ -11,6 +11,16 @@ const staffFileContentTypes = [
   'image/png',
   'image/webp',
 ] as const
+const staffPaymentCountries = ['US', 'VN', 'PH'] as const
+
+const accountNumberRules: Record<
+  (typeof staffPaymentCountries)[number],
+  { min: number; max: number }
+> = {
+  US: { min: 4, max: 17 },
+  VN: { min: 6, max: 20 },
+  PH: { min: 6, max: 20 },
+}
 
 const staffFileExtensionsByMime: Record<(typeof staffFileContentTypes)[number], string[]> = {
   'application/pdf': ['pdf'],
@@ -21,6 +31,75 @@ const staffFileExtensionsByMime: Record<(typeof staffFileContentTypes)[number], 
 
 function fileExtension(filename: string): string {
   return filename.split('.').pop()?.toLowerCase() ?? ''
+}
+
+function digitsOnly(value: string): string {
+  return value.replace(/\D/g, '')
+}
+
+function isValidRoutingNumber(routing: string): boolean {
+  if (!/^\d{9}$/.test(routing)) return false
+
+  const digits = routing.split('').map(Number)
+  const checksum =
+    3 * (digits[0] + digits[3] + digits[6]) +
+    7 * (digits[1] + digits[4] + digits[7]) +
+    (digits[2] + digits[5] + digits[8])
+
+  return checksum % 10 === 0
+}
+
+function validateStaffPaymentInfo(
+  input: {
+    country: (typeof staffPaymentCountries)[number]
+    accountNumber: string
+    routingNumber?: string
+  },
+  ctx: z.RefinementCtx
+) {
+  const accountNumber = digitsOnly(input.accountNumber)
+  const accountRule = accountNumberRules[input.country]
+
+  if (accountNumber !== input.accountNumber) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['accountNumber'],
+      message: 'Account number must contain digits only',
+    })
+  }
+
+  if (accountNumber.length < accountRule.min || accountNumber.length > accountRule.max) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['accountNumber'],
+      message: `Account number must be ${accountRule.min}-${accountRule.max} digits for ${input.country}`,
+    })
+  }
+
+  if (input.country === 'US') {
+    if (!input.routingNumber) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['routingNumber'],
+        message: 'Routing number is required for US payment info',
+      })
+    } else if (!isValidRoutingNumber(input.routingNumber)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['routingNumber'],
+        message: 'Invalid routing number',
+      })
+    }
+    return
+  }
+
+  if (input.routingNumber) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['routingNumber'],
+      message: 'Routing number is only supported for US payment info',
+    })
+  }
 }
 
 function validateStaffFileUpload(
@@ -76,6 +155,10 @@ export const updateContractorAgentSchema = z.object({
 
 export const staffIdParamSchema = z.object({
   staffId: z.string().min(1),
+})
+
+export const staffPaymentCountryParamSchema = z.object({
+  country: z.enum(staffPaymentCountries),
 })
 
 export const invitationIdParamSchema = z.object({
@@ -154,3 +237,14 @@ export const updateStaffInvoiceStatusSchema = z.object({
   status: z.enum(['SUBMITTED', 'APPROVED', 'PAID', 'REJECTED']),
   adminNote: z.string().trim().max(1000).optional().nullable(),
 })
+
+export const upsertStaffPaymentInfoBodySchema = z.object({
+  nameOnAccount: z.string().trim().min(1).max(120),
+  bankName: z.string().trim().min(1).max(120),
+  accountNumber: z.string().trim().min(1).max(34),
+  routingNumber: z.string().trim().optional(),
+})
+
+export const upsertStaffPaymentInfoSchema = upsertStaffPaymentInfoBodySchema
+  .extend({ country: z.enum(staffPaymentCountries) })
+  .superRefine(validateStaffPaymentInfo)

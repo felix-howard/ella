@@ -145,7 +145,11 @@ export function StaffProfileTabs({
       {canAccessStaffFiles && (
         <>
           <TabsContent value="documents">
-            <StaffDocumentsTab staffId={staffId} />
+            <StaffDocumentsTab
+              staffId={staffId}
+              paymentInfos={staff.paymentInfos}
+              canEdit={canEdit}
+            />
           </TabsContent>
 
           <TabsContent value="invoices">

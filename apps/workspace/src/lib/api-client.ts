@@ -1558,6 +1558,21 @@ export const api = {
         body: JSON.stringify(data),
       }),
 
+    upsertPaymentInfo: (staffId: string, country: StaffPaymentCountry, data: UpdateStaffPaymentInfoInput) =>
+      request<{ success: boolean; paymentInfo: StaffPaymentInfoSummary }>(
+        `/team/members/${staffId}/payment-info/${country}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        }
+      ),
+
+    clearPaymentInfo: (staffId: string, country: StaffPaymentCountry) =>
+      request<{ success: boolean; country: StaffPaymentCountry; deleted: boolean }>(
+        `/team/members/${staffId}/payment-info/${country}`,
+        { method: 'DELETE' }
+      ),
+
     getNotificationSubscriptions: (staffId: string) =>
       request<NotificationSubscriptionsResponse>(`/team/members/${staffId}/notification-subscriptions`),
 
@@ -3772,6 +3787,17 @@ export interface TeamInvitation {
 }
 
 // Staff Profile types
+export type StaffPaymentCountry = 'US' | 'VN' | 'PH'
+
+export interface StaffPaymentInfoSummary {
+  country: StaffPaymentCountry
+  nameOnAccount: string
+  bankName: string
+  accountNumberLast4: string
+  routingNumberLast4: string | null
+  updatedAt: string
+}
+
 export interface StaffProfile {
   id: string
   name: string
@@ -3792,6 +3818,7 @@ export interface StaffProfile {
   formSlug: string | null
   autoSendUploadLink: boolean
   defaultUploadLinkTemplateId: UploadLinkTemplateId | null
+  paymentInfos: StaffPaymentInfoSummary[]
 }
 
 export interface OrgSettings {
@@ -3833,6 +3860,13 @@ export interface UpdateStaffProfileInput {
   /** ADMIN-only — server rejects for non-ADMIN staff */
   notifyOnAgreementSigned?: boolean
   notifyOnClientPayment?: boolean
+}
+
+export interface UpdateStaffPaymentInfoInput {
+  nameOnAccount: string
+  bankName: string
+  accountNumber: string
+  routingNumber?: string
 }
 
 export interface ContractorAgreementStatus {

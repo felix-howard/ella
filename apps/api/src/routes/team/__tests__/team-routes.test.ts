@@ -589,6 +589,7 @@ describe('Team Routes', () => {
       notifyOnChat: false, title: null, formSlug: null, autoSendUploadLink: false,
       defaultUploadLinkTemplateId: null, deactivatedAt: null, isContractorAgent: true,
       organizationId: 'org_db_1', isActive: true, clerkId: 'c2',
+      paymentInfos: [],
       _count: { managedClientLinks: 2 },
     }
 

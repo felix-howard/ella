@@ -1,7 +1,26 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-14 ICT
+> **Last Updated:** 2026-06-15 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-06-15
+
+### Staff Payment Info in Documents Tab
+**Status:** Complete
+
+**Changed:**
+- Added Staff profile Documents-tab Payment Info card above personal documents.
+- Added US, VN, and PH payout tabs with data-driven default country selection.
+- Added save, edit, cancel, and clear flows using masked read-mode account/routing display.
+- Added EN/VI copy and focused workspace tests for defaults, no-routing countries, masking, and document-list preservation.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- src/components/profile` pass, 15 tests
+- `pnpm -F @ella/api test -- src/routes/team` pass, 64 tests
+- `pnpm i18n:check` pass, workspace 2848 keys and portal 522 keys
 
 ---
 

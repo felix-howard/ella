@@ -54,7 +54,7 @@ export function StaffProfileTabs({
   const canShowDangerZone = canArchive && !isOwnProfile && !isArchived
   const canShowRoleControl = canChangeRole && !isOwnProfile
   const canShowContractorAgentControl = canManageTeam && !isOwnProfile
-  const canAccessStaffFiles = isOwnProfile || canManageTeam
+  const canAccessStaffFiles = canEdit
   const activeTabAvailable =
     activeTab === 'overview' ||
     activeTab === 'form-link' ||

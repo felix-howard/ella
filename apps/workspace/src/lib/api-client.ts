@@ -2319,6 +2319,7 @@ export interface ClientPreview {
   einMasked?: string | null
   latestCaseId?: string | null
   latestCaseTaxYear?: number | null
+  documentCount?: number
   taxCases?: { id: string; taxYear: number; portalUrl?: string | null }[]
   portalUrl?: string | null
   scheduleCExpense?: ScheduleCExpenseSummary | null

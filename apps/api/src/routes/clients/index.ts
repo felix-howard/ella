@@ -732,6 +732,11 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
               taxCases: {
                 orderBy: { taxYear: 'desc' },
                 include: {
+                  _count: {
+                    select: {
+                      rawImages: true,
+                    },
+                  },
                   magicLinks: {
                     // Only PORTAL links — Schedule C/E links live on the same case
                     // and would otherwise win the orderBy and break the upload button.
@@ -843,12 +848,15 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
           const siblingCase = taxCases?.[0]
           const siblingMagicLink = siblingCase?.magicLinks?.[0]
           const siblingSC = siblingCase?.scheduleCExpense
+          const documentCount = taxCases.reduce((total, tc) => total + tc._count.rawImages, 0)
+
           return {
             ...sibling,
             phone: serializePhone(user, sibling.phone),
             einMasked: maskEIN(siblingEin),
             latestCaseId: siblingCase?.id ?? null,
             latestCaseTaxYear: siblingCase?.taxYear ?? null,
+            documentCount,
             taxCases: taxCases.map((tc) => ({
               id: tc.id,
               taxYear: tc.taxYear,

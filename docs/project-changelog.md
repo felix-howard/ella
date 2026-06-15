@@ -7,6 +7,20 @@
 
 ## 2026-06-15
 
+### Non-Admin Staff Payment Self-Service
+**Status:** Complete
+
+**Fixed:**
+- Staff profile Documents, Invoices, and Payment Info visibility now follows server-confirmed `canEdit` capability so non-admin staff/managers can use their own self-service profile areas.
+- Added regression coverage for editable non-admin self-service profile visibility and inaccessible profile hiding.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/profile/__tests__/profile-tabs.test.tsx src/components/profile/__tests__/staff-payment-info.test.tsx` pass, 12 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with pre-existing warnings only
+
+---
+
 ### Mobile PDF Verification Viewer
 **Status:** Complete
 

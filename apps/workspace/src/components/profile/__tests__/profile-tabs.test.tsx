@@ -75,10 +75,12 @@ function staff(overrides: Partial<ProfileResponse['staff']> = {}): ProfileRespon
 
 function renderTabs({
   canArchive = false,
+  canEdit = true,
   isOwnProfile = false,
   canChangeRole = false,
 }: {
   canArchive?: boolean
+  canEdit?: boolean
   isOwnProfile?: boolean
   canChangeRole?: boolean
 } = {}) {
@@ -90,7 +92,7 @@ function renderTabs({
       staffId="staff-1"
       managedClients={[]}
       managedCount={0}
-      canEdit
+      canEdit={canEdit}
       canChangeRole={canChangeRole}
       canManageTeam={canArchive}
       isOwnProfile={isOwnProfile}
@@ -146,16 +148,25 @@ describe('StaffProfileTabs', () => {
     expect(markup).toContain('payment-info-card')
   })
 
+  it('renders editable staff files and payment info for non-admin self-service profiles', () => {
+    const markup = renderTabs({ canEdit: true, canArchive: false, isOwnProfile: false })
+
+    expect(markup).toContain('profile.tabs.documents')
+    expect(markup).toContain('profile.tabs.invoices')
+    expect(markup).toContain('payment-info-card')
+  })
+
   it('hides overview danger zone when archive controls are not available', () => {
     expect(renderTabs()).not.toContain('profile.tabs.admin')
     expect(renderTabs()).not.toContain('team.dangerZone')
   })
 
   it('hides staff file tabs when viewer cannot access staff files', () => {
-    const markup = renderTabs()
+    const markup = renderTabs({ canEdit: false })
 
     expect(markup).not.toContain('profile.tabs.documents')
     expect(markup).not.toContain('profile.tabs.invoices')
+    expect(markup).not.toContain('payment-info-card')
   })
 
   it('renders signature setup only for the current user own profile', () => {

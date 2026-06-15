@@ -7,6 +7,22 @@
 
 ## 2026-06-15
 
+### Mobile PDF Verification Viewer
+**Status:** Complete
+
+**Fixed:**
+- Mobile verification modal now treats multi-page PDFs as document pages, not adjacent uploaded files, for the large left/right controls.
+- Mobile PDF viewer renders all pages in a vertical scroll flow and scrolls to the selected page from the page controls.
+- Reset PDF fit/page state when a new signed PDF URL loads, avoiding stale scale/page count across files.
+- Reduced mobile bottom overlap/blank area by reserving space above the fixed verification CTA.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with pre-existing warnings only
+- `pnpm -F @ella/workspace test` pass, 139 tests
+
+---
+
 ### Staff Payment Info in Documents Tab
 **Status:** Complete
 

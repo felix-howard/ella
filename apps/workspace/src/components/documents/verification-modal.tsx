@@ -20,6 +20,7 @@ import { DOC_TYPE_FIELD_GROUPS } from '../../lib/doc-type-field-groups'
 import { api, fetchMediaBlobUrl, type DigitalDoc, type FieldVerificationStatus } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { useSignedUrl } from '../../hooks/use-signed-url'
+import { useIsMobile } from '../../hooks/use-mobile-breakpoint'
 
 export interface VerificationModalProps {
   /** Document to verify */
@@ -97,6 +98,7 @@ export function VerificationModal({
 }: VerificationModalProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const isMobile = useIsMobile()
   const [currentFieldIndex, setCurrentFieldIndex] = useState(0)
   // Local state for instant optimistic UI updates (doesn't wait for query refetch)
   const [localVerifications, setLocalVerifications] = useState<Record<string, FieldVerificationStatus>>({})
@@ -104,9 +106,14 @@ export function VerificationModal({
   const [localEditedValues, setLocalEditedValues] = useState<Record<string, string>>({})
   // Mobile: toggle OCR panel visibility (hidden by default)
   const [mobileOcrOpen, setMobileOcrOpen] = useState(false)
+  const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
+  const [pdfNumPages, setPdfNumPages] = useState<number | null>(null)
 
   // Get signed URL for image
   const rawImageId = doc.rawImage?.id || doc.rawImageId
+  const isPdf = doc.rawImage?.r2Key?.toLowerCase().endsWith('.pdf') ?? false
+  const isMobilePdf = isMobile && isPdf
+  const isMobileMultiPagePdf = isMobilePdf && (pdfNumPages ?? 0) > 1
   const {
     data: signedUrlData,
     isLoading: isUrlLoading,
@@ -322,6 +329,24 @@ export function VerificationModal({
     completeMutation.mutate()
   }, [completeMutation])
 
+  const handleViewerPrev = useCallback(() => {
+    if (isMobileMultiPagePdf) {
+      setPdfCurrentPage((page) => Math.max(1, page - 1))
+      return
+    }
+
+    onNavigatePrev?.()
+  }, [isMobileMultiPagePdf, onNavigatePrev])
+
+  const handleViewerNext = useCallback(() => {
+    if (isMobileMultiPagePdf) {
+      setPdfCurrentPage((page) => Math.min(pdfNumPages ?? page, page + 1))
+      return
+    }
+
+    onNavigateNext?.()
+  }, [isMobileMultiPagePdf, onNavigateNext, pdfNumPages])
+
   // Handle rotation change (persist to DB and update cache)
   const handleRotationChange = useCallback((rotation: 0 | 90 | 180 | 270) => {
     if (!rawImageId) return
@@ -391,14 +416,14 @@ export function VerificationModal({
       // Arrow left/right to navigate between files (when not in input)
       const target = e.target as HTMLElement
       if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
-        if (e.key === 'ArrowLeft' && onNavigatePrev) {
+        if (e.key === 'ArrowLeft' && (isMobileMultiPagePdf ? pdfCurrentPage > 1 : onNavigatePrev)) {
           e.preventDefault()
-          onNavigatePrev()
+          handleViewerPrev()
           return
         }
-        if (e.key === 'ArrowRight' && onNavigateNext) {
+        if (e.key === 'ArrowRight' && (isMobileMultiPagePdf ? pdfCurrentPage < (pdfNumPages ?? 1) : onNavigateNext)) {
           e.preventDefault()
-          onNavigateNext()
+          handleViewerNext()
           return
         }
       }
@@ -432,7 +457,21 @@ export function VerificationModal({
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose, currentFieldIndex, fields.length, completeMutation.isPending, handleComplete, onNavigatePrev, onNavigateNext])
+  }, [
+    isOpen,
+    onClose,
+    currentFieldIndex,
+    fields.length,
+    completeMutation.isPending,
+    handleComplete,
+    handleViewerPrev,
+    handleViewerNext,
+    isMobileMultiPagePdf,
+    onNavigatePrev,
+    onNavigateNext,
+    pdfCurrentPage,
+    pdfNumPages,
+  ])
 
   // Reset state when modal opens or doc changes
   // Note: setState is intentional here to sync internal state with prop changes
@@ -443,6 +482,8 @@ export function VerificationModal({
       setLocalVerifications({}) // Clear local optimistic state for fresh doc
       setLocalEditedValues({}) // Clear local edited values for fresh doc
       setMobileOcrOpen(false) // Reset mobile OCR panel
+      setPdfCurrentPage(1)
+      setPdfNumPages(null)
     }
   }, [isOpen, doc.id])
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -450,7 +491,9 @@ export function VerificationModal({
   if (!isOpen) return null
 
   const docLabel = DOC_TYPE_LABELS[doc.docType] || doc.docType
-  const isPdf = doc.rawImage?.r2Key?.endsWith('.pdf')
+  const canGoPrevInViewer = isMobileMultiPagePdf ? pdfCurrentPage > 1 : !!onNavigatePrev
+  const canGoNextInViewer = isMobileMultiPagePdf ? pdfCurrentPage < (pdfNumPages ?? 1) : !!onNavigateNext
+  const showViewerNavigation = isMobileMultiPagePdf || !!onNavigatePrev || !!onNavigateNext
 
   // Get display name: prefer displayName, then extract from r2Key (formatted name), then original filename
   const getDisplayName = () => {
@@ -557,9 +600,9 @@ export function VerificationModal({
         </div>
 
         {/* Content - Split view (70/30 for maximum document viewing) */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden relative">
           {/* Left: Image Viewer - Full height on mobile, 70% on desktop */}
-          <div className="h-full md:w-[70%] md:border-r border-border bg-muted/20 relative">
+          <div className="h-full min-h-0 pb-20 md:pb-0 md:w-[70%] md:border-r border-border bg-muted/20 relative">
             {isUrlLoading ? (
               <div className="w-full h-full flex items-center justify-center">
                 <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
@@ -582,52 +625,60 @@ export function VerificationModal({
                 className="w-full h-full"
                 initialRotation={(doc.rawImage?.rotation as 0 | 90 | 180 | 270) || 0}
                 onRotationChange={handleRotationChange}
+                pdfCurrentPage={pdfCurrentPage}
+                onPdfCurrentPageChange={setPdfCurrentPage}
+                onPdfLoadSuccess={setPdfNumPages}
+                renderAllPdfPages={isMobilePdf}
               />
             )}
 
             {/* Navigation Arrows - Floating on the image viewer */}
-            {(onNavigatePrev || onNavigateNext) && (
+            {showViewerNavigation && (
               <>
                 {/* Previous button */}
                 <button
-                  onClick={onNavigatePrev}
-                  disabled={!onNavigatePrev}
+                  onClick={handleViewerPrev}
+                  disabled={!canGoPrevInViewer}
                   className={cn(
                     'absolute left-3 top-1/2 -translate-y-1/2 z-10',
                     'w-10 h-10 rounded-full flex items-center justify-center',
                     'bg-background/90 border border-border shadow-lg',
                     'transition-all hover:bg-background hover:scale-105',
-                    !onNavigatePrev && 'opacity-30 cursor-not-allowed hover:scale-100'
+                    !canGoPrevInViewer && 'opacity-30 cursor-not-allowed hover:scale-100'
                   )}
-                  aria-label={t('common.previous')}
-                  title={`${t('common.previous')} (←)`}
+                  aria-label={isMobileMultiPagePdf ? t('viewer.previousPage') : t('common.previous')}
+                  title={`${isMobileMultiPagePdf ? t('viewer.previousPage') : t('common.previous')} (←)`}
                 >
                   <ChevronLeft className="w-5 h-5 text-foreground" />
                 </button>
 
                 {/* Next button */}
                 <button
-                  onClick={onNavigateNext}
-                  disabled={!onNavigateNext}
+                  onClick={handleViewerNext}
+                  disabled={!canGoNextInViewer}
                   className={cn(
                     'absolute right-3 top-1/2 -translate-y-1/2 z-10',
                     'w-10 h-10 rounded-full flex items-center justify-center',
                     'bg-background/90 border border-border shadow-lg',
                     'transition-all hover:bg-background hover:scale-105',
-                    !onNavigateNext && 'opacity-30 cursor-not-allowed hover:scale-100'
+                    !canGoNextInViewer && 'opacity-30 cursor-not-allowed hover:scale-100'
                   )}
-                  aria-label={t('common.next')}
-                  title={`${t('common.next')} (→)`}
+                  aria-label={isMobileMultiPagePdf ? t('viewer.nextPage') : t('common.next')}
+                  title={`${isMobileMultiPagePdf ? t('viewer.nextPage') : t('common.next')} (→)`}
                 >
                   <ChevronRight className="w-5 h-5 text-foreground" />
                 </button>
 
                 {/* File counter */}
-                {currentIndex !== undefined && totalCount !== undefined && (
+                {isMobileMultiPagePdf ? (
+                  <div className="absolute bottom-36 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-full bg-background/90 border border-border shadow-lg text-xs font-medium text-foreground">
+                    {pdfCurrentPage} / {pdfNumPages}
+                  </div>
+                ) : currentIndex !== undefined && totalCount !== undefined ? (
                   <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-full bg-background/90 border border-border shadow-lg text-xs font-medium text-foreground">
                     {currentIndex + 1} / {totalCount}
                   </div>
-                )}
+                ) : null}
               </>
             )}
           </div>

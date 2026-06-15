@@ -16,6 +16,10 @@ import { toast } from '../../../stores/toast-store'
 import { AddBusinessDrawer } from './add-business-drawer'
 import { deleteLinkedBusinessClient } from './linked-business-delete'
 
+function formatDocumentCount(count: number) {
+  return count === 1 ? '1 document' : `${count} documents`
+}
+
 interface ClientLinkedEntityCardProps {
   clientId: string
   clientGroupId?: string | null
@@ -120,6 +124,7 @@ export function ClientLinkedEntityCard({
           {linkedClients.map((linked) => {
             const avatarColor = getAvatarColor(linked.name)
             const isLinkedBusiness = linked.clientType === 'BUSINESS'
+            const documentCount = linked.documentCount ?? 0
 
             return (
               <div
@@ -174,6 +179,16 @@ export function ClientLinkedEntityCard({
                       )}
                     </div>
                   </div>
+
+                  {isLinkedBusiness && (
+                    <div
+                      className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-sm font-medium text-muted-foreground"
+                      title={formatDocumentCount(documentCount)}
+                    >
+                      <FileText className="h-4 w-4" aria-hidden="true" />
+                      <span>{formatDocumentCount(documentCount)}</span>
+                    </div>
+                  )}
 
                   {/* Arrow */}
                   <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />

@@ -35,12 +35,12 @@ export function ClientAssignedStaff({ clientId, managedByStaff, managedBy }: Cli
   const selectedStaffIds = localSelection?.clientId === clientId ? localSelection.staffIds : serverStaffIds
 
   const { data: membersData } = useQuery({
-    queryKey: ['team-members'],
-    queryFn: () => api.team.listMembers(),
+    queryKey: ['assignable-staff'],
+    queryFn: () => api.staff.listAssignable(),
     enabled: canManageClients,
   })
 
-  const members = (membersData?.data ?? []).filter((member) => member.isActive !== false)
+  const members = membersData?.data ?? []
   const selectedStaff = selectedStaffIds
     .map((id) => members.find((member) => member.id === id) ?? assignedStaff.find((staff) => staff.id === id))
     .filter((staff): staff is StaffManagerSummary => Boolean(staff))
@@ -162,7 +162,7 @@ export function ClientAssignedStaff({ clientId, managedByStaff, managedBy }: Cli
                     )}
                   >
                     <span className="flex min-w-0 items-center gap-2">
-                      <StaffAvatar name={m.name} avatarUrl={m.avatarUrl} size="sm" />
+                      <StaffAvatar name={m.name} avatarUrl={m.avatarUrl ?? null} size="sm" />
                       <span className="truncate text-foreground">{m.name}</span>
                     </span>
                     {isSelected && <Check className="h-4 w-4 flex-shrink-0 text-primary" />}

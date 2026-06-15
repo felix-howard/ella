@@ -67,7 +67,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/messages` - Unified inbox with split-view conversations
 - `/actions` - Action queue with priority filtering
 - `/pricing-calculator` - Admin-only pricing calculator with quote summary and Stripe payment-link creation through the staff Clerk session
-- `/team` - Team member management (Phase 3)
+- `/team` - Team profile access for all active staff; admin-only team management controls (Phase 3)
 - `/accept-invitation` - Clerk org invite acceptance (Phase 6)
 
 **Key Pages (Portal):**
@@ -91,16 +91,16 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Authentication (Clerk + Multi-Tenancy):**
 - `ClerkAuthProvider` - Wraps root, sets JWT token getter
 - `useAutoOrgSelection()` - Auto-selects first org on sign-in
-- `useOrgRole()` - Returns `{ isAdmin, isManager, canManageClients, canViewPhone, canManageTeam, ...role booleans }` for RBAC (Phase 4)
+- `useOrgRole()` - Returns `{ isAdmin, isManager, canManageClients, canViewPhone, canViewTeam, canManageTeam, ...role booleans }` for RBAC (Phase 4)
 - Zero-org fallback: Localized UI (org.noOrg)
-- Sidebar: Displays org name, role badge, conditional Team nav (gated by `canManageTeam`)
+- Sidebar: Displays org name, role badge, conditional Team nav (gated by `canViewTeam`); active non-admin staff can open the Team page in self-mode, but admin-only controls remain hidden
 
 **Frontend Capability Flags (Phase 4 - MANAGER Role UI + Server Phone Masking):**
 - `useOrgRole()` hook in `apps/workspace/src/hooks/use-org-role.ts` provides semantic capability flags; components consume these, never compare role string literals for permissions.
-- **Flags:** (1) `isManager` - user has Staff.role='MANAGER'. (2) `canManageClients` - isAdmin || isManager (mirrors server admin-or-manager gate); enables leads list, pricing-calculator nav, clients CRUD UI. (3) `canViewPhone` - isAdmin only (server masks for others via `serializePhone()`). (4) `canManageTeam` - isAdmin only; gates /team nav, invite/role-change/deactivate UI.
+- **Flags:** (1) `isManager` - user has Staff.role='MANAGER'. (2) `canManageClients` - isAdmin || isManager (mirrors server admin-or-manager gate); enables leads list, pricing-calculator nav, clients CRUD UI. (3) `canViewPhone` - isAdmin only (server masks for others via `serializePhone()`). (4) `canViewTeam` - active org staff only; gates `/team` nav/page access. (5) `canManageTeam` - isAdmin only; gates invite/role-change/deactivate UI.
 - **App-Level Roles (Phase 4):** `AppRole` union type ('ADMIN' | 'MANAGER' | 'MEMBER') used in team invite dialog + profile role select, mirrors `apps/api/src/lib/staff-role-mapping.ts APP_ROLES` for JSON payloads (TeamInvitation.staffRole, team/members/:staffId/role endpoint).
 - **Phone Masking Convention:** `formatPhone()` in `apps/workspace/src/lib/formatters.ts` passes through server-masked values containing '*' unchanged (e.g., `*** *** 1234`). Frontend never re-masks; server is authoritative source via `serializePhone()` middleware.
-- **UI Contract:** Nav items (leads, pricing-calculator, /team) gated by capability flags. Team invite dialog + profile role select offer ADMIN/MANAGER/MEMBER app-level roles for mutations. Code never checks org:admin literal; instead uses `canManageTeam` or `canManageClients` flags.
+- **UI Contract:** Nav items (leads, pricing-calculator, /team) gated by capability flags. `/team` visibility uses `canViewTeam`; Team invite dialog + profile role select offer ADMIN/MANAGER/MEMBER app-level roles for admin mutations. Code never checks org:admin literal; instead uses semantic capability flags.
 
 **State Management:**
 - React Query: Server state, auto cache invalidation
@@ -268,15 +268,16 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Team & Organization (19 - Phase 3 + Phase 02 Profile API + Phase 04 Navigation + Phase 02 Intake Form):**
 - `GET /org-settings` - Get org profile + autoSendFormClientUploadLink toggle (Phase 02 Intake Form)
 - `PATCH /org-settings` - Update org profile + autoSendFormClientUploadLink (admin/manager only, Phase 02 Intake Form)
-- `GET /team/members` - List org staff (reads from DB)
+- `GET /team/members` - Admins list active/archived org staff via `includeArchived`; non-admins get only their own active staff record and must have `staffId` (`400` if missing)
 - `POST /team/invite` - Send Clerk org invitation via Backend API (admin only, webhook syncs results to DB)
 - `PATCH /team/members/:staffId/role` - Update role via Clerk Backend API (admin only, webhook syncs to DB)
 - `DELETE /team/members/:staffId` - Deactivate staff via Clerk Backend API (admin only, webhook syncs to DB)
 - `PATCH /team/members/:staffId/contractor-agent` - Toggle `Staff.isContractorAgent` via admin-only backend API (admin only, webhook-independent, DB-backed)
-- `GET /team/members/:staffId/profile` - Get member profile with assigned clients (Phase 02)
-- `PATCH /team/members/:staffId/profile` - Update name/phone (self only, Phase 02)
+- `GET /team/members/:staffId/profile` - Admins can read any org staff profile with assigned clients; non-admins can read only `me` or their own `staffId` (`403` on cross-member access)
+- `PATCH /team/members/:staffId/profile` - Update name/phone/title/preferences (self or admin, Phase 02)
 - `POST /team/members/:staffId/avatar/presigned-url` - Get R2 upload URL (self only, Phase 02)
 - `PATCH /team/members/:staffId/avatar` - Confirm avatar upload (self only, Phase 02)
+- `GET /staff/assignable` - Active org staff list for admin/manager selector workflows; does not relax `/team/members` privacy
 - `POST /team/members/:staffId/files/presigned-url` - Create a short-lived R2 upload URL for staff personal documents or invoices. Staff can use `me` or own id; admins can target any org staff member.
 - `POST /team/members/:staffId/files` - Confirm staff file upload after R2 metadata verification and create the `StaffFile` record. Invoice uploads replace the active invoice for the same month unless the active invoice is paid.
 - `GET /team/members/:staffId/files` - List active staff files, filterable by kind/year/month. Admins can view any org staff member; staff can view only their own files.
@@ -428,8 +429,8 @@ Organization (root entity)
 
 **Permission Model:**
 - **ADMIN:** Full org management: team (invite/role/deactivate), all clients, admin config, billing, leads, cases, campaigns, agreements, 1099-NEC, org settings, activity timeline
-- **MANAGER:** Client/operational mgmt: admin config, clients (create/assign), leads, cases, campaigns, agreements, 1099-NEC, billing checkout, org settings, activity timeline. Blocked: team management. **Phone Privacy (Phase 3):** Server enforces masking on all workspace-facing responses (clients, leads, messages, engagements, cases, actions, managed-clients)—`serializePhone()` at response layer returns `*** *** {last4}` except for ADMIN. Internal SMS/lead-convert/voice logic uses raw numbers.
-- **STAFF:** View assigned clients only via `ClientManager` links; no admin functions. Receives masked phone numbers.
+- **MANAGER:** Client/operational mgmt: admin config, clients (create/assign), leads, cases, campaigns, agreements, 1099-NEC, billing checkout, org settings, activity timeline. Can open `/team` in self-mode and use own Team profile; blocked from team management. **Phone Privacy (Phase 3):** Server enforces masking on all workspace-facing responses (clients, leads, messages, engagements, cases, actions, managed-clients)—`serializePhone()` at response layer returns `*** *** {last4}` except for ADMIN. Internal SMS/lead-convert/voice logic uses raw numbers.
+- **STAFF:** View assigned clients only via `ClientManager` links; no admin functions. Can open `/team` in self-mode and use own Team profile. Receives masked phone numbers.
 - **CPA:** Future role for CPA firm integrations
 
 **Middleware:**
@@ -1369,7 +1370,7 @@ Frontend Hook (useOrgRole)
 
 **Access Control:**
 - Current user (me): Always allowed via useOrgRole
-- Team members: Accessible to org admins (Team page already restricted)
+- Team page: Active non-admin staff can open the self-mode view; admin-only controls stay hidden and member-table actions remain admin-only
 - Query scoping: `/staff/me` returns current user only
 
 **Performance Considerations:**
@@ -2251,8 +2252,8 @@ export const updateProfileSchema = z.object({
 ```
 
 **Backend Endpoints** (`apps/api/src/routes/team/index.ts`):
-- `GET /team/members/:staffId/profile` - Returns Staff with notification fields
-- `PATCH /team/members/:staffId/profile` - Updates notification fields (self-only)
+- `GET /team/members/:staffId/profile` - Returns Staff with notification fields (self or admin)
+- `PATCH /team/members/:staffId/profile` - Updates notification fields (self or admin)
 
 **API Client** (`apps/workspace/src/lib/api-client.ts`):
 ```typescript
@@ -2290,7 +2291,7 @@ interface UpdateStaffProfileInput {
 
 **Access Control:**
 - Self-only editing via JWT context validation
-- Team page already restricts admin users
+- Team page supports self-mode for active non-admin staff; admin-only controls remain hidden
 
 **Data Flow:**
 ```

@@ -57,6 +57,7 @@ export function StaffFormLinkCard({
     onSuccess: () => {
       toast.success(t('profile.slugSaved'))
       queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
+      queryClient.invalidateQueries({ queryKey: ['assignable-staff'] })
       queryClient.invalidateQueries({ queryKey: ['staff-me'] })
       setIsEditing(false)
     },

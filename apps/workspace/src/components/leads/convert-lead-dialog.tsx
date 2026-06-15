@@ -58,8 +58,8 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
 
   // Fetch staff list for managedBy dropdown
   const { data: teamData } = useQuery({
-    queryKey: ['team-members'],
-    queryFn: () => api.team.listMembers(),
+    queryKey: ['assignable-staff'],
+    queryFn: () => api.staff.listAssignable(),
     staleTime: 60000,
   })
 
@@ -98,7 +98,7 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
     },
   })
 
-  const staffMembers = teamData?.data?.filter((m) => m.isActive) ?? []
+  const staffMembers = teamData?.data ?? []
 
   const handleSmsLanguageChange = (lang: 'EN' | 'VI') => {
     setSmsLanguage(lang)

@@ -101,7 +101,7 @@ export function ClientListTable({ clients, isLoading, canManageClients, canViewP
   return (
     <div className="bg-card rounded-xl shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[1040px] text-sm">
           <thead>
             <tr className="border-b border-border/50 bg-muted/50">
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
@@ -113,10 +113,10 @@ export function ClientListTable({ clients, isLoading, canManageClients, canViewP
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 {UI_TEXT.form.taxYear}
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">
+              <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 {t('clients.tags')}
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
+              <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 {t('clients.documents')}
               </th>
               {canManageClients && (
@@ -124,13 +124,13 @@ export function ClientListTable({ clients, isLoading, canManageClients, canViewP
                   {t('team.managedBy')}
                 </th>
               )}
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
+              <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 {t('clients.created')}
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
+              <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 {t('clients.uploads')}
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
+              <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 {t('clients.tasks')}
               </th>
               <th className="w-10"></th>
@@ -194,7 +194,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, canManageClients, ca
         <div className={cn('flex items-center gap-3', isGroupedBusiness && 'pl-4 sm:pl-8')}>
           {/* Connector for grouped business */}
           {isGroupedBusiness && (
-            <span className="text-muted-foreground/50 text-sm hidden sm:inline" aria-hidden="true">└</span>
+            <span className="text-muted-foreground/50 text-sm" aria-hidden="true">└</span>
           )}
           {/* Avatar: rounded-square for business, circle for individual */}
           <div className={cn(
@@ -248,7 +248,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, canManageClients, ca
       </td>
 
       {/* Tags column */}
-      <td className="px-4 py-3 hidden sm:table-cell align-middle">
+      <td className="px-4 py-3 align-middle">
         <div className="flex flex-wrap gap-1">
           {client.tags && client.tags.length > 0 ? (
             client.tags.map((tag) => (
@@ -266,7 +266,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, canManageClients, ca
       </td>
 
       {/* Documents column */}
-      <td className="px-4 py-3 hidden lg:table-cell align-middle">
+      <td className="px-4 py-3 align-middle">
         {uploads && uploads.totalCount > 0 ? (
           <div className="flex items-center gap-1.5">
             <FileText className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
@@ -289,14 +289,14 @@ const ClientRow = memo(function ClientRow({ client, isLast, canManageClients, ca
       )}
 
       {/* Created column */}
-      <td className="px-4 py-3 hidden lg:table-cell align-middle">
+      <td className="px-4 py-3 align-middle">
         <span className="text-sm text-muted-foreground">
           {formatShortRelativeTime(client.createdAt, i18n.language)}
         </span>
       </td>
 
       {/* Uploads column (combined: new count + last upload time) */}
-      <td className="px-4 py-3 hidden md:table-cell align-middle">
+      <td className="px-4 py-3 align-middle">
         {uploads && (uploads.newCount > 0 || uploads.latestAt) ? (
           <div className="flex items-center gap-2">
             {uploads.newCount > 0 && (
@@ -317,7 +317,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, canManageClients, ca
       </td>
 
       {/* Action badges column */}
-      <td className="px-4 py-3 hidden md:table-cell align-middle">
+      <td className="px-4 py-3 align-middle">
         <div className="flex flex-wrap gap-1 max-w-[200px]">
           {!client.hasUploadLink && client.clientType === 'INDIVIDUAL' && ['FORM', 'GENERIC_FORM', 'STAFF_FORM', 'INCOMING_SMS', 'INCOMING_CALL'].includes(client.source) && (
             <ActionBadge type="need-upload-link" />
@@ -437,7 +437,7 @@ export function ClientListTableSkeleton({ canManageClients }: { canManageClients
   return (
     <div className="bg-card rounded-xl shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[1040px] text-sm">
           <thead>
             <tr className="border-b border-border/50 bg-muted/50">
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
@@ -449,10 +449,10 @@ export function ClientListTableSkeleton({ canManageClients }: { canManageClients
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 <div className="h-4 w-16 bg-muted rounded animate-pulse" />
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">
+              <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 <div className="h-4 w-14 bg-muted rounded animate-pulse" />
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
+              <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 <div className="h-4 w-20 bg-muted rounded animate-pulse" />
               </th>
               {canManageClients && (
@@ -460,13 +460,13 @@ export function ClientListTableSkeleton({ canManageClients }: { canManageClients
                   <div className="h-4 w-[150px] bg-muted rounded animate-pulse" />
                 </th>
               )}
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
+              <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 <div className="h-4 w-16 bg-muted rounded animate-pulse" />
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
+              <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 <div className="h-4 w-20 bg-muted rounded animate-pulse" />
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
+              <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 <div className="h-4 w-24 bg-muted rounded animate-pulse" />
               </th>
               <th className="w-10"></th>
@@ -490,10 +490,10 @@ export function ClientListTableSkeleton({ canManageClients }: { canManageClients
                 <td className="px-4 py-3">
                   <div className="h-4 w-12 bg-muted rounded animate-pulse" />
                 </td>
-                <td className="px-4 py-3 hidden sm:table-cell">
+                <td className="px-4 py-3">
                   <div className="h-5 w-14 bg-muted rounded-full animate-pulse" />
                 </td>
-                <td className="px-4 py-3 hidden lg:table-cell">
+                <td className="px-4 py-3">
                   <div className="h-5 w-16 bg-muted rounded-full animate-pulse" />
                 </td>
                 {canManageClients && (
@@ -501,13 +501,13 @@ export function ClientListTableSkeleton({ canManageClients }: { canManageClients
                     <div className="h-4 w-[150px] bg-muted rounded animate-pulse" />
                   </td>
                 )}
-                <td className="px-4 py-3 hidden lg:table-cell">
+                <td className="px-4 py-3">
                   <div className="h-4 w-16 bg-muted rounded animate-pulse" />
                 </td>
-                <td className="px-4 py-3 hidden md:table-cell">
+                <td className="px-4 py-3">
                   <div className="h-5 w-24 bg-muted rounded-full animate-pulse" />
                 </td>
-                <td className="px-4 py-3 hidden md:table-cell">
+                <td className="px-4 py-3">
                   <div className="flex gap-1">
                     <div className="h-5 w-14 bg-muted rounded-full animate-pulse" />
                     <div className="h-5 w-16 bg-muted rounded-full animate-pulse" />

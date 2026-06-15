@@ -4,6 +4,10 @@ import type { ProfileResponse, StaffFileListItem } from '../../../lib/api-client
 import { StaffInvoiceMonthList } from '../staff-invoice-month-list'
 import { StaffProfileTabs } from '../staff-profile-tabs'
 
+const mocks = vi.hoisted(() => ({
+  profileFormProps: null as null | Record<string, unknown>,
+}))
+
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, fallback?: string | Record<string, unknown>) =>
@@ -12,7 +16,10 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('../profile-form', () => ({
-  ProfileForm: () => <div>profile-form</div>,
+  ProfileForm: (props: Record<string, unknown>) => {
+    mocks.profileFormProps = props
+    return <div>profile-form</div>
+  },
 }))
 
 vi.mock('../assigned-clients-list', () => ({
@@ -29,6 +36,14 @@ vi.mock('../staff-documents-tab', () => ({
 
 vi.mock('../staff-invoices-tab', () => ({
   StaffInvoicesTab: () => <div>invoices-tab</div>,
+}))
+
+vi.mock('../signature-pad-card', () => ({
+  SignaturePadCard: () => <div>signature-card</div>,
+}))
+
+vi.mock('../staff-payment-info-card', () => ({
+  StaffPaymentInfoCard: () => <div>payment-info-card</div>,
 }))
 
 function staff(overrides: Partial<ProfileResponse['staff']> = {}): ProfileResponse['staff'] {
@@ -50,6 +65,7 @@ function staff(overrides: Partial<ProfileResponse['staff']> = {}): ProfileRespon
     formSlug: null,
     autoSendUploadLink: false,
     defaultUploadLinkTemplateId: null,
+    paymentInfos: [],
     _count: { managedClients: 0 },
     isActive: true,
     deactivatedAt: null,
@@ -57,7 +73,17 @@ function staff(overrides: Partial<ProfileResponse['staff']> = {}): ProfileRespon
   }
 }
 
-function renderTabs(canArchive: boolean) {
+function renderTabs({
+  canArchive = false,
+  isOwnProfile = false,
+  canChangeRole = false,
+}: {
+  canArchive?: boolean
+  isOwnProfile?: boolean
+  canChangeRole?: boolean
+} = {}) {
+  mocks.profileFormProps = null
+
   return renderToStaticMarkup(
     <StaffProfileTabs
       staff={staff()}
@@ -65,9 +91,9 @@ function renderTabs(canArchive: boolean) {
       managedClients={[]}
       managedCount={0}
       canEdit
-      canChangeRole={false}
+      canChangeRole={canChangeRole}
       canManageTeam={canArchive}
-      isOwnProfile={false}
+      isOwnProfile={isOwnProfile}
       canArchive={canArchive}
       isArchived={false}
       onRoleChange={async () => undefined}
@@ -108,7 +134,7 @@ function invoice(overrides: Partial<StaffFileListItem> = {}): StaffFileListItem 
 
 describe('StaffProfileTabs', () => {
   it('renders profile tabs and overview danger zone for archive-capable admins', () => {
-    const markup = renderTabs(true)
+    const markup = renderTabs({ canArchive: true })
 
     expect(markup).toContain('profile.tabs.overview')
     expect(markup).toContain('profile.tabs.documents')
@@ -117,18 +143,35 @@ describe('StaffProfileTabs', () => {
     expect(markup).not.toContain('profile.tabs.admin')
     expect(markup).toContain('team.dangerZone')
     expect(markup).toContain('team.archiveMember')
+    expect(markup).toContain('payment-info-card')
   })
 
   it('hides overview danger zone when archive controls are not available', () => {
-    expect(renderTabs(false)).not.toContain('profile.tabs.admin')
-    expect(renderTabs(false)).not.toContain('team.dangerZone')
+    expect(renderTabs()).not.toContain('profile.tabs.admin')
+    expect(renderTabs()).not.toContain('team.dangerZone')
   })
 
   it('hides staff file tabs when viewer cannot access staff files', () => {
-    const markup = renderTabs(false)
+    const markup = renderTabs()
 
     expect(markup).not.toContain('profile.tabs.documents')
     expect(markup).not.toContain('profile.tabs.invoices')
+  })
+
+  it('renders signature setup only for the current user own profile', () => {
+    expect(renderTabs({ isOwnProfile: true })).toContain('signature-card')
+    expect(renderTabs({ isOwnProfile: false })).not.toContain('signature-card')
+  })
+
+  it('suppresses admin-only member controls for own profile', () => {
+    const markup = renderTabs({ canArchive: true, canChangeRole: true, isOwnProfile: true })
+
+    expect(markup).not.toContain('team.dangerZone')
+    expect(markup).not.toContain('team.archiveMember')
+    expect(mocks.profileFormProps).toMatchObject({
+      canChangeRole: false,
+      canManageContractorAgent: false,
+    })
   })
 })
 

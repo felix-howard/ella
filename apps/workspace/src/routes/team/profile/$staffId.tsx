@@ -3,6 +3,7 @@
  * Route: /team/profile/:staffId
  * Self = edit mode, Admin viewing others = read-only with role selector + archive
  */
+import { useEffect } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -15,13 +16,23 @@ import { api, type AppRole } from '../../../lib/api-client'
 import { toast } from '../../../stores/toast-store'
 import { useOrgRole } from '../../../hooks/use-org-role'
 
+const VALID_FOCUS = ['signature', 'title'] as const
+type ProfileFocus = (typeof VALID_FOCUS)[number]
+
 export const Route = createFileRoute('/team/profile/$staffId')({
+  validateSearch: (search: Record<string, unknown>): { focus?: ProfileFocus } => {
+    const focus = search.focus as string
+    return {
+      focus: VALID_FOCUS.includes(focus as ProfileFocus) ? (focus as ProfileFocus) : undefined,
+    }
+  },
   component: ProfilePage,
 })
 
 function ProfilePage() {
   const { t } = useTranslation()
   const { staffId } = Route.useParams()
+  const { focus } = Route.useSearch()
   const { canManageTeam, staffId: currentUserStaffId } = useOrgRole()
   const queryClient = useQueryClient()
 
@@ -46,6 +57,7 @@ function ProfilePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
       queryClient.invalidateQueries({ queryKey: ['team-members'] })
+      queryClient.invalidateQueries({ queryKey: ['assignable-staff'] })
     },
   })
 
@@ -56,6 +68,7 @@ function ProfilePage() {
       toast.success(t('team.archiveSuccess'))
       queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
       queryClient.invalidateQueries({ queryKey: ['team-members'] })
+      queryClient.invalidateQueries({ queryKey: ['assignable-staff'] })
     },
     onError: (error: Error) => {
       toast.error(error.message || t('team.archiveFailed'))
@@ -69,11 +82,32 @@ function ProfilePage() {
       toast.success(t('team.unarchiveSuccess'))
       queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
       queryClient.invalidateQueries({ queryKey: ['team-members'] })
+      queryClient.invalidateQueries({ queryKey: ['assignable-staff'] })
     },
     onError: (error: Error) => {
       toast.error(error.message || t('team.unarchiveFailed'))
     },
   })
+
+  const profileStaff = data?.staff
+  const isOwnProfile = Boolean(profileStaff && (profileStaff.id === currentUserStaffId || staffId === 'me'))
+
+  useEffect(() => {
+    if (!focus || !isOwnProfile) return
+
+    const id = window.requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-settings-focus="${focus}"]`)
+      if (!el) return
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      const ringClasses = ['ring-2', 'ring-primary', 'ring-offset-2']
+      el.classList.add(...ringClasses)
+      window.setTimeout(() => {
+        el.classList.remove(...ringClasses)
+      }, 2000)
+    })
+
+    return () => window.cancelAnimationFrame(id)
+  }, [focus, isOwnProfile])
 
   if (isLoading) {
     return (
@@ -104,10 +138,9 @@ function ProfilePage() {
   const { staff, managedClients, managedCount, canEdit } = data
 
   // Show role selector only if: admin, viewing other member, member is active
-  const canChangeRole = canManageTeam && staffId !== currentUserStaffId && staff.isActive
+  const canChangeRole = canManageTeam && !isOwnProfile && staff.isActive
   // Show archive/unarchive only if: admin, viewing other member
-  const canArchive = canManageTeam && staffId !== currentUserStaffId
-  const isOwnProfile = staff.id === currentUserStaffId || staffId === 'me'
+  const canArchive = canManageTeam && !isOwnProfile
   const isArchived = !staff.isActive
 
   return (

@@ -46,6 +46,14 @@ export interface ImageViewerProps {
   initialRotation?: 0 | 90 | 180 | 270
   /** Callback when rotation changes (to persist to DB) */
   onRotationChange?: (rotation: 0 | 90 | 180 | 270) => void
+  /** Controlled PDF page for mobile/react-pdf rendering */
+  pdfCurrentPage?: number
+  /** Callback when PDF page changes */
+  onPdfCurrentPageChange?: (page: number) => void
+  /** Callback when a PDF loads and reports page count */
+  onPdfLoadSuccess?: (numPages: number) => void
+  /** Render multi-page PDFs as a vertical document flow */
+  renderAllPdfPages?: boolean
 }
 
 // Zoom configuration
@@ -187,6 +195,10 @@ export function ImageViewer({
   showControls = true,
   initialRotation = 0,
   onRotationChange,
+  pdfCurrentPage,
+  onPdfCurrentPageChange,
+  onPdfLoadSuccess,
+  renderAllPdfPages = false,
 }: ImageViewerProps) {
   const { t } = useTranslation()
   // Platform detection (hooks must be at top level)
@@ -207,6 +219,32 @@ export function ImageViewer({
   const [error, setError] = useState<string | null>(null)
   const [pdfZoom, setPdfZoom] = useState(1)
   const [imageZoom, setImageZoom] = useState(1)
+
+  const activePdfPage = pdfCurrentPage ?? currentPage
+  const isPdfPageControlled = pdfCurrentPage !== undefined
+
+  const setActivePdfPage = useCallback(
+    (nextPage: number | ((page: number) => number)) => {
+      const nextRaw =
+        typeof nextPage === 'function' ? nextPage(activePdfPage) : nextPage
+      const nextClamped = Math.max(1, Math.min(numPages ?? nextRaw, nextRaw))
+
+      if (!isPdfPageControlled) {
+        setCurrentPage(nextClamped)
+      }
+      onPdfCurrentPageChange?.(nextClamped)
+    },
+    [activePdfPage, isPdfPageControlled, numPages, onPdfCurrentPageChange]
+  )
+
+  useEffect(() => {
+    setNumPages(null)
+    setError(null)
+    setPdfZoom(1)
+    if (!isPdfPageControlled) {
+      setCurrentPage(1)
+    }
+  }, [imageUrl, isPdfPageControlled])
 
   const handleRotate = useCallback(() => {
     setRotation((r) => {
@@ -229,10 +267,18 @@ export function ImageViewer({
     setPdfZoom(1)
   }, [])
 
-  const handlePdfLoadSuccess = useCallback((pages: number) => {
-    setNumPages(pages)
-    setError(null)
-  }, [])
+  const handlePdfLoadSuccess = useCallback(
+    (pages: number) => {
+      setNumPages(pages)
+      setError(null)
+      onPdfLoadSuccess?.(pages)
+
+      if (activePdfPage > pages) {
+        setActivePdfPage(pages)
+      }
+    },
+    [activePdfPage, onPdfLoadSuccess, setActivePdfPage]
+  )
 
   const handlePdfLoadError = useCallback(() => {
     setError(t('viewer.pdfLoadFileError'))
@@ -243,14 +289,14 @@ export function ImageViewer({
   }, [t])
 
   const handlePrevPage = useCallback(() => {
-    setCurrentPage((p) => Math.max(1, p - 1))
-  }, [])
+    setActivePdfPage((p) => p - 1)
+  }, [setActivePdfPage])
 
   const handleNextPage = useCallback(() => {
     if (numPages) {
-      setCurrentPage((p) => Math.min(numPages, p + 1))
+      setActivePdfPage((p) => p + 1)
     }
-  }, [numPages])
+  }, [numPages, setActivePdfPage])
 
   // Handle mouse wheel zoom for PDF (mobile only)
   const handlePdfWheel = useCallback(
@@ -365,11 +411,12 @@ export function ImageViewer({
                   fileUrl={imageUrl}
                   scale={pdfZoom}
                   rotation={rotation}
-                  currentPage={currentPage}
+                  currentPage={activePdfPage}
                   onLoadSuccess={handlePdfLoadSuccess}
                   onLoadError={handlePdfLoadError}
                   onPasswordRequired={handlePdfPasswordRequired}
                   fitToWidth
+                  renderAllPages={renderAllPdfPages}
                 />
               ) : (
                 <PdfViewerDesktop
@@ -384,7 +431,7 @@ export function ImageViewer({
         </div>
 
         {/* PDF page navigation - mobile only (desktop has native nav) */}
-        {useMobileViewer && numPages && numPages > 1 && showControls && (
+        {useMobileViewer && !renderAllPdfPages && numPages && numPages > 1 && showControls && (
           <div
             className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/70 rounded-full px-3 py-1.5 z-10"
             role="navigation"
@@ -392,7 +439,7 @@ export function ImageViewer({
           >
             <button
               onClick={handlePrevPage}
-              disabled={currentPage <= 1}
+              disabled={activePdfPage <= 1}
               className="p-1 rounded-full hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label={t('viewer.previousPage')}
             >
@@ -402,11 +449,11 @@ export function ImageViewer({
               className="text-white text-xs min-w-[4rem] text-center font-medium"
               aria-live="polite"
             >
-              {currentPage} / {numPages}
+              {activePdfPage} / {numPages}
             </span>
             <button
               onClick={handleNextPage}
-              disabled={currentPage >= numPages}
+              disabled={activePdfPage >= numPages}
               className="p-1 rounded-full hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label={t('viewer.nextPage')}
             >

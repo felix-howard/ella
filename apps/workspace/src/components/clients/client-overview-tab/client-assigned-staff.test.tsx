@@ -46,7 +46,7 @@ vi.mock('../../../hooks/use-org-role', () => ({
 vi.mock('../../../lib/api-client', () => ({
   api: {
     clients: { updateManagedBy: mocks.updateManagedBy },
-    team: { listMembers: vi.fn() },
+    staff: { listAssignable: vi.fn() },
   },
 }))
 

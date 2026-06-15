@@ -2,7 +2,7 @@
  * Hook to get current user's organization role from /staff/me
  * Returns orgRole ('org:admin' | 'org:member' | null), role booleans,
  * and semantic capability flags. Components should consume the capability
- * flags (canManageClients, canManagePayments, canViewPhone, canManageTeam) — never compare
+ * flags (canManageClients, canManagePayments, canViewPhone, canViewTeam, canManageTeam) — never compare
  * role string literals directly.
  */
 import { useQuery } from '@tanstack/react-query'
@@ -30,7 +30,9 @@ export function useOrgRole() {
     canManagePayments: isAdmin,
     /** Full client phone numbers — ADMIN only (mirrors server canViewFullPhone; server masks for others) */
     canViewPhone: isAdmin,
-    /** Team nav/page, invite, role change, archive — ADMIN only */
+    /** Team nav/page profile access — any active org staff record */
+    canViewTeam: Boolean(data?.id),
+    /** Team invite, role change, archive — ADMIN only */
     canManageTeam: isAdmin,
     isLoading,
     isError,

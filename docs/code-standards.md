@@ -89,13 +89,13 @@ app.use(requireOrgAdmin) // Verify org:admin role (Clerk)
 **Frontend Auth (React):**
 - `ClerkAuthProvider` - Wraps root, sets JWT token getter, clears React Query cache on sign-out
 - `useAutoOrgSelection()` - Auto-selects first Clerk org on sign-in
-- `useOrgRole()` - Returns capability flags: `{ isAdmin, isManager, canManageClients, canViewPhone, canManageTeam, ...role booleans }` for RBAC (Phase 4)
+- `useOrgRole()` - Returns capability flags: `{ isAdmin, isManager, canManageClients, canViewPhone, canViewTeam, canManageTeam, ...role booleans }` for RBAC (Phase 4)
 
 **Frontend Capability-Flag Convention (Phase 4 - MANAGER Role):**
 - **Pattern:** Components consume semantic capability flags from `useOrgRole()`, never compare role string literals (`org:admin`, `'ADMIN'`, etc.) for permission checks.
-- **Flags in Hook:** (1) `isManager` - Staff.role === 'MANAGER'. (2) `canManageClients` - isAdmin || isManager (mirrors server admin-or-manager gate). (3) `canManagePayments` - isAdmin only (payment pages, quotes, links, and payment history). (4) `canViewPhone` - isAdmin only (server masks via `serializePhone()`). (5) `canManageTeam` - isAdmin only.
+- **Flags in Hook:** (1) `isManager` - Staff.role === 'MANAGER'. (2) `canManageClients` - isAdmin || isManager (mirrors server admin-or-manager gate). (3) `canManagePayments` - isAdmin only (payment pages, quotes, links, and payment history). (4) `canViewPhone` - isAdmin only (server masks via `serializePhone()`). (5) `canViewTeam` - active org staff only. (6) `canManageTeam` - isAdmin only.
 - **Example Anti-Pattern (BAD):** `if (orgRole === 'org:admin' || role === 'ADMIN') { ... }` in components. Use capability flag instead.
-- **Example Good Pattern:** `if (canManageTeam) { <Team nav item /> }` in sidebar; `if (canManageClients) { <Leads nav item /> }`; `if (canManagePayments) { <Payments nav item /> }`.
+- **Example Good Pattern:** `if (canViewTeam) { <Team nav item /> }` in sidebar; `if (canManageTeam) { <InviteMemberDialog /> }`; `if (canManageClients) { <Leads nav item /> }`; `if (canManagePayments) { <Payments nav item /> }`.
 - **Phone Display Invariant:** `formatPhone()` passes server-masked values (containing '*') unchanged. Never strip or re-format masked values in UI; server masking via `serializePhone()` is authoritative source of truth.
 - **App-Level Roles (Phase 4):** `AppRole = 'ADMIN' | 'MANAGER' | 'MEMBER'` used in team invite/role-change payloads, mirrors backend `APP_ROLES` constant in `apps/api/src/lib/staff-role-mapping.ts`. Frontend mutates with AppRole; API returns Staff.role (database source of truth).
 

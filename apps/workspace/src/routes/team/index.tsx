@@ -1,13 +1,12 @@
 /**
- * Team Management Page - Admin-only page for managing org members and assignments
- * Route: /team (guarded by org:admin role check)
+ * Team page - admins manage org members; non-admin staff see their own profile row.
  */
 import { useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { UserPlus, Mail, Loader2, ShieldAlert } from 'lucide-react'
-import { Button, Badge, Switch } from '@ella/ui'
+import { UserPlus, Mail, Loader2 } from 'lucide-react'
+import { Badge, Switch } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { TeamMemberTable } from '../../components/team/team-member-table'
 import { InviteMemberDialog } from '../../components/team/invite-member-dialog'
@@ -21,8 +20,7 @@ export const Route = createFileRoute('/team/')({
 
 function TeamPage() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
-  const { canManageTeam, isLoading: isRoleLoading } = useOrgRole()
+  const { canManageTeam, canViewTeam, isLoading: isRoleLoading } = useOrgRole()
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
 
@@ -32,9 +30,9 @@ function TeamPage() {
     isLoading: isMembersLoading,
     isError,
   } = useQuery({
-    queryKey: ['team-members', { includeArchived: showArchived }],
-    queryFn: () => api.team.listMembers({ includeArchived: showArchived }),
-    enabled: canManageTeam,
+    queryKey: ['team-members', { includeArchived: canManageTeam && showArchived }],
+    queryFn: () => api.team.listMembers({ includeArchived: canManageTeam && showArchived }),
+    enabled: canViewTeam,
   })
 
   // Fetch pending invitations
@@ -59,16 +57,11 @@ function TeamPage() {
     )
   }
 
-  // Team management stays admin-only (MANAGER excluded)
-  if (!canManageTeam) {
+  if (!canViewTeam) {
     return (
       <PageContainer>
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <ShieldAlert className="w-12 h-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium text-foreground mb-2">{t('team.noAccess')}</h3>
-          <Button variant="outline" onClick={() => navigate({ to: '/' })} className="mt-4">
-            {t('nav.dashboard')}
-          </Button>
+        <div className="flex items-center justify-center py-16 text-center">
+          <h3 className="text-lg font-medium text-foreground">{t('team.noAccess')}</h3>
         </div>
       </PageContainer>
     )
@@ -84,27 +77,31 @@ function TeamPage() {
             <p className="text-sm text-muted-foreground">
               {t('team.members')} ({members.length})
             </p>
-            <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-              <Switch
-                checked={showArchived}
-                onCheckedChange={setShowArchived}
-                className="scale-75"
-              />
-              <span className="text-muted-foreground">{t('team.showArchived')}</span>
-            </label>
+            {canManageTeam && (
+              <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                <Switch
+                  checked={showArchived}
+                  onCheckedChange={setShowArchived}
+                  className="scale-75"
+                />
+                <span className="text-muted-foreground">{t('team.showArchived')}</span>
+              </label>
+            )}
           </div>
         </div>
-        <button
-          onClick={() => setIsInviteOpen(true)}
-          className="inline-flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-full font-medium hover:bg-primary-dark transition-colors shadow-sm"
-        >
-          <UserPlus className="w-4 h-4" />
-          {t('team.inviteMember')}
-        </button>
+        {canManageTeam && (
+          <button
+            onClick={() => setIsInviteOpen(true)}
+            className="inline-flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-full font-medium hover:bg-primary-dark transition-colors shadow-sm"
+          >
+            <UserPlus className="w-4 h-4" />
+            {t('team.inviteMember')}
+          </button>
+        )}
       </div>
 
       {/* Pending Invitations */}
-      {pendingInvitations.length > 0 && (
+      {canManageTeam && pendingInvitations.length > 0 && (
         <div className="bg-card rounded-xl shadow-sm border border-border/50 p-4 mb-6">
           <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
             <Mail className="w-4 h-4 text-muted-foreground" />
@@ -127,10 +124,12 @@ function TeamPage() {
       />
 
       {/* Invite Dialog */}
-      <InviteMemberDialog
-        isOpen={isInviteOpen}
-        onClose={() => setIsInviteOpen(false)}
-      />
+      {canManageTeam && (
+        <InviteMemberDialog
+          isOpen={isInviteOpen}
+          onClose={() => setIsInviteOpen(false)}
+        />
+      )}
     </PageContainer>
   )
 }

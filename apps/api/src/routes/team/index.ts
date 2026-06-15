@@ -21,6 +21,9 @@ import {
   updateNotificationSubscriptionsSchema,
   avatarPresignedUrlSchema,
   avatarConfirmSchema,
+  staffPaymentCountryParamSchema,
+  upsertStaffPaymentInfoBodySchema,
+  upsertStaffPaymentInfoSchema,
 } from './schemas'
 import {
   getSignedUploadUrl,
@@ -32,13 +35,30 @@ import { serializePhone } from '../../lib/phone-privacy'
 import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 import { staffFilesRoute } from './staff-files'
+import { decryptSSN as decryptSensitiveValue, encryptSSN as encryptSensitiveValue } from '../../services/crypto'
 
 const teamRoute = new Hono<{ Variables: AuthVariables }>()
 const NOTIFICATION_SUBSCRIPTION_ACTIVITY_WINDOW_MS = 10 * 60 * 1000
+type StaffPaymentCountryCode = 'US' | 'VN' | 'PH'
+
+type StaffPaymentInfoSummaryRecord = {
+  country: StaffPaymentCountryCode
+  nameOnAccount: string
+  bankName: string
+  accountNumberEncrypted: string
+  accountNumberLast4: string
+  routingNumberEncrypted: string | null
+  routingNumberLast4: string | null
+  updatedAt: Date
+}
 
 /** Check if requester can edit target staff (self or org admin) */
 function canEditStaff(user: { staffId: string | null; orgRole: string | null }, targetStaffId: string): boolean {
-  return targetStaffId === user.staffId || user.orgRole === 'org:admin'
+  return targetStaffId === user.staffId || isOrgAdmin(user)
+}
+
+function isOrgAdmin(user: { orgRole: string | null; role?: string | null }): boolean {
+  return user.orgRole === 'org:admin' || user.role === 'ADMIN'
 }
 
 async function logTeamMemberActivity(
@@ -72,6 +92,23 @@ async function logTeamMemberActivity(
   })
 }
 
+function serializeStaffPaymentInfo(info: StaffPaymentInfoSummaryRecord) {
+  return {
+    country: info.country,
+    nameOnAccount: info.nameOnAccount,
+    bankName: info.bankName,
+    accountNumber: decryptSensitiveValue(info.accountNumberEncrypted),
+    accountNumberLast4: info.accountNumberLast4,
+    routingNumber: info.routingNumberEncrypted ? decryptSensitiveValue(info.routingNumberEncrypted) : null,
+    routingNumberLast4: info.routingNumberLast4,
+    updatedAt: info.updatedAt.toISOString(),
+  }
+}
+
+function last4(value: string): string {
+  return value.slice(-4)
+}
+
 // All team routes require active org
 teamRoute.use('*', requireOrg)
 teamRoute.route('/', staffFilesRoute)
@@ -80,11 +117,20 @@ teamRoute.route('/', staffFilesRoute)
 teamRoute.get('/members', async (c) => {
   const user = c.get('user')
   const includeArchived = c.req.query('includeArchived') === 'true'
+  const isAdmin = isOrgAdmin(user)
+
+  if (!isAdmin && !user.staffId) {
+    return c.json({ error: 'Staff ID required' }, 400)
+  }
+
+  const visibilityFilter = isAdmin
+    ? includeArchived ? {} : { isActive: true }
+    : { id: user.staffId!, isActive: true }
 
   const members = await prisma.staff.findMany({
     where: {
       organizationId: user.organizationId,
-      ...(includeArchived ? {} : { isActive: true }),
+      ...visibilityFilter,
     },
     select: {
       id: true,
@@ -536,6 +582,10 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
     return c.json({ error: 'Staff ID required' }, 400)
   }
 
+  if (!isOrgAdmin(user) && targetStaffId !== user.staffId) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+
   // Verify staff belongs to same org (allow viewing archived profiles)
   const staff = await prisma.staff.findFirst({
     where: {
@@ -560,6 +610,19 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
       defaultUploadLinkTemplateId: true,
       isActive: true,
       deactivatedAt: true,
+      paymentInfos: {
+        select: {
+          country: true,
+          nameOnAccount: true,
+          bankName: true,
+          accountNumberEncrypted: true,
+          accountNumberLast4: true,
+          routingNumberEncrypted: true,
+          routingNumberLast4: true,
+          updatedAt: true,
+        },
+        orderBy: { updatedAt: 'desc' },
+      },
       _count: { select: { managedClientLinks: true } },
     },
   })
@@ -601,6 +664,7 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
       firstName,
       lastName,
       avatarUrl: await resolveAvatarUrl(staff.avatarUrl),
+      paymentInfos: staff.paymentInfos.map(serializeStaffPaymentInfo),
     },
     managedClients: managedClientsList,
     managedCount: managedCount,
@@ -736,6 +800,192 @@ teamRoute.patch(
     })
 
     return c.json({ success: true, staff: { ...updated, avatarUrl: await resolveAvatarUrl(updated.avatarUrl) } })
+  }
+)
+
+// PUT /team/members/:staffId/payment-info/:country - Upsert staff payment info (self or admin)
+teamRoute.put(
+  '/members/:staffId/payment-info/:country',
+  zValidator('param', staffPaymentCountryParamSchema),
+  zValidator('json', upsertStaffPaymentInfoBodySchema),
+  async (c) => {
+    const user = c.get('user')
+    const staffId = c.req.param('staffId')
+    const targetStaffId = staffId === 'me' ? user.staffId : staffId
+    const country = c.req.valid('param').country
+    const body = c.req.valid('json')
+
+    if (!targetStaffId) {
+      return c.json({ error: 'Staff ID required' }, 400)
+    }
+
+    const organizationId = user.organizationId
+    if (!organizationId) {
+      return c.json({ error: 'Organization required' }, 400)
+    }
+
+    if (!canEditStaff(user, targetStaffId)) {
+      await logTeamMemberActivity(c, user, targetStaffId, {
+        summary: 'Denied staff payment info update attempt',
+        action: ACTIVITY_ACTIONS.TEAM.PAYMENT_INFO_UPDATED,
+        riskLevel: ActivityRiskLevel.HIGH,
+        metadata: {
+          result: 'denied',
+          reason: 'forbidden_payment_info_update',
+          changedCountry: country,
+        },
+      })
+      return c.json({ error: 'Forbidden' }, 403)
+    }
+
+    const parsed = upsertStaffPaymentInfoSchema.safeParse({ ...body, country })
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid payment info', details: parsed.error.flatten() }, 400)
+    }
+
+    const staff = await prisma.staff.findFirst({
+      where: {
+        id: targetStaffId,
+        organizationId,
+        isActive: true,
+      },
+      select: { id: true },
+    })
+
+    if (!staff) {
+      return c.json({ error: 'Staff not found' }, 404)
+    }
+
+    const input = parsed.data
+    const routingNumber = input.country === 'US' ? input.routingNumber! : null
+    const accountNumberEncrypted = encryptSensitiveValue(input.accountNumber)
+    const routingNumberEncrypted = routingNumber ? encryptSensitiveValue(routingNumber) : null
+    const paymentInfo = await prisma.staffPaymentInfo.upsert({
+      where: {
+        staffId_country: {
+          staffId: targetStaffId,
+          country: input.country,
+        },
+      },
+      create: {
+        organizationId,
+        staffId: targetStaffId,
+        country: input.country,
+        nameOnAccount: input.nameOnAccount,
+        bankName: input.bankName,
+        accountNumberEncrypted,
+        accountNumberLast4: last4(input.accountNumber),
+        routingNumberEncrypted,
+        routingNumberLast4: routingNumber ? last4(routingNumber) : null,
+        updatedByStaffId: user.staffId,
+      },
+      update: {
+        nameOnAccount: input.nameOnAccount,
+        bankName: input.bankName,
+        accountNumberEncrypted,
+        accountNumberLast4: last4(input.accountNumber),
+        routingNumberEncrypted,
+        routingNumberLast4: routingNumber ? last4(routingNumber) : null,
+        updatedByStaffId: user.staffId,
+      },
+      select: {
+        country: true,
+        nameOnAccount: true,
+        bankName: true,
+        accountNumberEncrypted: true,
+        accountNumberLast4: true,
+        routingNumberEncrypted: true,
+        routingNumberLast4: true,
+        updatedAt: true,
+      },
+    })
+
+    await logTeamMemberActivity(c, user, targetStaffId, {
+      summary: 'Updated staff payment info',
+      action: ACTIVITY_ACTIONS.TEAM.PAYMENT_INFO_UPDATED,
+      riskLevel: ActivityRiskLevel.MEDIUM,
+      metadata: {
+        changedCountry: input.country,
+        changedFields: [
+          'nameOnAccount',
+          'bankName',
+          'accountNumber',
+          ...(routingNumber ? ['routingNumber'] : []),
+        ],
+        editedSelf: targetStaffId === user.staffId,
+      },
+    })
+
+    return c.json({ success: true, paymentInfo: serializeStaffPaymentInfo(paymentInfo) })
+  }
+)
+
+// DELETE /team/members/:staffId/payment-info/:country - Clear staff payment info (self or admin)
+teamRoute.delete(
+  '/members/:staffId/payment-info/:country',
+  zValidator('param', staffPaymentCountryParamSchema),
+  async (c) => {
+    const user = c.get('user')
+    const staffId = c.req.param('staffId')
+    const targetStaffId = staffId === 'me' ? user.staffId : staffId
+    const country = c.req.valid('param').country
+
+    if (!targetStaffId) {
+      return c.json({ error: 'Staff ID required' }, 400)
+    }
+
+    const organizationId = user.organizationId
+    if (!organizationId) {
+      return c.json({ error: 'Organization required' }, 400)
+    }
+
+    if (!canEditStaff(user, targetStaffId)) {
+      await logTeamMemberActivity(c, user, targetStaffId, {
+        summary: 'Denied staff payment info clear attempt',
+        action: ACTIVITY_ACTIONS.TEAM.PAYMENT_INFO_CLEARED,
+        riskLevel: ActivityRiskLevel.HIGH,
+        metadata: {
+          result: 'denied',
+          reason: 'forbidden_payment_info_clear',
+          changedCountry: country,
+        },
+      })
+      return c.json({ error: 'Forbidden' }, 403)
+    }
+
+    const staff = await prisma.staff.findFirst({
+      where: {
+        id: targetStaffId,
+        organizationId,
+        isActive: true,
+      },
+      select: { id: true },
+    })
+
+    if (!staff) {
+      return c.json({ error: 'Staff not found' }, 404)
+    }
+
+    const deleted = await prisma.staffPaymentInfo.deleteMany({
+      where: {
+        organizationId,
+        staffId: targetStaffId,
+        country,
+      },
+    })
+
+    await logTeamMemberActivity(c, user, targetStaffId, {
+      summary: 'Cleared staff payment info',
+      action: ACTIVITY_ACTIONS.TEAM.PAYMENT_INFO_CLEARED,
+      riskLevel: ActivityRiskLevel.MEDIUM,
+      metadata: {
+        changedCountry: country,
+        changedFields: deleted.count > 0 ? ['paymentInfo'] : [],
+        editedSelf: targetStaffId === user.staffId,
+      },
+    })
+
+    return c.json({ success: true, country, deleted: deleted.count > 0 })
   }
 )
 

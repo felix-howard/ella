@@ -1,15 +1,14 @@
 /**
- * Settings Page - Tabbed layout with General, Profile, Notifications, and Form Links
+ * Settings Page - Tabbed layout with General, Notifications, and Form Links
  * Uses URL search params for tab state so tabs are bookmarkable
  */
 import { useEffect } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Settings, User, Bell, Link as LinkIcon, FileSignature } from 'lucide-react'
+import { Settings, Bell, Link as LinkIcon, FileSignature } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ella/ui'
 import { PageContainer } from '../components/layout'
 import { SettingsGeneralTab } from '../components/settings/settings-general-tab'
-import { SettingsProfileTab } from '../components/settings/settings-profile-tab'
 import { SettingsNotificationsTab } from '../components/settings/settings-notifications-tab'
 import { SettingsFormLinksTab } from '../components/settings/settings-form-links-tab'
 import { SettingsAgreementTemplatesTab } from '../components/settings/settings-agreement-templates-tab'
@@ -17,21 +16,19 @@ import { useOrgRole } from '../hooks/use-org-role'
 
 type SettingsTab =
   | 'general'
-  | 'profile'
   | 'notifications'
   | 'form-links'
   | 'agreement-templates'
 
 const VALID_TABS: SettingsTab[] = [
   'general',
-  'profile',
   'notifications',
   'form-links',
   'agreement-templates',
 ]
 
 /** Section ids that the NDA wizard's "Set up" deep links target. */
-const VALID_FOCUS = ['signature', 'title', 'firm-info'] as const
+const VALID_FOCUS = ['firm-info'] as const
 type SettingsFocus = (typeof VALID_FOCUS)[number]
 
 export const Route = createFileRoute('/settings')({
@@ -90,10 +87,6 @@ function SettingsPage() {
               <Settings className="w-4 h-4" />
               {t('settings.tabGeneral')}
             </TabsTrigger>
-            <TabsTrigger value="profile" className="flex items-center gap-2">
-              <User className="w-4 h-4" />
-              {t('settings.tabProfile')}
-            </TabsTrigger>
             <TabsTrigger value="notifications" className="flex items-center gap-2">
               <Bell className="w-4 h-4" />
               {t('settings.tabNotifications')}
@@ -112,10 +105,6 @@ function SettingsPage() {
 
           <TabsContent value="general">
             <SettingsGeneralTab />
-          </TabsContent>
-
-          <TabsContent value="profile">
-            <SettingsProfileTab />
           </TabsContent>
 
           <TabsContent value="notifications">

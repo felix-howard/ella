@@ -35,8 +35,8 @@ function ClientListPage() {
 
   // Fetch team members for "Managed By" dropdown (admin/manager only)
   const { data: teamData } = useQuery({
-    queryKey: ['team-members'],
-    queryFn: () => api.team.listMembers(),
+    queryKey: ['assignable-staff'],
+    queryFn: () => api.staff.listAssignable(),
     enabled: canManageClients,
     staleTime: 60000,
   })
@@ -88,7 +88,7 @@ function ClientListPage() {
     const members = teamData?.data ?? []
     const opts = []
     if (staffId) opts.push({ value: staffId, label: t('clients.me') })
-    for (const m of members.filter(m => m.id !== staffId && m.isActive)) {
+    for (const m of members.filter(m => m.id !== staffId)) {
       opts.push({ value: m.id, label: m.name })
     }
     return opts

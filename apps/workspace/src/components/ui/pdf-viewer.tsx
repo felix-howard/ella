@@ -55,6 +55,16 @@ export default function PdfViewer({
   const [loadedNumPages, setLoadedNumPages] = useState<number | null>(null)
   const hasCalculatedFit = useRef(false)
 
+  // Reset PDF rendering state when a different signed URL is loaded.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    hasCalculatedFit.current = false
+    setFitScale(1)
+    setIsCalculatingFit(fitToWidth)
+    setLoadedNumPages(null)
+  }, [fileUrl, fitToWidth])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   // Track container width via ref (avoids race condition)
   useEffect(() => {
     passwordBlockedRef.current = false
@@ -137,6 +147,22 @@ export default function PdfViewer({
       ? Array.from({ length: loadedNumPages }, (_, index) => index + 1)
       : [currentPage]
 
+  useEffect(() => {
+    if (!renderAllPages || !loadedNumPages) return
+
+    const pageElement = containerRef.current?.querySelector<HTMLElement>(
+      `[data-pdf-page="${currentPage}"]`
+    )
+    const scrollContainer = containerRef.current?.parentElement
+
+    if (!pageElement || !scrollContainer) return
+
+    scrollContainer.scrollTo({
+      top: pageElement.offsetTop,
+      behavior: 'smooth',
+    })
+  }, [currentPage, loadedNumPages, renderAllPages])
+
   return (
     <div ref={containerRef} className="w-full h-full relative">
       <Document
@@ -149,23 +175,24 @@ export default function PdfViewer({
             <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
           </div>
         }
-        className={renderAllPages ? 'inline-flex flex-col items-center gap-4 pb-4' : 'inline-block'}
+        className={renderAllPages ? 'inline-flex flex-col items-center gap-4 pb-24' : 'inline-block'}
       >
         {pagesToRender.map((pageNumber) => (
-          <Page
-            key={pageNumber}
-            pageNumber={pageNumber}
-            scale={renderScale}
-            rotate={rotation}
-            renderTextLayer={false}
-            renderAnnotationLayer={false}
-            className="shadow-md bg-white"
-            onRenderSuccess={pageNumber === 1 ? handlePageRenderSuccess : undefined}
-            loading={
-              // Responsive skeleton for mobile
-              <div className="w-full aspect-[8.5/11] max-w-[400px] bg-muted animate-pulse rounded" />
-            }
-          />
+          <div key={pageNumber} data-pdf-page={pageNumber}>
+            <Page
+              pageNumber={pageNumber}
+              scale={renderScale}
+              rotate={rotation}
+              renderTextLayer={false}
+              renderAnnotationLayer={false}
+              className="shadow-md bg-white"
+              onRenderSuccess={pageNumber === 1 ? handlePageRenderSuccess : undefined}
+              loading={
+                // Responsive skeleton for mobile
+                <div className="w-full aspect-[8.5/11] max-w-[400px] bg-muted animate-pulse rounded" />
+              }
+            />
+          </div>
         ))}
       </Document>
       {/* Show loading overlay while calculating fit scale */}

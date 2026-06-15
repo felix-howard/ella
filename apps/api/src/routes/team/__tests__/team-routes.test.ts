@@ -105,7 +105,7 @@ import type { AuthVariables } from '../../../middleware/auth'
 import { teamRoute } from '../index'
 
 // Helper: create test app with user context
-function createApp(user = defaultUser()) {
+function createApp(user: AuthVariables['user'] = defaultUser()) {
   const app = new Hono<{ Variables: AuthVariables }>()
   app.use('*', async (c, next) => {
     c.set('user', user)
@@ -115,7 +115,7 @@ function createApp(user = defaultUser()) {
   return app
 }
 
-function defaultUser() {
+function defaultUser(): AuthVariables['user'] {
   return {
     id: 'clerk_user_1',
     staffId: 'staff_1',
@@ -128,13 +128,26 @@ function defaultUser() {
   }
 }
 
-function memberUser() {
+function memberUser(): AuthVariables['user'] {
   return {
     id: 'clerk_user_2',
     staffId: 'staff_2',
     email: 'member@test.com',
     name: 'Member',
     role: 'STAFF',
+    organizationId: 'org_db_1',
+    clerkOrgId: 'org_clerk_1',
+    orgRole: 'org:member',
+  }
+}
+
+function managerUser(): AuthVariables['user'] {
+  return {
+    id: 'clerk_user_3',
+    staffId: 'staff_3',
+    email: 'manager@test.com',
+    name: 'Manager',
+    role: 'MANAGER',
     organizationId: 'org_db_1',
     clerkOrgId: 'org_clerk_1',
     orgRole: 'org:member',
@@ -198,6 +211,60 @@ describe('Team Routes', () => {
           }),
         })
       )
+    })
+
+    it('allows admin to include archived staff', async () => {
+      vi.mocked(prisma.staff.findMany).mockResolvedValueOnce([] as never)
+
+      const app = createApp()
+      const res = await app.request('/team/members?includeArchived=true')
+
+      expect(res.status).toBe(200)
+      expect(vi.mocked(prisma.staff.findMany)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { organizationId: 'org_db_1' },
+        })
+      )
+    })
+
+    it('returns only self for non-admin users and ignores archived query', async () => {
+      const mockMembers = [
+        {
+          id: 'staff_3',
+          clerkId: 'clerk_user_3',
+          email: 'manager@test.com',
+          name: 'Manager',
+          role: 'MANAGER',
+          avatarUrl: null,
+          lastLoginAt: null,
+          isActive: true,
+          isContractorAgent: false,
+          formSlug: null,
+          _count: { managedClientLinks: 4 },
+        },
+      ]
+      vi.mocked(prisma.staff.findMany).mockResolvedValueOnce(mockMembers as never)
+
+      const app = createApp(managerUser())
+      const res = await app.request('/team/members?includeArchived=true')
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.data).toHaveLength(1)
+      expect(body.data[0]).toEqual(expect.objectContaining({ id: 'staff_3' }))
+      expect(vi.mocked(prisma.staff.findMany)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { organizationId: 'org_db_1', id: 'staff_3', isActive: true },
+        })
+      )
+    })
+
+    it('returns 400 for non-admin list access without staff id', async () => {
+      const app = createApp({ ...memberUser(), staffId: null })
+      const res = await app.request('/team/members')
+
+      expect(res.status).toBe(400)
+      expect(vi.mocked(prisma.staff.findMany)).not.toHaveBeenCalled()
     })
   })
 
@@ -522,6 +589,7 @@ describe('Team Routes', () => {
       notifyOnChat: false, title: null, formSlug: null, autoSendUploadLink: false,
       defaultUploadLinkTemplateId: null, deactivatedAt: null, isContractorAgent: true,
       organizationId: 'org_db_1', isActive: true, clerkId: 'c2',
+      paymentInfos: [],
       _count: { managedClientLinks: 2 },
     }
 
@@ -563,17 +631,40 @@ describe('Team Routes', () => {
       })
     })
 
-    it('GET profile returns canEdit=false for non-admin viewing another member', async () => {
-      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(targetStaff as never)
-      vi.mocked(prisma.client.findMany).mockResolvedValueOnce([] as never)
-
+    it('GET profile returns 403 for non-admin viewing another member', async () => {
       const app = createApp(memberUser())
       // Member user (staff_2) trying to view another member's profile (staff_2 -> staff_2 is self, so use staff_1)
       const res = await app.request('/team/members/staff_1/profile')
 
+      expect(res.status).toBe(403)
+      expect(vi.mocked(prisma.staff.findFirst)).not.toHaveBeenCalled()
+      expect(vi.mocked(prisma.client.findMany)).not.toHaveBeenCalled()
+    })
+
+    it('GET profile allows non-admin viewing self by me', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({ ...targetStaff, id: 'staff_2' } as never)
+      vi.mocked(prisma.client.findMany).mockResolvedValueOnce([] as never)
+
+      const app = createApp(memberUser())
+      const res = await app.request('/team/members/me/profile')
+
       expect(res.status).toBe(200)
       const body = await res.json()
-      expect(body.canEdit).toBe(false)
+      expect(body.canEdit).toBe(true)
+      expect(body.staff.id).toBe('staff_2')
+    })
+
+    it('GET profile allows non-admin viewing self by staff id', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({ ...targetStaff, id: 'staff_2' } as never)
+      vi.mocked(prisma.client.findMany).mockResolvedValueOnce([] as never)
+
+      const app = createApp(memberUser())
+      const res = await app.request('/team/members/staff_2/profile')
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.canEdit).toBe(true)
+      expect(body.staff.id).toBe('staff_2')
     })
 
     it('PATCH profile allows admin to edit another member', async () => {

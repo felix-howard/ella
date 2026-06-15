@@ -434,6 +434,12 @@ enum StaffInvoiceStatus {
   REJECTED
 }
 
+enum StaffPaymentCountry {
+  US
+  VN
+  PH
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -495,6 +501,8 @@ model Staff {
   uploadedStaffFiles             StaffFile[]                     @relation("UploadedStaffFiles")
   reviewedStaffFiles             StaffFile[]                     @relation("ReviewedStaffFiles")
   deletedStaffFiles              StaffFile[]                     @relation("DeletedStaffFiles")
+  paymentInfos                   StaffPaymentInfo[]              @relation("StaffPaymentInfos")
+  updatedPaymentInfos            StaffPaymentInfo[]              @relation("UpdatedStaffPaymentInfos")
   sentSmsLogs                    SmsSendLog[]                    @relation("SentSmsLogs")
   createdCampaigns               Campaign[]                      @relation("CreatedCampaigns")
   agreementsCreated              Agreement[]                     @relation("AgreementCreatedBy")
@@ -553,6 +561,29 @@ model StaffFile {
   @@unique([id, organizationId])
   @@index([organizationId, staffId, kind])
   @@index([organizationId, kind, invoiceYear, invoiceMonth])
+}
+
+model StaffPaymentInfo {
+  id                     String              @id @default(cuid())
+  organizationId         String
+  organization           Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staffId                String
+  staff                  Staff               @relation("StaffPaymentInfos", fields: [staffId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  country                StaffPaymentCountry
+  nameOnAccount          String
+  bankName               String
+  accountNumberEncrypted String
+  accountNumberLast4     String
+  routingNumberEncrypted String?
+  routingNumberLast4     String?
+  updatedByStaffId       String?
+  updatedBy              Staff?              @relation("UpdatedStaffPaymentInfos", fields: [updatedByStaffId], references: [id], onDelete: SetNull)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  @@unique([staffId, country])
+  @@unique([id, organizationId])
+  @@index([organizationId, staffId])
 }
 
 // Staff presence tracking for inbound call routing
@@ -658,6 +689,7 @@ model Organization {
 
   staff                          Staff[]
   staffFiles                     StaffFile[]
+  staffPaymentInfos              StaffPaymentInfo[]
   clients                        Client[]
   clientManagers                 ClientManager[]
   clientGroups                   ClientGroup[]

@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
 > **Last Updated:** 2026-06-14 ICT
-> **Current Phase:** Staff Documents, Invoices, and Profile Tabs COMPLETE ✅ | Payment Templates COMPLETE ✅ | Client/Case MMS Image Attachments COMPLETE ✅ | Multi-Staff Client Management COMPLETE ✅ | Workspace Pricing Calculator Payment Links COMPLETE ✅ | Stripe Checkout Validation Phase 05 COMPLETE ✅ | Landing Polish COMPLETE ✅ | Landing Pricing Restore COMPLETE ✅ | Landing Reposition Phase 06 COMPLETE ✅ | English-First i18n Hardcode Removal COMPLETE ✅ | Comprehensive User Activity Log COMPLETE ✅ | Operational Filed Retention Workflow COMPLETE ✅ | Upload Portal Security Hardening COMPLETE ✅ | Tax Advisory Presentation Landing COMPLETE ✅ | Contractor Agent Agreement Phase 06 COMPLETE ✅ | Upload Link Message Template Selection COMPLETE ✅ | Campaign Form Intro Landing Content COMPLETE ✅ | Individual Schedule C Activity COMPLETE ✅ | Edit & Send Modal Service Builder COMPLETE ✅ | Engagement Letter Placeholder Fields COMPLETE ✅ | Shared Docs Actions Rework COMPLETE (All 5 Phases) ✅ | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL SUPERSEDED BY SECURITY HARDENING | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Staff Documents, Invoices, and Profile Tabs COMPLETE (5 of 5 phases, validation/docs synced) ✅ + Payment Templates COMPLETE (5 of 5 phases, docs synced) ✅ + Client/Case MMS Image Attachments COMPLETE (3 of 3 phases, automated validation done; real Twilio/R2 browser QA pending configured env) ✅ + Multi-Staff Client Management COMPLETE (5 of 5 phases, 100% done) ✅ + Workspace Pricing Calculator Payment Links COMPLETE (4 of 4 phases, 100% done) ✅ + Stripe Checkout Payments COMPLETE (Phase 05 local E2E completed on 2026-06-01) ✅ + Landing Polish COMPLETE (5 of 5 phases, 100% done) ✅ + Landing Reposition Phase 06 COMPLETE (6 of 6 phases, 100% done) ✅ + English-First i18n Hardcode Removal COMPLETE (6 of 6 phases, 100% done) ✅ + Comprehensive User Activity Log COMPLETE (5 of 5 phases, 100% done) ✅ + Operational Filed Retention Workflow COMPLETE (4 of 4 phases, 100% done) ✅ + Upload Portal Security Hardening COMPLETE (10 phases, 100% done) ✅ + Tax Advisory Presentation Landing COMPLETE (3 phases, 100% done) ✅ + Contractor Agent Agreement Phase 06 COMPLETE (6 of 6 phases done; migration applied/status clean) ✅ + Upload Link Message Template Selection COMPLETE (4 phases, 100% done) ✅ + Campaign Form Intro Landing Content COMPLETE (single-phase conversion UX enhancement, 100% done) ✅ + Individual Schedule C Activity COMPLETE (5 phases, 100% done) ✅ + Edit & Send Modal Service Builder COMPLETE (single-phase UX enhancement, 100% done) ✅ + Engagement Letter Placeholder Fields COMPLETE (single-phase UX enhancement, 100% done) ✅ + Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Current Phase:** Self Team Profile Access COMPLETE ✅ | Staff Documents, Invoices, and Profile Tabs COMPLETE ✅ | Payment Templates COMPLETE ✅ | Client/Case MMS Image Attachments COMPLETE ✅ | Multi-Staff Client Management COMPLETE ✅ | Workspace Pricing Calculator Payment Links COMPLETE ✅ | Stripe Checkout Validation Phase 05 COMPLETE ✅ | Landing Polish COMPLETE ✅ | Landing Pricing Restore COMPLETE ✅ | Landing Reposition Phase 06 COMPLETE ✅ | English-First i18n Hardcode Removal COMPLETE ✅ | Comprehensive User Activity Log COMPLETE ✅ | Operational Filed Retention Workflow COMPLETE ✅ | Upload Portal Security Hardening COMPLETE ✅ | Tax Advisory Presentation Landing COMPLETE ✅ | Contractor Agent Agreement Phase 06 COMPLETE ✅ | Upload Link Message Template Selection COMPLETE ✅ | Campaign Form Intro Landing Content COMPLETE ✅ | Individual Schedule C Activity COMPLETE ✅ | Edit & Send Modal Service Builder COMPLETE ✅ | Engagement Letter Placeholder Fields COMPLETE ✅ | Shared Docs Actions Rework COMPLETE (All 5 Phases) ✅ | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL SUPERSEDED BY SECURITY HARDENING | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Self Team Profile Access COMPLETE (4 of 4 phases, validation/docs synced) ✅ + Staff Documents, Invoices, and Profile Tabs COMPLETE (5 of 5 phases, validation/docs synced) ✅ + Payment Templates COMPLETE (5 of 5 phases, docs synced) ✅ + Client/Case MMS Image Attachments COMPLETE (3 of 3 phases, automated validation done; real Twilio/R2 browser QA pending configured env) ✅ + Multi-Staff Client Management COMPLETE (5 of 5 phases, 100% done) ✅ + Workspace Pricing Calculator Payment Links COMPLETE (4 of 4 phases, 100% done) ✅ + Stripe Checkout Payments COMPLETE (Phase 05 local E2E completed on 2026-06-01) ✅ + Landing Polish COMPLETE (5 of 5 phases, 100% done) ✅ + Landing Reposition Phase 06 COMPLETE (6 of 6 phases, 100% done) ✅ + English-First i18n Hardcode Removal COMPLETE (6 of 6 phases, 100% done) ✅ + Comprehensive User Activity Log COMPLETE (5 of 5 phases, 100% done) ✅ + Operational Filed Retention Workflow COMPLETE (4 of 4 phases, 100% done) ✅ + Upload Portal Security Hardening COMPLETE (10 phases, 100% done) ✅ + Tax Advisory Presentation Landing COMPLETE (3 phases, 100% done) ✅ + Contractor Agent Agreement Phase 06 COMPLETE (6 of 6 phases done; migration applied/status clean) ✅ + Upload Link Message Template Selection COMPLETE (4 phases, 100% done) ✅ + Campaign Form Intro Landing Content COMPLETE (single-phase conversion UX enhancement, 100% done) ✅ + Individual Schedule C Activity COMPLETE (5 phases, 100% done) ✅ + Edit & Send Modal Service Builder COMPLETE (single-phase UX enhancement, 100% done) ✅ + Engagement Letter Placeholder Fields COMPLETE (single-phase UX enhancement, 100% done) ✅ + Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
 
 ### Payment Templates Release ✅
 **Started:** 2026-06-12
@@ -19,6 +19,27 @@
 **Validation:**
 - Docs sync only.
 
+### Self Team Profile Access ✅
+**Started:** 2026-06-14
+**Completed:** 2026-06-14
+**Status:** COMPLETE
+**Objective:** Let non-admin staff open Team for their own profile while preserving admin-only team management.
+
+**Delivered:**
+- `/team` sidebar/page access now uses `canViewTeam` for active org staff.
+- Non-admin Team list/profile access is self-only; cross-member profile reads return `403`.
+- Sidebar avatar and profile setup links route to Team profile detail.
+- Settings no longer exposes a separate Profile tab.
+- `/staff/assignable` backs admin/manager staff selector workflows outside the self-scoped Team list.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/team/__tests__/team-routes.test.ts src/routes/__tests__/manager-role-authorization.test.ts` pass, 51 tests
+- `pnpm -F @ella/workspace test -- src/components/layout/__tests__/sidebar-nav-items.test.ts src/components/profile/__tests__/profile-tabs.test.tsx` pass, 10 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass
+- `pnpm type-check` pass
+
 ### Staff Documents, Invoices, and Profile Tabs ✅
 **Started:** 2026-06-14
 **Completed:** 2026-06-14
@@ -29,7 +50,7 @@
 - Added `StaffFile` Prisma model, tenant-safe constraints, and R2 key redaction under `staff-files/{org}/{staff}/...`.
 - Added owner/admin staff-file APIs for presigned upload, metadata-verified confirmation, list, download URL, soft delete, and admin invoice status updates.
 - Enforced one active invoice per staff/month, retained replacement history, and blocked staff deletion/replacement of paid invoices.
-- Added workspace profile tabs for Overview, Documents, Invoices, Form Link, and Admin.
+- Added workspace profile tabs for Overview, Documents, Invoices, and Form Link, with admin controls kept inside Overview.
 - Added document/invoice upload, list, download, delete, invoice history, and admin invoice status UI.
 
 **Validation:**
@@ -1779,10 +1800,10 @@ Ella is a tax document management platform designed to help Vietnamese CPAs redu
 - **Phase 1:** Prisma migration: Added `phoneNumber String?` field to Staff model with E.164 format validation
 - **Phase 2:** 4 endpoints implemented:
   - `GET /team/members/:staffId/profile` - Fetch profile + assigned clients, canEdit flag
-  - `PATCH /team/members/:staffId/profile` - Update name/phone (self-only)
+  - `PATCH /team/members/:staffId/profile` - Update name/phone/title/preferences (self or admin)
   - `POST /team/members/:staffId/avatar/presigned-url` - Generate R2 PUT URL for browser upload
   - `PATCH /team/members/:staffId/avatar` - Confirm avatar upload + update avatarUrl
-- **Authorization:** Self-only for profile/avatar edits, admin can view all profiles (read-only)
+- **Authorization:** Profile edits allow self or admin; avatar edits remain self-only; admins can view all profiles
 - **Security:** E.164 phone validation, R2 key path traversal prevention, org membership validation
 - **API Client:** Updated `apps/workspace/src/lib/api-client.ts` with 4 new methods + types
 - **Code Quality:** 8.5/10 review score, all success criteria met, minor fixes applied

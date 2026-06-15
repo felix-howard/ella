@@ -2,8 +2,8 @@
  * Setup-required card shown by the wizard pre-flight gate when the current
  * staff or their organization is missing data needed to send a v2 NDA.
  *
- * Each missing item links into the relevant Settings tab (signature/title →
- * profile, address/governing law → general). Non-admins cannot fix org-level
+ * Each missing item links into the relevant setup surface (signature/title →
+ * own Team profile, address/governing law → Settings general). Non-admins cannot fix org-level
  * gaps so they get a "contact your admin" message instead of an action button.
  */
 import { useTranslation } from 'react-i18next'
@@ -24,24 +24,25 @@ interface Props {
   onClose: () => void
 }
 
-type SettingsFocus = 'signature' | 'title' | 'firm-info'
-type SettingsTab = 'profile' | 'general'
+type StaffFocus = 'signature' | 'title'
+type OrgFocus = 'firm-info'
 
-interface ItemConfig {
+interface BaseItemConfig {
   key: Missing
-  scope: 'staff' | 'org'
-  tab: SettingsTab
-  focus: SettingsFocus
   labelKey: string
   helperKey: string
 }
 
+type ItemConfig =
+  | (BaseItemConfig & { scope: 'staff'; focus: StaffFocus })
+  | (BaseItemConfig & { scope: 'org'; focus: OrgFocus })
+
 const ITEMS: ItemConfig[] = [
-  { key: 'signature',       scope: 'staff', tab: 'profile', focus: 'signature',  labelKey: 'agreements.setup.signature.label',       helperKey: 'agreements.setup.signature.helper' },
-  { key: 'title',           scope: 'staff', tab: 'profile', focus: 'title',      labelKey: 'agreements.setup.title.label',           helperKey: 'agreements.setup.title.helper' },
-  { key: 'orgAddress',      scope: 'org',   tab: 'general', focus: 'firm-info',  labelKey: 'agreements.setup.orgAddress.label',      helperKey: 'agreements.setup.orgAddress.helper' },
-  { key: 'orgGoverningLaw', scope: 'org',   tab: 'general', focus: 'firm-info',  labelKey: 'agreements.setup.orgGoverningLaw.label', helperKey: 'agreements.setup.orgGoverningLaw.helper' },
-  { key: 'orgContact',      scope: 'org',   tab: 'general', focus: 'firm-info',  labelKey: 'agreements.setup.orgContact.label',      helperKey: 'agreements.setup.orgContact.helper' },
+  { key: 'signature',       scope: 'staff', focus: 'signature',  labelKey: 'agreements.setup.signature.label',       helperKey: 'agreements.setup.signature.helper' },
+  { key: 'title',           scope: 'staff', focus: 'title',      labelKey: 'agreements.setup.title.label',           helperKey: 'agreements.setup.title.helper' },
+  { key: 'orgAddress',      scope: 'org',   focus: 'firm-info',  labelKey: 'agreements.setup.orgAddress.label',      helperKey: 'agreements.setup.orgAddress.helper' },
+  { key: 'orgGoverningLaw', scope: 'org',   focus: 'firm-info',  labelKey: 'agreements.setup.orgGoverningLaw.label', helperKey: 'agreements.setup.orgGoverningLaw.helper' },
+  { key: 'orgContact',      scope: 'org',   focus: 'firm-info',  labelKey: 'agreements.setup.orgContact.label',      helperKey: 'agreements.setup.orgContact.helper' },
 ]
 
 export function NdaSetupRequiredCard({ missing, isRefreshing, hasError, onClose }: Props) {
@@ -69,7 +70,6 @@ export function NdaSetupRequiredCard({ missing, isRefreshing, hasError, onClose 
         {ITEMS.map((item) => {
           const isMissing = missing.includes(item.key)
           const canFix = isMissing && (item.scope === 'staff' || canManageClients)
-          const search = { tab: item.tab, focus: item.focus } as const
 
           return (
             <li
@@ -98,14 +98,26 @@ export function NdaSetupRequiredCard({ missing, isRefreshing, hasError, onClose 
               </div>
               {isMissing && (
                 canFix ? (
-                  <RouterLink
-                    to="/settings"
-                    search={search}
-                    className="text-sm font-medium text-primary hover:underline flex-shrink-0"
-                    onClick={onClose}
-                  >
-                    {t('agreements.setup.action.setUp')}
-                  </RouterLink>
+                  item.scope === 'staff' ? (
+                    <RouterLink
+                      to="/team/profile/$staffId"
+                      params={{ staffId: 'me' }}
+                      search={{ focus: item.focus }}
+                      className="text-sm font-medium text-primary hover:underline flex-shrink-0"
+                      onClick={onClose}
+                    >
+                      {t('agreements.setup.action.setUp')}
+                    </RouterLink>
+                  ) : (
+                    <RouterLink
+                      to="/settings"
+                      search={{ tab: 'general', focus: item.focus }}
+                      className="text-sm font-medium text-primary hover:underline flex-shrink-0"
+                      onClick={onClose}
+                    >
+                      {t('agreements.setup.action.setUp')}
+                    </RouterLink>
+                  )
                 ) : (
                   <span className="text-xs text-muted-foreground flex-shrink-0">
                     {t('agreements.setup.action.contactAdmin')}

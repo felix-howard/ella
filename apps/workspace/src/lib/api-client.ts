@@ -1467,6 +1467,9 @@ export const api = {
         defaultUploadLinkTemplateId: UploadLinkTemplateId | null
       }>('/staff/me'),
 
+    listAssignable: () =>
+      request<{ data: StaffAssignableMember[] }>('/staff/assignable'),
+
     updateLanguage: (language: Language) =>
       request<{ id: string; language: Language }>('/staff/me/language', {
         method: 'PATCH',
@@ -1554,6 +1557,21 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
+
+    upsertPaymentInfo: (staffId: string, country: StaffPaymentCountry, data: UpdateStaffPaymentInfoInput) =>
+      request<{ success: boolean; paymentInfo: StaffPaymentInfoSummary }>(
+        `/team/members/${staffId}/payment-info/${country}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        }
+      ),
+
+    clearPaymentInfo: (staffId: string, country: StaffPaymentCountry) =>
+      request<{ success: boolean; country: StaffPaymentCountry; deleted: boolean }>(
+        `/team/members/${staffId}/payment-info/${country}`,
+        { method: 'DELETE' }
+      ),
 
     getNotificationSubscriptions: (staffId: string) =>
       request<NotificationSubscriptionsResponse>(`/team/members/${staffId}/notification-subscriptions`),
@@ -2301,6 +2319,7 @@ export interface ClientPreview {
   einMasked?: string | null
   latestCaseId?: string | null
   latestCaseTaxYear?: number | null
+  documentCount?: number
   taxCases?: { id: string; taxYear: number; portalUrl?: string | null }[]
   portalUrl?: string | null
   scheduleCExpense?: ScheduleCExpenseSummary | null
@@ -2487,6 +2506,10 @@ export interface StaffManagerSummary {
   id: string
   name: string
   avatarUrl?: string | null
+}
+
+export interface StaffAssignableMember extends StaffManagerSummary {
+  formSlug: string | null
 }
 
 // Client with computed status and action counts for list view
@@ -3765,6 +3788,19 @@ export interface TeamInvitation {
 }
 
 // Staff Profile types
+export type StaffPaymentCountry = 'US' | 'VN' | 'PH'
+
+export interface StaffPaymentInfoSummary {
+  country: StaffPaymentCountry
+  nameOnAccount: string
+  bankName: string
+  accountNumber: string
+  accountNumberLast4: string
+  routingNumber: string | null
+  routingNumberLast4: string | null
+  updatedAt: string
+}
+
 export interface StaffProfile {
   id: string
   name: string
@@ -3785,6 +3821,7 @@ export interface StaffProfile {
   formSlug: string | null
   autoSendUploadLink: boolean
   defaultUploadLinkTemplateId: UploadLinkTemplateId | null
+  paymentInfos: StaffPaymentInfoSummary[]
 }
 
 export interface OrgSettings {
@@ -3826,6 +3863,13 @@ export interface UpdateStaffProfileInput {
   /** ADMIN-only — server rejects for non-ADMIN staff */
   notifyOnAgreementSigned?: boolean
   notifyOnClientPayment?: boolean
+}
+
+export interface UpdateStaffPaymentInfoInput {
+  nameOnAccount: string
+  bankName: string
+  accountNumber: string
+  routingNumber?: string
 }
 
 export interface ContractorAgreementStatus {

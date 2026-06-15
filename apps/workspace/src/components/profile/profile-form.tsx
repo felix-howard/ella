@@ -41,6 +41,7 @@ interface ProfileFormProps {
   canManageContractorAgent?: boolean
   canViewContractorAgreement?: boolean
   hideNotifications?: boolean
+  isOwnProfile?: boolean
 }
 
 export function ProfileForm({
@@ -53,6 +54,7 @@ export function ProfileForm({
   canManageContractorAgent = false,
   canViewContractorAgreement = false,
   hideNotifications,
+  isOwnProfile = false,
 }: ProfileFormProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -86,6 +88,13 @@ export function ProfileForm({
   const isContractorAgentDirty =
     canManageContractorAgent && editIsContractorAgent !== staff.isContractorAgent
 
+  const invalidateStaffProfileCaches = () => {
+    queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
+    queryClient.invalidateQueries({ queryKey: ['team-members'] })
+    queryClient.invalidateQueries({ queryKey: ['assignable-staff'] })
+    queryClient.invalidateQueries({ queryKey: ['staff-me'] })
+  }
+
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (isProfileDirty) {
@@ -96,10 +105,12 @@ export function ProfileForm({
           title: editTitle.trim() || null,
           notifyOnUpload: editNotifyOnUpload,
         })
+        invalidateStaffProfileCaches()
       }
 
       if (isContractorAgentDirty) {
         await api.team.updateContractorAgent(staffId, editIsContractorAgent)
+        invalidateStaffProfileCaches()
       }
 
       if (isRoleDirty && onRoleChange) {
@@ -108,13 +119,11 @@ export function ProfileForm({
     },
     onSuccess: () => {
       toast.success(t('profile.updateSuccess'))
-      queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
-      queryClient.invalidateQueries({ queryKey: ['team-members'] })
-      queryClient.invalidateQueries({ queryKey: ['staff-me'] })
+      invalidateStaffProfileCaches()
       queryClient.invalidateQueries({ queryKey: ['contractor-agreement-status'] })
       queryClient.invalidateQueries({ queryKey: ['contractor-agreement-acceptance'] })
       // Title changes affect NDA readiness for the current staff.
-      if (staffId === 'me') invalidateReadiness()
+      if (isOwnProfile) invalidateReadiness()
       setIsEditing(false)
     },
     onError: (error: Error) => {

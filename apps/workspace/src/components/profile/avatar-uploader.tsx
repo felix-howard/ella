@@ -44,6 +44,7 @@ export function AvatarUploader({ staffId, currentAvatarUrl, name, canEdit }: Ava
       setUploadState('success')
       toast.success(t('profile.avatarUpdated'))
       queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
+      queryClient.invalidateQueries({ queryKey: ['assignable-staff'] })
       queryClient.invalidateQueries({ queryKey: ['staff-me'] })
       // Reset after success
       setTimeout(() => {

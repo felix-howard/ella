@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { ActivityRiskLevel, Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { isAdminOrManager } from '../../lib/org-scope'
+import { requireAdminOrManager, requireOrg } from '../../middleware/auth'
 import { resolveAvatarUrl } from '../../services/storage'
 import { UPLOAD_LINK_TEMPLATE_IDS } from '../../services/sms/upload-link-template-resolver'
 import type { AuthVariables } from '../../middleware/auth'
@@ -63,6 +64,34 @@ staffRoute.get('/me', async (c) => {
   }
 
   return c.json({ ...staff, avatarUrl: await resolveAvatarUrl(staff.avatarUrl), orgRole: user.orgRole })
+})
+
+// GET /staff/assignable - Active staff options for admin/manager assignment workflows
+staffRoute.get('/assignable', requireOrg, requireAdminOrManager, async (c) => {
+  const user = c.get('user')
+
+  const staff = await prisma.staff.findMany({
+    where: {
+      organizationId: user.organizationId,
+      isActive: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      avatarUrl: true,
+      formSlug: true,
+    },
+    orderBy: { name: 'asc' },
+  })
+
+  const data = await Promise.all(
+    staff.map(async (member) => ({
+      ...member,
+      avatarUrl: await resolveAvatarUrl(member.avatarUrl),
+    }))
+  )
+
+  return c.json({ data })
 })
 
 // PATCH /staff/me/language - Update language preference

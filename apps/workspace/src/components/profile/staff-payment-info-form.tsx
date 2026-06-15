@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Check, Loader2, Pencil, Trash2, X } from 'lucide-react'
+import { Check, Loader2, Pencil, X } from 'lucide-react'
 import { Button, InputField } from '@ella/ui'
 import { useTranslation } from 'react-i18next'
 import type { StaffPaymentCountry, StaffPaymentInfoSummary, UpdateStaffPaymentInfoInput } from '../../lib/api-client'
@@ -16,9 +16,7 @@ interface StaffPaymentInfoFormProps {
   paymentInfo: StaffPaymentInfoSummary | null
   canEdit: boolean
   isSaving: boolean
-  isClearing: boolean
   onSave: (country: StaffPaymentCountry, data: UpdateStaffPaymentInfoInput) => void
-  onClear: (country: StaffPaymentCountry) => void
 }
 
 function initialValues(paymentInfo: StaffPaymentInfoSummary | null): PaymentInfoFormValues {
@@ -35,16 +33,14 @@ export function StaffPaymentInfoForm({
   paymentInfo,
   canEdit,
   isSaving,
-  isClearing,
   onSave,
-  onClear,
 }: StaffPaymentInfoFormProps) {
   const { t } = useTranslation()
   const [isEditing, setIsEditing] = useState(false)
   const [values, setValues] = useState<PaymentInfoFormValues>(() => initialValues(paymentInfo))
   const [errors, setErrors] = useState<PaymentInfoFormErrors>({})
   const hasSavedInfo = Boolean(paymentInfo)
-  const disabled = isSaving || isClearing
+  const disabled = isSaving
 
   const updateField = (field: keyof PaymentInfoFormValues, value: string) => {
     setValues((current) => ({ ...current, [field]: value }))
@@ -84,9 +80,9 @@ export function StaffPaymentInfoForm({
           <div className="grid gap-3 sm:grid-cols-2">
             <ReadItem label={t('profile.paymentInfo.nameOnAccount')} value={paymentInfo.nameOnAccount} />
             <ReadItem label={t('profile.paymentInfo.bankName')} value={paymentInfo.bankName} />
-            <ReadItem label={t('profile.paymentInfo.accountNumber')} value={maskedEnding(paymentInfo.accountNumberLast4)} />
+            <ReadItem label={t('profile.paymentInfo.accountNumber')} value={paymentInfo.accountNumber} />
             {country === 'US' && (
-              <ReadItem label={t('profile.paymentInfo.routingNumber')} value={maskedEnding(paymentInfo.routingNumberLast4)} />
+              <ReadItem label={t('profile.paymentInfo.routingNumber')} value={paymentInfo.routingNumber ?? maskedEnding(paymentInfo.routingNumberLast4)} />
             )}
           </div>
         ) : (
@@ -97,19 +93,6 @@ export function StaffPaymentInfoForm({
 
         {canEdit && (
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            {paymentInfo && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={disabled}
-                onClick={() => onClear(country)}
-                className="w-full sm:w-auto"
-              >
-                {isClearing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                {t('profile.paymentInfo.clear')}
-              </Button>
-            )}
             <Button type="button" size="sm" onClick={startEditing} className="w-full sm:w-auto">
               <Pencil className="h-4 w-4" />
               {paymentInfo ? t('profile.paymentInfo.edit') : t('profile.paymentInfo.add')}

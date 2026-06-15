@@ -2,21 +2,18 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
-import { api, type StaffFileListItem, type StaffPaymentInfoSummary } from '../../lib/api-client'
+import { api, type StaffFileListItem } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { UploadLinkConfirmModal } from '../upload-links/upload-link-confirm-modal'
 import { StaffFileList } from './staff-file-list'
 import { StaffFileUploadButton } from './staff-file-upload-button'
 import { StaffFileViewer } from './staff-file-viewer'
-import { StaffPaymentInfoCard } from './staff-payment-info-card'
 
 interface StaffDocumentsTabProps {
   staffId: string
-  paymentInfos: StaffPaymentInfoSummary[]
-  canEdit: boolean
 }
 
-export function StaffDocumentsTab({ staffId, paymentInfos, canEdit }: StaffDocumentsTabProps) {
+export function StaffDocumentsTab({ staffId }: StaffDocumentsTabProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null)
@@ -94,8 +91,6 @@ export function StaffDocumentsTab({ staffId, paymentInfos, canEdit }: StaffDocum
 
   return (
     <div className="space-y-6">
-      <StaffPaymentInfoCard staffId={staffId} paymentInfos={paymentInfos} canEdit={canEdit} />
-
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground">{t('profile.tabs.documents')}</h2>

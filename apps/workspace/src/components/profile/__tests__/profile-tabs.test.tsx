@@ -42,6 +42,10 @@ vi.mock('../signature-pad-card', () => ({
   SignaturePadCard: () => <div>signature-card</div>,
 }))
 
+vi.mock('../staff-payment-info-card', () => ({
+  StaffPaymentInfoCard: () => <div>payment-info-card</div>,
+}))
+
 function staff(overrides: Partial<ProfileResponse['staff']> = {}): ProfileResponse['staff'] {
   return {
     id: 'staff-1',
@@ -139,6 +143,7 @@ describe('StaffProfileTabs', () => {
     expect(markup).not.toContain('profile.tabs.admin')
     expect(markup).toContain('team.dangerZone')
     expect(markup).toContain('team.archiveMember')
+    expect(markup).toContain('payment-info-card')
   })
 
   it('hides overview danger zone when archive controls are not available', () => {

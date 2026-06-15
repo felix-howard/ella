@@ -54,21 +54,9 @@ export function StaffPaymentInfoCard({ staffId, paymentInfos, canEdit }: StaffPa
     onSettled: () => setPendingCountry(null),
   })
 
-  const clearMutation = useMutation({
-    mutationFn: (country: StaffPaymentCountry) => api.team.clearPaymentInfo(staffId, country),
-    onMutate: (country) => setPendingCountry(country),
-    onSuccess: ({ country }) => {
-      setLocalInfos((current) => current.filter((info) => info.country !== country))
-      toast.success(t('profile.paymentInfo.clearSuccess'))
-      invalidatePaymentInfo()
-    },
-    onError: (error: Error) => toast.error(error.message || t('profile.paymentInfo.clearFailed')),
-    onSettled: () => setPendingCountry(null),
-  })
-
   return (
     <section className="overflow-hidden rounded-xl bg-card shadow-sm">
-      <div className="border-b border-border bg-primary-light/40 p-5">
+      <div className="border-b border-border bg-muted/50 px-6 py-4">
         <div className="flex items-start gap-3">
           <div className="rounded-lg bg-primary/10 p-2 text-primary">
             <CreditCard className="h-5 w-5" />
@@ -96,9 +84,7 @@ export function StaffPaymentInfoCard({ staffId, paymentInfos, canEdit }: StaffPa
                 paymentInfo={paymentInfo}
                 canEdit={canEdit}
                 isSaving={upsertMutation.isPending && pendingCountry === country}
-                isClearing={clearMutation.isPending && pendingCountry === country}
                 onSave={(nextCountry, data) => upsertMutation.mutate({ country: nextCountry, data })}
-                onClear={(nextCountry) => clearMutation.mutate(nextCountry)}
               />
             </TabsContent>
           )

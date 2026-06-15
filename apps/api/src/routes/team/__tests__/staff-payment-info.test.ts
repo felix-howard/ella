@@ -34,7 +34,10 @@ vi.mock('../../../services/activity-log', () => ({
   getChangedFieldNames: vi.fn(),
   logStaffActivity: vi.fn(),
 }))
-vi.mock('../../../services/crypto', () => ({ encryptSSN: vi.fn((value: string) => `enc:${value}`) }))
+vi.mock('../../../services/crypto', () => ({
+  decryptSSN: vi.fn((value: string) => value.replace(/^enc:/, '')),
+  encryptSSN: vi.fn((value: string) => `enc:${value}`),
+}))
 vi.mock('../../../middleware/auth', () => ({
   requireOrg: async (_c: unknown, next: () => Promise<void>) => next(),
   requireOrgAdmin: async (
@@ -94,13 +97,15 @@ const validPaymentBody = {
 describe('staff payment info routes', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('returns masked payment summaries on profile', async () => {
+  it('returns decrypted payment account numbers on profile', async () => {
     vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(staff({
       paymentInfos: [{
         country: 'PH',
         nameOnAccount: 'Member B',
         bankName: 'BDO',
+        accountNumberEncrypted: 'enc:123456275',
         accountNumberLast4: '6275',
+        routingNumberEncrypted: null,
         routingNumberLast4: null,
         updatedAt: new Date('2026-06-14T12:00:00.000Z'),
       }],
@@ -113,22 +118,25 @@ describe('staff payment info routes', () => {
     expect(res.status).toBe(200)
     expect(body.staff.paymentInfos).toEqual([{
       country: 'PH', nameOnAccount: 'Member B', bankName: 'BDO',
+      accountNumber: '123456275', routingNumber: null,
       accountNumberLast4: '6275', routingNumberLast4: null,
       updatedAt: '2026-06-14T12:00:00.000Z',
     }])
     const serialized = JSON.stringify(body)
     expect(serialized).not.toContain('accountNumberEncrypted')
     expect(serialized).not.toContain('routingNumberEncrypted')
-    expect(serialized).not.toContain('123456789')
+    expect(serialized).toContain('123456275')
   })
 
-  it('saves own US payment info encrypted and masked', async () => {
+  it('saves own US payment info encrypted and returns decrypted values', async () => {
     vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({ id: 'staff_2' } as never)
     vi.mocked(prisma.staffPaymentInfo.upsert).mockResolvedValueOnce({
       country: 'US',
       nameOnAccount: 'Member B',
       bankName: 'Chase',
+      accountNumberEncrypted: 'enc:000123456789',
       accountNumberLast4: '6789',
+      routingNumberEncrypted: 'enc:021000021',
       routingNumberLast4: '0021',
       updatedAt: new Date('2026-06-14T12:00:00.000Z'),
     } as never)
@@ -152,7 +160,9 @@ describe('staff payment info routes', () => {
     }))
     expect(body.paymentInfo).toEqual(expect.objectContaining({
       country: 'US',
+      accountNumber: '000123456789',
       accountNumberLast4: '6789',
+      routingNumber: '021000021',
       routingNumberLast4: '0021',
     }))
     expect(JSON.stringify(vi.mocked(logStaffActivity).mock.calls)).not.toContain('000123456789')
@@ -165,7 +175,9 @@ describe('staff payment info routes', () => {
       country: 'VN',
       nameOnAccount: 'Member B',
       bankName: 'VCB',
+      accountNumberEncrypted: 'enc:1234567890',
       accountNumberLast4: '7890',
+      routingNumberEncrypted: null,
       routingNumberLast4: null,
       updatedAt: new Date('2026-06-14T12:00:00.000Z'),
     } as never)

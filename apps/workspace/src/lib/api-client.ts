@@ -3793,7 +3793,9 @@ export interface StaffPaymentInfoSummary {
   country: StaffPaymentCountry
   nameOnAccount: string
   bankName: string
+  accountNumber: string
   accountNumberLast4: string
+  routingNumber: string | null
   routingNumberLast4: string | null
   updatedAt: string
 }

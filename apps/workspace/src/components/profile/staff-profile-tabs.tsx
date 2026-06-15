@@ -9,6 +9,7 @@ import { StaffFormLinkCard } from './staff-form-link-card'
 import { StaffDocumentsTab } from './staff-documents-tab'
 import { StaffInvoicesTab } from './staff-invoices-tab'
 import { SignaturePadCard } from './signature-pad-card'
+import { StaffPaymentInfoCard } from './staff-payment-info-card'
 
 type Staff = ProfileResponse['staff']
 type ManagedClient = ProfileResponse['managedClients'][number]
@@ -110,8 +111,15 @@ export function StaffProfileTabs({
             />
           </div>
 
-          <div className="lg:col-span-1">
+          <div className="space-y-6 lg:col-span-1">
             <AssignedClientsList clients={managedClients} totalCount={managedCount} />
+            {canAccessStaffFiles && (
+              <StaffPaymentInfoCard
+                staffId={staffId}
+                paymentInfos={staff.paymentInfos}
+                canEdit={canEdit}
+              />
+            )}
           </div>
         </div>
 
@@ -145,11 +153,7 @@ export function StaffProfileTabs({
       {canAccessStaffFiles && (
         <>
           <TabsContent value="documents">
-            <StaffDocumentsTab
-              staffId={staffId}
-              paymentInfos={staff.paymentInfos}
-              canEdit={canEdit}
-            />
+            <StaffDocumentsTab staffId={staffId} />
           </TabsContent>
 
           <TabsContent value="invoices">

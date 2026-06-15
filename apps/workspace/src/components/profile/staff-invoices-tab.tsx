@@ -1,13 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { api, type StaffFileListItem } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { UploadLinkConfirmModal } from '../upload-links/upload-link-confirm-modal'
 import { StaffInvoiceMonthList, type StaffInvoiceMonth } from './staff-invoice-month-list'
-import { StaffFileUploadButton } from './staff-file-upload-button'
 import { StaffFileViewer } from './staff-file-viewer'
 
 interface StaffInvoicesTabProps {
@@ -31,10 +30,6 @@ function buildInvoiceMonths(files: StaffFileListItem[], year: number): StaffInvo
   })
 }
 
-function canUploadForSlot(month: StaffInvoiceMonth): boolean {
-  return !month.active
-}
-
 export function StaffInvoicesTab({
   staffId,
   isOwnProfile,
@@ -47,11 +42,6 @@ export function StaffInvoicesTab({
   const [renamingFileId, setRenamingFileId] = useState<string | null>(null)
   const [fileToDelete, setFileToDelete] = useState<StaffFileListItem | null>(null)
   const [viewingFile, setViewingFile] = useState<StaffFileListItem | null>(null)
-  const currentDate = new Date()
-  const defaultUploadMonth = selectedYear === currentDate.getFullYear()
-    ? currentDate.getMonth() + 1
-    : 1
-
   const filesQuery = useQuery({
     queryKey: ['staff-files', staffId, 'INVOICE', selectedYear],
     queryFn: () => api.team.getStaffFiles(staffId, { kind: 'INVOICE', year: selectedYear }),
@@ -128,10 +118,6 @@ export function StaffInvoicesTab({
     setFileToDelete(file)
   }
 
-  const defaultUploadSlot =
-    months.find((month) => month.month === defaultUploadMonth && canUploadForSlot(month)) ??
-    months.find(canUploadForSlot)
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -149,16 +135,6 @@ export function StaffInvoicesTab({
             {selectedYear + 1}
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <StaffFileUploadButton
-            staffId={staffId}
-            kind="INVOICE"
-            invoiceYear={selectedYear}
-            invoiceMonth={defaultUploadSlot?.month}
-            disabled={!defaultUploadSlot}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            {t('profile.staffFiles.addInvoice')}
-          </StaffFileUploadButton>
         </div>
       </div>
 

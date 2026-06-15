@@ -44,7 +44,9 @@ function paymentInfo(overrides: Partial<StaffPaymentInfoSummary> = {}): StaffPay
     country: 'PH',
     nameOnAccount: 'Mila Santos',
     bankName: 'BDO',
+    accountNumber: '123456275',
     accountNumberLast4: '6275',
+    routingNumber: null,
     routingNumberLast4: null,
     updatedAt: '2026-06-15T00:00:00.000Z',
     ...overrides,
@@ -68,7 +70,9 @@ describe('staff payment info', () => {
 
     expect(getDefaultPaymentCountry([paymentInfo()])).toBe('PH')
     expect(markup).toContain('Philippines payout account')
-    expect(markup).toContain('Saved ending in 6275')
+    expect(markup).toContain('123456275')
+    expect(markup).not.toContain('Saved ending in 6275')
+    expect(markup).not.toContain('profile.paymentInfo.clear')
     expect(markup).not.toContain('profile.paymentInfo.routingNumber')
   })
 
@@ -93,12 +97,13 @@ describe('staff payment info', () => {
     expect(markup).not.toContain('profile.paymentInfo.routingNumber')
   })
 
-  it('keeps the personal documents list below payment info', () => {
+  it('keeps payment info out of the personal documents tab', () => {
     const markup = renderWithQueryClient(
-      <StaffDocumentsTab staffId="staff-1" paymentInfos={[paymentInfo()]} canEdit />
+      <StaffDocumentsTab staffId="staff-1" />
     )
 
-    expect(markup.indexOf('profile.paymentInfo.title')).toBeLessThan(markup.indexOf('staff-file-list'))
+    expect(markup).not.toContain('profile.paymentInfo.title')
+    expect(markup).toContain('staff-file-list')
     expect(markup).toContain('profile.staffFiles.addDocument')
   })
 })

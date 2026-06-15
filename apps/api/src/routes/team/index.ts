@@ -35,7 +35,7 @@ import { serializePhone } from '../../lib/phone-privacy'
 import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 import { staffFilesRoute } from './staff-files'
-import { encryptSSN as encryptSensitiveValue } from '../../services/crypto'
+import { decryptSSN as decryptSensitiveValue, encryptSSN as encryptSensitiveValue } from '../../services/crypto'
 
 const teamRoute = new Hono<{ Variables: AuthVariables }>()
 const NOTIFICATION_SUBSCRIPTION_ACTIVITY_WINDOW_MS = 10 * 60 * 1000
@@ -45,7 +45,9 @@ type StaffPaymentInfoSummaryRecord = {
   country: StaffPaymentCountryCode
   nameOnAccount: string
   bankName: string
+  accountNumberEncrypted: string
   accountNumberLast4: string
+  routingNumberEncrypted: string | null
   routingNumberLast4: string | null
   updatedAt: Date
 }
@@ -95,7 +97,9 @@ function serializeStaffPaymentInfo(info: StaffPaymentInfoSummaryRecord) {
     country: info.country,
     nameOnAccount: info.nameOnAccount,
     bankName: info.bankName,
+    accountNumber: decryptSensitiveValue(info.accountNumberEncrypted),
     accountNumberLast4: info.accountNumberLast4,
+    routingNumber: info.routingNumberEncrypted ? decryptSensitiveValue(info.routingNumberEncrypted) : null,
     routingNumberLast4: info.routingNumberLast4,
     updatedAt: info.updatedAt.toISOString(),
   }
@@ -611,7 +615,9 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
           country: true,
           nameOnAccount: true,
           bankName: true,
+          accountNumberEncrypted: true,
           accountNumberLast4: true,
+          routingNumberEncrypted: true,
           routingNumberLast4: true,
           updatedAt: true,
         },
@@ -886,7 +892,9 @@ teamRoute.put(
         country: true,
         nameOnAccount: true,
         bankName: true,
+        accountNumberEncrypted: true,
         accountNumberLast4: true,
+        routingNumberEncrypted: true,
         routingNumberLast4: true,
         updatedAt: true,
       },

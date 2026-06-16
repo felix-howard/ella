@@ -36,6 +36,36 @@ function zodErrorHook(result: { success: boolean; error?: { issues?: Array<{ pat
 }
 
 const formRoute = new Hono()
+type RegistrationHeaderMode = 'DEFAULT' | 'CUSTOM' | 'HIDDEN'
+
+interface OrgHeaderFields {
+  registrationHeaderMode: RegistrationHeaderMode
+  registrationTitle: string | null
+  registrationSubtitle: string | null
+}
+
+interface CampaignHeaderFields {
+  formHeaderMode: RegistrationHeaderMode
+  formTitle: string | null
+  formSubtitle: string | null
+}
+
+function serializeOrgHeader<T extends OrgHeaderFields>(org: T): Omit<T, keyof OrgHeaderFields> & OrgHeaderFields {
+  return {
+    ...org,
+    registrationHeaderMode: 'DEFAULT',
+    registrationTitle: null,
+    registrationSubtitle: null,
+  }
+}
+
+function serializeCampaignHeader(campaign: CampaignHeaderFields) {
+  return {
+    mode: campaign.formHeaderMode,
+    title: campaign.formHeaderMode === 'CUSTOM' ? campaign.formTitle : null,
+    subtitle: campaign.formHeaderMode === 'CUSTOM' ? campaign.formSubtitle : null,
+  }
+}
 
 // Rate limits
 const formReadRateLimit = rateLimiter({
@@ -60,12 +90,20 @@ formRoute.get(
 
     const org = await prisma.organization.findFirst({
       where: { slug: orgSlug, isActive: true },
-      select: { id: true, name: true, logoUrl: true, slug: true },
+      select: {
+        id: true,
+        name: true,
+        logoUrl: true,
+        slug: true,
+        registrationHeaderMode: true,
+        registrationTitle: true,
+        registrationSubtitle: true,
+      },
     })
 
     if (!org) return c.json({ error: 'Organization not found' }, 404)
 
-    return c.json({ org })
+    return c.json({ org: serializeOrgHeader(org) })
   }
 )
 
@@ -79,7 +117,12 @@ formRoute.get(
 
     const org = await prisma.organization.findFirst({
       where: { slug: orgSlug, isActive: true },
-      select: { id: true },
+      select: {
+        id: true,
+        registrationHeaderMode: true,
+        registrationTitle: true,
+        registrationSubtitle: true,
+      },
     })
 
     if (!org) return c.json({ error: 'Organization not found' }, 404)
@@ -88,7 +131,15 @@ formRoute.get(
       where: {
         slug_organizationId: { slug: campaignSlug, organizationId: org.id },
       },
-      select: { id: true, name: true, status: true, formIntroContent: true },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        formHeaderMode: true,
+        formTitle: true,
+        formSubtitle: true,
+        formIntroContent: true,
+      },
     })
 
     if (!campaign || campaign.status !== 'ACTIVE') {
@@ -98,6 +149,12 @@ formRoute.get(
     return c.json({
       valid: true,
       campaignName: campaign.name,
+      org: serializeOrgHeader({
+        registrationHeaderMode: org.registrationHeaderMode,
+        registrationTitle: org.registrationTitle,
+        registrationSubtitle: org.registrationSubtitle,
+      }),
+      campaignHeader: serializeCampaignHeader(campaign),
       formIntroContent: campaign.formIntroContent,
     })
   }
@@ -113,7 +170,15 @@ formRoute.get(
 
     const org = await prisma.organization.findFirst({
       where: { slug: orgSlug, isActive: true },
-      select: { id: true, name: true, logoUrl: true, slug: true },
+      select: {
+        id: true,
+        name: true,
+        logoUrl: true,
+        slug: true,
+        registrationHeaderMode: true,
+        registrationTitle: true,
+        registrationSubtitle: true,
+      },
     })
 
     if (!org) return c.json({ error: 'Organization not found' }, 404)
@@ -129,7 +194,7 @@ formRoute.get(
 
     if (!staff) return c.json({ error: 'Staff member not found' }, 404)
 
-    return c.json({ org, staff })
+    return c.json({ org: serializeOrgHeader(org), staff })
   }
 )
 

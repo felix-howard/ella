@@ -6,7 +6,9 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useRegistrationPage } from '../../../../lib/use-registration-page'
+import { resolveRegistrationHeader } from '../../../../lib/registration-header'
 import { FormHeader } from '../../../../components/form/form-header'
+import { RegistrationPageHeader } from '../../../../components/register/registration-page-header'
 import { RegistrationForm } from '../../../../components/register/registration-form'
 import { RegistrationSuccess } from '../../../../components/register/registration-success'
 
@@ -20,8 +22,16 @@ export const Route = createFileRoute('/register/$orgSlug/$eventSlug/')({
 function RegisterPage() {
   const { orgSlug, eventSlug } = Route.useParams()
   const { t } = useTranslation()
-  const { state, org, formIntroContent, error, submitError, isSubmitting, handleSubmit } =
-    useRegistrationPage({ orgSlug, eventSlug })
+  const {
+    state,
+    org,
+    campaignHeader,
+    formIntroContent,
+    error,
+    submitError,
+    isSubmitting,
+    handleSubmit,
+  } = useRegistrationPage({ orgSlug, eventSlug })
 
   if (state === 'loading') {
     return (
@@ -46,12 +56,19 @@ function RegisterPage() {
     return <RegistrationSuccess />
   }
 
+  const header = resolveRegistrationHeader({
+    campaign: campaignHeader,
+    fallbackTitle: t('register.title'),
+    fallbackSubtitle: t('register.subtitle'),
+  })
+  const introSectionSpacing = header.visible ? 'pt-3' : 'pb-5 pt-3 sm:pb-6'
+
   return (
     <div className="flex-1 flex flex-col">
       <FormHeader orgName={org!.name} showDescription={false} variant="compact" />
 
       {formIntroContent && (
-        <section className="mx-auto w-full max-w-3xl px-4 pt-3 sm:px-6">
+        <section className={`mx-auto w-full max-w-3xl px-4 sm:px-6 ${introSectionSpacing}`}>
           <div
             className="form-intro-content text-left text-foreground"
             dangerouslySetInnerHTML={{ __html: formIntroContent }}
@@ -59,14 +76,7 @@ function RegisterPage() {
         </section>
       )}
 
-      <section className="mx-auto w-full max-w-3xl px-4 pb-5 pt-4 text-center sm:px-6 sm:pb-6">
-        <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-          {t('register.title')}
-        </h2>
-        <p className="mx-auto mt-2 max-w-xl text-base leading-6 text-muted-foreground">
-          {t('register.subtitle')}
-        </p>
-      </section>
+      <RegistrationPageHeader header={header} />
 
       <div className="mx-auto w-full max-w-3xl px-4 pb-8 sm:px-6">
         <div className="overflow-hidden rounded-2xl border border-white/80 bg-white/90 shadow-[0_1px_3px_rgba(15,23,42,0.06),0_20px_50px_rgba(15,23,42,0.10)] backdrop-blur">

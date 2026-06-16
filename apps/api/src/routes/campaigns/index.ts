@@ -20,6 +20,7 @@ import {
 } from './schemas'
 
 const campaignsRoute = new Hono<{ Variables: AuthVariables }>()
+type RegistrationHeaderMode = 'DEFAULT' | 'CUSTOM' | 'HIDDEN'
 const INTRO_IMAGE_PREFIX = 'campaign-intro-images'
 const INTRO_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 const INTRO_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
@@ -65,6 +66,21 @@ function decodeAssetKey(token: string): string | null {
 
 function getApiOrigin(requestUrl: string): string {
   return process.env.API_PUBLIC_URL || new URL(requestUrl).origin
+}
+
+function sanitizeHeaderCopy(
+  mode: RegistrationHeaderMode,
+  title?: string | null,
+  subtitle?: string | null
+) {
+  if (mode !== 'CUSTOM') {
+    return { formTitle: null, formSubtitle: null }
+  }
+
+  return {
+    ...(title !== undefined ? { formTitle: title ? sanitizeTextInput(title, 120) : null } : {}),
+    ...(subtitle !== undefined ? { formSubtitle: subtitle ? sanitizeTextInput(subtitle, 240) : null } : {}),
+  }
 }
 
 // ============================================
@@ -186,7 +202,18 @@ campaignsRoute.post(
   zValidator('json', createCampaignSchema),
   async (c) => {
     const { orgId, staffId } = getVerifiedAuth(c.get('user'))
-    const { name, slug, tag, description, formIntroContent } = c.req.valid('json')
+    const {
+      name,
+      slug,
+      tag,
+      description,
+      formHeaderMode,
+      formTitle,
+      formSubtitle,
+      formIntroContent,
+    } = c.req.valid('json')
+    const headerMode = formHeaderMode ?? 'DEFAULT'
+    const headerCopy = sanitizeHeaderCopy(headerMode, formTitle, formSubtitle)
 
     try {
       const campaign = await prisma.campaign.create({
@@ -195,6 +222,8 @@ campaignsRoute.post(
           slug,
           tag: sanitizeTextInput(tag),
           description: description ? sanitizeTextInput(description, 500) : null,
+          formHeaderMode: headerMode,
+          ...headerCopy,
           formIntroContent: formIntroContent ? sanitizeFormIntroContent(formIntroContent) : null,
           organizationId: orgId,
           createdById: staffId,
@@ -244,6 +273,17 @@ campaignsRoute.patch(
       data.description = updates.description ? sanitizeTextInput(updates.description, 500) : null
     }
     if (updates.status) data.status = updates.status
+    if (updates.formHeaderMode !== undefined) {
+      data.formHeaderMode = updates.formHeaderMode
+      Object.assign(data, sanitizeHeaderCopy(updates.formHeaderMode, updates.formTitle, updates.formSubtitle))
+    } else {
+      if (updates.formTitle !== undefined) {
+        data.formTitle = updates.formTitle ? sanitizeTextInput(updates.formTitle, 120) : null
+      }
+      if (updates.formSubtitle !== undefined) {
+        data.formSubtitle = updates.formSubtitle ? sanitizeTextInput(updates.formSubtitle, 240) : null
+      }
+    }
     if (updates.formIntroContent !== undefined) {
       data.formIntroContent = updates.formIntroContent
         ? sanitizeFormIntroContent(updates.formIntroContent)

@@ -61,7 +61,7 @@ function DashboardPage() {
     <PageContainer>
       <TodaySummary staffName={userName} />
       <div className="mb-8">
-        <ActivityTimeline scope="recent" />
+        <ActivityTimeline scope="recent" limit={40} className="h-[620px] max-h-[70vh]" />
       </div>
       <StatsOverview stats={stats} />
       <QuickActions />

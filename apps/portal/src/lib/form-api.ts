@@ -11,11 +11,29 @@ export interface OrgInfo {
   name: string
   logoUrl: string | null
   slug: string
+  registrationHeaderMode?: RegistrationHeaderMode
+  registrationTitle?: string | null
+  registrationSubtitle?: string | null
 }
 
 export interface StaffInfo {
   id: string
   name: string
+}
+
+export type RegistrationHeaderMode = 'DEFAULT' | 'CUSTOM' | 'HIDDEN'
+
+export interface CampaignHeaderInfo {
+  mode?: RegistrationHeaderMode | null
+  title?: string | null
+  subtitle?: string | null
+}
+
+export interface CampaignValidationResponse {
+  valid: boolean
+  campaignName?: string
+  campaignHeader?: CampaignHeaderInfo | null
+  formIntroContent?: string | null
 }
 
 export interface FormInfoResponse {
@@ -96,7 +114,8 @@ function extractErrorMessage(json: Record<string, unknown>, fallback: string): s
 
   // Hono's default zValidator response shape: { success: false, error: { issues: [...] } }
   if (err && typeof err === 'object') {
-    const issues = (err as { issues?: Array<{ path?: (string | number)[]; message?: string }> }).issues
+    const issues = (err as { issues?: Array<{ path?: (string | number)[]; message?: string }> })
+      .issues
     if (Array.isArray(issues) && issues.length > 0) {
       const first = issues[0]
       const field = first.path?.join('.') || 'input'
@@ -128,8 +147,8 @@ export const formApi = {
 
   async validateCampaign(
     orgSlug: string,
-    campaignSlug: string,
-  ): Promise<{ valid: boolean; campaignName?: string; formIntroContent?: string | null }> {
+    campaignSlug: string
+  ): Promise<CampaignValidationResponse> {
     const res = await fetch(`${API_BASE}/form/${orgSlug}/campaign/${campaignSlug}`)
     if (!res.ok) {
       return { valid: false }
@@ -188,18 +207,21 @@ export const formApi = {
     return res.json()
   },
 
-  async submitContractor(token: string, data: {
-    firstName: string
-    lastName: string
-    ssn: string
-    tinType?: 'SSN' | 'EIN'
-    address: string
-    city: string
-    state: string
-    zip: string
-    amountBox1: string
-    amountBox4?: string
-  }): Promise<{
+  async submitContractor(
+    token: string,
+    data: {
+      firstName: string
+      lastName: string
+      ssn: string
+      tinType?: 'SSN' | 'EIN'
+      address: string
+      city: string
+      state: string
+      zip: string
+      amountBox1: string
+      amountBox4?: string
+    }
+  ): Promise<{
     success: boolean
     contractor: { firstName: string; lastName: string; ssnLast4: string }
   }> {

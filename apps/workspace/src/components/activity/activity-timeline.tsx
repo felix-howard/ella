@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { AlertCircle, Clock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { cn } from '@ella/ui'
 import { api, type ActivityTimelineItem } from '../../lib/api-client'
 import { ActivityRow } from './activity-row'
 
@@ -9,6 +10,7 @@ type ActivityTimelineProps = {
   clientId?: string
   title?: string
   limit?: number
+  className?: string
 }
 
 export function ActivityTimeline({
@@ -16,6 +18,7 @@ export function ActivityTimeline({
   clientId,
   title,
   limit = 20,
+  className,
 }: ActivityTimelineProps) {
   const { t } = useTranslation()
   const filters = { limit }
@@ -29,7 +32,7 @@ export function ActivityTimeline({
   })
 
   return (
-    <section className="flex max-h-[420px] min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card p-4 sm:p-5">
+    <section className={cn('flex max-h-[420px] min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card p-4 sm:p-5', className)}>
       <div className="mb-3 shrink-0">
         <h2 className="text-lg font-semibold text-foreground">
           {title ?? t(scope === 'client' ? 'clientOverview.recentActivity' : 'dashboard.recentActivity')}

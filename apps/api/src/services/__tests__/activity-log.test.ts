@@ -279,6 +279,55 @@ describe('Activity Log', () => {
     })
   })
 
+  it('coalesces document viewed activity by total viewed docs', async () => {
+    mockFindFirst.mockResolvedValueOnce({
+      id: 'activity_docs_viewed',
+      metadata: {
+        coalesceKey: 'document.marked_viewed:staff:staff_1:client:client_1',
+        activityCount: 1,
+        documentViewedCount: 4,
+        count: 4,
+      },
+    } as never)
+    mockUpdate.mockResolvedValueOnce({ id: 'activity_docs_viewed' } as never)
+
+    await logStaffActivity({
+      organizationId: 'org_1',
+      clientId: 'client_1',
+      actorStaffId: 'staff_1',
+      category: ACTIVITY_CATEGORIES.DOCUMENT,
+      targetType: ACTIVITY_TARGET_TYPES.CLIENT,
+      targetId: 'client_1',
+      targetLabel: 'Christ Michela',
+      summary: 'viewed 1 doc of client Christ Michela',
+      action: ACTIVITY_ACTIONS.DOCUMENT.MARKED_VIEWED,
+      coalesceKey: 'document.marked_viewed:staff:staff_1:client:client_1',
+      metadata: {
+        count: 1,
+        documentViewedCount: 1,
+        clientName: 'Christ Michela',
+      },
+    })
+
+    expect(mockCreate).not.toHaveBeenCalled()
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'activity_docs_viewed' },
+      data: expect.objectContaining({
+        targetType: ACTIVITY_TARGET_TYPES.CLIENT,
+        targetId: 'client_1',
+        targetLabel: 'Christ Michela',
+        summary: 'viewed 5 docs of client Christ Michela',
+        metadata: expect.objectContaining({
+          coalesceKey: 'document.marked_viewed:staff:staff_1:client:client_1',
+          activityCount: 2,
+          documentViewedCount: 5,
+          count: 5,
+          clientName: 'Christ Michela',
+        }),
+      }),
+    })
+  })
+
   it('supports system activity with strict mode', async () => {
     mockCreate.mockResolvedValueOnce({ id: 'activity_2' } as never)
 

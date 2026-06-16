@@ -41,6 +41,11 @@ type ImageActivityContext = {
   }
 }
 
+function buildViewedDocsSummary(count: number, clientName: string): string {
+  const docLabel = count === 1 ? 'doc' : 'docs'
+  return `viewed ${count} ${docLabel} of client ${clientName}`
+}
+
 async function logImageMutation(
   c: Context<{ Variables: AuthVariables }>,
   user: AuthVariables['user'],
@@ -1004,7 +1009,7 @@ imagesRoute.post('/batch-mark-viewed', async (c) => {
       category: true,
       taxCase: {
         select: {
-          client: { select: { id: true, organizationId: true } },
+          client: { select: { id: true, name: true, organizationId: true } },
         },
       },
     },
@@ -1040,25 +1045,25 @@ imagesRoute.post('/batch-mark-viewed', async (c) => {
 
     const firstImage = newlyViewedImages[0]
     if (firstImage) {
+      const client = firstImage.taxCase.client
       void logStaffActivity({
-        organizationId: firstImage.taxCase.client.organizationId,
-        clientId: firstImage.taxCase.client.id,
-        caseId: firstImage.caseId,
+        organizationId: client.organizationId,
+        clientId: client.id,
         rawImageId: newlyViewedImages.length === 1 ? firstImage.id : undefined,
         actorStaffId: staffId,
         category: ACTIVITY_CATEGORIES.DOCUMENT,
-        targetType: newlyViewedImages.length === 1
-          ? ACTIVITY_TARGET_TYPES.RAW_IMAGE
-          : ACTIVITY_TARGET_TYPES.CASE,
-        targetId: newlyViewedImages.length === 1 ? firstImage.id : firstImage.caseId,
-        summary: newlyViewedImages.length === 1
-          ? 'Marked document viewed'
-          : `Marked ${newlyViewedImages.length} documents viewed`,
+        targetType: ACTIVITY_TARGET_TYPES.CLIENT,
+        targetId: client.id,
+        targetLabel: client.name,
+        summary: buildViewedDocsSummary(newlyViewedImageIds.length, client.name),
         action: ACTIVITY_ACTIONS.DOCUMENT.MARKED_VIEWED,
         riskLevel: ActivityRiskLevel.LOW,
+        coalesceKey: `${ACTIVITY_ACTIONS.DOCUMENT.MARKED_VIEWED}:staff:${staffId}:client:${client.id}`,
         metadata: {
           rawImageIds: newlyViewedImageIds,
           count: newlyViewedImageIds.length,
+          documentViewedCount: newlyViewedImageIds.length,
+          clientName: client.name,
           batch: true,
         },
         request: getAuditRequestContext(c),
@@ -1100,7 +1105,7 @@ imagesRoute.post('/:id/mark-viewed', async (c) => {
       category: true,
       taxCase: {
         select: {
-          client: { select: { id: true, organizationId: true } },
+          client: { select: { id: true, name: true, organizationId: true } },
         },
       },
     },
@@ -1117,20 +1122,25 @@ imagesRoute.post('/:id/mark-viewed', async (c) => {
   })
 
   if (createResult.count > 0) {
+    const client = image.taxCase.client
     void logStaffActivity({
-      organizationId: image.taxCase.client.organizationId,
-      clientId: image.taxCase.client.id,
-      caseId: image.caseId,
+      organizationId: client.organizationId,
+      clientId: client.id,
       rawImageId: image.id,
       actorStaffId: staffId,
       category: ACTIVITY_CATEGORIES.DOCUMENT,
-      targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
-      targetId: image.id,
-      summary: 'Marked document viewed',
+      targetType: ACTIVITY_TARGET_TYPES.CLIENT,
+      targetId: client.id,
+      targetLabel: client.name,
+      summary: buildViewedDocsSummary(1, client.name),
       action: ACTIVITY_ACTIONS.DOCUMENT.MARKED_VIEWED,
       riskLevel: ActivityRiskLevel.LOW,
+      coalesceKey: `${ACTIVITY_ACTIONS.DOCUMENT.MARKED_VIEWED}:staff:${staffId}:client:${client.id}`,
       metadata: {
         rawImageId: image.id,
+        count: 1,
+        documentViewedCount: 1,
+        clientName: client.name,
         docType: image.classifiedType,
         category: image.category,
         mimeType: image.mimeType,

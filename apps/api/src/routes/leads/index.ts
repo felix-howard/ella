@@ -4,12 +4,12 @@
  */
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
-import { ActivityRiskLevel } from '@ella/db'
+import { ActivityRiskLevel, type Lead } from '@ella/db'
 import { BULK_SMS_MAX_RECIPIENTS } from '@ella/shared/constants'
 import { prisma } from '../../lib/db'
 import { getPaginationParams, buildPaginationResponse } from '../../lib/constants'
 import { sanitizeTextInput } from '../../lib/validation'
-import { formatPhoneToE164, sendSmsOnly, isTwilioConfigured } from '../../services/sms'
+import { formatPhoneToE164, isValidPhoneNumber, sendSmsOnly, isTwilioConfigured } from '../../services/sms'
 import { createMagicLink } from '../../services/magic-link'
 import { sendWelcomeMessage } from '../../services/sms'
 import { convertLeadToClientCore } from '../../services/leads/lead-conversion-service'
@@ -34,7 +34,7 @@ import {
 } from './schemas'
 import { buildLeadWhere, buildSelectableLeadWhere } from './lead-filter-helpers'
 import { getVerifiedAuth } from './auth-helpers'
-import { serializePhone } from '../../lib/phone-privacy'
+import { canViewFullPhone, serializePhone } from '../../lib/phone-privacy'
 import {
   getAuditRequestContext,
   getChangedFieldNames,
@@ -463,14 +463,33 @@ leadsRoute.patch(
     if (updates.notes !== undefined) sanitized.notes = updates.notes ? sanitizeTextInput(updates.notes, 5000) : null
     if (updates.firstName) sanitized.firstName = sanitizeTextInput(updates.firstName)
     if (updates.lastName) sanitized.lastName = sanitizeTextInput(updates.lastName)
+    if (updates.phone) {
+      if (!canViewFullPhone(user)) {
+        return c.json({ success: false, error: 'Admin access required to update lead phone' }, 403)
+      }
+
+      const normalizedPhone = formatPhoneToE164(updates.phone)
+      if (!isValidPhoneNumber(normalizedPhone)) {
+        return c.json({ success: false, error: 'Invalid phone number format' }, 400)
+      }
+      sanitized.phone = normalizedPhone
+    }
     if (updates.email !== undefined) sanitized.email = updates.email ? sanitizeTextInput(updates.email) : null
     if (updates.businessName !== undefined) sanitized.businessName = updates.businessName ? sanitizeTextInput(updates.businessName) : null
     if (updates.tags !== undefined) sanitized.tags = updates.tags.map(t => t.trim().toLowerCase())
 
-    const updated = await prisma.lead.update({
-      where: { id },
-      data: sanitized,
-    })
+    let updated: Lead
+    try {
+      updated = await prisma.lead.update({
+        where: { id },
+        data: sanitized,
+      })
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'code' in err && err.code === 'P2002') {
+        return c.json({ success: false, error: 'A lead with this phone already exists' }, 409)
+      }
+      throw err
+    }
 
     await logStaffActivity({
       organizationId: orgId,

@@ -1845,7 +1845,7 @@ export const api = {
     get: (id: string) =>
       request<{ success: boolean; data: Lead }>(`/leads/${id}`),
 
-    update: (id: string, data: { status?: string; notes?: string | null; firstName?: string; lastName?: string; email?: string | null; businessName?: string | null; tags?: string[] }) =>
+    update: (id: string, data: { status?: string; notes?: string | null; firstName?: string; lastName?: string; phone?: string; email?: string | null; businessName?: string | null; tags?: string[] }) =>
       request<{ success: boolean; data: Lead }>(`/leads/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
     tags: () =>

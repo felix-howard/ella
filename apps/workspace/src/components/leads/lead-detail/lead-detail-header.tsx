@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   ArrowRight,
   UserPlus,
+  Pencil,
   Phone,
   Mail,
   Building2,
@@ -25,6 +26,7 @@ import {
   getAvatarColor,
 } from '../../../lib/formatters'
 import { LeadStatusMenu } from './lead-status-menu'
+import { EditLeadModal } from '../edit-lead-modal'
 import type { Lead } from '../../../lib/api-client'
 
 interface Props {
@@ -34,6 +36,7 @@ interface Props {
 export function LeadDetailHeader({ lead }: Props) {
   const { t, i18n } = useTranslation()
   const [showConvert, setShowConvert] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
 
   const isConverted = lead.status === 'CONVERTED'
   const fullName = `${lead.firstName} ${lead.lastName ?? ''}`.trim() || '—'
@@ -46,7 +49,7 @@ export function LeadDetailHeader({ lead }: Props) {
       className={cn(
         'w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-background shadow-sm',
         avatar.bg,
-        avatar.text,
+        avatar.text
       )}
     >
       <span className="font-bold text-base">{getInitials(fullName)}</span>
@@ -60,9 +63,7 @@ export function LeadDetailHeader({ lead }: Props) {
       {sourceLabel && (
         <>
           <span className="text-border font-normal">|</span>
-          <span className="text-xs font-normal text-muted-foreground">
-            {t('leads.source')}:
-          </span>
+          <span className="text-xs font-normal text-muted-foreground">{t('leads.source')}:</span>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-primary/10 text-primary border border-primary/20">
             <Globe className="w-3 h-3" aria-hidden="true" />
             {sourceLabel}
@@ -113,6 +114,15 @@ export function LeadDetailHeader({ lead }: Props) {
 
   const actionsNode = (
     <>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => setShowEdit(true)}
+        aria-label={t('leads.editLead', 'Edit lead')}
+      >
+        <Pencil className="w-4 h-4 mr-1" aria-hidden="true" />
+        {t('leads.editLead', 'Edit lead')}
+      </Button>
       {isConverted && lead.convertedToId && (
         <Link
           to="/clients/$clientId"
@@ -142,16 +152,11 @@ export function LeadDetailHeader({ lead }: Props) {
         <span>{t('leads.backToList')}</span>
       </Link>
 
-      <DetailHeaderCard
-        avatar={avatarNode}
-        name={nameNode}
-        meta={metaNode}
-        actions={actionsNode}
-      />
+      <DetailHeaderCard avatar={avatarNode} name={nameNode} meta={metaNode} actions={actionsNode} />
 
-      {showConvert && (
-        <ConvertLeadDialog lead={lead} onClose={() => setShowConvert(false)} />
-      )}
+      <EditLeadModal lead={lead} isOpen={showEdit} onClose={() => setShowEdit(false)} />
+
+      {showConvert && <ConvertLeadDialog lead={lead} onClose={() => setShowConvert(false)} />}
     </>
   )
 }

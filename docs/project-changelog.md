@@ -1,7 +1,28 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-15 ICT
+> **Last Updated:** 2026-06-16 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-06-16
+
+### Lead Contact Info Editing
+**Status:** Complete
+
+**Changed:**
+- Added staff edit support for lead name, phone, email, and business name from the lead detail header.
+- Masked phone values remain read-only in the edit modal so non-admin viewers cannot accidentally overwrite a hidden number.
+- `PATCH /leads/:id` now accepts optional admin-only phone updates, normalizes to E.164, rejects invalid numbers, and returns `409` for duplicate lead phone conflicts.
+- Lead edit payloads include changed fields only so activity metadata does not over-report unchanged contact fields.
+- Added EN/VI copy and regression coverage for lead phone correction without exposing raw phone values in activity metadata.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/leads/__tests__/lead-update.test.ts` pass, 6 tests
+- `pnpm -F @ella/workspace test -- src/components/leads/edit-lead-modal-utils.test.ts` pass, 6 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass, workspace 2853 keys and portal 522 keys
 
 ---
 

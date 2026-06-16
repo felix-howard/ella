@@ -7,6 +7,7 @@ vi.mock('../../../lib/db', () => ({
   prisma: {
     rawImage: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       delete: vi.fn(),
     },
     documentView: {
@@ -86,6 +87,7 @@ function mockImage() {
     taxCase: {
       client: {
         id: 'client_1',
+        name: 'Christ Michela',
         organizationId: 'org_1',
       },
     },
@@ -131,14 +133,53 @@ describe('images activity logging', () => {
       expect.objectContaining({
         organizationId: 'org_1',
         clientId: 'client_1',
-        caseId: 'case_1',
         rawImageId: 'img_1',
         actorStaffId: 'staff_1',
         action: 'document.marked_viewed',
         category: 'DOCUMENT',
-        targetType: 'RAW_IMAGE',
-        targetId: 'img_1',
+        targetType: 'CLIENT',
+        targetId: 'client_1',
+        targetLabel: 'Christ Michela',
+        summary: 'viewed 1 doc of client Christ Michela',
+        coalesceKey: 'document.marked_viewed:staff:staff_1:client:client_1',
         riskLevel: ActivityRiskLevel.LOW,
+      })
+    )
+  })
+
+  it('logs a summarized activity when marking multiple documents viewed', async () => {
+    vi.mocked(prisma.rawImage.findMany).mockResolvedValue([
+      mockImage(),
+      { ...mockImage(), id: 'img_2' },
+    ] as never)
+    vi.mocked(prisma.documentView.findMany).mockResolvedValue([] as never)
+    vi.mocked(prisma.documentView.createMany).mockResolvedValue({ count: 2 } as never)
+
+    const res = await createApp().request('/images/batch-mark-viewed', {
+      method: 'POST',
+      body: JSON.stringify({ imageIds: ['img_1', 'img_2'] }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    expect(res.status).toBe(200)
+    expect(logStaffActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: 'org_1',
+        clientId: 'client_1',
+        actorStaffId: 'staff_1',
+        action: 'document.marked_viewed',
+        category: 'DOCUMENT',
+        targetType: 'CLIENT',
+        targetId: 'client_1',
+        targetLabel: 'Christ Michela',
+        summary: 'viewed 2 docs of client Christ Michela',
+        coalesceKey: 'document.marked_viewed:staff:staff_1:client:client_1',
+        metadata: expect.objectContaining({
+          count: 2,
+          documentViewedCount: 2,
+          clientName: 'Christ Michela',
+          rawImageIds: ['img_1', 'img_2'],
+        }),
       })
     )
   })

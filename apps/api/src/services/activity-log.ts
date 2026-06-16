@@ -284,6 +284,21 @@ function collectMessageIds(...metadataValues: unknown[]): string[] {
   return [...new Set(ids)]
 }
 
+function getDocumentViewedCount(metadata: unknown, fallback = 1): number {
+  const object = getJsonObject(metadata)
+  const count = object.documentViewedCount ?? object.count
+  return typeof count === 'number' && Number.isFinite(count) && count > 0 ? count : fallback
+}
+
+function buildDocumentViewedSummary(input: ActivityLogInput, count: number): string {
+  const metadataClientName = getJsonObject(input.metadata).clientName
+  const clientName = trimDisplayValue(input.targetLabel)
+    ?? trimDisplayValue(typeof metadataClientName === 'string' ? metadataClientName : undefined)
+    ?? 'client'
+  const docLabel = count === 1 ? 'doc' : 'docs'
+  return `viewed ${count} ${docLabel} of client ${clientName}`
+}
+
 function buildCoalescedSummary(input: ActivityLogInput, count: number): string {
   const metadata = getJsonObject(input.metadata)
   if (input.action === ACTIVITY_ACTIONS.MESSAGE.SENT) {
@@ -291,6 +306,9 @@ function buildCoalescedSummary(input: ActivityLogInput, count: number): string {
     return count === 1
       ? trimDisplayValue(input.summary) ?? `Sent ${channel} to client`
       : `Sent ${count} ${channel === 'SMS' ? 'SMS messages' : channel} to client`
+  }
+  if (input.action === ACTIVITY_ACTIONS.DOCUMENT.MARKED_VIEWED) {
+    return buildDocumentViewedSummary(input, getDocumentViewedCount(metadata, count))
   }
   return trimDisplayValue(input.summary) ?? buildFallbackSummary(input)
 }
@@ -330,6 +348,9 @@ async function coalesceActivityIfPossible(
   const existingMetadata = getJsonObject(existing.metadata)
   const nextMetadata = getJsonObject(data.metadata)
   const messageIds = collectMessageIds(existing.metadata, data.metadata)
+  const documentViewedCount = input.action === ACTIVITY_ACTIONS.DOCUMENT.MARKED_VIEWED
+    ? getDocumentViewedCount(existing.metadata) + getDocumentViewedCount(data.metadata)
+    : undefined
 
   await prisma.activityLog.update({
     where: { id: existing.id },
@@ -339,11 +360,14 @@ async function coalesceActivityIfPossible(
       targetType: data.targetType,
       targetId: data.targetId,
       targetLabel: data.targetLabel,
-      summary: buildCoalescedSummary(input, activityCount),
+      summary: documentViewedCount
+        ? buildDocumentViewedSummary(input, documentViewedCount)
+        : buildCoalescedSummary(input, activityCount),
       metadata: {
         ...existingMetadata,
         ...nextMetadata,
         activityCount,
+        ...(documentViewedCount ? { documentViewedCount, count: documentViewedCount } : {}),
         ...(messageIds.length > 0 ? { messageIds } : {}),
       },
       riskLevel: data.riskLevel,

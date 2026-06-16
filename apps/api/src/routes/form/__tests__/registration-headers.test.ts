@@ -68,7 +68,7 @@ describe('public form registration headers', () => {
     staffFindFirstMock.mockResolvedValue({ id: 'staff_1', name: 'Staff One' })
   })
 
-  it('returns safe org header config from generic form info', async () => {
+  it('returns standard org header config from generic form info', async () => {
     const res = await createApp().request('/form/ella-tax')
 
     expect(res.status).toBe(200)
@@ -78,9 +78,9 @@ describe('public form registration headers', () => {
         name: 'Ella Tax',
         logoUrl: null,
         slug: 'ella-tax',
-        registrationHeaderMode: 'CUSTOM',
-        registrationTitle: 'Org Title',
-        registrationSubtitle: 'Org Subtitle',
+        registrationHeaderMode: 'DEFAULT',
+        registrationTitle: null,
+        registrationSubtitle: null,
       },
     })
   })
@@ -93,9 +93,9 @@ describe('public form registration headers', () => {
       valid: true,
       campaignName: 'Facebook',
       org: {
-        registrationHeaderMode: 'CUSTOM',
-        registrationTitle: 'Org Title',
-        registrationSubtitle: 'Org Subtitle',
+        registrationHeaderMode: 'DEFAULT',
+        registrationTitle: null,
+        registrationSubtitle: null,
       },
       campaignHeader: {
         mode: 'HIDDEN',
@@ -106,7 +106,7 @@ describe('public form registration headers', () => {
     })
   })
 
-  it('returns safe org header config from staff form info', async () => {
+  it('returns standard org header config from staff form info', async () => {
     const res = await createApp().request('/form/ella-tax/staff-a')
 
     expect(res.status).toBe(200)
@@ -116,9 +116,9 @@ describe('public form registration headers', () => {
         name: 'Ella Tax',
         logoUrl: null,
         slug: 'ella-tax',
-        registrationHeaderMode: 'CUSTOM',
-        registrationTitle: 'Org Title',
-        registrationSubtitle: 'Org Subtitle',
+        registrationHeaderMode: 'DEFAULT',
+        registrationTitle: null,
+        registrationSubtitle: null,
       },
       staff: { id: 'staff_1', name: 'Staff One' },
     })
@@ -144,7 +144,7 @@ describe('public form registration headers', () => {
         name: 'Ella Tax',
         logoUrl: null,
         slug: 'ella-tax',
-        registrationHeaderMode: 'HIDDEN',
+        registrationHeaderMode: 'DEFAULT',
         registrationTitle: null,
         registrationSubtitle: null,
       },
@@ -169,9 +169,9 @@ describe('public form registration headers', () => {
       valid: true,
       campaignName: 'Facebook',
       org: {
-        registrationHeaderMode: 'CUSTOM',
-        registrationTitle: 'Org Title',
-        registrationSubtitle: 'Org Subtitle',
+        registrationHeaderMode: 'DEFAULT',
+        registrationTitle: null,
+        registrationSubtitle: null,
       },
       campaignHeader: {
         mode: 'HIDDEN',

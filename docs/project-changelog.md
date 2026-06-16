@@ -11,24 +11,24 @@
 **Status:** Complete
 
 **Changed:**
-- Organization settings now support default registration header mode, title, and subtitle controls.
+- Removed organization-level registration header controls from Settings to keep header configuration scoped to campaigns.
 - Campaign create/edit flows now support per-campaign registration header mode, title, and subtitle controls.
-- Public registration APIs expose safe display-only header fields for org and campaign links.
-- Public registration pages now render configurable org and campaign headers.
-- Campaign `DEFAULT` inherits the org header.
-- Campaign `CUSTOM` overrides the org header.
+- Public registration APIs expose safe display-only campaign header fields and normalize org header fields to the standard default.
+- Public registration pages now render configurable campaign headers.
+- Campaign `DEFAULT` uses the standard Register / Register for free tax consultation header.
+- Campaign `CUSTOM` overrides the standard header.
 - Campaign `HIDDEN` suppresses the header block.
 - Existing localized fallback copy remains in place when no custom text is configured, and `formIntroContent` stays independent.
-- Public form responses suppress stale custom title/subtitle values unless the effective mode is `CUSTOM`.
+- Public form responses suppress stale org-level and campaign custom title/subtitle values unless the effective campaign mode is `CUSTOM`.
 
 **Validation:**
-- `pnpm -F @ella/api test -- src/routes/org-settings/__tests__/registration-headers.test.ts src/routes/campaigns/__tests__/registration-headers.test.ts src/routes/form/__tests__/registration-headers.test.ts` pass, 14 tests
-- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/api test -- src/routes/form/__tests__/registration-headers.test.ts src/routes/campaigns/__tests__/registration-headers.test.ts` pass, 10 tests
 - `pnpm -F @ella/api type-check` pass
 - `pnpm -F @ella/workspace type-check` pass
 - `pnpm -F @ella/portal type-check` pass
-- `pnpm i18n:check` pass, workspace 2870 keys and portal 522 keys
-- `pnpm type-check` pass, 8 packages
+- `pnpm -F @ella/api lint` pass with pre-existing warning only
+- `pnpm -F @ella/workspace lint` pass with pre-existing warnings only
+- `pnpm -F @ella/portal lint` pass with pre-existing warning only
 
 ---
 

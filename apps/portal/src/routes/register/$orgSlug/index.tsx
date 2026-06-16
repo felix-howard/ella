@@ -52,7 +52,6 @@ function RegisterPage() {
   }
 
   const header = resolveRegistrationHeader({
-    org: org!,
     fallbackTitle: t('register.title'),
     fallbackSubtitle: t('register.subtitle'),
   })

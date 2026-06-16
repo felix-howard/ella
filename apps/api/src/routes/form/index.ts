@@ -50,11 +50,10 @@ interface CampaignHeaderFields {
   formSubtitle: string | null
 }
 
-function serializeOrgHeader<T extends OrgHeaderFields>(org: T): T {
-  if (org.registrationHeaderMode === 'CUSTOM') return org
-
+function serializeOrgHeader<T extends OrgHeaderFields>(org: T): Omit<T, keyof OrgHeaderFields> & OrgHeaderFields {
   return {
     ...org,
+    registrationHeaderMode: 'DEFAULT',
     registrationTitle: null,
     registrationSubtitle: null,
   }
@@ -150,11 +149,11 @@ formRoute.get(
     return c.json({
       valid: true,
       campaignName: campaign.name,
-      org: {
+      org: serializeOrgHeader({
         registrationHeaderMode: org.registrationHeaderMode,
-        registrationTitle: org.registrationHeaderMode === 'CUSTOM' ? org.registrationTitle : null,
-        registrationSubtitle: org.registrationHeaderMode === 'CUSTOM' ? org.registrationSubtitle : null,
-      },
+        registrationTitle: org.registrationTitle,
+        registrationSubtitle: org.registrationSubtitle,
+      }),
       campaignHeader: serializeCampaignHeader(campaign),
       formIntroContent: campaign.formIntroContent,
     })

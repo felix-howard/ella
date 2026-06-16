@@ -57,18 +57,18 @@ function RegisterPage() {
   }
 
   const header = resolveRegistrationHeader({
-    org: org!,
     campaign: campaignHeader,
     fallbackTitle: t('register.title'),
     fallbackSubtitle: t('register.subtitle'),
   })
+  const introSectionSpacing = header.visible ? 'pt-3' : 'pb-5 pt-3 sm:pb-6'
 
   return (
     <div className="flex-1 flex flex-col">
       <FormHeader orgName={org!.name} showDescription={false} variant="compact" />
 
       {formIntroContent && (
-        <section className="mx-auto w-full max-w-3xl px-4 pt-3 sm:px-6">
+        <section className={`mx-auto w-full max-w-3xl px-4 sm:px-6 ${introSectionSpacing}`}>
           <div
             className="form-intro-content text-left text-foreground"
             dangerouslySetInnerHTML={{ __html: formIntroContent }}

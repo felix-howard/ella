@@ -1,4 +1,4 @@
-import type { CampaignHeaderInfo, OrgInfo, RegistrationHeaderMode } from './form-api'
+import type { CampaignHeaderInfo, RegistrationHeaderMode } from './form-api'
 
 export interface ResolvedRegistrationHeader {
   visible: boolean
@@ -13,7 +13,6 @@ interface HeaderConfig {
 }
 
 interface ResolveRegistrationHeaderInput {
-  org: Pick<OrgInfo, 'registrationHeaderMode' | 'registrationTitle' | 'registrationSubtitle'>
   campaign?: CampaignHeaderInfo | null
   fallbackTitle: string
   fallbackSubtitle: string
@@ -53,20 +52,9 @@ function resolveConfig(
 }
 
 export function resolveRegistrationHeader({
-  org,
   campaign,
   fallbackTitle,
   fallbackSubtitle,
 }: ResolveRegistrationHeaderInput): ResolvedRegistrationHeader {
-  const orgHeader = {
-    mode: org.registrationHeaderMode,
-    title: org.registrationTitle,
-    subtitle: org.registrationSubtitle,
-  }
-
-  if (!campaign || normalizeMode(campaign.mode) === 'DEFAULT') {
-    return resolveConfig(orgHeader, fallbackTitle, fallbackSubtitle)
-  }
-
-  return resolveConfig(campaign, fallbackTitle, fallbackSubtitle)
+  return resolveConfig(campaign ?? { mode: 'DEFAULT' }, fallbackTitle, fallbackSubtitle)
 }

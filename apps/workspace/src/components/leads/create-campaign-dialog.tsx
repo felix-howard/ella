@@ -8,6 +8,8 @@ import { X } from 'lucide-react'
 import { api } from '../../lib/api-client'
 import { PORTAL_BASE_URL } from '../../lib/constants'
 import { toast } from '../../stores/toast-store'
+import type { RegistrationHeaderMode } from '../../lib/api-client'
+import { RegistrationHeaderFields } from './registration-header-fields'
 import { RichTextEditor } from './rich-text-editor'
 
 interface CreateCampaignDialogProps {
@@ -22,12 +24,24 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
   const [slug, setSlug] = useState('')
   const [tag, setTag] = useState('')
   const [description, setDescription] = useState('')
+  const [formHeaderMode, setFormHeaderMode] = useState<RegistrationHeaderMode>('DEFAULT')
+  const [formTitle, setFormTitle] = useState('')
+  const [formSubtitle, setFormSubtitle] = useState('')
   const [formIntroContent, setFormIntroContent] = useState('')
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
   const [tagManuallyEdited, setTagManuallyEdited] = useState(false)
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; slug: string; tag: string; description?: string; formIntroContent?: string | null }) =>
+    mutationFn: (data: {
+      name: string
+      slug: string
+      tag: string
+      description?: string
+      formHeaderMode: RegistrationHeaderMode
+      formTitle: string | null
+      formSubtitle: string | null
+      formIntroContent?: string | null
+    }) =>
       api.campaigns.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] })
@@ -81,6 +95,9 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
       slug: slug.trim(),
       tag: tag.trim(),
       description: description.trim() || undefined,
+      formHeaderMode,
+      formTitle: formHeaderMode === 'CUSTOM' ? formTitle.trim() || null : null,
+      formSubtitle: formHeaderMode === 'CUSTOM' ? formSubtitle.trim() || null : null,
       formIntroContent: formIntroContent.trim() ? formIntroContent : null,
     })
   }
@@ -192,6 +209,28 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
               className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
             />
           </div>
+
+          <RegistrationHeaderFields
+            mode={formHeaderMode}
+            title={formTitle}
+            subtitle={formSubtitle}
+            onModeChange={setFormHeaderMode}
+            onTitleChange={setFormTitle}
+            onSubtitleChange={setFormSubtitle}
+            legend={t('leads.campaignHeaderMode')}
+            description={t('leads.campaignHeaderDescription')}
+            defaultLabel={t('registrationHeader.default')}
+            customLabel={t('registrationHeader.custom')}
+            hiddenLabel={t('registrationHeader.hidden')}
+            defaultHelper={t('leads.campaignHeaderDefaultHelper')}
+            customHelper={t('registrationHeader.customHelper')}
+            hiddenHelper={t('registrationHeader.hiddenHelper')}
+            titleLabel={t('registrationHeader.titleLabel')}
+            subtitleLabel={t('registrationHeader.subtitleLabel')}
+            titlePlaceholder={t('registrationHeader.titlePlaceholder')}
+            subtitlePlaceholder={t('registrationHeader.subtitlePlaceholder')}
+            disabled={createMutation.isPending}
+          />
 
           {/* Form intro content (RTE) */}
           <div>

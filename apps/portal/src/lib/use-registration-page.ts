@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formApi } from './form-api'
-import type { OrgInfo, RegistrationFormData } from './form-api'
+import type { CampaignHeaderInfo, OrgInfo, RegistrationFormData } from './form-api'
 
 type PageState = 'loading' | 'error' | 'form' | 'success'
 
@@ -16,9 +16,12 @@ interface UseRegistrationPageProps {
 
 export function useRegistrationPage({ orgSlug, eventSlug }: UseRegistrationPageProps) {
   const { t } = useTranslation()
+  const pageKey = `${orgSlug}\u0000${eventSlug}`
   const [state, setState] = useState<PageState>('loading')
   const [org, setOrg] = useState<OrgInfo | null>(null)
+  const [campaignHeader, setCampaignHeader] = useState<CampaignHeaderInfo | null>(null)
   const [formIntroContent, setFormIntroContent] = useState<string | null>(null)
+  const [settledPageKey, setSettledPageKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -28,6 +31,14 @@ export function useRegistrationPage({ orgSlug, eventSlug }: UseRegistrationPageP
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
+
+    setState('loading')
+    setOrg(null)
+    setCampaignHeader(null)
+    setFormIntroContent(null)
+    setSettledPageKey(null)
+    setError(null)
+    setSubmitError(null)
 
     formApi
       .getOrgInfo(orgSlug)
@@ -41,22 +52,29 @@ export function useRegistrationPage({ orgSlug, eventSlug }: UseRegistrationPageP
           if (controller.signal.aborted) return
           if (!result.valid) {
             setError(t('register.errors.campaignNotFound'))
+            setSettledPageKey(pageKey)
             setState('error')
             return
           }
+          setCampaignHeader(result.campaignHeader ?? null)
           setFormIntroContent(result.formIntroContent ?? null)
+        } else {
+          setCampaignHeader(null)
+          setFormIntroContent(null)
         }
 
+        setSettledPageKey(pageKey)
         setState('form')
       })
       .catch((err) => {
         if (controller.signal.aborted) return
         setError(err.message || t('register.errors.orgNotFound'))
+        setSettledPageKey(pageKey)
         setState('error')
       })
 
     return () => controller.abort()
-  }, [orgSlug, eventSlug, t])
+  }, [orgSlug, eventSlug, pageKey, t])
 
   const handleSubmit = useCallback(
     async (data: RegistrationFormData) => {
@@ -89,5 +107,17 @@ export function useRegistrationPage({ orgSlug, eventSlug }: UseRegistrationPageP
     [orgSlug, eventSlug, t]
   )
 
-  return { state, org, formIntroContent, error, submitError, isSubmitting, handleSubmit }
+  const hasCurrentPageData = settledPageKey === pageKey
+  const currentState = state === 'loading' || hasCurrentPageData ? state : 'loading'
+
+  return {
+    state: currentState,
+    org: hasCurrentPageData ? org : null,
+    campaignHeader: hasCurrentPageData ? campaignHeader : null,
+    formIntroContent: hasCurrentPageData ? formIntroContent : null,
+    error: hasCurrentPageData ? error : null,
+    submitError,
+    isSubmitting,
+    handleSubmit,
+  }
 }

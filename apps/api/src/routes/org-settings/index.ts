@@ -7,6 +7,7 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { ActivityRiskLevel, Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
+import { sanitizeTextInput } from '../../lib/validation'
 import { isAdminOrManager } from '../../lib/org-scope'
 import { clerkClient } from '../../lib/clerk-client'
 import { formatPhoneToE164, isValidPhoneNumber } from '../../services/sms'
@@ -16,9 +17,13 @@ import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 
 const orgSettingsRoute = new Hono<{ Variables: AuthVariables }>()
+type RegistrationHeaderMode = 'DEFAULT' | 'CUSTOM' | 'HIDDEN'
 
 const updateOrgSettingsSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
+  registrationHeaderMode: z.enum(['DEFAULT', 'CUSTOM', 'HIDDEN']).optional(),
+  registrationTitle: z.string().max(120).nullable().optional(),
+  registrationSubtitle: z.string().max(240).nullable().optional(),
   smsLanguage: z.enum(['VI', 'EN']).optional(),
   missedCallTextBack: z.boolean().optional(),
   autoSendFormClientUploadLink: z.boolean().optional(),
@@ -55,6 +60,9 @@ orgSettingsRoute.get('/', async (c) => {
     where: { id: user.organizationId },
     select: {
       name: true,
+      registrationHeaderMode: true,
+      registrationTitle: true,
+      registrationSubtitle: true,
       smsLanguage: true,
       missedCallTextBack: true,
       autoSendFormClientUploadLink: true,
@@ -78,6 +86,9 @@ orgSettingsRoute.get('/', async (c) => {
 
   return c.json({
     name: org.name,
+    registrationHeaderMode: org.registrationHeaderMode,
+    registrationTitle: org.registrationTitle,
+    registrationSubtitle: org.registrationSubtitle,
     smsLanguage: org.smsLanguage,
     missedCallTextBack: org.missedCallTextBack,
     autoSendFormClientUploadLink: org.autoSendFormClientUploadLink,
@@ -131,12 +142,30 @@ orgSettingsRoute.patch(
     }
 
     const changedFields = getChangedFieldNames(data)
+    const registrationHeaderMode = data.registrationHeaderMode
+    const shouldClearRegistrationCopy =
+      registrationHeaderMode !== undefined && registrationHeaderMode !== 'CUSTOM'
     const updateData = {
       ...data,
+      ...(shouldClearRegistrationCopy
+        ? { registrationTitle: null }
+        : data.registrationTitle !== undefined
+        ? { registrationTitle: data.registrationTitle ? sanitizeTextInput(data.registrationTitle, 120) : null }
+        : {}),
+      ...(shouldClearRegistrationCopy
+        ? { registrationSubtitle: null }
+        : data.registrationSubtitle !== undefined
+        ? { registrationSubtitle: data.registrationSubtitle ? sanitizeTextInput(data.registrationSubtitle, 240) : null }
+        : {}),
       ...(data.firmPhone !== undefined
         ? { firmPhone: data.firmPhone?.trim() ? formatPhoneToE164(data.firmPhone) : null }
         : {}),
-    }
+    } satisfies Partial<{
+      registrationHeaderMode: RegistrationHeaderMode
+      registrationTitle: string | null
+      registrationSubtitle: string | null
+      firmPhone: string | null
+    }> & Record<string, unknown>
 
     // Validate slug uniqueness if provided
     if (data.slug) {
@@ -173,6 +202,9 @@ orgSettingsRoute.patch(
         data: updateData,
         select: {
           name: true,
+          registrationHeaderMode: true,
+          registrationTitle: true,
+          registrationSubtitle: true,
           smsLanguage: true,
           missedCallTextBack: true,
           autoSendFormClientUploadLink: true,
@@ -234,6 +266,9 @@ orgSettingsRoute.patch(
 
     return c.json({
       name: updated.name,
+      registrationHeaderMode: updated.registrationHeaderMode,
+      registrationTitle: updated.registrationTitle,
+      registrationSubtitle: updated.registrationSubtitle,
       smsLanguage: updated.smsLanguage,
       missedCallTextBack: updated.missedCallTextBack,
       autoSendFormClientUploadLink: updated.autoSendFormClientUploadLink,

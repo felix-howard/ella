@@ -251,6 +251,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /form/:orgSlug/:staffSlug` - Get form routed to specific staff member (public). Staff-specific form via formSlug, includes manager assignment
 - `POST /form/:orgSlug/submit` - Submit completed intake form (public). Creates Client record with source=GENERIC_FORM (no staff) or STAFF_FORM (routed to staff), optional file uploads, returns confirmationUrl. autoSendFormClientUploadLink controls SMS notification after submission.
 - Public endpoints unauthenticated; orgSlug + staffSlug route to correct staff member; ClientSource distinguishes generic forms vs staff-routed forms
+- Public registration header contract: `Organization.registrationHeaderMode`, `registrationTitle`, and `registrationSubtitle` control `/register/:orgSlug`. `Campaign.formHeaderMode`, `formTitle`, and `formSubtitle` control `/register/:orgSlug/:campaignSlug`. Modes are `DEFAULT`, `CUSTOM`, and `HIDDEN`; campaign `DEFAULT` inherits org behavior. Header values are sanitized plain text, public responses expose title/subtitle only for `CUSTOM`, stale non-custom copy is suppressed, and campaign `formIntroContent` remains separate rich content above the form.
 
 **Lead Management (9 - Phase 02 API Endpoints + Tag-Based Categorization Complete):**
 - `POST /leads` - Create lead from registration form (public, rate-limited 5/min). P2002 duplicate phone+org returns success (idempotent). Accepts `tags` string array for flexible categorization.

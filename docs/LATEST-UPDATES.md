@@ -1,5 +1,36 @@
 # Latest Documentation Updates
 
+**Date:** 2026-06-16 | **Feature:** Customizable Registration Headers COMPLETE | **Status:** Complete
+
+## Customizable Registration Headers
+
+**Date:** 2026-06-16 | **Status:** Complete
+
+**In One Sentence:** Org default and campaign registration links now support default, custom, or hidden header behavior across workspace controls, public APIs, and portal rendering.
+
+**Key Components Shipped:**
+
+### Workspace Settings
+- `Settings -> Form Links` now includes org default registration header controls.
+
+### Campaign Editors
+- Create and edit campaign dialogs now accept registration header mode, title, and subtitle values.
+
+### Localization
+- EN/VI locale keys now cover the new header control copy with parity preserved.
+
+### Scope Note
+- Public portal rendering reads stored org/campaign header settings on both registration routes.
+- Campaign `DEFAULT` inherits org behavior; `CUSTOM` overrides with stored copy; `HIDDEN` suppresses the fixed title/subtitle block.
+- Existing campaign `formIntroContent` remains independent from header controls.
+- Public APIs suppress stale custom copy unless the effective header mode is `CUSTOM`.
+
+### Validation
+- API targeted registration header tests passed, 14 tests.
+- DB, API, workspace, and portal type-checks passed.
+- Full `pnpm type-check` passed across 8 packages.
+- i18n check passed, workspace 2870 keys and portal 522 keys.
+
 **Date:** 2026-06-09 | **Feature:** Lead Bulk SMS Contract Update COMPLETE | **Status:** Complete; browser QA pending
 
 ## Lead Bulk SMS Contract Update

@@ -1,13 +1,11 @@
-/**
- * Edit Campaign Dialog - Modal for editing campaign name and description
- */
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { api } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
-import type { Campaign } from '../../lib/api-client'
+import type { Campaign, RegistrationHeaderMode } from '../../lib/api-client'
+import { RegistrationHeaderFields } from './registration-header-fields'
 import { RichTextEditor } from './rich-text-editor'
 
 interface EditCampaignDialogProps {
@@ -20,10 +18,20 @@ export function EditCampaignDialog({ campaign, onClose }: EditCampaignDialogProp
   const queryClient = useQueryClient()
   const [name, setName] = useState(campaign.name)
   const [description, setDescription] = useState(campaign.description || '')
+  const [formHeaderMode, setFormHeaderMode] = useState<RegistrationHeaderMode>(campaign.formHeaderMode)
+  const [formTitle, setFormTitle] = useState(campaign.formTitle ?? '')
+  const [formSubtitle, setFormSubtitle] = useState(campaign.formSubtitle ?? '')
   const [formIntroContent, setFormIntroContent] = useState(campaign.formIntroContent ?? '')
 
   const updateMutation = useMutation({
-    mutationFn: (data: { name?: string; description?: string | null; formIntroContent?: string | null }) =>
+    mutationFn: (data: {
+      name?: string
+      description?: string | null
+      formHeaderMode?: RegistrationHeaderMode
+      formTitle?: string | null
+      formSubtitle?: string | null
+      formIntroContent?: string | null
+    }) =>
       api.campaigns.update(campaign.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] })
@@ -39,6 +47,9 @@ export function EditCampaignDialog({ campaign, onClose }: EditCampaignDialogProp
     updateMutation.mutate({
       name: name.trim(),
       description: description.trim() || null,
+      formHeaderMode,
+      formTitle: formHeaderMode === 'CUSTOM' ? formTitle.trim() || null : null,
+      formSubtitle: formHeaderMode === 'CUSTOM' ? formSubtitle.trim() || null : null,
       formIntroContent: formIntroContent.trim() ? formIntroContent : null,
     })
   }
@@ -58,7 +69,6 @@ export function EditCampaignDialog({ campaign, onClose }: EditCampaignDialogProp
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-card rounded-2xl border border-border w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl">
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-base font-semibold text-foreground">{t('leads.editCampaign')}</h2>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted transition-colors">
@@ -66,9 +76,7 @@ export function EditCampaignDialog({ campaign, onClose }: EditCampaignDialogProp
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4 overflow-y-auto">
-          {/* Name */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">
               {t('leads.campaignName')}
@@ -84,7 +92,6 @@ export function EditCampaignDialog({ campaign, onClose }: EditCampaignDialogProp
             />
           </div>
 
-          {/* Slug (read-only) */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">
               {t('leads.campaignSlug')}
@@ -97,7 +104,6 @@ export function EditCampaignDialog({ campaign, onClose }: EditCampaignDialogProp
             />
           </div>
 
-          {/* Tag (read-only) */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">
               {t('leads.campaignTag')}
@@ -110,7 +116,6 @@ export function EditCampaignDialog({ campaign, onClose }: EditCampaignDialogProp
             />
           </div>
 
-          {/* Description */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">
               {t('leads.campaignDescription')}
@@ -125,7 +130,28 @@ export function EditCampaignDialog({ campaign, onClose }: EditCampaignDialogProp
             />
           </div>
 
-          {/* Form intro content (RTE) */}
+          <RegistrationHeaderFields
+            mode={formHeaderMode}
+            title={formTitle}
+            subtitle={formSubtitle}
+            onModeChange={setFormHeaderMode}
+            onTitleChange={setFormTitle}
+            onSubtitleChange={setFormSubtitle}
+            legend={t('leads.campaignHeaderMode')}
+            description={t('leads.campaignHeaderDescription')}
+            defaultLabel={t('registrationHeader.default')}
+            customLabel={t('registrationHeader.custom')}
+            hiddenLabel={t('registrationHeader.hidden')}
+            defaultHelper={t('leads.campaignHeaderDefaultHelper')}
+            customHelper={t('registrationHeader.customHelper')}
+            hiddenHelper={t('registrationHeader.hiddenHelper')}
+            titleLabel={t('registrationHeader.titleLabel')}
+            subtitleLabel={t('registrationHeader.subtitleLabel')}
+            titlePlaceholder={t('registrationHeader.titlePlaceholder')}
+            subtitlePlaceholder={t('registrationHeader.subtitlePlaceholder')}
+            disabled={updateMutation.isPending}
+          />
+
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">
               {t('leads.campaignFormIntroLabel')}
@@ -143,7 +169,6 @@ export function EditCampaignDialog({ campaign, onClose }: EditCampaignDialogProp
             />
           </div>
 
-          {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"

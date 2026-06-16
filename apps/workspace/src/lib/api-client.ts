@@ -1981,10 +1981,10 @@ export const api = {
     list: () =>
       request<{ success: boolean; data: Campaign[] }>('/campaigns'),
 
-    create: (data: { name: string; slug: string; tag: string; description?: string; formIntroContent?: string | null }) =>
+    create: (data: { name: string; slug: string; tag: string; description?: string; formIntroContent?: string | null } & RegistrationHeaderInput) =>
       request<{ success: boolean; data: Campaign }>('/campaigns', { method: 'POST', body: JSON.stringify(data) }),
 
-    update: (id: string, data: { name?: string; description?: string | null; status?: 'ACTIVE' | 'ARCHIVED'; formIntroContent?: string | null }) =>
+    update: (id: string, data: { name?: string; description?: string | null; status?: 'ACTIVE' | 'ARCHIVED'; formIntroContent?: string | null } & RegistrationHeaderInput) =>
       request<{ success: boolean; data: Campaign }>(`/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
     uploadIntroImage: (file: File) => {
@@ -2225,6 +2225,19 @@ export interface AgreementTemplate {
 }
 
 export type CampaignStatus = 'ACTIVE' | 'ARCHIVED'
+export type RegistrationHeaderMode = 'DEFAULT' | 'CUSTOM' | 'HIDDEN'
+
+export interface RegistrationHeaderInput {
+  formHeaderMode?: RegistrationHeaderMode
+  formTitle?: string | null
+  formSubtitle?: string | null
+}
+
+export interface OrgRegistrationHeaderInput {
+  registrationHeaderMode?: RegistrationHeaderMode
+  registrationTitle?: string | null
+  registrationSubtitle?: string | null
+}
 
 export interface Campaign {
   id: string
@@ -2233,6 +2246,9 @@ export interface Campaign {
   tag: string
   status: CampaignStatus
   description: string | null
+  formHeaderMode: RegistrationHeaderMode
+  formTitle: string | null
+  formSubtitle: string | null
   formIntroContent: string | null
   createdById: string
   createdBy: { name: string }
@@ -3826,6 +3842,9 @@ export interface StaffProfile {
 
 export interface OrgSettings {
   name: string
+  registrationHeaderMode: RegistrationHeaderMode
+  registrationTitle: string | null
+  registrationSubtitle: string | null
   smsLanguage: Language
   missedCallTextBack: boolean
   autoSendFormClientUploadLink: boolean

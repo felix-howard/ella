@@ -7,6 +7,33 @@
 
 ## 2026-06-16
 
+### Customizable Registration Headers
+**Status:** Complete
+
+**Changed:**
+- Organization settings now support default registration header mode, title, and subtitle controls.
+- Campaign create/edit flows now support per-campaign registration header mode, title, and subtitle controls.
+- Public registration APIs expose safe display-only header fields for org and campaign links.
+- Public registration pages now render configurable org and campaign headers.
+- Campaign `DEFAULT` inherits the org header.
+- Campaign `CUSTOM` overrides the org header.
+- Campaign `HIDDEN` suppresses the header block.
+- Existing localized fallback copy remains in place when no custom text is configured, and `formIntroContent` stays independent.
+- Public form responses suppress stale custom title/subtitle values unless the effective mode is `CUSTOM`.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/org-settings/__tests__/registration-headers.test.ts src/routes/campaigns/__tests__/registration-headers.test.ts src/routes/form/__tests__/registration-headers.test.ts` pass, 14 tests
+- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm i18n:check` pass, workspace 2870 keys and portal 522 keys
+- `pnpm type-check` pass, 8 packages
+
+---
+
+## 2026-06-16
+
 ### Lead Contact Info Editing
 **Status:** Complete
 

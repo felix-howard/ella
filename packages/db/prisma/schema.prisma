@@ -400,6 +400,12 @@ enum CampaignStatus {
   ARCHIVED
 }
 
+enum RegistrationHeaderMode {
+  DEFAULT
+  CUSTOM
+  HIDDEN
+}
+
 enum SmsSendStatus {
   SENT
   DELIVERED
@@ -670,6 +676,10 @@ model Organization {
   slug       String? @unique
   logoUrl    String?
   isActive   Boolean @default(true)
+
+  registrationHeaderMode RegistrationHeaderMode @default(DEFAULT)
+  registrationTitle      String?                @db.VarChar(120)
+  registrationSubtitle   String?                @db.VarChar(240)
 
   smsLanguage                  Language @default(VI)
   missedCallTextBack           Boolean  @default(false)
@@ -2058,6 +2068,9 @@ model Campaign {
   status           CampaignStatus @default(ACTIVE)
   description      String?        @db.Text
   formIntroContent String?        @db.Text
+  formHeaderMode   RegistrationHeaderMode @default(DEFAULT)
+  formTitle        String?                @db.VarChar(120)
+  formSubtitle     String?                @db.VarChar(240)
 
   // Relations
   organizationId String

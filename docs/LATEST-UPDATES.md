@@ -1,5 +1,32 @@
 # Latest Documentation Updates
 
+**Date:** 2026-06-16 | **Feature:** Customizable Registration Headers COMPLETE | **Status:** Complete
+
+## Customizable Registration Headers
+
+**Date:** 2026-06-16 | **Status:** Complete
+
+**In One Sentence:** Campaign registration links now support standard, custom, or hidden header behavior across workspace controls, public APIs, and portal rendering.
+
+**Key Components Shipped:**
+
+### Campaign Editors
+- Create and edit campaign dialogs now accept registration header mode, title, and subtitle values.
+
+### Localization
+- EN/VI locale keys now cover the new header control copy with parity preserved.
+
+### Scope Note
+- Public portal rendering reads campaign header settings on campaign registration routes.
+- Campaign `DEFAULT` uses the standard Register / Register for free tax consultation header; `CUSTOM` overrides with stored copy; `HIDDEN` suppresses the fixed title/subtitle block.
+- Existing campaign `formIntroContent` remains independent from header controls.
+- Public APIs normalize org header fields to the standard default and suppress stale campaign custom copy unless the effective campaign header mode is `CUSTOM`.
+
+### Validation
+- API targeted registration header tests passed, 10 tests.
+- API, workspace, and portal type-checks passed.
+- API, workspace, and portal lint passed with pre-existing warnings only.
+
 **Date:** 2026-06-09 | **Feature:** Lead Bulk SMS Contract Update COMPLETE | **Status:** Complete; browser QA pending
 
 ## Lead Bulk SMS Contract Update

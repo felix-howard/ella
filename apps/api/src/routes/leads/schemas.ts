@@ -5,11 +5,16 @@
 import { z } from 'zod'
 import { BULK_SMS_MAX_RECIPIENTS } from '@ella/shared/constants'
 
+const leadPhoneSchema = z
+  .string()
+  .regex(/^\+?[\d\s\-()]{10,15}$/, 'Invalid phone number format')
+  .refine(phone => phone.replace(/\D/g, '').length >= 10, 'Invalid phone number format')
+
 /** Create lead (public endpoint from registration form) */
 export const createLeadSchema = z.object({
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
-  phone: z.string().regex(/^\+?[\d\s\-()]{10,15}$/, 'Invalid phone number format'),
+  phone: leadPhoneSchema,
   email: z.string().email().max(254).optional().nullable(),
   businessName: z.string().max(200).optional().nullable(),
   smsConsentAccepted: z.literal(true),
@@ -21,7 +26,7 @@ export const createLeadSchema = z.object({
 export const adminCreateLeadSchema = z.object({
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
-  phone: z.string().regex(/^\+?[\d\s\-()]{10,15}$/, 'Invalid phone number format'),
+  phone: leadPhoneSchema,
   email: z.string().email().max(254).optional().nullable(),
   notes: z.string().max(5000).optional().nullable(),
 })
@@ -56,6 +61,7 @@ export const updateLeadSchema = z.object({
   notes: z.string().max(5000).optional().nullable(),
   firstName: z.string().min(1).max(100).optional(),
   lastName: z.string().min(1).max(100).optional(),
+  phone: leadPhoneSchema.optional(),
   email: z.string().email().max(254).optional().nullable(),
   businessName: z.string().max(200).optional().nullable(),
   tags: z.array(z.string().max(50).regex(/^[a-z0-9-]+$/)).max(20).optional(),

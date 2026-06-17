@@ -185,9 +185,9 @@ export function PricingCalculatorForm({
           )}
         </FormSection>
 
-        <FormSection icon={ShieldCheck} title="Add-ons">
+        <FormSection icon={ShieldCheck} title="Early IRS Detection">
           <SwitchRow
-            label="Enable Audit Protection"
+            label="Enable Audit Detection"
             checked={input.auditProtection}
             onCheckedChange={(auditProtection) => onInputChange({ ...input, auditProtection })}
           />

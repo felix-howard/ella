@@ -162,7 +162,7 @@ describe('workspace pricing calculator', () => {
     expect(markup).not.toContain('min="300"')
   })
 
-  it('hides Cash Plan and Audit Protection custom fields until their toggles are enabled', () => {
+  it('hides Cash Plan and Audit Detection custom fields until their toggles are enabled', () => {
     const input = createDefaultPricingInput()
 
     const disabledMarkup = renderToStaticMarkup(
@@ -170,7 +170,7 @@ describe('workspace pricing calculator', () => {
     )
 
     expect(disabledMarkup).toContain('Enable Cash Plan')
-    expect(disabledMarkup).toContain('Enable Audit Protection')
+    expect(disabledMarkup).toContain('Enable Audit Detection')
     expect(disabledMarkup).not.toContain('Employees enrolled')
     expect(disabledMarkup).not.toContain('Owners / shareholders')
     expect(disabledMarkup).not.toContain('Per employee / mo')

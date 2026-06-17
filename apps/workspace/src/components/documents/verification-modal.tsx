@@ -628,7 +628,8 @@ export function VerificationModal({
                 pdfCurrentPage={pdfCurrentPage}
                 onPdfCurrentPageChange={setPdfCurrentPage}
                 onPdfLoadSuccess={setPdfNumPages}
-                renderAllPdfPages={isMobilePdf}
+                // iOS Safari can reload the whole tab when pdf.js mounts many high-DPI canvases.
+                renderAllPdfPages={false}
               />
             )}
 

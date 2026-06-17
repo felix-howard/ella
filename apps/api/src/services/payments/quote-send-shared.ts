@@ -100,7 +100,7 @@ export async function resolveRecipient(
 ): Promise<ResolvedRecipient> {
   if (recipient.type === 'client') {
     const client = await prisma.client.findFirst({
-      where: { id: recipient.id, organizationId },
+      where: { id: recipient.id, organizationId, clientType: 'INDIVIDUAL' },
       select: { id: true, firstName: true },
     })
     if (!client) throw new HTTPException(404, { message: 'Client not found' })

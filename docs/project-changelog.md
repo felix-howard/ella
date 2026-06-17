@@ -7,6 +7,22 @@
 
 ## 2026-06-17
 
+### Payment Quote Recipient Search
+**Status:** Complete
+
+**Fixed:**
+- Payment quote recipient search now returns individual clients only, plus leads.
+- Server-side quote sending now rejects business client IDs as client recipients, preventing payment-link SMS/conversation creation for business records.
+- Added regression coverage for `/recipients/search` filtering and sendable quote recipient resolution.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/payments/__tests__/quote-send-service.test.ts` pass, 23 tests
+- `pnpm -F @ella/api test -- src/routes/recipients/__tests__/recipients-search.test.ts` pass, 2 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass with pre-existing warning only
+
+---
+
 ### Mobile PDF Verification Viewer Crash
 **Status:** Complete
 

@@ -312,9 +312,26 @@ describe('createSendableQuote', () => {
       await expect(createSendableQuote(input, context)).rejects.toThrow(HTTPException)
 
       expect(prismaMocks.client.findFirst).toHaveBeenCalledWith({
-        where: { id: 'client_1', organizationId: 'org_1' },
+        where: { id: 'client_1', organizationId: 'org_1', clientType: 'INDIVIDUAL' },
         select: { id: true, firstName: true },
       })
+    })
+
+    it('does not resolve business clients as sendable quote recipients', async () => {
+      prismaMocks.client.findFirst.mockResolvedValue(null)
+
+      const input = buildSendQuoteInput({ recipient: { type: 'client', id: 'business_1' } })
+
+      await expect(createSendableQuote(input, context)).rejects.toMatchObject(
+        new HTTPException(404, { message: 'Client not found' }),
+      )
+
+      expect(prismaMocks.client.findFirst).toHaveBeenCalledWith({
+        where: { id: 'business_1', organizationId: 'org_1', clientType: 'INDIVIDUAL' },
+        select: { id: true, firstName: true },
+      })
+      expect(prismaMocks.paymentQuote.create).not.toHaveBeenCalled()
+      expect(smsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
     })
   })
 

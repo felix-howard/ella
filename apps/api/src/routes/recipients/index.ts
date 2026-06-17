@@ -61,6 +61,9 @@ recipientsRoute.get(
         where: {
           // Canonical client visibility scope (org + per-user assignment).
           ...buildClientScopeFilter(user),
+          // Message conversations are person-to-person; do not offer business
+          // client records as quote recipients.
+          clientType: 'INDIVIDUAL',
           OR: [
             { firstName: { contains: sanitized, mode: 'insensitive' } },
             { lastName: { contains: sanitized, mode: 'insensitive' } },

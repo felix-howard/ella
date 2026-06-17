@@ -1,7 +1,24 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-16 ICT
+> **Last Updated:** 2026-06-17 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-06-17
+
+### Mobile PDF Verification Viewer Crash
+**Status:** Complete
+
+**Fixed:**
+- Stopped the verification modal from rendering every PDF page canvas at once on mobile.
+- Mobile multi-page PDFs now stay in paged mode with existing prev/next page controls.
+- Prevents iOS Safari renderer reloads on long/high-DPI PDFs while preserving desktop native iframe behavior.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/documents/verification-modal-pdf.test.tsx` pass, 1 test
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with pre-existing warnings only
 
 ---
 

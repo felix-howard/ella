@@ -191,6 +191,30 @@ describe('workspace pricing calculator', () => {
     expect(enabledMarkup).toContain('Audit setup')
   })
 
+  it('hides one-time service fields until one-time services are enabled', () => {
+    const input = createDefaultPricingInput()
+
+    const disabledMarkup = renderToStaticMarkup(
+      <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
+    )
+
+    expect(disabledMarkup).toContain('Enable One-time services')
+    expect(disabledMarkup).not.toContain('Start LLC')
+    expect(disabledMarkup).not.toContain('Business tax return')
+    expect(disabledMarkup).not.toContain('aria-label="Federal rate"')
+
+    input.oneTime.personalTaxReturn = 1
+
+    const enabledMarkup = renderToStaticMarkup(
+      <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
+    )
+
+    expect(enabledMarkup).toContain('Start LLC')
+    expect(enabledMarkup).toContain('Business tax return')
+    expect(enabledMarkup).toContain('aria-label="Federal rate"')
+    expect(enabledMarkup).toContain('value="$800"')
+  })
+
   it('renders zero-valued rate fields as empty so typing does not keep a leading zero', () => {
     const input = createDefaultPricingInput()
     input.rates.tiers.proMonthly = 0

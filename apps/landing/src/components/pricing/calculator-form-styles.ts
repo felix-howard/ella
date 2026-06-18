@@ -16,6 +16,13 @@ export const headingCls = "text-base font-semibold text-gray-900";
 
 export const hintCls = "mt-1 text-xs text-gray-500";
 
+export const switchRowCls =
+  "flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-neutral-border px-4 py-3";
+
+export const switchTrackCls = "relative inline-flex h-6 w-11 shrink-0 items-center";
+
+export const switchInputCls = "peer sr-only";
+
 export const chevronSvgCls =
   "h-5 w-5 text-gray-400 transition-transform [details[open]_&]:rotate-180";
 

@@ -1,7 +1,7 @@
 import type { PayrollMode, PricingCalculatorInput } from '@ella/shared/pricing'
 import { PAYROLL } from '@ella/shared/constants'
 import { Calculator, ShieldCheck, Store, WalletCards, type LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Input, SelectField, Switch } from '@ella/ui'
 import { clampWholeNumber, formatCurrency } from './pricing-format'
 
@@ -44,6 +44,10 @@ export function PricingCalculatorForm({
   disabled = false,
   onInputChange,
 }: PricingCalculatorFormProps) {
+  const hasOneTimeSelection = Object.values(input.oneTime).some((quantity) => quantity > 0)
+  const [oneTimeManuallyEnabled, setOneTimeManuallyEnabled] = useState(false)
+  const oneTimeEnabled = oneTimeManuallyEnabled || hasOneTimeSelection
+
   const setQuantity = (key: TopQuantityKey, value: string, max = 1000) => {
     onInputChange({ ...input, [key]: clampWholeNumber(value, max) })
   }
@@ -60,6 +64,20 @@ export function PricingCalculatorForm({
           ...input.rates[group],
           [key]: clampWholeNumber(value, 1_000_000),
         },
+      },
+    })
+  }
+  const handleOneTimeToggle = (enabled: boolean) => {
+    setOneTimeManuallyEnabled(enabled)
+    if (enabled) return
+    onInputChange({
+      ...input,
+      oneTime: {
+        startLlc: 0,
+        holdingLlcNew: 0,
+        holdingLlcModify: 0,
+        personalTaxReturn: 0,
+        businessTaxReturn: 0,
       },
     })
   }
@@ -208,57 +226,64 @@ export function PricingCalculatorForm({
         </FormSection>
 
         <FormSection icon={Store} title="One-time services">
-          <div className="space-y-3">
-            {oneTimeRows.map((row) => (
-              <div key={row.key} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_112px]">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{row.label}</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    {row.kind === 'business' ? (
-                      <>
+          <SwitchRow
+            label="Enable One-time services"
+            checked={oneTimeEnabled}
+            onCheckedChange={handleOneTimeToggle}
+          />
+          {oneTimeEnabled && (
+            <div className="space-y-3">
+              {oneTimeRows.map((row) => (
+                <div key={row.key} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_112px]">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{row.label}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      {row.kind === 'business' ? (
+                        <>
+                          <RateField
+                            compact
+                            label="Federal"
+                            value={input.rates.oneTime.businessTaxReturnFederal}
+                            onChange={(value) =>
+                              setRate('oneTime', 'businessTaxReturnFederal', value)
+                            }
+                          />
+                          <RateField
+                            compact
+                            label="State"
+                            value={input.rates.oneTime.businessTaxReturnState}
+                            onChange={(value) =>
+                              setRate('oneTime', 'businessTaxReturnState', value)
+                            }
+                          />
+                        </>
+                      ) : (
                         <RateField
                           compact
-                          label="Federal"
-                          value={input.rates.oneTime.businessTaxReturnFederal}
-                          onChange={(value) =>
-                            setRate('oneTime', 'businessTaxReturnFederal', value)
-                          }
+                          label="Rate"
+                          value={input.rates.oneTime[row.key]}
+                          onChange={(value) => setRate('oneTime', row.key, value)}
                         />
-                        <RateField
-                          compact
-                          label="State"
-                          value={input.rates.oneTime.businessTaxReturnState}
-                          onChange={(value) =>
-                            setRate('oneTime', 'businessTaxReturnState', value)
-                          }
-                        />
-                      </>
-                    ) : (
-                      <RateField
-                        compact
-                        label="Rate"
-                        value={input.rates.oneTime[row.key]}
-                        onChange={(value) => setRate('oneTime', row.key, value)}
-                      />
-                    )}
-                    {row.hint && <span>{row.hint}</span>}
+                      )}
+                      {row.hint && <span>{row.hint}</span>}
+                    </div>
                   </div>
+                  <NumberField
+                    id={`pricing-onetime-${row.key}`}
+                    label="Qty"
+                    value={input.oneTime[row.key]}
+                    max={99}
+                    onChange={(value) =>
+                      onInputChange({
+                        ...input,
+                        oneTime: { ...input.oneTime, [row.key]: clampWholeNumber(value, 99) },
+                      })
+                    }
+                  />
                 </div>
-                <NumberField
-                  id={`pricing-onetime-${row.key}`}
-                  label="Qty"
-                  value={input.oneTime[row.key]}
-                  max={99}
-                  onChange={(value) =>
-                    onInputChange({
-                      ...input,
-                      oneTime: { ...input.oneTime, [row.key]: clampWholeNumber(value, 99) },
-                    })
-                  }
-                />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </FormSection>
 
         <FormSection icon={Store} title="Sales tax monitoring">

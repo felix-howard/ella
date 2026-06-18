@@ -1,7 +1,31 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-17 ICT
+> **Last Updated:** 2026-06-18 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-06-18
+
+### Payment Calculator One-time Services Toggle
+**Status:** Complete
+
+**Changed:**
+- One-time services in payment/pricing calculator now stay collapsed by default behind an enable toggle.
+- Hidden one-time service fields no longer contribute values until the section is enabled.
+- Business tax return Federal default changed from `$600` to `$800`.
+
+**Validation:**
+- `pnpm -F @ella/shared test -- src/pricing/calculator.test.ts` pass, 8 tests
+- `pnpm -F @ella/shared type-check` pass
+- `pnpm -F @ella/shared lint` pass
+- `pnpm -F @ella/workspace test -- src/components/pricing/__tests__/pricing-calculator.test.tsx` pass, 8 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with pre-existing warnings only
+- `pnpm -F @ella/landing type-check` pass
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/api test -- src/services/stripe/__tests__/checkout.test.ts src/services/stripe/__tests__/quote-rebuild.test.ts src/services/payments/__tests__/quote-checkout-service.test.ts` pass, 43 tests
+- `pnpm -F @ella/api type-check` pass
 
 ---
 

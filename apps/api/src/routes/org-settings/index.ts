@@ -10,6 +10,7 @@ import { prisma } from '../../lib/db'
 import { sanitizeTextInput } from '../../lib/validation'
 import { isAdminOrManager } from '../../lib/org-scope'
 import { clerkClient } from '../../lib/clerk-client'
+import { config } from '../../lib/config'
 import { formatPhoneToE164, isValidPhoneNumber } from '../../services/sms'
 import { UPLOAD_LINK_TEMPLATE_IDS } from '../../services/sms/upload-link-template-resolver'
 import type { AuthVariables } from '../../middleware/auth'
@@ -179,6 +180,12 @@ orgSettingsRoute.patch(
 
     if (updateData.firmPhone && !isValidPhoneNumber(updateData.firmPhone)) {
       return c.json({ error: 'INVALID_FIRM_PHONE' }, 400)
+    }
+
+    if (data.firmPhone !== undefined && config.twilio.phoneNumber) {
+      if (updateData.firmPhone !== config.twilio.phoneNumber) {
+        return c.json({ error: 'FIRM_PHONE_LOCKED_TO_TWILIO_NUMBER' }, 400)
+      }
     }
 
     if (updateData.firmPhone) {

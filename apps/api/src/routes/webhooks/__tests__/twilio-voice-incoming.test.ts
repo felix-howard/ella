@@ -242,6 +242,30 @@ describe('Twilio voice incoming webhook', () => {
     }))
   })
 
+  it('resolves legacy formatted firmPhone values for incoming calls', async () => {
+    prismaMocks.organization.findMany.mockResolvedValue([{ id: 'org_a' }])
+    prismaMocks.client.findFirst.mockResolvedValue({
+      id: 'client_a',
+      organizationId: 'org_a',
+      taxCases: [],
+    })
+    prismaMocks.staffPresence.findMany.mockResolvedValue([])
+
+    const res = await postIncomingCall({ from: '+15551112222', to: '+15550000001' })
+
+    expect(res.status).toBe(200)
+    expect(prismaMocks.organization.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        firmPhone: expect.objectContaining({
+          in: expect.arrayContaining(['+15550000001', '(555) 000-0001']),
+        }),
+      }),
+    }))
+    expect(prismaMocks.client.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { phone: '+15551112222', organizationId: 'org_a', clientType: 'INDIVIDUAL' },
+    }))
+  })
+
   it('routes unresolved called numbers to voicemail without ringing cross-tenant staff', async () => {
     prismaMocks.organization.findMany.mockResolvedValue([])
 
@@ -254,8 +278,35 @@ describe('Twilio voice incoming webhook', () => {
     expect(smsMocks.sendMissedCallTextBack).not.toHaveBeenCalled()
   })
 
-  it('does not fall back from configured Twilio number to the only active organization', async () => {
+  it('falls back from configured Twilio number to the only active organization', async () => {
     prismaMocks.organization.findMany.mockResolvedValue([])
+    prismaMocks.organization.findMany.mockResolvedValueOnce([])
+    prismaMocks.organization.findMany.mockResolvedValueOnce([{ id: 'org_a' }])
+    prismaMocks.client.findFirst.mockResolvedValue(null)
+    prismaMocks.staffPresence.findMany.mockResolvedValue([
+      { deviceId: 'staff_admin_device', staff: { id: 'staff_admin', role: 'ADMIN' } },
+    ])
+
+    const res = await postIncomingCall({ to: '+15550000000' })
+
+    expect(res.status).toBe(200)
+    expect(await res.text()).toContain('staff_admin_device')
+    expect(prismaMocks.client.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { phone: '+15551112222', organizationId: 'org_a', clientType: 'INDIVIDUAL' },
+    }))
+    expect(voiceMocks.createPlaceholderConversation).toHaveBeenCalledWith(
+      '+15551112222',
+      'org_a',
+      'INCOMING_CALL'
+    )
+  })
+
+  it('does not fall back from configured Twilio number when active organization ownership is ambiguous', async () => {
+    prismaMocks.organization.findMany.mockResolvedValueOnce([])
+    prismaMocks.organization.findMany.mockResolvedValueOnce([
+      { id: 'org_a' },
+      { id: 'org_b' },
+    ])
 
     const res = await postIncomingCall({ to: '+15550000000' })
 

@@ -7,6 +7,23 @@
 
 ## 2026-06-18
 
+### Twilio Inbound Routing Fallback
+**Status:** Complete
+
+**Fixed:**
+- Restored single-tenant fallback for inbound SMS and incoming voice calls when the called number matches `TWILIO_PHONE_NUMBER` and exactly one active organization exists.
+- Inbound SMS/call tenant resolution now also matches legacy formatted firm phone values such as `(878) 678-0999` against Twilio E.164 webhook numbers like `+18786780999`.
+- Organization settings now reject `firmPhone` changes that do not match configured `TWILIO_PHONE_NUMBER`, and the workspace firm phone field is read-only to prevent accidental inbound routing breakage.
+- Keeps the multi-tenant security guard: unresolved non-configured numbers and ambiguous active-org ownership still fail closed before tenant lookup.
+- Prevents recent inbound Twilio messages/calls from being accepted by Twilio but dropped by Ella when `Organization.firmPhone` is absent, stale, or not normalized.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/org-settings/__tests__/activity-logging.test.ts src/services/sms/__tests__/webhook-handler-routing.test.ts src/routes/webhooks/__tests__/twilio-voice-incoming.test.ts` pass, 26 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+
+---
+
 ### Payment Calculator One-time Services Toggle
 **Status:** Complete
 

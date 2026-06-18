@@ -137,10 +137,11 @@ async function resolveIncomingMessageOrganizationId(toPhone: string): Promise<st
     return null
   }
 
+  const phoneCandidates = buildIncomingPhoneCandidates(toPhone)
   const organizations = await prisma.organization.findMany({
     where: {
       isActive: true,
-      firmPhone: toPhone,
+      firmPhone: { in: phoneCandidates },
     },
     select: { id: true },
     take: 2,
@@ -148,7 +149,36 @@ async function resolveIncomingMessageOrganizationId(toPhone: string): Promise<st
 
   if (organizations.length === 1) return organizations[0].id
   if (organizations.length > 1) return null
+
+  if (config.twilio.phoneNumber && toPhone === config.twilio.phoneNumber) {
+    const activeOrganizations = await prisma.organization.findMany({
+      where: { isActive: true },
+      select: { id: true },
+      take: 2,
+    })
+    if (activeOrganizations.length === 1) {
+      console.warn('[Webhook] Falling back to only active organization for configured Twilio number')
+      return activeOrganizations[0].id
+    }
+  }
+
   return null
+}
+
+function buildIncomingPhoneCandidates(e164Phone: string): string[] {
+  const digits = e164Phone.replace(/\D/g, '')
+  const candidates = new Set([e164Phone])
+
+  if (digits.length === 11 && digits.startsWith('1')) {
+    const national = digits.slice(1)
+    candidates.add(national)
+    candidates.add(digits)
+    candidates.add(`(${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6)}`)
+    candidates.add(`${national.slice(0, 3)}-${national.slice(3, 6)}-${national.slice(6)}`)
+    candidates.add(`+1 ${national.slice(0, 3)} ${national.slice(3, 6)} ${national.slice(6)}`)
+  }
+
+  return Array.from(candidates)
 }
 
 /**

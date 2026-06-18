@@ -172,8 +172,14 @@ export function FirmInfoCard() {
 
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Phone</label>
-                <Input value={form.firmPhone} onChange={set('firmPhone')} maxLength={30} placeholder="+1 555 123 4567" />
+                <label className="block text-sm font-medium text-foreground mb-1.5">Twilio Inbound Number</label>
+                <Input
+                  value={form.firmPhone}
+                  readOnly
+                  maxLength={30}
+                  placeholder="+1 555 123 4567"
+                  className="bg-muted text-muted-foreground cursor-not-allowed"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>

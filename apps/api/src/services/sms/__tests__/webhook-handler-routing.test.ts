@@ -135,6 +135,34 @@ describe('processIncomingMessage — routing priority (Phase 03)', () => {
     expect(vi.mocked(prisma.conversation.upsert)).not.toHaveBeenCalled()
   })
 
+  it('resolves legacy formatted firmPhone values for inbound SMS', async () => {
+    vi.mocked(prisma.message.findFirst).mockResolvedValueOnce(null)
+    vi.mocked(prisma.organization.findMany).mockResolvedValueOnce([{ id: 'org_1' }] as never)
+    vi.mocked(prisma.client.findFirst).mockResolvedValueOnce(null)
+    const matchedLead = { id: 'lead_1', phone: '+15551234567' } as unknown as Lead
+    vi.mocked(findLeadByPhone).mockResolvedValueOnce(matchedLead)
+    vi.mocked(processLeadInbound).mockResolvedValueOnce({
+      success: true,
+      messageId: 'lead_msg_1',
+      leadId: 'lead_1',
+    })
+
+    const res = await processIncomingMessage(makeIncoming({
+      MessageSid: 'SM_legacy_firm_phone',
+      To: '+15550001111',
+    }))
+
+    expect(res.success).toBe(true)
+    expect(prisma.organization.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        firmPhone: expect.objectContaining({
+          in: expect.arrayContaining(['+15550001111', '(555) 000-1111']),
+        }),
+      }),
+    }))
+    expect(vi.mocked(findLeadByPhone)).toHaveBeenCalledWith('+15551234567', 'org_1')
+  })
+
   it('row #3: phone collision (client case + lead) → client wins, collision logged', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.mocked(prisma.message.findFirst).mockResolvedValueOnce(null)
@@ -190,13 +218,46 @@ describe('processIncomingMessage — routing priority (Phase 03)', () => {
     warnSpy.mockRestore()
   })
 
-  it('does not fall back from configured Twilio number to the only active organization', async () => {
+  it('falls back from configured Twilio number to the only active organization', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.mocked(prisma.message.findFirst).mockResolvedValueOnce(null)
     vi.mocked(prisma.organization.findMany).mockResolvedValueOnce([])
+    vi.mocked(prisma.organization.findMany).mockResolvedValueOnce([{ id: 'org_1' }] as never)
+    vi.mocked(prisma.client.findFirst).mockResolvedValueOnce(null)
+    vi.mocked(findLeadByPhone).mockResolvedValueOnce(null)
+    vi.mocked(createPlaceholderConversation).mockResolvedValueOnce({ id: 'conv_unknown' } as never)
+    vi.mocked(prisma.conversation.findUnique).mockResolvedValueOnce({ caseId: 'case_unknown' } as never)
+    vi.mocked(prisma.message.create).mockResolvedValueOnce({ id: 'msg_unknown' } as never)
+    vi.mocked(prisma.conversation.update).mockResolvedValueOnce({} as never)
 
     const res = await processIncomingMessage(makeIncoming({
-      MessageSid: 'SM_no_firm_phone_match',
+      MessageSid: 'SM_configured_number_fallback',
+      To: '+15550001111',
+    }))
+
+    expect(res.success).toBe(true)
+    expect(res.isUnknownCaller).toBe(true)
+    expect(vi.mocked(findLeadByPhone)).toHaveBeenCalledWith('+15551234567', 'org_1')
+    expect(vi.mocked(createPlaceholderConversation)).toHaveBeenCalledWith(
+      '+15551234567',
+      'org_1',
+      'INCOMING_SMS'
+    )
+
+    warnSpy.mockRestore()
+  })
+
+  it('does not fall back from configured Twilio number when active organization ownership is ambiguous', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.mocked(prisma.message.findFirst).mockResolvedValueOnce(null)
+    vi.mocked(prisma.organization.findMany).mockResolvedValueOnce([])
+    vi.mocked(prisma.organization.findMany).mockResolvedValueOnce([
+      { id: 'org_1' },
+      { id: 'org_2' },
+    ] as never)
+
+    const res = await processIncomingMessage(makeIncoming({
+      MessageSid: 'SM_configured_number_ambiguous',
       To: '+15550001111',
     }))
 

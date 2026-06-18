@@ -20,6 +20,14 @@ vi.mock('../../../lib/clerk-client', () => ({
   },
 }))
 
+vi.mock('../../../lib/config', () => ({
+  config: {
+    twilio: {
+      phoneNumber: '+15550001111',
+    },
+  },
+}))
+
 vi.mock('../../../services/sms', () => ({
   formatPhoneToE164: vi.fn((phone: string) => {
     const digits = phone.replace(/\D/g, '')
@@ -165,6 +173,20 @@ describe('org settings activity logging', () => {
 
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({ error: 'INVALID_FIRM_PHONE' })
+    expect(prisma.organization.update).not.toHaveBeenCalled()
+  })
+
+  it('rejects firm phone changes that do not match the configured Twilio number', async () => {
+    const res = await createApp().request('/org-settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        firmPhone: '(555) 222-3333',
+      }),
+    })
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'FIRM_PHONE_LOCKED_TO_TWILIO_NUMBER' })
     expect(prisma.organization.update).not.toHaveBeenCalled()
   })
 

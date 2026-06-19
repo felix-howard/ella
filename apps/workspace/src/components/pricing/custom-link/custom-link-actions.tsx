@@ -116,7 +116,7 @@ export function CustomLinkActions({ corePayload, disabledReason }: CustomLinkAct
 
           <Button type="button" className="mt-3 w-full" onClick={handleSend} disabled={sendDisabled}>
             {sendQuote.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Send quote
+            Send Payment Link
           </Button>
         </div>
 

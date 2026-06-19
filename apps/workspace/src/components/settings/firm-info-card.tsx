@@ -45,7 +45,6 @@ export function FirmInfoCard() {
     zip: '',
     governingState: '',
     governingCounty: '',
-    firmPhone: '',
     firmEmail: '',
     firmWebsite: '',
   })
@@ -60,7 +59,6 @@ export function FirmInfoCard() {
       zip: data?.zip ?? '',
       governingState: data?.governingState ?? '',
       governingCounty: data?.governingCounty ?? '',
-      firmPhone: data?.firmPhone ?? '',
       firmEmail: data?.firmEmail ?? '',
       firmWebsite: data?.firmWebsite ?? '',
     })
@@ -77,7 +75,6 @@ export function FirmInfoCard() {
         zip: form.zip.trim() || null,
         governingState: form.governingState.trim() || null,
         governingCounty: form.governingCounty.trim() || null,
-        firmPhone: form.firmPhone.trim() || null,
         firmEmail: form.firmEmail.trim() || null,
         firmWebsite: form.firmWebsite.trim() || null,
       }),
@@ -106,6 +103,8 @@ export function FirmInfoCard() {
     }
     mutation.mutate()
   }
+
+  const twilioInboundNumber = data?.twilioInboundNumber ?? data?.firmPhone ?? ''
 
   return (
     <div data-settings-focus="firm-info" className="bg-card rounded-xl shadow-sm overflow-hidden">
@@ -172,8 +171,14 @@ export function FirmInfoCard() {
 
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Phone</label>
-                <Input value={form.firmPhone} onChange={set('firmPhone')} maxLength={30} placeholder="+1 555 123 4567" />
+                <label className="block text-sm font-medium text-foreground mb-1.5">Twilio Inbound Number</label>
+                <Input
+                  value={twilioInboundNumber}
+                  readOnly
+                  maxLength={30}
+                  placeholder="+1 555 123 4567"
+                  className="bg-muted text-muted-foreground cursor-not-allowed"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
@@ -235,11 +240,11 @@ export function FirmInfoCard() {
             <div>
               <dt className="text-muted-foreground">Contact</dt>
               <dd className="text-foreground mt-0.5">
-                {data?.firmPhone || data?.firmEmail || data?.firmWebsite ? (
+                {twilioInboundNumber || data?.firmEmail || data?.firmWebsite ? (
                   <>
-                    {data.firmPhone && <>{data.firmPhone}<br /></>}
-                    {data.firmEmail && <>{data.firmEmail}<br /></>}
-                    {data.firmWebsite}
+                    {twilioInboundNumber && <>{twilioInboundNumber}<br /></>}
+                    {data?.firmEmail && <>{data.firmEmail}<br /></>}
+                    {data?.firmWebsite}
                   </>
                 ) : <span className="text-muted-foreground">Not set</span>}
               </dd>

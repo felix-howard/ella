@@ -32,4 +32,11 @@ describe('Activity Actions', () => {
     )
     expect(ACTIVITY_TARGET_TYPES.STAFF_FILE).toBe('STAFF_FILE')
   })
+
+  it('categorizes company vault actions and target type', () => {
+    expect(categoryForAction(ACTIVITY_ACTIONS.COMPANY_VAULT.CREATED)).toBe(
+      ACTIVITY_CATEGORIES.COMPANY_VAULT
+    )
+    expect(ACTIVITY_TARGET_TYPES.COMPANY_VAULT_CREDENTIAL).toBe('COMPANY_VAULT_CREDENTIAL')
+  })
 })

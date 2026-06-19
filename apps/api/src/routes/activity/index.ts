@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import type { AuthVariables } from '../../middleware/auth'
 import {
+  ForbiddenActivityAccessError,
   InvalidActivityCursorError,
   listClientActivity,
   listRecentActivity,
@@ -18,6 +19,9 @@ activityRoute.get('/recent', zValidator('query', activityQuerySchema), async (c)
 
     return c.json(result)
   } catch (error) {
+    if (error instanceof ForbiddenActivityAccessError) {
+      return c.json({ error: 'FORBIDDEN', message: 'Admin access required' }, 403)
+    }
     if (error instanceof InvalidActivityCursorError) {
       return c.json({ error: 'INVALID_CURSOR', message: 'Invalid activity cursor' }, 400)
     }

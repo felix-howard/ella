@@ -11,7 +11,7 @@ describe('getSidebarNavItems', () => {
       (item) => item.path
     )
 
-    expect(paths).toEqual(['/', '/clients', '/messages', '/team', '/settings'])
+    expect(paths).toEqual(['/', '/clients', '/messages', '/company-vault', '/team', '/settings'])
     expect(paths).not.toContain('/pricing-calculator')
   })
 
@@ -29,6 +29,7 @@ describe('getSidebarNavItems', () => {
       '/clients',
       '/messages',
       '/leads',
+      '/company-vault',
       '/team',
       '/settings',
     ])
@@ -51,6 +52,7 @@ describe('getSidebarNavItems', () => {
       '/messages',
       '/leads',
       '/pricing-calculator',
+      '/company-vault',
       '/team',
       '/settings',
     ])

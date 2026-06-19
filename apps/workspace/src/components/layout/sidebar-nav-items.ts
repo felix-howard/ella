@@ -1,4 +1,5 @@
 import {
+  KeyRound,
   LayoutDashboard,
   Megaphone,
   MessageSquare,
@@ -25,6 +26,12 @@ const PAYMENTS_NAV_ITEM = [
   { path: '/pricing-calculator', i18nKey: 'nav.pricingCalculator', icon: WalletCards },
 ] as const satisfies readonly NavItem[]
 
+const COMPANY_VAULT_NAV_ITEM = {
+  path: '/company-vault',
+  i18nKey: 'nav.companyVault',
+  icon: KeyRound,
+} as const satisfies NavItem
+
 // Visible to all active org staff; management actions stay admin-gated in Team routes.
 const TEAM_NAV_ITEM = {
   path: '/team',
@@ -47,6 +54,7 @@ export function getSidebarNavItems(flags: {
     ...BASE_NAV_ITEMS,
     ...(flags.canManageClients ? MANAGEMENT_NAV_ITEMS : []),
     ...(flags.canManagePayments ? PAYMENTS_NAV_ITEM : []),
+    COMPANY_VAULT_NAV_ITEM,
     ...(flags.canViewTeam ? [TEAM_NAV_ITEM] : []),
     SETTINGS_NAV_ITEM,
   ]

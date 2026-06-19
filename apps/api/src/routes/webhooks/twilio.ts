@@ -38,14 +38,44 @@ const RATE_LIMIT_MAX_REQUESTS = 60 // 60 requests per minute per IP
 async function resolveIncomingCallOrganizationId(toPhone: string): Promise<string | null> {
   if (!isValidE164Phone(toPhone)) return null
 
+  const phoneCandidates = buildIncomingPhoneCandidates(toPhone)
   const orgsByFirmPhone = await prisma.organization.findMany({
-    where: { isActive: true, firmPhone: toPhone },
+    where: { isActive: true, firmPhone: { in: phoneCandidates } },
     select: { id: true },
     take: 2,
   })
   if (orgsByFirmPhone.length === 1) return orgsByFirmPhone[0].id
   if (orgsByFirmPhone.length > 1) return null
+
+  if (config.twilio.phoneNumber && toPhone === config.twilio.phoneNumber) {
+    const activeOrgs = await prisma.organization.findMany({
+      where: { isActive: true },
+      select: { id: true },
+      take: 2,
+    })
+    if (activeOrgs.length === 1) {
+      console.warn('[Voice Webhook] Falling back to only active organization for configured Twilio number')
+      return activeOrgs[0].id
+    }
+  }
+
   return null
+}
+
+function buildIncomingPhoneCandidates(e164Phone: string): string[] {
+  const digits = e164Phone.replace(/\D/g, '')
+  const candidates = new Set([e164Phone])
+
+  if (digits.length === 11 && digits.startsWith('1')) {
+    const national = digits.slice(1)
+    candidates.add(national)
+    candidates.add(digits)
+    candidates.add(`(${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6)}`)
+    candidates.add(`${national.slice(0, 3)}-${national.slice(3, 6)}-${national.slice(6)}`)
+    candidates.add(`+1 ${national.slice(0, 3)} ${national.slice(3, 6)} ${national.slice(6)}`)
+  }
+
+  return Array.from(candidates)
 }
 
 function getWebhookRequestUrl(c: Context, forwardedProto: string, forwardedHost: string): string {

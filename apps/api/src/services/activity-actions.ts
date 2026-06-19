@@ -8,6 +8,7 @@ export const ACTIVITY_CATEGORIES = {
   TEAM: 'TEAM',
   LEAD: 'LEAD',
   UPLOAD_LINK: 'UPLOAD_LINK',
+  COMPANY_VAULT: 'COMPANY_VAULT',
   AUTH: 'AUTH',
   SYSTEM: 'SYSTEM',
 } as const
@@ -24,6 +25,7 @@ export const ACTIVITY_TARGET_TYPES = {
   STAFF: 'STAFF',
   STAFF_FILE: 'STAFF_FILE',
   ORGANIZATION: 'ORGANIZATION',
+  COMPANY_VAULT_CREDENTIAL: 'COMPANY_VAULT_CREDENTIAL',
   LEAD: 'LEAD',
   TEMPLATE: 'TEMPLATE',
   CHECKLIST_ITEM: 'CHECKLIST_ITEM',
@@ -114,6 +116,11 @@ export const ACTIVITY_ACTIONS = {
     GENERATED: 'upload_link.generated',
     EXTENDED: 'upload_link.extended',
     REVOKED: 'upload_link.revoked',
+  },
+  COMPANY_VAULT: {
+    CREATED: 'company_vault.created',
+    UPDATED: 'company_vault.updated',
+    DELETED: 'company_vault.deleted',
   },
   AUTH: {
     LOGIN_ACCEPTED: 'auth.login_accepted',

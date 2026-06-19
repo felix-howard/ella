@@ -19,6 +19,7 @@ export type NavItemPath =
   | '/messages'
   | '/leads'
   | '/pricing-calculator'
+  | '/company-vault'
   | '/team'
   | '/settings'
 

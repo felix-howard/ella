@@ -24,7 +24,7 @@ export const basePricingInput: CheckoutPricingInput = {
       holdingLlcNew: 4000,
       holdingLlcModify: 1000,
       personalTaxReturn: 150,
-      businessTaxReturnFederal: 600,
+      businessTaxReturnFederal: 800,
       businessTaxReturnState: 100,
     },
     salesTaxMonitoringMonthly: 25,

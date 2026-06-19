@@ -29,9 +29,10 @@ export function MessageThread({
 }: MessageThreadProps) {
   const { t, i18n } = useTranslation()
   const scrollRef = useRef<HTMLDivElement>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
   const prevMessagesLengthRef = useRef(0)
   const hasScrolledInitialRef = useRef(false)
+  const shouldStickToBottomRef = useRef(true)
   const [activeImageId, setActiveImageId] = useState<string | null>(null)
 
   const displayMessages = useMemo(
@@ -98,30 +99,67 @@ export function MessageThread({
     [imageGalleryItems]
   )
 
+  const isNearBottom = useCallback((element: HTMLDivElement) => {
+    const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight
+    return distanceFromBottom < 80
+  }, [])
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior) => {
+    const scrollElement = scrollRef.current
+    if (!scrollElement) return
+
+    scrollElement.scrollTo({
+      top: scrollElement.scrollHeight,
+      behavior,
+    })
+    shouldStickToBottomRef.current = true
+  }, [])
+
   // Reset scroll state when messages are cleared (e.g., navigating between conversations)
   useEffect(() => {
     if (messages.length === 0) {
       hasScrolledInitialRef.current = false
       prevMessagesLengthRef.current = 0
+      shouldStickToBottomRef.current = true
     }
   }, [messages.length])
+
+  useEffect(() => {
+    const scrollElement = scrollRef.current
+    if (!scrollElement) return
+
+    const handleScroll = () => {
+      shouldStickToBottomRef.current = isNearBottom(scrollElement)
+    }
+
+    scrollElement.addEventListener('scroll', handleScroll, { passive: true })
+    handleScroll()
+    return () => scrollElement.removeEventListener('scroll', handleScroll)
+  }, [isLoading, isNearBottom, messages.length])
+
+  useEffect(() => {
+    const contentElement = contentRef.current
+    if (!contentElement || typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(() => {
+      if (!shouldStickToBottomRef.current) return
+      requestAnimationFrame(() => scrollToBottom('auto'))
+    })
+
+    observer.observe(contentElement)
+    return () => observer.disconnect()
+  }, [isLoading, messages.length, scrollToBottom])
 
   // Scroll to bottom - handles both initial load and new messages
   useEffect(() => {
     if (messages.length === 0) return
-
-    const scrollToBottom = (instant: boolean) => {
-      if (bottomRef.current) {
-        bottomRef.current.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' })
-      }
-    }
 
     // Initial load - use requestAnimationFrame to ensure DOM is ready
     if (!hasScrolledInitialRef.current) {
       // Double RAF ensures layout is complete
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          scrollToBottom(true)
+          scrollToBottom('auto')
           hasScrolledInitialRef.current = true
           prevMessagesLengthRef.current = messages.length
         })
@@ -131,10 +169,10 @@ export function MessageThread({
 
     // New messages added - smooth scroll
     if (messages.length > prevMessagesLengthRef.current) {
-      scrollToBottom(false)
+      scrollToBottom('smooth')
     }
     prevMessagesLengthRef.current = messages.length
-  }, [messages.length])
+  }, [messages.length, scrollToBottom])
 
   // Loading state
   if (isLoading) {
@@ -171,36 +209,36 @@ export function MessageThread({
         className
       )}
     >
-      {groupedMessages.map((group) => (
-        <div key={group.date}>
-          {/* Date separator */}
-          <div className="flex items-center justify-center my-5">
-            <div className="h-px bg-border/40 flex-1" />
-            <span className="px-3 py-0.5 text-[10px] text-muted-foreground/70 font-medium uppercase tracking-wider">
-              {formatDateLabel(group.date, t('messages.today'), t('messages.yesterday'))}
-            </span>
-            <div className="h-px bg-border/40 flex-1" />
+      <div ref={contentRef} className="space-y-4">
+        {groupedMessages.map((group) => (
+          <div key={group.date}>
+            {/* Date separator */}
+            <div className="flex items-center justify-center my-5">
+              <div className="h-px bg-border/40 flex-1" />
+              <span className="px-3 py-0.5 text-[10px] text-muted-foreground/70 font-medium uppercase tracking-wider">
+                {formatDateLabel(group.date, t('messages.today'), t('messages.yesterday'))}
+              </span>
+              <div className="h-px bg-border/40 flex-1" />
+            </div>
+
+            {/* Messages for this date */}
+            <div className="space-y-2">
+              {group.messages.map((message) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  onRetry={onRetry}
+                  onImageClick={handleImageClick}
+                />
+              ))}
+            </div>
           </div>
+        ))}
 
-          {/* Messages for this date */}
-          <div className="space-y-2">
-            {group.messages.map((message) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                onRetry={onRetry}
-                onImageClick={handleImageClick}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
+        {/* Typing indicator */}
+        {isTyping && <TypingIndicator />}
 
-      {/* Typing indicator */}
-      {isTyping && <TypingIndicator />}
-
-      {/* Scroll anchor */}
-      <div ref={bottomRef} />
+      </div>
 
       <MessageImageViewerModal
         images={imageGalleryItems}

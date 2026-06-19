@@ -14,6 +14,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PricingCalculatorRouteImport } from './routes/pricing-calculator'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as CompanyVaultRouteImport } from './routes/company-vault'
 import { Route as AutoLoginRouteImport } from './routes/auto-login'
 import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as IndexRouteImport } from './routes/index'
@@ -53,6 +54,11 @@ const MessagesRoute = MessagesRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompanyVaultRoute = CompanyVaultRouteImport.update({
+  id: '/company-vault',
+  path: '/company-vault',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AutoLoginRoute = AutoLoginRouteImport.update({
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
   '/auto-login': typeof AutoLoginRoute
+  '/company-vault': typeof CompanyVaultRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRouteWithChildren
   '/pricing-calculator': typeof PricingCalculatorRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
   '/auto-login': typeof AutoLoginRoute
+  '/company-vault': typeof CompanyVaultRoute
   '/login': typeof LoginRoute
   '/pricing-calculator': typeof PricingCalculatorRoute
   '/settings': typeof SettingsRoute
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
   '/auto-login': typeof AutoLoginRoute
+  '/company-vault': typeof CompanyVaultRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRouteWithChildren
   '/pricing-calculator': typeof PricingCalculatorRoute
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
     | '/'
     | '/accept-invitation'
     | '/auto-login'
+    | '/company-vault'
     | '/login'
     | '/messages'
     | '/pricing-calculator'
@@ -224,6 +234,7 @@ export interface FileRouteTypes {
     | '/'
     | '/accept-invitation'
     | '/auto-login'
+    | '/company-vault'
     | '/login'
     | '/pricing-calculator'
     | '/settings'
@@ -244,6 +255,7 @@ export interface FileRouteTypes {
     | '/'
     | '/accept-invitation'
     | '/auto-login'
+    | '/company-vault'
     | '/login'
     | '/messages'
     | '/pricing-calculator'
@@ -267,6 +279,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AcceptInvitationRoute: typeof AcceptInvitationRoute
   AutoLoginRoute: typeof AutoLoginRoute
+  CompanyVaultRoute: typeof CompanyVaultRoute
   LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRouteWithChildren
   PricingCalculatorRoute: typeof PricingCalculatorRoute
@@ -317,6 +330,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/company-vault': {
+      id: '/company-vault'
+      path: '/company-vault'
+      fullPath: '/company-vault'
+      preLoaderRoute: typeof CompanyVaultRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auto-login': {
@@ -457,6 +477,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AcceptInvitationRoute: AcceptInvitationRoute,
   AutoLoginRoute: AutoLoginRoute,
+  CompanyVaultRoute: CompanyVaultRoute,
   LoginRoute: LoginRoute,
   MessagesRoute: MessagesRouteWithChildren,
   PricingCalculatorRoute: PricingCalculatorRoute,

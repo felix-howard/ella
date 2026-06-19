@@ -87,6 +87,14 @@ export function decryptSSN(encrypted: string): string {
   return decrypted.toString('utf8')
 }
 
+export function encryptSensitiveValue(value: string): string {
+  return encryptSSN(value)
+}
+
+export function decryptSensitiveValue(value: string): string {
+  return decryptSSN(value)
+}
+
 /**
  * Mask SSN for display (e.g., "123-45-6789" -> "***-**-6789")
  * @param ssn - Plain or decrypted SSN string

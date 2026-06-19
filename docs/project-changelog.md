@@ -1,11 +1,90 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-17 ICT
+> **Last Updated:** 2026-06-19 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
 
+## 2026-06-18
+
+### Company Vault
+**Status:** Complete
+
+**Added:**
+- Added org-scoped Company Vault for shared team credentials in the workspace.
+- Added `CompanyVaultCredential` storage with encrypted username, password, and note fields; `toolName` remains plaintext for list/search.
+- Added authenticated `/company-vault` CRUD APIs with organization isolation, hard delete, and redacted activity metadata.
+- Added workspace route, sidebar nav, list/search table, add/edit/delete modals, and copy username/password actions.
+- Added focused API and workspace regression tests for encrypted values, org scoping, safe activity metadata, table actions, and modal states.
+
+**Validation:**
+- `pnpm -F @ella/api test -- company-vault` pass, 10 tests
+- `pnpm -F @ella/workspace test -- src/components/company-vault` pass, 5 tests
+- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass, workspace 2911 keys and portal 522 keys
+- `pnpm type-check` pass
+
+---
+
+### Twilio Inbound Routing Fallback
+**Status:** Complete
+
+**Fixed:**
+- Restored single-tenant fallback for inbound SMS and incoming voice calls when the called number matches `TWILIO_PHONE_NUMBER` and exactly one active organization exists.
+- Inbound SMS/call tenant resolution now also matches legacy formatted firm phone values such as `(878) 678-0999` against Twilio E.164 webhook numbers like `+18786780999`.
+- Organization settings now reject `firmPhone` changes that do not match configured `TWILIO_PHONE_NUMBER`, and the workspace firm phone field is read-only to prevent accidental inbound routing breakage.
+- Workspace Settings now displays the read-only Twilio inbound number from server env (`TWILIO_PHONE_NUMBER`) instead of the stored DB `firmPhone`, preventing local/prod DB copies from showing or re-saving the wrong environment's number.
+- Keeps the multi-tenant security guard: unresolved non-configured numbers and ambiguous active-org ownership still fail closed before tenant lookup.
+- Prevents recent inbound Twilio messages/calls from being accepted by Twilio but dropped by Ella when `Organization.firmPhone` is absent, stale, or not normalized.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/org-settings/__tests__/activity-logging.test.ts src/services/sms/__tests__/webhook-handler-routing.test.ts src/routes/webhooks/__tests__/twilio-voice-incoming.test.ts` pass, 26 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+
+---
+
+### Payment Calculator One-time Services Toggle
+**Status:** Complete
+
+**Changed:**
+- One-time services in payment/pricing calculator now stay collapsed by default behind an enable toggle.
+- Hidden one-time service fields no longer contribute values until the section is enabled.
+- Business tax return Federal default changed from `$600` to `$800`.
+
+**Validation:**
+- `pnpm -F @ella/shared test -- src/pricing/calculator.test.ts` pass, 8 tests
+- `pnpm -F @ella/shared type-check` pass
+- `pnpm -F @ella/shared lint` pass
+- `pnpm -F @ella/workspace test -- src/components/pricing/__tests__/pricing-calculator.test.tsx` pass, 8 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with pre-existing warnings only
+- `pnpm -F @ella/landing type-check` pass
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/api test -- src/services/stripe/__tests__/checkout.test.ts src/services/stripe/__tests__/quote-rebuild.test.ts src/services/payments/__tests__/quote-checkout-service.test.ts` pass, 43 tests
+- `pnpm -F @ella/api type-check` pass
+
+---
+
 ## 2026-06-17
+
+### Payment Quote Recipient Search
+**Status:** Complete
+
+**Fixed:**
+- Payment quote recipient search now returns individual clients only, plus leads.
+- Server-side quote sending now rejects business client IDs as client recipients, preventing payment-link SMS/conversation creation for business records.
+- Added regression coverage for `/recipients/search` filtering and sendable quote recipient resolution.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/payments/__tests__/quote-send-service.test.ts` pass, 23 tests
+- `pnpm -F @ella/api test -- src/routes/recipients/__tests__/recipients-search.test.ts` pass, 2 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass with pre-existing warning only
+
+---
 
 ### Mobile PDF Verification Viewer Crash
 **Status:** Complete

@@ -2191,9 +2191,9 @@ export type NdaDepositStatus = 'PENDING' | 'PAID' | 'REFUNDED' | 'FORFEITED'
 export type AgreementStatus = NdaStatus
 export type DepositStatus = NdaDepositStatus
 
-export type AgreementType = 'NDA' | 'ENGAGEMENT_LETTER' | 'SERVICE_AGREEMENT' | 'CUSTOM'
-/** Templates exclude CUSTOM (per-send unique content; rejects templateId). */
-export type AgreementTemplateType = Exclude<AgreementType, 'CUSTOM'>
+export type AgreementType = 'NDA' | 'ENGAGEMENT_LETTER' | 'SERVICE_AGREEMENT' | 'CONSENT_7216' | 'CUSTOM'
+/** Templates exclude built-in consent and CUSTOM (per-send unique content; rejects templateId). */
+export type AgreementTemplateType = Exclude<AgreementType, 'CONSENT_7216' | 'CUSTOM'>
 
 export interface Agreement {
   id: string
@@ -2225,6 +2225,9 @@ export interface Agreement {
   signerName: string | null
   signerEmail: string | null
   signedPdfKey: string | null
+  consentTaxpayerName: string | null
+  consentBusinessName: string | null
+  consentTinLastFour: string | null
   createdByUserId: string
   createdAt: string
   updatedAt: string

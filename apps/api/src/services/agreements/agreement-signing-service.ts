@@ -23,7 +23,11 @@ import { generateSignaturePagePdf } from './pdf-signature-page'
 import { appendPagesToPdf } from './pdf-merge'
 import { getTemplate } from '../../lib/agreements/template-registry'
 import type { TemplateSection } from '../../lib/agreements/types'
-import { composeAddressLine, composeContactLine, resolveClientNameOrBusiness } from './entity-loader'
+import {
+  composeAddressLine,
+  composeContactLine,
+  resolveClientNameOrBusiness,
+} from './entity-loader'
 import {
   notifyAdminsAgreementSigned,
   type PostSignAgreementContext,
@@ -50,6 +54,7 @@ type RawLoadedAgreement = Prisma.AgreementGetPayload<{
         firstName: true
         lastName: true
         clientType: true
+        name: true
         businessAddress: true
         businessCity: true
         businessState: true
@@ -117,6 +122,7 @@ export async function loadAgreementByToken(token: string): Promise<LoadedAgreeme
           firstName: true,
           lastName: true,
           clientType: true,
+          name: true,
           businessAddress: true,
           businessCity: true,
           businessState: true,
@@ -193,7 +199,13 @@ export interface PublicClientSnapshot {
   clientType: 'INDIVIDUAL' | 'BUSINESS'
 }
 
+export interface PublicConsentPrefill {
+  taxpayerName: string | null
+  businessName: string | null
+}
+
 export interface PublicAgreementView {
+  type: string
   status: string
   expiresAt: Date | null
   expired: boolean
@@ -212,6 +224,8 @@ export interface PublicAgreementView {
   firmSnapshot: PublicFirmSnapshot | null
   /** v2 only. Null for legacy v1. */
   clientSnapshot: PublicClientSnapshot | null
+  /** CONSENT_7216 only. Keeps prefill explicit instead of inferring in portal. */
+  consentPrefill: PublicConsentPrefill | null
 }
 
 /** Legacy alias retained for transitional callers. */
@@ -219,15 +233,11 @@ export type PublicNdaView = PublicAgreementView
 
 export async function toPublicView(agreement: LoadedAgreement): Promise<PublicAgreementView> {
   const template = getTemplate(agreement.templateVersion)
-  const depositAmount = agreement.depositAmount
-    ? `$${agreement.depositAmount.toString()}`
-    : null
+  const depositAmount = agreement.depositAmount ? `$${agreement.depositAmount.toString()}` : null
   const uploadedPdfUrl = agreement.uploadedPdfKey
     ? await getSignedDownloadUrl(agreement.uploadedPdfKey, VIEW_PRESIGN_TTL_SECONDS)
     : null
-  const fullName = [agreement.signer.firstName, agreement.signer.lastName]
-    .filter(Boolean)
-    .join(' ')
+  const fullName = [agreement.signer.firstName, agreement.signer.lastName].filter(Boolean).join(' ')
   const sections = template.render({
     leadFullName: fullName,
     orgName: agreement.organization.name,
@@ -246,6 +256,7 @@ export async function toPublicView(agreement: LoadedAgreement): Promise<PublicAg
 
   let firmSnapshot: PublicFirmSnapshot | null = null
   let clientSnapshot: PublicClientSnapshot | null = null
+  let consentPrefill: PublicConsentPrefill | null = null
 
   if (isV2) {
     const firmAddress = composeAddressLine({
@@ -294,7 +305,20 @@ export async function toPublicView(agreement: LoadedAgreement): Promise<PublicAg
     }
   }
 
+  if (agreement.type === 'CONSENT_7216') {
+    const taxpayerName = fullName.trim() || null
+    const clientBusinessName =
+      agreement.client?.clientType === 'BUSINESS'
+        ? agreement.client.name?.trim() || agreement.client.firstName?.trim() || null
+        : null
+    consentPrefill = {
+      taxpayerName,
+      businessName: agreement.lead?.businessName?.trim() || clientBusinessName,
+    }
+  }
+
   return {
+    type: agreement.type,
     status: agreement.status,
     expiresAt: agreement.expiresAt,
     expired: isExpired(agreement.expiresAt),
@@ -312,6 +336,7 @@ export async function toPublicView(agreement: LoadedAgreement): Promise<PublicAg
     leadFirstName: agreement.signer.firstName,
     firmSnapshot,
     clientSnapshot,
+    consentPrefill,
   }
 }
 
@@ -325,6 +350,44 @@ export interface SignAgreementInput {
   /** Back-compat: older portal builds supplied business rep fields. */
   clientAuthRepName?: string
   clientAuthRepTitle?: string
+  taxpayerName?: string
+  businessName?: string
+  tinLastFour?: string
+  consentSignerTitle?: string
+}
+
+function normalizeConsentFields(
+  agreementType: string,
+  input: Pick<SignAgreementInput, 'taxpayerName' | 'businessName' | 'tinLastFour'>
+): {
+  consentTaxpayerName?: string
+  consentBusinessName?: string | null
+  consentTinLastFour?: string
+} {
+  if (agreementType !== 'CONSENT_7216') return {}
+
+  const taxpayerName = input.taxpayerName?.trim() ?? ''
+  const businessName = input.businessName?.trim() || null
+  const tinLastFour = input.tinLastFour?.trim() ?? ''
+
+  if (taxpayerName.length < 2) {
+    throw new HTTPException(400, { message: 'Taxpayer name is required' })
+  }
+  if (taxpayerName.length > 160) {
+    throw new HTTPException(400, { message: 'Taxpayer name must be 160 characters or fewer' })
+  }
+  if (businessName && businessName.length > 200) {
+    throw new HTTPException(400, { message: 'Business name must be 200 characters or fewer' })
+  }
+  if (!/^\d{4}$/.test(tinLastFour)) {
+    throw new HTTPException(400, { message: 'TIN last four must be exactly 4 digits' })
+  }
+
+  return {
+    consentTaxpayerName: taxpayerName,
+    consentBusinessName: businessName,
+    consentTinLastFour: tinLastFour,
+  }
 }
 
 export async function signAgreement(input: SignAgreementInput) {
@@ -340,7 +403,11 @@ export async function signAgreement(input: SignAgreementInput) {
 
   const isV2 = Boolean(agreement.firmSignaturePngKey)
   const signerName = input.signerName.trim()
-  const signerTitle = input.signerTitle.trim()
+  const signerTitle =
+    agreement.type === 'CONSENT_7216'
+      ? input.consentSignerTitle?.trim() || input.signerTitle.trim()
+      : input.signerTitle.trim()
+  const consentFields = normalizeConsentFields(agreement.type, input)
 
   if (signerName.length < 2 || signerTitle.length < 2) {
     throw new HTTPException(400, {
@@ -453,9 +520,7 @@ export async function signAgreement(input: SignAgreementInput) {
       orgName: agreement.organization.name,
       firmSnapshot,
       clientSnapshot,
-      depositAmountLabel: agreement.depositAmount
-        ? `$${agreement.depositAmount.toString()}`
-        : null,
+      depositAmountLabel: agreement.depositAmount ? `$${agreement.depositAmount.toString()}` : null,
       audit: { ipAddress: input.ip, userAgent: input.userAgent, signedAt },
     })
     pdfBuffer = await appendPagesToPdf(basePdf, signaturePage)
@@ -483,6 +548,15 @@ export async function signAgreement(input: SignAgreementInput) {
       },
       firmSnapshot,
       clientSnapshot,
+      consentFields:
+        agreement.type === 'CONSENT_7216'
+          ? {
+              taxpayerName: consentFields.consentTaxpayerName!,
+              businessName: consentFields.consentBusinessName,
+              tinLastFour: consentFields.consentTinLastFour!,
+              signerTitle,
+            }
+          : undefined,
     })
   }
 
@@ -500,6 +574,7 @@ export async function signAgreement(input: SignAgreementInput) {
       signedPdfKey,
       clientAuthRepName: persistRepName,
       clientAuthRepTitle: persistRepTitle,
+      ...consentFields,
       isActive: false,
       lastUsedAt: signedAt,
       usageCount: { increment: 1 },
@@ -540,16 +615,10 @@ export async function signAgreement(input: SignAgreementInput) {
  */
 function runPostSignSideEffects(ctx: PostSignAgreementContext): void {
   notifyAdminsAgreementSigned(ctx).catch((err) => {
-    console.error(
-      `[Agreement] Post-sign admin notification failed for agreement=${ctx.id}:`,
-      err,
-    )
+    console.error(`[Agreement] Post-sign admin notification failed for agreement=${ctx.id}:`, err)
   })
   createDepositPaymentForAgreement(ctx).catch((err) => {
-    console.error(
-      `[Agreement] Post-sign deposit payment hook failed for agreement=${ctx.id}:`,
-      err,
-    )
+    console.error(`[Agreement] Post-sign deposit payment hook failed for agreement=${ctx.id}:`, err)
   })
 }
 

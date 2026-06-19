@@ -133,6 +133,13 @@ export interface AgreementTemplateSection {
 
 export type AgreementStatus = 'DRAFT' | 'SENT' | 'SIGNED' | 'VOIDED'
 
+export type AgreementType =
+  | 'NDA'
+  | 'ENGAGEMENT_LETTER'
+  | 'SERVICE_AGREEMENT'
+  | 'CONSENT_7216'
+  | 'CUSTOM'
+
 export type AgreementClientType = 'INDIVIDUAL' | 'BUSINESS'
 
 export interface AgreementFirmSnapshot {
@@ -153,7 +160,13 @@ export interface AgreementClientSnapshot {
   clientType: AgreementClientType
 }
 
+export interface AgreementConsentPrefill {
+  taxpayerName: string | null
+  businessName: string | null
+}
+
 export interface AgreementPublicView {
+  type: AgreementType
   status: AgreementStatus
   expiresAt: string | null
   expired: boolean
@@ -172,6 +185,8 @@ export interface AgreementPublicView {
   firmSnapshot: AgreementFirmSnapshot | null
   /** v2 only. Null for legacy v1 agreements. */
   clientSnapshot: AgreementClientSnapshot | null
+  /** CONSENT_7216 only. Explicit prefill values for the consent signing fields. */
+  consentPrefill: AgreementConsentPrefill | null
 }
 
 export interface AgreementSignPayload {
@@ -182,6 +197,10 @@ export interface AgreementSignPayload {
   /** Back-compat fields accepted by older API builds. New clients send signerName/signerTitle. */
   clientAuthRepName?: string
   clientAuthRepTitle?: string
+  taxpayerName?: string
+  businessName?: string
+  tinLastFour?: string
+  consentSignerTitle?: string
 }
 
 export interface AgreementSignResult {

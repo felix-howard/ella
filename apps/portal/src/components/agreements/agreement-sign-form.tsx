@@ -9,13 +9,26 @@ import SignatureCanvas from 'react-signature-canvas'
 import { useTranslation } from 'react-i18next'
 import { Check, Eraser, Loader2, PenLine } from 'lucide-react'
 import { Button, Input } from '@ella/ui'
-import type { AgreementFirmSnapshot, AgreementClientType } from '../../lib/api-client'
+import type {
+  AgreementFirmSnapshot,
+  AgreementClientType,
+  AgreementType,
+  AgreementConsentPrefill,
+} from '../../lib/api-client'
+import {
+  AgreementConsentFields,
+  type AgreementConsentFieldValues,
+} from './agreement-consent-fields'
 
 export interface AgreementSignSubmission {
   signerName: string
   signerTitle: string
   signaturePngDataUrl: string
   agreementChecked: true
+  taxpayerName?: string
+  businessName?: string
+  tinLastFour?: string
+  consentSignerTitle?: string
 }
 
 interface AgreementSignFormProps {
@@ -26,6 +39,8 @@ interface AgreementSignFormProps {
   firmSnapshot?: AgreementFirmSnapshot | null
   /** Passed by the page for future client-type-specific copy. */
   clientType?: AgreementClientType | null
+  agreementType?: AgreementType
+  consentPrefill?: AgreementConsentPrefill | null
 }
 
 const NAME_MIN = 2
@@ -38,11 +53,21 @@ export function AgreementSignForm({
   submitting,
   onSubmit,
   firmSnapshot,
+  agreementType,
+  consentPrefill,
 }: AgreementSignFormProps) {
   const { t } = useTranslation()
+  const isConsent7216 = agreementType === 'CONSENT_7216'
   const sigRef = useRef<SignatureCanvas>(null)
   const [signerName, setSignerName] = useState('')
   const [signerTitle, setSignerTitle] = useState('')
+  const [taxpayerName, setTaxpayerName] = useState(
+    isConsent7216 ? (consentPrefill?.taxpayerName ?? '') : ''
+  )
+  const [businessName, setBusinessName] = useState(
+    isConsent7216 ? (consentPrefill?.businessName ?? '') : ''
+  )
+  const [tinLastFour, setTinLastFour] = useState('')
   const [agreed, setAgreed] = useState(false)
   const [hasStroke, setHasStroke] = useState(false)
 
@@ -75,9 +100,43 @@ export function AgreementSignForm({
 
   const trimmedName = signerName.trim()
   const trimmedTitle = signerTitle.trim()
+  const trimmedTaxpayerName = taxpayerName.trim()
+  const trimmedBusinessName = businessName.trim()
+  const trimmedTinLastFour = tinLastFour.trim()
   const nameValid = trimmedName.length >= NAME_MIN && trimmedName.length <= NAME_MAX
   const titleValid = trimmedTitle.length >= TITLE_MIN && trimmedTitle.length <= TITLE_MAX
-  const formReady = canSubmit && hasStroke && nameValid && titleValid && agreed && !submitting
+  const consentValid =
+    !isConsent7216 ||
+    (trimmedTaxpayerName.length >= NAME_MIN &&
+      trimmedTaxpayerName.length <= 160 &&
+      trimmedBusinessName.length <= 200 &&
+      /^\d{4}$/.test(trimmedTinLastFour))
+  const shouldShowConsentErrors = isConsent7216 && canSubmit
+  const consentErrors = {
+    taxpayerName:
+      shouldShowConsentErrors && trimmedTaxpayerName.length < NAME_MIN
+        ? t('nda.consent.taxpayerNameRequired')
+        : undefined,
+    tinLastFour:
+      (shouldShowConsentErrors || trimmedTinLastFour.length > 0) &&
+      !/^\d{4}$/.test(trimmedTinLastFour)
+        ? t('nda.consent.tinLastFourInvalid')
+        : undefined,
+  }
+  const formReady =
+    canSubmit && hasStroke && nameValid && titleValid && consentValid && agreed && !submitting
+
+  const consentValues: AgreementConsentFieldValues = {
+    taxpayerName,
+    businessName,
+    tinLastFour,
+  }
+
+  const handleConsentChange = (values: AgreementConsentFieldValues) => {
+    setTaxpayerName(values.taxpayerName)
+    setBusinessName(values.businessName)
+    setTinLastFour(values.tinLastFour)
+  }
 
   const handleClear = () => {
     sigRef.current?.clear()
@@ -105,6 +164,14 @@ export function AgreementSignForm({
       signerTitle: trimmedTitle,
       signaturePngDataUrl: dataUrl,
       agreementChecked: true,
+      ...(isConsent7216
+        ? {
+            taxpayerName: trimmedTaxpayerName,
+            businessName: trimmedBusinessName || undefined,
+            tinLastFour: trimmedTinLastFour,
+            consentSignerTitle: trimmedTitle,
+          }
+        : {}),
     })
   }
 
@@ -139,6 +206,15 @@ export function AgreementSignForm({
             </div>
           </div>
         </div>
+      )}
+
+      {isConsent7216 && (
+        <AgreementConsentFields
+          values={consentValues}
+          errors={consentErrors}
+          submitting={submitting}
+          onChange={handleConsentChange}
+        />
       )}
 
       <div>

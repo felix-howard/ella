@@ -2466,6 +2466,12 @@ All avatar/notes UI will need i18n keys in workspace:
 - `profile.notesPlaceholder` - Editor hint text
 - Error keys for validation failures
 
+## Agreement Signing Types
+
+**Built-in and custom agreements:** Agreement records are org-scoped and signed through tokenized public links. Supported types include `NDA`, `ENGAGEMENT_LETTER`, `SERVICE_AGREEMENT`, `CUSTOM`, and `CONSENT_7216`.
+
+**CONSENT_7216:** Uses a fixed built-in IRC 7216 consent template (`consent-7216-v1`). Staff can send it from the Agreements wizard without content/template customization, uploaded source PDF, title override, or initial payment. Portal signing collects taxpayer name, optional business name, TIN last four, signer title, signature PNG, IP, and user agent. Signed PDFs store the taxpayer authorization fields on the Agreement row and save/download through the existing signed agreement PDF/R2 flow.
+
 ## Initial Payment Flow (Post-Agreement Signing)
 
 **Overview:** After client signs an agreement with an initial payment amount, system auto-creates Payment record + SMS to client with portal pay link + Stripe checkout session. Webhook marks payment PAID → SMS admins + client receipt. Staff can resend links + view payment status on client profile. Internal service/model names still use `deposit*` and `Payment.type='DEPOSIT'`.

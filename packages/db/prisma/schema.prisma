@@ -1439,6 +1439,7 @@ enum AgreementType {
   NDA
   ENGAGEMENT_LETTER
   SERVICE_AGREEMENT
+  CONSENT_7216
   CUSTOM
 }
 
@@ -2032,6 +2033,11 @@ model Agreement {
   // Client signer metadata. Rep name is business-only; title is required for all client signatures.
   clientAuthRepName  String?
   clientAuthRepTitle String?
+
+  // IRC 7216 consent metadata. Last-four only; never collect full SSN/EIN here.
+  consentTaxpayerName String? @db.VarChar(160)
+  consentBusinessName String? @db.VarChar(200)
+  consentTinLastFour  String? @db.VarChar(4)
 
   // Audit
   createdByUserId String

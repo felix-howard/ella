@@ -7,6 +7,29 @@
 
 ## 2026-06-19
 
+### Consent 7216 Agreement Type
+**Status:** Complete
+
+**Added:**
+- Added built-in `CONSENT_7216` agreement type for IRC 7216 consent, with fixed document rendering and no staff-side customization.
+- Workspace Agreements wizard now offers Consent to Use and Disclose Tax Return Information and sends it without content, template, title override, upload PDF, or initial payment.
+- Portal signing flow now collects taxpayer name, optional business name, TIN last four, signer title, signature, and the standard agreement acknowledgment checkbox; the taxpayer fields appear only for consent agreements.
+- Signed consent PDFs now include taxpayer authorization fields and save through the existing signed agreement PDF flow.
+
+**Validation:**
+- `pnpm -F @ella/api test -- agreement-types agreement-signing-service public-handlers pdf-generator` pass, 92 tests
+- `pnpm -F @ella/workspace test -- consent-agreement-wizard` pass, 4 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm i18n:check` pass, workspace 2917 keys and portal 531 keys
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status --schema prisma/schema.prisma` pass, database schema up to date
+
+**Notes:**
+- Final legal copy should be reviewed by Ella before production rollout.
+
+---
+
 ### Messages Realtime Smoothness
 **Status:** Complete
 

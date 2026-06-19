@@ -1,0 +1,8 @@
+-- AlterEnum
+ALTER TYPE "AgreementType" ADD VALUE IF NOT EXISTS 'CONSENT_7216';
+
+-- AlterTable
+ALTER TABLE "Agreement"
+ADD COLUMN IF NOT EXISTS "consentBusinessName" VARCHAR(200),
+ADD COLUMN IF NOT EXISTS "consentTaxpayerName" VARCHAR(160),
+ADD COLUMN IF NOT EXISTS "consentTinLastFour" VARCHAR(4);

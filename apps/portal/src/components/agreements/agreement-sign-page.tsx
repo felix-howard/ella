@@ -129,7 +129,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
         submittingRef.current = false
       }
     },
-    [token, t],
+    [token, t]
   )
 
   const handleReachBottom = useCallback(() => setReachedBottom(true), [])
@@ -238,11 +238,14 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
             </div>
             <div className="shrink-0 lg:sticky lg:top-24">
               <AgreementSignForm
+                key={token}
                 canSubmit={view.uploadedPdfUrl ? true : reachedBottom}
                 submitting={state === 'submitting'}
                 onSubmit={handleSubmit}
                 firmSnapshot={view.firmSnapshot}
                 clientType={view.clientSnapshot?.clientType ?? null}
+                agreementType={view.type}
+                consentPrefill={view.consentPrefill}
               />
             </div>
           </div>

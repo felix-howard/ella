@@ -31,7 +31,6 @@ function CompanyVaultPage() {
     error,
     refetch,
     isFetching,
-    isRefetching,
   } = useQuery({
     queryKey: ['company-vault', { search: searchParam }],
     queryFn: () => api.companyVault.list({ search: searchParam || undefined }),
@@ -151,16 +150,6 @@ function CompanyVaultPage() {
         </label>
         <div className="flex items-center justify-between gap-3 sm:justify-end">
           <span className="whitespace-nowrap text-sm text-muted-foreground">{toolCountLabel}</span>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            disabled={isLoading || isFetching || isRefetching}
-            aria-label={t('companyVault.refreshAria')}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
-          >
-            <RefreshCw className={(isRefetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4')} aria-hidden="true" />
-            <span className="hidden sm:inline">{t('common.refresh', 'Refresh')}</span>
-          </button>
         </div>
       </div>
 

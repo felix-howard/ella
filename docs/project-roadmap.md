@@ -25,6 +25,23 @@
 - `pnpm i18n:check` pass
 - `pnpm type-check` pass
 
+### Settings Scope Split ✅
+**Started:** 2026-06-19
+**Completed:** 2026-06-19
+**Status:** COMPLETE
+**Objective:** Make Settings distinguish personal account preferences from organization-wide configuration.
+
+**Delivered:**
+- Settings now has `My Settings` and `Organization` tabs instead of mixed General/Notifications/Form Links tabs.
+- Personal tab contains theme, UI language, and staff SMS notification preferences.
+- Organization tab contains firm information, form links, org slug, upload-link automation, and missed-call text-back.
+- Legacy Settings tab URL values remain accepted and map to the new scope tabs.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with pre-existing warnings only
+- `pnpm i18n:check` pass
+
 ### Lead Contact Info Editing ✅
 **Started:** 2026-06-15
 **Completed:** 2026-06-16

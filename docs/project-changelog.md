@@ -7,6 +7,23 @@
 
 ## 2026-06-19
 
+### Settings Scope Split
+**Status:** Complete
+
+**Changed:**
+- Workspace Settings now separates personal preferences into `My Settings` and org-wide configuration into `Organization`.
+- Moved theme, UI language, and staff SMS notification preferences under the personal scope.
+- Moved firm information, public form links, org slug, upload-link automation, and missed-call text-back under the organization scope.
+- Kept old Settings URL tabs compatible: `general` and `notifications` map to `My Settings`; `form-links` maps to `Organization`.
+- Updated NDA setup deep link to open the organization tab when firm info is missing.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with pre-existing warnings only
+- `pnpm i18n:check` pass, workspace 2925 keys and portal 531 keys
+
+---
+
 ### Consent 7216 Agreement Type
 **Status:** Complete
 
@@ -224,6 +241,7 @@
 **Validation:**
 - `pnpm -F @ella/workspace type-check` pass
 - `pnpm -F @ella/workspace lint` pass with pre-existing warnings only
+- `pnpm i18n:check` pass
 - `pnpm -F @ella/workspace test` pass, 139 tests
 
 ---

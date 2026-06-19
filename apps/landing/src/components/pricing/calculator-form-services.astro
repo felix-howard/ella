@@ -17,6 +17,9 @@ import {
   labelCls,
   rateInputCls,
   sectionCls,
+  switchInputCls,
+  switchRowCls,
+  switchTrackCls,
 } from "./calculator-form-styles";
 
 /**
@@ -143,7 +146,7 @@ const oneTimeRows: OneTimeRow[] = [
       class="mt-1 h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
     />
     <span>
-      <span class={headingCls}>Enable Audit Protection</span>
+      <span class={headingCls}>Enable Audit Detection</span>
       <span class="mt-0.5 block text-sm text-gray-500">
         +$<input
           type="text"
@@ -173,11 +176,21 @@ const oneTimeRows: OneTimeRow[] = [
 
 <!-- Section D — One-time services -->
 <div class={sectionCls}>
-  <div>
+  <label class={switchRowCls}>
     <span class={headingCls}>One-time services</span>
-    <p class={hintCls}>Add LLC formation, tax returns, and other fixed-fee work.</p>
-  </div>
-  <ul class="mt-4 space-y-3">
+    <span class={switchTrackCls}>
+      <input
+        type="checkbox"
+        name="oneTimeServicesEnabled"
+        data-one-time-toggle
+        class={switchInputCls}
+        aria-label="Enable one-time services"
+      />
+      <span class="block h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-primary-600"></span>
+      <span class="pointer-events-none absolute left-1 top-1 block h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-5"></span>
+    </span>
+  </label>
+  <ul class="mt-4 space-y-3" data-one-time-content hidden>
     {oneTimeRows.map((row) => (
       <li class="grid gap-2 sm:grid-cols-[1fr_120px] sm:items-center">
         <div>

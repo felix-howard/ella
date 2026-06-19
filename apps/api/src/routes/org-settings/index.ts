@@ -10,6 +10,7 @@ import { prisma } from '../../lib/db'
 import { sanitizeTextInput } from '../../lib/validation'
 import { isAdminOrManager } from '../../lib/org-scope'
 import { clerkClient } from '../../lib/clerk-client'
+import { config } from '../../lib/config'
 import { formatPhoneToE164, isValidPhoneNumber } from '../../services/sms'
 import { UPLOAD_LINK_TEMPLATE_IDS } from '../../services/sms/upload-link-template-resolver'
 import type { AuthVariables } from '../../middleware/auth'
@@ -18,6 +19,10 @@ import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '..
 
 const orgSettingsRoute = new Hono<{ Variables: AuthVariables }>()
 type RegistrationHeaderMode = 'DEFAULT' | 'CUSTOM' | 'HIDDEN'
+
+function getTwilioInboundNumber(fallbackPhone: string | null) {
+  return config.twilio.phoneNumber || fallbackPhone
+}
 
 const updateOrgSettingsSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
@@ -101,6 +106,7 @@ orgSettingsRoute.get('/', async (c) => {
     governingState: org.governingState,
     governingCounty: org.governingCounty,
     firmPhone: org.firmPhone,
+    twilioInboundNumber: getTwilioInboundNumber(org.firmPhone),
     firmEmail: org.firmEmail,
     firmWebsite: org.firmWebsite,
   })
@@ -179,6 +185,12 @@ orgSettingsRoute.patch(
 
     if (updateData.firmPhone && !isValidPhoneNumber(updateData.firmPhone)) {
       return c.json({ error: 'INVALID_FIRM_PHONE' }, 400)
+    }
+
+    if (data.firmPhone !== undefined && config.twilio.phoneNumber) {
+      if (updateData.firmPhone !== config.twilio.phoneNumber) {
+        return c.json({ error: 'FIRM_PHONE_LOCKED_TO_TWILIO_NUMBER' }, 400)
+      }
     }
 
     if (updateData.firmPhone) {
@@ -281,6 +293,7 @@ orgSettingsRoute.patch(
       governingState: updated.governingState,
       governingCounty: updated.governingCounty,
       firmPhone: updated.firmPhone,
+      twilioInboundNumber: getTwilioInboundNumber(updated.firmPhone),
       firmEmail: updated.firmEmail,
       firmWebsite: updated.firmWebsite,
     })

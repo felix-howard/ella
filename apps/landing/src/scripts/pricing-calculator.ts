@@ -52,6 +52,14 @@ function readInputs(form: HTMLFormElement): CalcInput {
   const draft = createDefaultPricingInput()
   const store = draft as unknown as Record<string, unknown>
   form.querySelectorAll<HTMLElement>('[data-calc-input]').forEach((el) => {
+    if (
+      (el instanceof HTMLInputElement ||
+        el instanceof HTMLSelectElement ||
+        el instanceof HTMLTextAreaElement) &&
+      el.disabled
+    ) {
+      return
+    }
     const path = el.dataset.calcInput
     if (!path) return
     const value = readElementValue(el)
@@ -88,6 +96,8 @@ function init(): void {
   const form = document.getElementById('pricing-calculator-form')
   const panel = document.getElementById('pricing-summary-panel')
   if (!(form instanceof HTMLFormElement) || !panel) return
+
+  initOneTimeServicesToggle(form)
 
   const refs = resolveRefs(panel)
   if (!refs) return
@@ -148,6 +158,30 @@ function init(): void {
   })
 
   recalc()
+}
+
+function initOneTimeServicesToggle(form: HTMLFormElement): void {
+  const toggle = form.querySelector<HTMLInputElement>('[data-one-time-toggle]')
+  const content = form.querySelector<HTMLElement>('[data-one-time-content]')
+  if (!toggle || !content) return
+
+  const fields = Array.from(
+    content.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+      'input, select, textarea'
+    )
+  )
+  const sync = (): void => {
+    content.hidden = !toggle.checked
+    fields.forEach((field) => {
+      field.disabled = !toggle.checked
+      if (!toggle.checked && field.dataset.calcInput?.startsWith('oneTime.')) {
+        field.value = ''
+      }
+    })
+  }
+
+  toggle.addEventListener('change', sync)
+  sync()
 }
 
 if (document.readyState === 'loading') {

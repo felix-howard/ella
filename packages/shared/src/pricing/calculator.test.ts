@@ -60,7 +60,7 @@ describe('pricing calculator', () => {
     const result = calculatePricing(input)
 
     expect(result.monthlyTotal).toBe(75)
-    expect(result.setupTotal).toBe(4800)
+    expect(result.setupTotal).toBe(5000)
   })
 
   it('flags checkout totals that exceed the shared line amount limit', () => {

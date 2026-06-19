@@ -157,6 +157,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Endpoints (80+ total):**
 
+**Company Vault (Shared Staff Credentials):**
+- `GET /company-vault` - Authenticated org-scoped list/search of shared credentials. Values decrypt only at the response boundary.
+- `POST /company-vault` - Create a shared credential with required `toolName` and optional username/password/note encrypted before storage.
+- `PATCH /company-vault/:id` - Update provided fields by id and organization; activity metadata records changed field names only.
+- `DELETE /company-vault/:id` - Hard delete credential by id and organization.
+- Activity logging uses `company_vault.*` actions with redacted metadata. Credential values must not be written to logs, snapshots, or activity metadata.
+
 **Contractor Agent Agreements (Staff Compliance):**
 - `PATCH /team/members/:staffId/contractor-agent` - Admin-only toggle for `Staff.isContractorAgent`.
 - `GET /contractor-agreements/status` - Authenticated staff status for current Independent Contractor agreement version.
@@ -466,6 +473,7 @@ Organization (root entity)
 - **ScheduleEExpense** - 1:1 with TaxCase. Status (DRAFT/SUBMITTED/LOCKED), up to 3 rental properties (JSON array), 7 IRS expense fields (insurance, mortgage interest, repairs, taxes, utilities, management fees, cleaning/maintenance), custom expense list, version history, property-level totals
 - **PaymentQuote** - checkout quote record for Stripe billing. Stores organization/client/lead links, customerEmail/customerName/businessName, inputSnapshot/resultSnapshot, monthlyTotalCents/setupTotalCents, status, createdByStaffId, and related checkout sessions.
 - **PaymentTemplate** - org-scoped reusable custom-link preset. Stores organizationId, name, optional description, JSON `items` payload (line items only), createdByStaffId, archivedAt soft delete, createdAt, and updatedAt. Recipient/customer, discount, Stripe session/link, sent, and quote-status fields stay on `PaymentQuote`. Active names are unique per organization only while `archivedAt` is null, and creator attribution is tenant-guarded at the DB layer.
+- **CompanyVaultCredential** - org-scoped shared credential row for staff tooling. Fields: organizationId, toolName, usernameEncrypted, passwordEncrypted, noteEncrypted, createdAt, updatedAt. `toolName` is plaintext for display/search; optional username/password/note are encrypted at rest and decrypted only for authenticated org-scoped API responses. Hard delete removes the row, and related activity metadata stores ids/field names only.
 - **StripeCheckoutSession** - Stripe session mirror keyed by `stripeSessionId`. Stores paymentQuoteId, Stripe customer/subscription/paymentIntent ids, status, url, expiresAt, paidAt, and timestamps.
 - **Contractor** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). firstName, lastName, tinType (SSN|EIN), ssnEncrypted (encrypted), ssnLast4, address, city, state, zip, email, phone.
 - **ContractorAgreementAcceptance** - staffId FK + organizationId FK. Independent Contractor agreement acceptance for Contractor Agent staff. Fields: version, signedAt, signedPdfR2Key, sourceTemplateR2Key, pdfSha256, signerName, signerEmail, signerIpAddress, signerUserAgent, firmSignerName, firmSignerEmail, firmSignerTitle, firmSignaturePngKey. Unique on `[staffId, version]`.

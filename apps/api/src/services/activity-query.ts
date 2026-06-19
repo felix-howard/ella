@@ -1,5 +1,5 @@
 import type { ActivityActorType, ActivityRiskLevel, Prisma } from '@ella/db'
-import { buildClientScopeFilter, canSeeAllClients, verifyClientAccess } from '../lib/org-scope'
+import { verifyClientAccess } from '../lib/org-scope'
 import { prisma } from '../lib/db'
 import { resolveAvatarUrl } from './storage'
 import { toActivityTimelineItem } from './activity-log'
@@ -17,6 +17,13 @@ export class InvalidActivityCursorError extends Error {
   constructor() {
     super('Invalid activity cursor')
     this.name = 'InvalidActivityCursorError'
+  }
+}
+
+export class ForbiddenActivityAccessError extends Error {
+  constructor() {
+    super('Admin access required')
+    this.name = 'ForbiddenActivityAccessError'
   }
 }
 
@@ -59,10 +66,6 @@ export interface ActivityTimelineResponse {
 
 type ActivityRow = Awaited<ReturnType<typeof findActivityRows>>[number]
 
-function isAdmin(user: AuthUser) {
-  return canSeeAllClients(user)
-}
-
 function baseWhere(user: AuthUser): Prisma.ActivityLogWhereInput {
   if (!user.organizationId) return { id: '__NO_ACCESS__' }
   return {
@@ -71,17 +74,8 @@ function baseWhere(user: AuthUser): Prisma.ActivityLogWhereInput {
   }
 }
 
-async function getAccessibleClientAndCaseIds(user: AuthUser) {
-  const clients = await prisma.client.findMany({
-    where: buildClientScopeFilter(user),
-    select: { id: true },
-  })
-  const clientIds = clients.map((client) => client.id)
-
-  return {
-    clientIds,
-    caseIds: [],
-  }
+function canViewRecentActivity(user: AuthUser) {
+  return user.orgRole === 'org:admin' || user.role === 'ADMIN'
 }
 
 function applyFilters(
@@ -193,20 +187,12 @@ export async function listRecentActivity(
   user: AuthUser,
   filters: ActivityQueryFilters
 ): Promise<ActivityTimelineResponse> {
-  const limit = filters.limit ?? DEFAULT_LIMIT
-  let where = baseWhere(user)
-
-  if (!isAdmin(user)) {
-    const { clientIds, caseIds } = await getAccessibleClientAndCaseIds(user)
-    where = {
-      ...where,
-      OR: [
-        ...(clientIds.length > 0 ? [{ clientId: { in: clientIds } }] : []),
-        ...(caseIds.length > 0 ? [{ caseId: { in: caseIds } }] : []),
-        { clientId: null, caseId: null, actorStaffId: user.staffId ?? '__NO_STAFF__' },
-      ],
-    }
+  if (!canViewRecentActivity(user)) {
+    throw new ForbiddenActivityAccessError()
   }
+
+  const limit = filters.limit ?? DEFAULT_LIMIT
+  const where = baseWhere(user)
 
   const rows = await findActivityRows(applyFilters(where, filters), limit, filters.cursor)
   return hydrateRows(rows, limit, user.organizationId)

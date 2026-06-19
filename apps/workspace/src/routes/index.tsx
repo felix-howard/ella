@@ -14,6 +14,7 @@ import {
   type DashboardStats,
 } from '../components/dashboard'
 import { ActivityTimeline } from '../components/activity'
+import { useOrgRole } from '../hooks/use-org-role'
 import { api } from '../lib/api-client'
 
 export const Route = createFileRoute('/')({
@@ -22,6 +23,7 @@ export const Route = createFileRoute('/')({
 
 function DashboardPage() {
   const { user } = useUser()
+  const { isAdmin, isLoading: isRoleLoading } = useOrgRole()
   const userName = user?.fullName || user?.firstName || undefined
 
   // Fetch actions for stats
@@ -60,9 +62,11 @@ function DashboardPage() {
   return (
     <PageContainer>
       <TodaySummary staffName={userName} />
-      <div className="mb-8">
-        <ActivityTimeline scope="recent" limit={40} className="h-[620px] max-h-[70vh]" />
-      </div>
+      {!isRoleLoading && isAdmin && (
+        <div className="mb-8">
+          <ActivityTimeline scope="recent" limit={40} className="h-[620px] max-h-[70vh]" />
+        </div>
+      )}
       <StatsOverview stats={stats} />
       <QuickActions />
     </PageContainer>

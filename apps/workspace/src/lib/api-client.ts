@@ -145,6 +145,27 @@ export interface RecipientSearchResponse {
   leads: RecipientResult[]
 }
 
+export interface CompanyVaultCredential {
+  id: string
+  toolName: string
+  username: string | null
+  password: string | null
+  note: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CompanyVaultListResponse {
+  credentials: CompanyVaultCredential[]
+}
+
+export interface CompanyVaultInput {
+  toolName: string
+  username?: string | null
+  password?: string | null
+  note?: string | null
+}
+
 // --- Custom (free-form) payment links --------------------------------------
 // Staff type arbitrary line items instead of driving the pricing calculator.
 // Shapes mirror the API `createCustomCheckoutSchema` / `sendCustomQuoteSchema`.
@@ -492,6 +513,38 @@ export const api = {
   recipients: {
     search: (q: string) =>
       request<RecipientSearchResponse>('/recipients/search', { params: { q } }),
+  },
+
+  companyVault: {
+    list: (params?: { search?: string }) =>
+      request<CompanyVaultListResponse>('/company-vault', { params }),
+    create: async (data: CompanyVaultInput) => {
+      const response = await request<{ credential: CompanyVaultCredential }>(
+        '/company-vault',
+        {
+          method: 'POST',
+          body: JSON.stringify(data),
+          retries: 0,
+        }
+      )
+      return response.credential
+    },
+    update: async (id: string, data: Partial<CompanyVaultInput>) => {
+      const response = await request<{ credential: CompanyVaultCredential }>(
+        `/company-vault/${id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+          retries: 0,
+        }
+      )
+      return response.credential
+    },
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/company-vault/${id}`, {
+        method: 'DELETE',
+        retries: 0,
+      }),
   },
 
   // Coupons (Stripe-synced) — list/create/disable for picker + management panel
@@ -3857,12 +3910,13 @@ export interface OrgSettings {
   governingState: string | null
   governingCounty: string | null
   firmPhone: string | null
+  twilioInboundNumber: string | null
   firmEmail: string | null
   firmWebsite: string | null
 }
 
 export type OrgSettingsUpdateInput = Partial<
-  Omit<OrgSettings, 'smsLanguage'> & { smsLanguage?: Language }
+  Omit<OrgSettings, 'smsLanguage' | 'twilioInboundNumber'> & { smsLanguage?: Language }
 >
 
 export interface ProfileResponse {

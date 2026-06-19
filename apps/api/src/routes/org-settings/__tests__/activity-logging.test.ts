@@ -20,6 +20,14 @@ vi.mock('../../../lib/clerk-client', () => ({
   },
 }))
 
+vi.mock('../../../lib/config', () => ({
+  config: {
+    twilio: {
+      phoneNumber: '+15550001111',
+    },
+  },
+}))
+
 vi.mock('../../../services/sms', () => ({
   formatPhoneToE164: vi.fn((phone: string) => {
     const digits = phone.replace(/\D/g, '')
@@ -71,6 +79,26 @@ function createApp() {
 describe('org settings activity logging', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue({
+      name: 'Firm',
+      registrationHeaderMode: 'DEFAULT',
+      registrationTitle: null,
+      registrationSubtitle: null,
+      smsLanguage: 'EN',
+      missedCallTextBack: true,
+      autoSendFormClientUploadLink: false,
+      defaultUploadLinkTemplateId: null,
+      slug: 'firm',
+      address: null,
+      city: null,
+      state: null,
+      zip: null,
+      governingState: null,
+      governingCounty: null,
+      firmPhone: '+18786780999',
+      firmEmail: 'private@example.com',
+      firmWebsite: null,
+    } as never)
     vi.mocked(prisma.organization.findFirst).mockResolvedValue(null)
     vi.mocked(prisma.organization.update).mockResolvedValue({
       name: 'Firm',
@@ -90,6 +118,16 @@ describe('org settings activity logging', () => {
       firmEmail: 'private@example.com',
       firmWebsite: null,
     } as never)
+  })
+
+  it('returns configured Twilio inbound number instead of the stored firm phone', async () => {
+    const res = await createApp().request('/org-settings')
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual(expect.objectContaining({
+      firmPhone: '+18786780999',
+      twilioInboundNumber: '+15550001111',
+    }))
   })
 
   it('logs changed field names without raw setting values', async () => {
@@ -165,6 +203,20 @@ describe('org settings activity logging', () => {
 
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({ error: 'INVALID_FIRM_PHONE' })
+    expect(prisma.organization.update).not.toHaveBeenCalled()
+  })
+
+  it('rejects firm phone changes that do not match the configured Twilio number', async () => {
+    const res = await createApp().request('/org-settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        firmPhone: '(555) 222-3333',
+      }),
+    })
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'FIRM_PHONE_LOCKED_TO_TWILIO_NUMBER' })
     expect(prisma.organization.update).not.toHaveBeenCalled()
   })
 

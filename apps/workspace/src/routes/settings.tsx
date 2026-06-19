@@ -5,26 +5,22 @@
 import { useEffect } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Settings, Bell, Link as LinkIcon, FileSignature } from 'lucide-react'
+import { Settings, Bell, Link as LinkIcon } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ella/ui'
 import { PageContainer } from '../components/layout'
 import { SettingsGeneralTab } from '../components/settings/settings-general-tab'
 import { SettingsNotificationsTab } from '../components/settings/settings-notifications-tab'
 import { SettingsFormLinksTab } from '../components/settings/settings-form-links-tab'
-import { SettingsAgreementTemplatesTab } from '../components/settings/settings-agreement-templates-tab'
-import { useOrgRole } from '../hooks/use-org-role'
 
 type SettingsTab =
   | 'general'
   | 'notifications'
   | 'form-links'
-  | 'agreement-templates'
 
 const VALID_TABS: SettingsTab[] = [
   'general',
   'notifications',
   'form-links',
-  'agreement-templates',
 ]
 
 /** Section ids that the NDA wizard's "Set up" deep links target. */
@@ -47,7 +43,6 @@ function SettingsPage() {
   const { t } = useTranslation()
   const { tab, focus } = Route.useSearch()
   const navigate = useNavigate()
-  const { canManageClients } = useOrgRole()
   const activeTab = tab || 'general'
 
   const handleTabChange = (value: string) => {
@@ -95,12 +90,6 @@ function SettingsPage() {
               <LinkIcon className="w-4 h-4" />
               {t('settings.tabFormLinks')}
             </TabsTrigger>
-            {canManageClients && (
-              <TabsTrigger value="agreement-templates" className="flex items-center gap-2">
-                <FileSignature className="w-4 h-4" />
-                {t('settings.tabAgreementTemplates')}
-              </TabsTrigger>
-            )}
           </TabsList>
 
           <TabsContent value="general">
@@ -113,10 +102,6 @@ function SettingsPage() {
 
           <TabsContent value="form-links">
             <SettingsFormLinksTab />
-          </TabsContent>
-
-          <TabsContent value="agreement-templates">
-            <SettingsAgreementTemplatesTab />
           </TabsContent>
         </Tabs>
       </div>

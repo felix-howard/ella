@@ -136,7 +136,7 @@ export function PricingSendQuotePanel({ pricingInput, disabledReason }: PricingS
 
         <Button type="button" className="w-full" onClick={handleSend} disabled={sendDisabled}>
           {sendQuote.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          {quoteChangedSinceSend ? 'Send updated quote' : 'Send quote'}
+          {quoteChangedSinceSend ? 'Send updated payment link' : 'Send Payment Link'}
         </Button>
 
         <p className="min-h-5 text-xs text-muted-foreground" role="status" aria-live="polite">

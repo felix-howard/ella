@@ -1,7 +1,8 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-06-16
-**Current Branch:** feature/dev-followup-260615-2147
+**Current Date:** 2026-06-19
+**Current Branch:** feature/dev-followup-260617-0946
+**Company Vault Backend + Workspace UI:** COMPLETE. Org-scoped `/company-vault` CRUD now exists with encrypted username/password/note, plaintext `toolName`, hard delete, copy username/password actions, and redacted activity logging; workspace list, add/edit/delete modals, copy UX, and focused API/workspace regression tests are in place.
 **MANAGER Role (Assistant Tier):** COMPLETE (all 5 phases). New `StaffRole.MANAGER`: owner's assistant with near-admin access. Single source of truth: MANAGER gets everything ADMIN-gated EXCEPT (1) team management (invite/role/deactivate — `requireOrgAdmin` only) and (2) full client phone numbers (masked server-side via `serializePhone()`, ADMIN-only). Clerk stays `org:member` for MANAGER; app-level `Staff.role` is source of truth with preserve rule on re-sync (no MANAGER→STAFF downgrade).
 
 **Role Matrix (server-enforced):**
@@ -161,6 +162,7 @@
 - **Business**: REMOVED in Phase 15. All business data now on Client(clientType=BUSINESS).
 - **Staff**: organizationId FK, clerkId (unique), userId, role (ADMIN|STAFF|CPA), isActive, isContractorAgent, title, signaturePngKey. Relations: contractorAgreementAcceptances.
 - **StaffFile**: org-scoped staff upload record for personal documents and invoices. Fields: organizationId, staffId, uploadedByStaffId, kind (PERSONAL_DOCUMENT|INVOICE), title, category, originalFilename, mimeType, fileSize, r2Key (unique), checksumSha256, invoiceYear, invoiceMonth, invoiceStatus, replacedById, isActive, reviewedByStaffId, reviewedAt, paidAt, adminNote, deletedAt, deletedByStaffId. Contract: invoice rows require invoiceYear/invoiceMonth/invoiceStatus and invoiceMonth 1-12; personal documents must not carry invoice metadata or paidAt. Indexes: organizationId+staffId+kind, organizationId+kind+invoiceYear+invoiceMonth. Storage keys use `staff-files/{org}/{staff}/documents/{uuid}.{ext}` or `staff-files/{org}/{staff}/invoices/{yyyy-mm}/{uuid}.{ext}`.
+- **CompanyVaultCredential**: org-scoped shared credential store for internal tools. Fields: organizationId, toolName, usernameEncrypted, passwordEncrypted, noteEncrypted, createdAt, updatedAt. Index: organizationId+toolName. `toolName` stays plaintext for search/sort; sensitive values are decrypted only at the authenticated API response boundary.
 - **ContractorAgreementAcceptance**: staff-level Independent Contractor agreement acceptance for Contractor Agent staff. Fields: staffId, organizationId, version, signedAt, signedPdfR2Key, sourceTemplateR2Key, pdfSha256, signerName, signerEmail, signerIpAddress, signerUserAgent, firmSignerName, firmSignerEmail, firmSignerTitle, firmSignaturePngKey. Unique on `[staffId, version]`.
 - **Lead**: organizationId FK, firstName, lastName, phone (unique per org), email, businessName, status (NEW|CONTACTED|CONVERTED|LOST), campaignTag (formerly "source", eventSlug or null), tags String[] (auto-populated from campaignTag on creation, GIN indexed), convertedToId FK (Client). Phase 01 Tag-Based Categorization: renames source→campaignTag, adds tags field + GIN index.
 - **TaxCase**: caseId, engagementId FK, taxYear, status (INTAKE→FILED), caseDocs[], checklistItems[]
@@ -208,6 +210,13 @@
 - `GET /contractor-agreements/download/:acceptanceId` - Owner/admin scoped signed PDF download URL.
 - Storage key pattern: `contractor-agreements/{orgId}/{staffId}/{version}/{uuid}.pdf`
 - Rollout notes: verify exact firm signer account/signature/title in production, confirm source PDF version, confirm migration applied/status clean, deploy API + workspace together, mark staff, sign, verify profile download.
+
+**Company Vault (Phase 01 Backend Foundation):**
+- `GET /company-vault` - Org-scoped list/search of shared credentials; decrypts values at the response boundary.
+- `POST /company-vault` - Create credential with encrypted username/password/note.
+- `PATCH /company-vault/:id` - Update credential fields and log changed field names only.
+- `DELETE /company-vault/:id` - Hard delete credential.
+- Activity logging uses `COMPANY_VAULT` category and `company_vault.*` actions with redacted metadata.
 
 **Client Management (Manager Assignment via ClientManager):**
 - `GET /clients` - List org clients with legacy `managedBy` and full `managedByStaff` manager relations

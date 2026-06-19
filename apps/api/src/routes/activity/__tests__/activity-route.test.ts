@@ -32,7 +32,6 @@ import { activityRoute } from '../index'
 const mockActivityFindMany = vi.mocked(prisma.activityLog.findMany)
 const mockActivityFindFirst = vi.mocked(prisma.activityLog.findFirst)
 const mockClientFindFirst = vi.mocked(prisma.client.findFirst)
-const mockClientFindMany = vi.mocked(prisma.client.findMany)
 const mockTaxCaseFindMany = vi.mocked(prisma.taxCase.findMany)
 const mockStaffFindMany = vi.mocked(prisma.staff.findMany)
 
@@ -49,13 +48,13 @@ function adminUser() {
   }
 }
 
-function staffUser() {
+function staffUser(role: 'MANAGER' | 'STAFF' = 'STAFF') {
   return {
-    id: 'clerk_staff_1',
-    staffId: 'staff_1',
-    email: 'staff@example.com',
-    name: 'Staff User',
-    role: 'STAFF',
+    id: `clerk_${role.toLowerCase()}_1`,
+    staffId: `staff_${role.toLowerCase()}_1`,
+    email: `${role.toLowerCase()}@example.com`,
+    name: `${role} User`,
+    role,
     organizationId: 'org_1',
     clerkOrgId: 'clerk_org_1',
     orgRole: 'org:member',
@@ -146,28 +145,14 @@ describe('activity route', () => {
     }))
   })
 
-  it('scopes staff recent activity to assigned clients and own non-client actions', async () => {
-    mockClientFindMany.mockResolvedValueOnce([{ id: 'client_1' }] as never)
-    mockActivityFindMany.mockResolvedValueOnce([] as never)
+  it.each(['MANAGER', 'STAFF'] as const)('blocks %s recent activity', async (role) => {
+    const res = await buildApp(staffUser(role)).request('/activity/recent')
+    const json = await res.json()
 
-    const res = await buildApp(staffUser()).request('/activity/recent')
-
-    expect(res.status).toBe(200)
-    expect(mockClientFindMany).toHaveBeenCalledWith({
-      where: { organizationId: 'org_1', managers: { some: { staffId: 'staff_1' } } },
-      select: { id: true },
-    })
-    expect(mockActivityFindMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({
-        organizationId: 'org_1',
-        action: { notIn: ['document.signed_url_created', 'document.file_proxied', 'lead.message_read'] },
-        OR: [
-          { clientId: { in: ['client_1'] } },
-          { clientId: null, caseId: null, actorStaffId: 'staff_1' },
-        ],
-      }),
-    }))
-    expect(mockTaxCaseFindMany).not.toHaveBeenCalled()
+    expect(res.status).toBe(403)
+    expect(json).toEqual({ error: 'FORBIDDEN', message: 'Admin access required' })
+    expect(mockActivityFindMany).not.toHaveBeenCalled()
+    expect(prisma.client.findMany).not.toHaveBeenCalled()
   })
 
   it('returns 404 for inaccessible client activity', async () => {

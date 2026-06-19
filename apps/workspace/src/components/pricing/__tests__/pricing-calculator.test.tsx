@@ -200,7 +200,7 @@ describe('workspace pricing calculator', () => {
 
     expect(disabledMarkup).toContain('Enable One-time services')
     expect(disabledMarkup).not.toContain('Start LLC')
-    expect(disabledMarkup).not.toContain('Business tax return')
+    expect(disabledMarkup).not.toContain('Business tax return pre-pay (1 tax year)')
     expect(disabledMarkup).not.toContain('aria-label="Federal rate"')
 
     input.oneTime.personalTaxReturn = 1
@@ -210,7 +210,7 @@ describe('workspace pricing calculator', () => {
     )
 
     expect(enabledMarkup).toContain('Start LLC')
-    expect(enabledMarkup).toContain('Business tax return')
+    expect(enabledMarkup).toContain('Business tax return pre-pay (1 tax year)')
     expect(enabledMarkup).toContain('aria-label="Federal rate"')
     expect(enabledMarkup).toContain('value="$800"')
   })

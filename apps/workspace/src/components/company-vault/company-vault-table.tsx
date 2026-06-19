@@ -1,4 +1,5 @@
-import { Copy, KeyRound, Pencil, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Check, Copy, KeyRound, Pencil, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@ella/ui'
 import { copyToClipboard } from '../../lib/clipboard'
@@ -20,6 +21,34 @@ function hasValue(value: string | null): value is string {
 
 export function CompanyVaultTable({ credentials, onEdit, onDelete }: CompanyVaultTableProps) {
   const { t } = useTranslation()
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) {
+        clearTimeout(copiedTimerRef.current)
+      }
+    }
+  }, [])
+
+  const handleCopy = async (
+    key: string,
+    value: string,
+    successMsg: string
+  ) => {
+    const copied = await copyToClipboard(value, { successMsg })
+    if (!copied) return
+
+    setCopiedKey(key)
+    if (copiedTimerRef.current) {
+      clearTimeout(copiedTimerRef.current)
+    }
+    copiedTimerRef.current = setTimeout(() => {
+      setCopiedKey(null)
+      copiedTimerRef.current = null
+    }, 1500)
+  }
 
   return (
     <div className="overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm">
@@ -67,12 +96,20 @@ export function CompanyVaultTable({ credentials, onEdit, onDelete }: CompanyVaul
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-11 w-11 flex-shrink-0"
+                        className="h-11 w-11 flex-shrink-0 text-muted-foreground hover:bg-transparent hover:text-primary"
                         aria-label={t('companyVault.copyUsername')}
                         title={t('companyVault.copyUsername')}
-                        onClick={() => void copyToClipboard(credential.username!, { successMsg: t('companyVault.usernameCopied') })}
+                        onClick={() => void handleCopy(
+                          `${credential.id}:username`,
+                          credential.username!,
+                          t('companyVault.usernameCopied')
+                        )}
                       >
-                        <Copy className="h-4 w-4" aria-hidden="true" />
+                        {copiedKey === `${credential.id}:username` ? (
+                          <Check className="h-4 w-4 text-primary" aria-hidden="true" />
+                        ) : (
+                          <Copy className="h-4 w-4" aria-hidden="true" />
+                        )}
                       </Button>
                     )}
                   </div>
@@ -87,12 +124,20 @@ export function CompanyVaultTable({ credentials, onEdit, onDelete }: CompanyVaul
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-11 w-11 flex-shrink-0"
+                        className="h-11 w-11 flex-shrink-0 text-muted-foreground hover:bg-transparent hover:text-primary"
                         aria-label={t('companyVault.copyPassword')}
                         title={t('companyVault.copyPassword')}
-                        onClick={() => void copyToClipboard(credential.password!, { successMsg: t('companyVault.passwordCopied') })}
+                        onClick={() => void handleCopy(
+                          `${credential.id}:password`,
+                          credential.password!,
+                          t('companyVault.passwordCopied')
+                        )}
                       >
-                        <Copy className="h-4 w-4" aria-hidden="true" />
+                        {copiedKey === `${credential.id}:password` ? (
+                          <Check className="h-4 w-4 text-primary" aria-hidden="true" />
+                        ) : (
+                          <Copy className="h-4 w-4" aria-hidden="true" />
+                        )}
                       </Button>
                     )}
                   </div>

@@ -35,6 +35,7 @@
 - Restored single-tenant fallback for inbound SMS and incoming voice calls when the called number matches `TWILIO_PHONE_NUMBER` and exactly one active organization exists.
 - Inbound SMS/call tenant resolution now also matches legacy formatted firm phone values such as `(878) 678-0999` against Twilio E.164 webhook numbers like `+18786780999`.
 - Organization settings now reject `firmPhone` changes that do not match configured `TWILIO_PHONE_NUMBER`, and the workspace firm phone field is read-only to prevent accidental inbound routing breakage.
+- Workspace Settings now displays the read-only Twilio inbound number from server env (`TWILIO_PHONE_NUMBER`) instead of the stored DB `firmPhone`, preventing local/prod DB copies from showing or re-saving the wrong environment's number.
 - Keeps the multi-tenant security guard: unresolved non-configured numbers and ambiguous active-org ownership still fail closed before tenant lookup.
 - Prevents recent inbound Twilio messages/calls from being accepted by Twilio but dropped by Ella when `Organization.firmPhone` is absent, stale, or not normalized.
 

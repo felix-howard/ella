@@ -3910,12 +3910,13 @@ export interface OrgSettings {
   governingState: string | null
   governingCounty: string | null
   firmPhone: string | null
+  twilioInboundNumber: string | null
   firmEmail: string | null
   firmWebsite: string | null
 }
 
 export type OrgSettingsUpdateInput = Partial<
-  Omit<OrgSettings, 'smsLanguage'> & { smsLanguage?: Language }
+  Omit<OrgSettings, 'smsLanguage' | 'twilioInboundNumber'> & { smsLanguage?: Language }
 >
 
 export interface ProfileResponse {

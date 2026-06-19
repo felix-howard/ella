@@ -79,6 +79,26 @@ function createApp() {
 describe('org settings activity logging', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue({
+      name: 'Firm',
+      registrationHeaderMode: 'DEFAULT',
+      registrationTitle: null,
+      registrationSubtitle: null,
+      smsLanguage: 'EN',
+      missedCallTextBack: true,
+      autoSendFormClientUploadLink: false,
+      defaultUploadLinkTemplateId: null,
+      slug: 'firm',
+      address: null,
+      city: null,
+      state: null,
+      zip: null,
+      governingState: null,
+      governingCounty: null,
+      firmPhone: '+18786780999',
+      firmEmail: 'private@example.com',
+      firmWebsite: null,
+    } as never)
     vi.mocked(prisma.organization.findFirst).mockResolvedValue(null)
     vi.mocked(prisma.organization.update).mockResolvedValue({
       name: 'Firm',
@@ -98,6 +118,16 @@ describe('org settings activity logging', () => {
       firmEmail: 'private@example.com',
       firmWebsite: null,
     } as never)
+  })
+
+  it('returns configured Twilio inbound number instead of the stored firm phone', async () => {
+    const res = await createApp().request('/org-settings')
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual(expect.objectContaining({
+      firmPhone: '+18786780999',
+      twilioInboundNumber: '+15550001111',
+    }))
   })
 
   it('logs changed field names without raw setting values', async () => {

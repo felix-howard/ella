@@ -20,6 +20,10 @@ import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '..
 const orgSettingsRoute = new Hono<{ Variables: AuthVariables }>()
 type RegistrationHeaderMode = 'DEFAULT' | 'CUSTOM' | 'HIDDEN'
 
+function getTwilioInboundNumber(fallbackPhone: string | null) {
+  return config.twilio.phoneNumber || fallbackPhone
+}
+
 const updateOrgSettingsSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
   registrationHeaderMode: z.enum(['DEFAULT', 'CUSTOM', 'HIDDEN']).optional(),
@@ -102,6 +106,7 @@ orgSettingsRoute.get('/', async (c) => {
     governingState: org.governingState,
     governingCounty: org.governingCounty,
     firmPhone: org.firmPhone,
+    twilioInboundNumber: getTwilioInboundNumber(org.firmPhone),
     firmEmail: org.firmEmail,
     firmWebsite: org.firmWebsite,
   })
@@ -288,6 +293,7 @@ orgSettingsRoute.patch(
       governingState: updated.governingState,
       governingCounty: updated.governingCounty,
       firmPhone: updated.firmPhone,
+      twilioInboundNumber: getTwilioInboundNumber(updated.firmPhone),
       firmEmail: updated.firmEmail,
       firmWebsite: updated.firmWebsite,
     })

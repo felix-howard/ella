@@ -398,10 +398,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Recording endpoints with auth
 
 **Realtime Messaging (Supabase Broadcast):**
-- **Backend Publisher** (`apps/api/src/services/realtime/message-publisher.ts`): Publishes lightweight message events to Supabase Broadcast channels after message creation. Event payload: `{ conversationId, caseId, messageId, direction, channel, timestamp }`. Org-scoped channels use format `org:{clerkOrgId}:messages`. Non-blocking: publish failures don't interrupt message flow. Gracefully degrades if Supabase not configured.
+- **Backend Publisher** (`apps/api/src/services/realtime/message-publisher.ts`): Publishes lightweight message events to Supabase Broadcast channels after message creation or read-state changes. Event payload includes `eventType` (`message.created`, `message.status.updated`, or `conversation.read`) plus the relevant lightweight fields: `{ conversationId, caseId, leadId, messageId, direction, channel, twilioStatus, twilioErrorCode, unreadCount, readAt, timestamp }`. Org-scoped channels use format `org:{clerkOrgId}:messages`. Non-blocking: publish failures don't interrupt message flow. Gracefully degrades if Supabase not configured.
 - **Frontend Subscription** (`apps/workspace/src/hooks/use-realtime-messages.ts`): React hook using Supabase client to subscribe to org-scoped message channels. On event receipt: invalidates React Query caches (`conversations`, `unread-count`, `messages`). Optional `caseId` filter for component-level subscriptions. Gracefully handles missing Supabase config.
 - **60-Second Fallback Polling**: Retained as safety net if Realtime unavailable. React Query cache auto-refetch at 60s intervals keeps data fresh.
 - **Performance Impact**: Near-instant updates (100-500ms vs 10-30s polling). Org-scoped isolation ensures no cross-org leaks. Broadcast channels auto-cleanup after unsubscribe.
+
+**Read Contract:**
+- `POST /messages/:caseId/read` marks an org-scoped case conversation as read, accepts optional `upTo` to preserve newer inbound messages, returns `caseId`, `unreadCount`, and `readAt`, and publishes a non-blocking `conversation.read` realtime event for UI refreshes.
 
 **Webhooks:**
 - `POST /webhooks/clerk` - Clerk event sync (user/org/membership lifecycle). Signed with Svix. Handlers: user.updated (sync email/name/avatar), user.deleted (deactivate staff), organization.created/updated (upsert org), organizationMembership.created/updated/deleted (sync staff member, handle out-of-order events). Uses upserts for idempotency. Returns 500 on handler error for Clerk retry.

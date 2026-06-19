@@ -355,18 +355,26 @@ export async function processIncomingMessage(
   // Note: For unknown callers, media will be attached to their placeholder case
   const mmsResult = await processMmsMedia(incomingMsg, caseId)
 
-  // Create message record (with attachments if media present)
-  const message = await prisma.message.create({
-    data: {
-      conversationId,
-      channel: 'SMS' as MessageChannel,
-      direction: 'INBOUND' as MessageDirection,
-      content,
-      twilioSid,
-      attachmentUrls: mmsResult.attachmentUrls,
-      attachmentR2Keys: mmsResult.attachmentR2Keys,
-    },
-  })
+  const [message] = await prisma.$transaction([
+    prisma.message.create({
+      data: {
+        conversationId,
+        channel: 'SMS' as MessageChannel,
+        direction: 'INBOUND' as MessageDirection,
+        content,
+        twilioSid,
+        attachmentUrls: mmsResult.attachmentUrls,
+        attachmentR2Keys: mmsResult.attachmentR2Keys,
+      },
+    }),
+    prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        lastMessageAt: new Date(),
+        unreadCount: { increment: 1 },
+      },
+    }),
+  ])
 
   // Publish realtime event (non-blocking)
   publishMessageEventFromConversation(conversationId, {
@@ -374,15 +382,6 @@ export async function processIncomingMessage(
     direction: 'INBOUND',
     channel: 'SMS',
   }).catch(() => {})
-
-  // Update conversation with new message timestamp and unread count
-  await prisma.conversation.update({
-    where: { id: conversationId },
-    data: {
-      lastMessageAt: new Date(),
-      unreadCount: { increment: 1 },
-    },
-  })
 
   // Update case activity timestamp for computed status system
   await updateLastActivity(caseId)

@@ -113,6 +113,40 @@ function checkRateLimit(ip: string): boolean {
   return true
 }
 
+async function publishTwilioStatusUpdateEvent(
+  messageSid: string,
+  status: string,
+  errorCode?: string
+): Promise<void> {
+  try {
+    const updatedCaseMessage = await prisma.message.findFirst({
+      where: {
+        twilioSid: messageSid,
+        conversationId: { not: null },
+      },
+      select: {
+        id: true,
+        conversationId: true,
+        direction: true,
+        channel: true,
+      },
+    })
+
+    if (!updatedCaseMessage?.conversationId) return
+
+    await publishMessageEventFromConversation(updatedCaseMessage.conversationId, {
+      id: updatedCaseMessage.id,
+      direction: updatedCaseMessage.direction,
+      channel: updatedCaseMessage.channel,
+      eventType: 'message.status.updated',
+      twilioStatus: status,
+      twilioErrorCode: errorCode ?? null,
+    })
+  } catch (error) {
+    console.error('[Twilio Status] Realtime publish skipped:', error)
+  }
+}
+
 // Cleanup old rate limit entries periodically
 setInterval(() => {
   const now = Date.now()
@@ -272,6 +306,10 @@ twilioWebhookRoute.post('/status', async (c) => {
       where: { twilioSid: messageSid },
       data: { twilioStatus: statusValue },
     })
+
+    if (updateResult.count > 0) {
+      publishTwilioStatusUpdateEvent(messageSid, statusValue, errorCode).catch(() => {})
+    }
 
     // Update SmsSendLog records (bulk lead SMS)
     const smsLogStatus = messageStatus === 'delivered' ? 'DELIVERED'

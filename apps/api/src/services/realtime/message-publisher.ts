@@ -7,13 +7,18 @@ import { getSupabaseUrl, getSupabaseHeaders, isSupabaseConfigured } from '../../
 import { prisma } from '../../lib/db'
 
 export interface MessageEventPayload {
+  eventType?: 'message.created' | 'message.status.updated' | 'conversation.read'
   // Owner is polymorphic: either conversation (Client case) or lead.
   conversationId?: string
   caseId?: string
   leadId?: string
-  messageId: string
-  direction: 'INBOUND' | 'OUTBOUND'
-  channel: 'SMS' | 'PORTAL' | 'CALL'
+  messageId?: string
+  direction?: 'INBOUND' | 'OUTBOUND'
+  channel?: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
+  twilioStatus?: string | null
+  twilioErrorCode?: string | null
+  unreadCount?: number
+  readAt?: string
   timestamp: string
 }
 
@@ -48,7 +53,7 @@ export async function publishMessageEvent(
       const text = await response.text()
       console.error(`[Realtime] Broadcast failed: ${response.status} ${text}`)
     } else {
-      console.log(`[Realtime] Published to ${channelName}: ${payload.messageId}`)
+      console.log(`[Realtime] Published to ${channelName}: ${payload.messageId ?? payload.eventType ?? 'event'}`)
     }
   } catch (error) {
     // Non-blocking: log but don't throw — realtime should never break message flow
@@ -65,7 +70,10 @@ export async function publishMessageEventFromConversation(
   message: {
     id: string
     direction: 'INBOUND' | 'OUTBOUND'
-    channel: 'SMS' | 'PORTAL' | 'CALL'
+    channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
+    eventType?: MessageEventPayload['eventType']
+    twilioStatus?: string | null
+    twilioErrorCode?: string | null
   }
 ): Promise<void> {
   try {
@@ -93,13 +101,58 @@ export async function publishMessageEventFromConversation(
     await publishMessageEvent(clerkOrgId, {
       conversationId,
       caseId: conversation.caseId,
+      eventType: message.eventType ?? 'message.created',
       messageId: message.id,
       direction: message.direction,
       channel: message.channel,
+      twilioStatus: message.twilioStatus,
+      twilioErrorCode: message.twilioErrorCode,
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
     console.error('[Realtime] Failed to publish from conversation:', error)
+  }
+}
+
+export async function publishConversationReadEvent(
+  conversationId: string,
+  data: {
+    unreadCount: number
+    readAt: string
+  }
+): Promise<void> {
+  try {
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        taxCase: {
+          include: {
+            client: {
+              include: {
+                organization: { select: { clerkOrgId: true } },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    const clerkOrgId = conversation?.taxCase?.client?.organization?.clerkOrgId
+    if (!clerkOrgId) {
+      console.log(`[Realtime] No org found for conversation ${conversationId}`)
+      return
+    }
+
+    await publishMessageEvent(clerkOrgId, {
+      conversationId,
+      caseId: conversation.caseId,
+      eventType: 'conversation.read',
+      unreadCount: data.unreadCount,
+      readAt: data.readAt,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (error) {
+    console.error('[Realtime] Failed to publish conversation read event:', error)
   }
 }
 
@@ -112,7 +165,7 @@ export async function publishMessageEventFromLead(
   message: {
     id: string
     direction: 'INBOUND' | 'OUTBOUND'
-    channel: 'SMS' | 'PORTAL' | 'CALL'
+    channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
   }
 ): Promise<void> {
   try {
@@ -131,6 +184,7 @@ export async function publishMessageEventFromLead(
 
     await publishMessageEvent(clerkOrgId, {
       leadId,
+      eventType: 'message.created',
       messageId: message.id,
       direction: message.direction,
       channel: message.channel,

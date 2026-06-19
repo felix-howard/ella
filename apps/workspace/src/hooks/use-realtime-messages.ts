@@ -9,17 +9,47 @@ import { useOrganization } from '@clerk/clerk-react'
 import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { ChatContext } from '../types/chat-context'
+import type { Conversation } from '../lib/api-client'
 
-interface MessageEventPayload {
-  // Polymorphic owner: one of conversationId/caseId (client case) or leadId (lead).
+type MessageChannel = 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
+
+interface BaseMessageEventPayload {
   conversationId?: string
   caseId?: string
   leadId?: string
-  messageId: string
-  direction: 'INBOUND' | 'OUTBOUND'
-  channel: 'SMS' | 'PORTAL' | 'CALL'
   timestamp: string
 }
+
+interface MessageCreatedEventPayload extends BaseMessageEventPayload {
+  eventType?: 'message.created'
+  messageId: string
+  direction: 'INBOUND' | 'OUTBOUND'
+  channel: MessageChannel
+}
+
+interface MessageStatusUpdatedEventPayload extends BaseMessageEventPayload {
+  eventType: 'message.status.updated'
+  messageId: string
+  direction: 'INBOUND' | 'OUTBOUND'
+  channel: MessageChannel
+  twilioStatus: string | null
+  twilioErrorCode?: string | null
+}
+
+interface ConversationReadEventPayload extends BaseMessageEventPayload {
+  eventType: 'conversation.read'
+  conversationId: string
+  caseId: string
+  unreadCount: number
+  readAt: string
+}
+
+export type MessageEventPayload =
+  | MessageCreatedEventPayload
+  | MessageStatusUpdatedEventPayload
+  | ConversationReadEventPayload
+
+export type MessageEventType = NonNullable<MessageEventPayload['eventType']>
 
 interface UseRealtimeMessagesOptions {
   /** Filter events to a specific chat context (case or lead). */
@@ -39,6 +69,54 @@ function matchesContext(ctx: ChatContext | undefined, data: MessageEventPayload)
   if (!ctx) return true
   if (ctx.type === 'case') return data.caseId === ctx.caseId
   return data.leadId === ctx.leadId
+}
+
+export function getMessageEventType(data: MessageEventPayload): MessageEventType {
+  return data.eventType ?? 'message.created'
+}
+
+export function subtractUnreadCount(current: number | undefined, count: number): number {
+  return Math.max(0, (current ?? 0) - Math.max(0, count))
+}
+
+export function adjustUnreadCount(
+  current: number | undefined,
+  previousCount: number,
+  nextCount: number
+): number {
+  return Math.max(0, (current ?? 0) - Math.max(0, previousCount) + Math.max(0, nextCount))
+}
+
+export function getConversationUnreadPatch(
+  conversations: Conversation[],
+  caseId: string,
+  nextUnreadCount: number
+): {
+  conversations: Conversation[]
+  previousUnreadCount: number
+  nextUnreadCount: number
+  changed: boolean
+} {
+  const previousUnreadCount = conversations.find((conversation) => conversation.caseId === caseId)?.unreadCount ?? 0
+  const safeNextUnreadCount = Math.max(0, nextUnreadCount)
+
+  if (previousUnreadCount === safeNextUnreadCount) {
+    return {
+      conversations,
+      previousUnreadCount,
+      nextUnreadCount: safeNextUnreadCount,
+      changed: false,
+    }
+  }
+
+  return {
+    conversations: conversations.map((conversation) =>
+      conversation.caseId === caseId ? { ...conversation, unreadCount: safeNextUnreadCount } : conversation
+    ),
+    previousUnreadCount,
+    nextUnreadCount: safeNextUnreadCount,
+    changed: true,
+  }
 }
 
 /**
@@ -86,7 +164,7 @@ export function useRealtimeMessages(options: UseRealtimeMessagesOptions = {}) {
           return
         }
 
-        // Invalidate shared caches
+        // Invalidate shared caches for server reconciliation.
         queryClient.invalidateQueries({ queryKey: ['conversations'] })
         queryClient.invalidateQueries({ queryKey: ['unread-count'] })
 

@@ -1203,6 +1203,12 @@ export const api = {
     // Get unread count for a specific case
     getUnreadCount: (caseId: string) =>
       request<{ caseId: string; unreadCount: number }>(`/messages/${caseId}/unread`),
+
+    markRead: (caseId: string, data?: { upTo?: string }) =>
+      request<{ caseId: string; unreadCount: number; readAt: string }>(`/messages/${caseId}/read`, {
+        method: 'POST',
+        body: JSON.stringify(data ?? {}),
+      }),
   },
 
   // Voice Calls

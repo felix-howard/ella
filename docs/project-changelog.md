@@ -5,6 +5,30 @@
 
 ---
 
+## 2026-06-19
+
+### Messages Realtime Smoothness
+**Status:** Complete
+
+**Fixed:**
+- Added explicit case conversation read endpoint with org-scoped validation, stale-snapshot protection, and non-blocking `conversation.read` realtime publish.
+- Expanded Supabase Broadcast message payloads for message creation, SMS delivery status updates, and read-state changes.
+- Workspace Messages now patches active-thread delivery status, clears visible unread badges optimistically, and keeps optimistic sends until server confirmation reconciles them.
+- Twilio SMS status webhook now publishes realtime status update events after `Message.twilioStatus` changes, while preserving polling fallback.
+
+**Validation:**
+- `pnpm -F @ella/api test -- messages twilio-status` pass, 42 tests
+- `pnpm -F @ella/workspace test -- realtime messages messages-unread-patch` pass, 6 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+
+**Rollout QA:**
+- Verify staging/production Supabase Broadcast envs are configured for API service role and workspace anon client.
+- Verify Twilio SMS status webhook URL/signature config targets the deployed API.
+- Manual realtime feel checks pending in authenticated Twilio/Supabase environment.
+
+---
+
 ## 2026-06-18
 
 ### Company Vault

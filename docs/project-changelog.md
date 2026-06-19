@@ -1,11 +1,32 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-18 ICT
+> **Last Updated:** 2026-06-19 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
 
 ## 2026-06-18
+
+### Company Vault
+**Status:** Complete
+
+**Added:**
+- Added org-scoped Company Vault for shared team credentials in the workspace.
+- Added `CompanyVaultCredential` storage with encrypted username, password, and note fields; `toolName` remains plaintext for list/search.
+- Added authenticated `/company-vault` CRUD APIs with organization isolation, hard delete, and redacted activity metadata.
+- Added workspace route, sidebar nav, list/search table, add/edit/delete modals, and copy username/password actions.
+- Added focused API and workspace regression tests for encrypted values, org scoping, safe activity metadata, table actions, and modal states.
+
+**Validation:**
+- `pnpm -F @ella/api test -- company-vault` pass, 10 tests
+- `pnpm -F @ella/workspace test -- src/components/company-vault` pass, 5 tests
+- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass, workspace 2911 keys and portal 522 keys
+- `pnpm type-check` pass
+
+---
 
 ### Twilio Inbound Routing Fallback
 **Status:** Complete

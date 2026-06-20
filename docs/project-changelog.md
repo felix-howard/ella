@@ -1,7 +1,24 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-19 ICT
+> **Last Updated:** 2026-06-20 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-06-20
+
+### Voice Calls Role Stability
+**Status:** Complete
+
+**Fixed:**
+- Outbound browser calls now resolve the real client phone server-side from `caseId/messageId`, so MANAGER/STAFF can call even when workspace APIs return masked phones.
+- Twilio outbound webhook now dials the DB-backed destination from the call message and attaches `CallSid` there, while keeping full phone hidden from non-admin responses and message content.
+- Incoming voice routing now includes MANAGER as org-wide eligible staff and lets STAFF receive unknown org calls, while keeping known-client STAFF routing through client assignment links.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/voice/__tests__/voice-routes.test.ts src/routes/webhooks/__tests__/twilio-voice-incoming.test.ts` pass, 14 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
 
 ---
 

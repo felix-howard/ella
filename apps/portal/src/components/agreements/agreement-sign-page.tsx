@@ -201,6 +201,11 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
                 <h1 className="text-2xl sm:text-3xl font-semibold text-foreground">
                   {view.templateTitle}
                 </h1>
+                {view.templateSubtitle && (
+                  <p className="mt-2 text-base sm:text-lg font-semibold text-foreground/80 leading-relaxed">
+                    ({view.templateSubtitle})
+                  </p>
+                )}
                 <p className="mt-2 max-w-2xl text-base sm:text-lg text-muted-foreground leading-relaxed">
                   {t('nda.greeting', { firstName: view.leadFirstName })}
                 </p>

@@ -172,6 +172,7 @@ export interface AgreementPublicView {
   expired: boolean
   templateVersion: string
   templateTitle: string
+  templateSubtitle: string | null
   templateSections: AgreementTemplateSection[]
   templateHtml: string | null
   /** Presigned URL of a staff-uploaded source PDF. When set, render the PDF

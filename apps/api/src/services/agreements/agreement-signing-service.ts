@@ -211,6 +211,7 @@ export interface PublicAgreementView {
   expired: boolean
   templateVersion: string
   templateTitle: string
+  templateSubtitle: string | null
   templateSections: TemplateSection[]
   templateHtml: string | null
   /** Presigned URL (15-min TTL) of the staff-uploaded source PDF. When set, the
@@ -324,6 +325,7 @@ export async function toPublicView(agreement: LoadedAgreement): Promise<PublicAg
     expired: isExpired(agreement.expiresAt),
     templateVersion: agreement.templateVersion,
     templateTitle: agreement.title || template.title,
+    templateSubtitle: agreement.type === 'CONSENT_7216' ? template.subtitle ?? null : null,
     templateSections: sections,
     // Sanitized at write time. Legacy templateSections kept for back-compat
     // with portal builds that don't yet read templateHtml. `|| null` (not

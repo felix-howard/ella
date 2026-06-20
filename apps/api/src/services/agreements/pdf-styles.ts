@@ -25,6 +25,15 @@ export const pdfStyles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
+  consentTitleBlock: {
+    marginBottom: 10,
+  },
+  consentTitleLine: {
+    fontSize: 21,
+    lineHeight: 1.15,
+    fontFamily: 'Helvetica-Bold',
+    textAlign: 'center',
+  },
   titleBodySpacer: {
     height: 18,
   },
@@ -164,6 +173,14 @@ export const pdfStyles = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
     color: '#374151',
     marginBottom: 20,
+    textAlign: 'center',
+  },
+  consentSubtitle: {
+    fontSize: 12,
+    lineHeight: 1.25,
+    fontFamily: 'Helvetica-Bold',
+    color: '#374151',
+    marginBottom: 28,
     textAlign: 'center',
   },
 

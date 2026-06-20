@@ -4,7 +4,7 @@
  * Includes voice calling integration via Twilio SDK
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -17,7 +17,7 @@ import { formatPhone, maskPhone, getInitials, getAvatarColor } from '../../lib/f
 import { useOrgRole } from '../../hooks/use-org-role'
 import { api } from '../../lib/api-client'
 import { dedupeMessagesById, mergeFetchedMessages } from '../../lib/optimistic-message-merge'
-import type { TaxCaseStatus, Language } from '../../lib/api-client'
+import type { Conversation, TaxCaseStatus, Language } from '../../lib/api-client'
 import type { OptimisticMessage } from '../../lib/optimistic-message-merge'
 
 export const Route = createFileRoute('/messages/$caseId')({
@@ -27,6 +27,26 @@ export const Route = createFileRoute('/messages/$caseId')({
 // Fallback polling interval (60 seconds — realtime handles instant updates)
 const FALLBACK_POLLING_INTERVAL = 60000
 type LocalMessage = OptimisticMessage
+type CaseData = {
+  client: { id: string; name: string; phone: string; language: Language }
+  taxCase: { id: string; taxYear: number; status: TaxCaseStatus }
+}
+
+function getCaseDataFromConversation(conversation: Conversation): CaseData {
+  return {
+    client: {
+      id: conversation.client.id,
+      name: conversation.client.name,
+      phone: conversation.client.phone,
+      language: conversation.client.language,
+    },
+    taxCase: {
+      id: conversation.taxCase.id,
+      taxYear: conversation.taxCase.taxYear,
+      status: conversation.taxCase.status,
+    },
+  }
+}
 
 function ConversationDetailView() {
   const { t } = useTranslation()
@@ -36,15 +56,14 @@ function ConversationDetailView() {
   const [messages, setMessages] = useState<LocalMessage[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSendingMessage, setIsSendingMessage] = useState(false)
-  const [caseData, setCaseData] = useState<{
-    client: { id: string; name: string; phone: string; language: Language }
-    taxCase: { id: string; taxYear: number; status: TaxCaseStatus }
-  } | null>(null)
+  const [caseData, setCaseData] = useState<CaseData | null>(null)
   const prevCaseIdRef = useRef<string>(caseId)
   const currentCaseIdRef = useRef<string>(caseId)
   const isSendingMessageRef = useRef(false)
   const optimisticPreviewUrlsRef = useRef<Set<string>>(new Set())
   const lastMarkedReadRef = useRef<string | null>(null)
+  const messagesCacheRef = useRef<Map<string, LocalMessage[]>>(new Map())
+  const caseDataCacheRef = useRef<Map<string, CaseData>>(new Map())
   currentCaseIdRef.current = caseId
 
   // Voice call state
@@ -69,6 +88,23 @@ function ConversationDetailView() {
       revokeAllOptimisticPreviewUrls()
     }
   }, [revokeAllOptimisticPreviewUrls])
+
+  const setCurrentMessages = useCallback((updater: (prev: LocalMessage[]) => LocalMessage[]) => {
+    setMessages((prev) => {
+      const nextMessages = updater(prev)
+      messagesCacheRef.current.set(currentCaseIdRef.current, nextMessages)
+      return nextMessages
+    })
+  }, [])
+
+  const getCachedCaseData = useCallback((targetCaseId: string): CaseData | null => {
+    const conversation = queryClient.getQueryData<Conversation>([
+      'messages',
+      'conversation-summary',
+      targetCaseId,
+    ])
+    return conversation ? getCaseDataFromConversation(conversation) : null
+  }, [queryClient])
 
   const markLatestRenderedRead = useCallback((latestRenderedAt?: string) => {
     if (!latestRenderedAt) return
@@ -95,16 +131,20 @@ function ConversationDetailView() {
 
   // Fetch messages
   const fetchMessages = useCallback(async (silent = false) => {
-    if (!silent) setIsLoading(true)
+    const requestCaseId = caseId
+    const hasCachedMessages = messagesCacheRef.current.has(requestCaseId)
+    if (!silent && !hasCachedMessages) setIsLoading(true)
 
     try {
-      const response = await api.messages.list(caseId)
+      const response = await api.messages.list(requestCaseId)
+      if (currentCaseIdRef.current !== requestCaseId) return
+
       // Messages come in desc order from API, reverse for display
       const fetchedMessages = response.messages.reverse()
       const latestRenderedAt = fetchedMessages[fetchedMessages.length - 1]?.createdAt
 
       // Merge fetched messages with existing, keeping optimistic (temp-*) messages
-      setMessages((prev) => {
+      setCurrentMessages((prev) => {
         return mergeFetchedMessages(prev, fetchedMessages, revokeOptimisticPreviewUrls)
       })
       markLatestRenderedRead(latestRenderedAt)
@@ -113,15 +153,20 @@ function ConversationDetailView() {
         console.error('Failed to fetch messages:', error)
       }
     } finally {
-      setIsLoading(false)
+      if (currentCaseIdRef.current === requestCaseId) {
+        setIsLoading(false)
+      }
     }
-  }, [caseId, markLatestRenderedRead, revokeOptimisticPreviewUrls])
+  }, [caseId, markLatestRenderedRead, revokeOptimisticPreviewUrls, setCurrentMessages])
 
   // Fetch case data for header
   const fetchCaseData = useCallback(async () => {
+    const requestCaseId = caseId
     try {
-      const caseDetail = await api.cases.get(caseId)
-      setCaseData({
+      const caseDetail = await api.cases.get(requestCaseId)
+      if (currentCaseIdRef.current !== requestCaseId) return
+
+      const nextCaseData = {
         client: {
           id: caseDetail.client.id,
           name: caseDetail.client.name,
@@ -133,7 +178,9 @@ function ConversationDetailView() {
           taxYear: caseDetail.taxYear,
           status: caseDetail.status,
         },
-      })
+      }
+      caseDataCacheRef.current.set(requestCaseId, nextCaseData)
+      setCaseData(nextCaseData)
     } catch (error) {
       if (import.meta.env.DEV) {
         console.error('Failed to fetch case data:', error)
@@ -148,7 +195,7 @@ function ConversationDetailView() {
       const eventType = getMessageEventType(event)
 
       if (event.eventType === 'message.status.updated') {
-        setMessages((prev) =>
+        setCurrentMessages((prev) =>
           prev.map((message) =>
             message.id === event.messageId
               ? { ...message, twilioStatus: event.twilioStatus }
@@ -166,17 +213,19 @@ function ConversationDetailView() {
   // Initial fetch and reset when case changes
   useEffect(() => {
     if (prevCaseIdRef.current !== caseId) {
-      // Reset state when navigating to different conversation
       revokeAllOptimisticPreviewUrls()
-      setMessages([])
-      setIsLoading(true)
-      setCaseData(null)
+      const cachedMessages = messagesCacheRef.current.get(caseId)
+      const cachedCaseData = caseDataCacheRef.current.get(caseId) ?? getCachedCaseData(caseId)
+
+      setMessages(cachedMessages ?? [])
+      setIsLoading(!cachedMessages)
+      setCaseData(cachedCaseData ?? null)
       lastMarkedReadRef.current = null
       prevCaseIdRef.current = caseId
     }
     fetchMessages()
     fetchCaseData()
-  }, [caseId, fetchMessages, fetchCaseData, revokeAllOptimisticPreviewUrls])
+  }, [caseId, fetchMessages, fetchCaseData, getCachedCaseData, revokeAllOptimisticPreviewUrls])
 
   // Fallback polling (realtime handles instant updates)
   useEffect(() => {
@@ -217,7 +266,7 @@ function ConversationDetailView() {
       }
 
       // Show message in UI instantly
-      setMessages((prev) => [...prev, optimisticMessage])
+      setCurrentMessages((prev) => [...prev, optimisticMessage])
 
       try {
         const response = attachments.length > 0
@@ -237,12 +286,12 @@ function ConversationDetailView() {
         }
 
         // Replace temp message with real server data
-        setMessages((prev) =>
-          dedupeMessagesById([
+        setCurrentMessages((prev) => {
+          return dedupeMessagesById([
             ...prev.filter((m) => m.id !== tempId && m.id !== response.message.id),
             confirmedMessage,
           ])
-        )
+        })
         revokeOptimisticPreviewUrls(attachmentUrls)
         queryClient.invalidateQueries({ queryKey: ['activity'] })
       } catch (error) {
@@ -255,7 +304,7 @@ function ConversationDetailView() {
         }
 
         // Mark as failed so user can retry
-        setMessages((prev) => {
+        setCurrentMessages((prev) => {
           return prev.map((m) =>
             m.id === tempId ? { ...m, _optimistic: 'failed' } : m
           )
@@ -266,14 +315,14 @@ function ConversationDetailView() {
         setIsSendingMessage(false)
       }
     },
-    [caseId, queryClient, revokeOptimisticPreviewUrls]
+    [caseId, queryClient, revokeOptimisticPreviewUrls, setCurrentMessages]
   )
 
   // Retry a failed optimistic message
   const handleRetry = useCallback(
     (failedMessage: LocalMessage) => {
       // Remove the failed message and re-send
-      setMessages((prev) => prev.filter((m) => m.id !== failedMessage.id))
+      setCurrentMessages((prev) => prev.filter((m) => m.id !== failedMessage.id))
       revokeOptimisticPreviewUrls(failedMessage.attachmentUrls)
       handleSend(
         failedMessage.content,
@@ -281,16 +330,21 @@ function ConversationDetailView() {
         failedMessage._attachmentFiles ?? []
       ).catch(() => undefined)
     },
-    [handleSend, revokeOptimisticPreviewUrls]
+    [handleSend, revokeOptimisticPreviewUrls, setCurrentMessages]
   )
 
   // Handle call button click
+  const displayCaseData = useMemo(() => {
+    if (caseData?.taxCase.id === caseId) return caseData
+    return getCachedCaseData(caseId)
+  }, [caseData, caseId, getCachedCaseData])
+
   const handleCallClick = useCallback(() => {
-    if (caseData?.client.phone) {
+    if (displayCaseData?.client.phone) {
       setShowCallModal(true)
-      voiceActions.initiateCall(caseData.client.phone, caseId)
+      voiceActions.initiateCall(displayCaseData.client.phone, caseId)
     }
-  }, [caseData, caseId, voiceActions])
+  }, [displayCaseData, caseId, voiceActions])
 
   // Auto-close modal when call ends
   useEffect(() => {
@@ -301,7 +355,7 @@ function ConversationDetailView() {
     }
   }, [voiceState.callState, showCallModal])
 
-  const avatarColor = caseData ? getAvatarColor(caseData.client.name) : null
+  const avatarColor = displayCaseData ? getAvatarColor(displayCaseData.client.name) : null
 
   return (
     <div className="h-full flex flex-col min-h-0">
@@ -319,10 +373,10 @@ function ConversationDetailView() {
               </Link>
 
               {/* Client Info - clickable to navigate to profile */}
-              {caseData && avatarColor ? (
+              {displayCaseData && avatarColor ? (
                 <Link
                   to="/clients/$clientId"
-                  params={{ clientId: caseData.client.id }}
+                  params={{ clientId: displayCaseData.client.id }}
                   className="flex items-center gap-3 rounded-lg px-2 py-1 -mx-2 -my-1 hover:bg-muted/60 transition-colors duration-200 cursor-pointer"
                 >
                   <div className={cn(
@@ -331,17 +385,17 @@ function ConversationDetailView() {
                     avatarColor.text
                   )}>
                     <span className="text-sm font-medium">
-                      {getInitials(caseData.client.name)}
+                      {getInitials(displayCaseData.client.name)}
                     </span>
                   </div>
                   <div>
                     <div className="flex items-center gap-2 min-w-0">
                       <h1 className="text-sm font-semibold text-foreground truncate tracking-tight">
-                        {caseData.client.name}
+                        {displayCaseData.client.name}
                       </h1>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-0.5">
-                      <span>{canViewPhone ? formatPhone(caseData.client.phone) : maskPhone(caseData.client.phone)}</span>
+                      <span>{canViewPhone ? formatPhone(displayCaseData.client.phone) : maskPhone(displayCaseData.client.phone)}</span>
                     </div>
                   </div>
                 </Link>
@@ -380,12 +434,12 @@ function ConversationDetailView() {
       />
 
       {/* Quick Actions Bar */}
-      {caseData && (
+      {displayCaseData && (
         <QuickActionsBar
           onSend={handleSend}
-          clientName={caseData.client.name}
-          clientPhone={caseData.client.phone}
-          clientId={caseData.client.id}
+          clientName={displayCaseData.client.name}
+          clientPhone={displayCaseData.client.phone}
+          clientId={displayCaseData.client.id}
           caseId={caseId}
           defaultChannel="SMS"
           isSending={isSendingMessage}
@@ -393,14 +447,14 @@ function ConversationDetailView() {
       )}
 
       {/* Active Call Modal */}
-      {showCallModal && caseData && (
+      {showCallModal && displayCaseData && (
         <ActiveCallModal
           isOpen={showCallModal}
           callState={voiceState.callState}
           isMuted={voiceState.isMuted}
           duration={voiceState.duration}
-          clientName={caseData.client.name}
-          clientPhone={canViewPhone ? formatPhone(caseData.client.phone) : maskPhone(caseData.client.phone)}
+          clientName={displayCaseData.client.name}
+          clientPhone={canViewPhone ? formatPhone(displayCaseData.client.phone) : maskPhone(displayCaseData.client.phone)}
           error={voiceState.error}
           onEndCall={voiceActions.endCall}
           onToggleMute={voiceActions.toggleMute}

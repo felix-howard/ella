@@ -7,6 +7,22 @@
 
 ## 2026-06-20
 
+### Messages Supabase Broadcast REST Payload
+**Status:** Complete
+
+**Fixed:**
+- Server-side message realtime publish now sends Supabase Broadcast batch requests with `messages: [{ topic, event, payload }]`.
+- This fixes production `422 {"errors":{"messages":["can't be blank"]}}` errors from `POST /realtime/v1/api/broadcast`.
+- Incoming client SMS events can now reach the workspace message thread immediately instead of waiting for fallback polling or manual refresh.
+
+**Validation:**
+- `pnpm -F @ella/api test src/services/realtime/__tests__/message-publisher.test.ts` pass, 1 test
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass with 1 pre-existing warning
+- `pnpm -F @ella/api test` pass, 161 files / 2986 tests
+
+---
+
 ### Messages Realtime Fan-out
 **Status:** Complete
 

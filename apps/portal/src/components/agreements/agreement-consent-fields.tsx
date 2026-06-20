@@ -7,6 +7,11 @@ export interface AgreementConsentFieldValues {
   tinLastFour: string
 }
 
+export interface AgreementConsentTouched {
+  taxpayerName: boolean
+  tinLastFour: boolean
+}
+
 interface AgreementConsentFieldsProps {
   values: AgreementConsentFieldValues
   errors: {
@@ -15,6 +20,7 @@ interface AgreementConsentFieldsProps {
   }
   submitting: boolean
   onChange: (values: AgreementConsentFieldValues) => void
+  onBlur: (field: keyof AgreementConsentTouched) => void
 }
 
 export function normalizeTinLastFour(value: string): string {
@@ -22,11 +28,22 @@ export function normalizeTinLastFour(value: string): string {
   return digits
 }
 
+export function getConsentErrorVisibility(
+  canValidate: boolean,
+  touched: AgreementConsentTouched
+): AgreementConsentTouched {
+  return {
+    taxpayerName: canValidate && touched.taxpayerName,
+    tinLastFour: canValidate && touched.tinLastFour,
+  }
+}
+
 export function AgreementConsentFields({
   values,
   errors,
   submitting,
   onChange,
+  onBlur,
 }: AgreementConsentFieldsProps) {
   const { t } = useTranslation()
 
@@ -43,6 +60,7 @@ export function AgreementConsentFields({
           id="consent-taxpayer-name"
           value={values.taxpayerName}
           onChange={(e) => onChange({ ...values, taxpayerName: e.target.value })}
+          onBlur={() => onBlur('taxpayerName')}
           placeholder={t('nda.consent.taxpayerNamePlaceholder')}
           maxLength={160}
           disabled={submitting}
@@ -93,6 +111,7 @@ export function AgreementConsentFields({
           onChange={(e) =>
             onChange({ ...values, tinLastFour: normalizeTinLastFour(e.target.value) })
           }
+          onBlur={() => onBlur('tinLastFour')}
           placeholder={t('nda.consent.tinLastFourPlaceholder')}
           inputMode="numeric"
           maxLength={9}

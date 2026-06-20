@@ -17,7 +17,9 @@ import type {
 } from '../../lib/api-client'
 import {
   AgreementConsentFields,
+  getConsentErrorVisibility,
   type AgreementConsentFieldValues,
+  type AgreementConsentTouched,
 } from './agreement-consent-fields'
 
 export interface AgreementSignSubmission {
@@ -68,6 +70,10 @@ export function AgreementSignForm({
     isConsent7216 ? (consentPrefill?.businessName ?? '') : ''
   )
   const [tinLastFour, setTinLastFour] = useState('')
+  const [consentTouched, setConsentTouched] = useState<AgreementConsentTouched>({
+    taxpayerName: false,
+    tinLastFour: false,
+  })
   const [agreed, setAgreed] = useState(false)
   const [hasStroke, setHasStroke] = useState(false)
 
@@ -112,14 +118,14 @@ export function AgreementSignForm({
       trimmedBusinessName.length <= 200 &&
       /^\d{4}$/.test(trimmedTinLastFour))
   const shouldShowConsentErrors = isConsent7216 && canSubmit
+  const consentErrorVisibility = getConsentErrorVisibility(shouldShowConsentErrors, consentTouched)
   const consentErrors = {
     taxpayerName:
-      shouldShowConsentErrors && trimmedTaxpayerName.length < NAME_MIN
+      consentErrorVisibility.taxpayerName && trimmedTaxpayerName.length < NAME_MIN
         ? t('nda.consent.taxpayerNameRequired')
         : undefined,
     tinLastFour:
-      (shouldShowConsentErrors || trimmedTinLastFour.length > 0) &&
-      !/^\d{4}$/.test(trimmedTinLastFour)
+      consentErrorVisibility.tinLastFour && !/^\d{4}$/.test(trimmedTinLastFour)
         ? t('nda.consent.tinLastFourInvalid')
         : undefined,
   }
@@ -136,6 +142,10 @@ export function AgreementSignForm({
     setTaxpayerName(values.taxpayerName)
     setBusinessName(values.businessName)
     setTinLastFour(values.tinLastFour)
+  }
+
+  const handleConsentBlur = (field: keyof typeof consentTouched) => {
+    setConsentTouched((current) => ({ ...current, [field]: true }))
   }
 
   const handleClear = () => {
@@ -214,6 +224,7 @@ export function AgreementSignForm({
           errors={consentErrors}
           submitting={submitting}
           onChange={handleConsentChange}
+          onBlur={handleConsentBlur}
         />
       )}
 

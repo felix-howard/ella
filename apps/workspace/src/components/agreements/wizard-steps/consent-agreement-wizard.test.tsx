@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { Agreement } from '../../../lib/api-client'
-import { normalizeTinLastFour } from '../../../../../portal/src/components/agreements/agreement-consent-fields'
+import {
+  getConsentErrorVisibility,
+  normalizeTinLastFour,
+} from '../../../../../portal/src/components/agreements/agreement-consent-fields'
 import { buildConsentAgreementPayload } from '../agreement-send-wizard'
 import { Step1TypePicker } from './step1-type-picker'
 
@@ -50,5 +53,17 @@ describe('consent agreement wizard', () => {
   it('does not silently truncate a pasted full TIN to a valid last-four value', () => {
     expect(normalizeTinLastFour('123-45-6789')).toBe('123456789')
     expect(normalizeTinLastFour('1234')).toBe('1234')
+  })
+
+  it('does not show consent validation errors before fields are touched', () => {
+    expect(
+      getConsentErrorVisibility(true, {
+        taxpayerName: false,
+        tinLastFour: false,
+      })
+    ).toEqual({
+      taxpayerName: false,
+      tinLastFour: false,
+    })
   })
 })

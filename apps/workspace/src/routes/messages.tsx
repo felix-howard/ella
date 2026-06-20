@@ -3,15 +3,21 @@
  * Shows conversation list on left, child route content on right
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createFileRoute, Outlet, useParams } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { MessageSquare } from 'lucide-react'
 import { ConversationList } from '../components/messaging'
 import { useUIStore } from '../stores/ui-store'
 import { useIsMobile } from '../hooks/use-mobile-breakpoint'
-import { useRealtimeMessages } from '../hooks/use-realtime-messages'
+import {
+  adjustUnreadCount,
+  getConversationUnreadPatch,
+  getMessageEventType,
+  useRealtimeMessages,
+} from '../hooks/use-realtime-messages'
 import { api } from '../lib/api-client'
 import type { Conversation } from '../lib/api-client'
 
@@ -28,6 +34,8 @@ function MessagesLayout() {
   const [totalUnread, setTotalUnread] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [_isRefreshing, setIsRefreshing] = useState(false)
+  const conversationsRef = useRef<Conversation[]>([])
+  const queryClient = useQueryClient()
 
   const { sidebarCollapsed } = useUIStore()
   const isMobile = useIsMobile()
@@ -43,8 +51,25 @@ function MessagesLayout() {
       const response = await api.messages.listConversations({
         limit: 50,
       })
-      setConversations(response.conversations)
-      setTotalUnread(response.totalUnread)
+      let nextConversations = response.conversations
+      let nextTotalUnread = response.totalUnread
+      if (activeCaseId) {
+        const unreadPatch = getConversationUnreadPatch(nextConversations, activeCaseId, 0)
+        nextConversations = unreadPatch.conversations
+        nextTotalUnread = adjustUnreadCount(
+          nextTotalUnread,
+          unreadPatch.previousUnreadCount,
+          unreadPatch.nextUnreadCount
+        )
+        queryClient.setQueryData<number>(['unread-count'], (current) =>
+          adjustUnreadCount(current, unreadPatch.previousUnreadCount, unreadPatch.nextUnreadCount)
+        )
+        queryClient.setQueryData(['unread-count', 'case', activeCaseId], { unreadCount: 0 })
+      }
+
+      conversationsRef.current = nextConversations
+      setConversations(nextConversations)
+      setTotalUnread(nextTotalUnread)
     } catch (error) {
       if (import.meta.env.DEV) {
         console.error('Failed to fetch conversations:', error)
@@ -53,12 +78,50 @@ function MessagesLayout() {
       setIsLoading(false)
       setIsRefreshing(false)
     }
-  }, [])
+  }, [activeCaseId, queryClient])
 
-  // Subscribe to realtime message events — refetch conversations on new messages
+  const setConversationUnread = useCallback((caseId: string, nextUnreadCount: number) => {
+    const unreadPatch = getConversationUnreadPatch(conversationsRef.current, caseId, nextUnreadCount)
+    if (!unreadPatch.changed) return
+
+    conversationsRef.current = unreadPatch.conversations
+    setConversations(unreadPatch.conversations)
+
+    setTotalUnread((current) =>
+      adjustUnreadCount(current, unreadPatch.previousUnreadCount, unreadPatch.nextUnreadCount)
+    )
+    queryClient.setQueryData<number>(['unread-count'], (current) =>
+      adjustUnreadCount(current, unreadPatch.previousUnreadCount, unreadPatch.nextUnreadCount)
+    )
+    queryClient.setQueryData(['unread-count', 'case', caseId], { unreadCount: unreadPatch.nextUnreadCount })
+  }, [queryClient])
+
+  // Subscribe to realtime message events — patch visible read state, then refetch.
   useRealtimeMessages({
-    onEvent: () => fetchConversations(true),
+    onEvent: (event) => {
+      const eventType = getMessageEventType(event)
+
+      if (event.eventType === 'conversation.read' && event.caseId === activeCaseId) {
+        setConversationUnread(event.caseId, 0)
+      }
+
+      if (
+        eventType === 'message.created'
+        && event.caseId
+        && event.caseId === activeCaseId
+        && 'direction' in event
+        && event.direction === 'INBOUND'
+      ) {
+        setConversationUnread(event.caseId, 0)
+      }
+
+      void fetchConversations(true)
+    },
   })
+
+  useEffect(() => {
+    if (activeCaseId) setConversationUnread(activeCaseId, 0)
+  }, [activeCaseId, setConversationUnread])
 
   // Initial fetch
   useEffect(() => {

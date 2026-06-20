@@ -304,6 +304,7 @@ const handleCopy = async () => {
 import { publishMessageEvent } from '../../services/realtime/message-publisher'
 
 await publishMessageEvent(orgId, {
+  eventType: 'message.created',
   conversationId: conv.id,
   caseId: conv.caseId,
   messageId: message.id,
@@ -335,7 +336,8 @@ export function MyComponent() {
 **Architecture:**
 - Channel format: `org:{clerkOrgId}:messages` - Org-scoped isolation
 - Event type: `message` - Broadcast event for all org members
-- Payload: Lightweight metadata (IDs + timestamps, no full message body)
+- Payload: Lightweight metadata (IDs + timestamps, no full message body); `eventType` distinguishes `message.created`, `message.status.updated`, and `conversation.read`
+- Read contract: `POST /messages/:caseId/read` accepts optional `upTo`, updates unread count with compare-and-set retries, and emits `conversation.read` with `unreadCount` + `readAt`
 - Frontend fetches full data via API on cache invalidation
 - Graceful degradation: Missing Supabase config disables realtime (polling fallback remains)
 - Non-blocking: Publisher errors logged, never thrown
@@ -357,6 +359,7 @@ export function MyComponent() {
 - Monitor WebSocket connection in DevTools Network tab
 - Verify React Query cache keys invalidated on event receipt
 - Confirm message creation triggers realtime event in different browser tab
+- Confirm mark-read emits `conversation.read` and leaves newer inbound messages unread
 
 ## Multi-Tenancy & RBAC
 

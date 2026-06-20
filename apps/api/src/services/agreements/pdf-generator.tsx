@@ -15,6 +15,7 @@ import { htmlToPdfNodes } from '../../lib/agreements/html-to-pdf'
 import { getTemplate } from '../../lib/agreements/template-registry'
 import type { PdfSignatureInput, TemplateVars } from '../../lib/agreements/types'
 import type { AgreementType } from '@ella/db'
+import { PdfConsentAuthorizationBlock } from './pdf-consent-authorization-block'
 import { PdfHeaderBlock } from './pdf-header-block'
 import { PdfSignatureBlock, type PdfSignatureMode } from './pdf-signature-block'
 import { NdaPdfDocument, type NdaPdfMode } from './pdf-document'
@@ -53,6 +54,13 @@ export interface ClientSnapshot {
   signedAt?: string
 }
 
+export interface Consent7216Fields {
+  taxpayerName: string
+  businessName?: string | null
+  tinLastFour: string
+  signerTitle: string
+}
+
 // ── Main input interface ──────────────────────────────────────────────────
 
 export interface GenerateSignedPdfInput {
@@ -83,6 +91,8 @@ export interface GenerateSignedPdfInput {
   firmSnapshot?: FirmSnapshot
   /** v2: client identity + signature data. */
   clientSnapshot?: ClientSnapshot
+  /** CONSENT_7216: taxpayer fields collected during signing. */
+  consentFields?: Consent7216Fields
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -114,7 +124,7 @@ function truncateUserAgent(ua: string): string {
 }
 
 export function shouldRenderAgreementPdfHeader(type?: AgreementType): boolean {
-  return type !== 'ENGAGEMENT_LETTER'
+  return type !== 'ENGAGEMENT_LETTER' && type !== 'CONSENT_7216'
 }
 
 export function resolveAgreementPdfSubtitle(
@@ -128,6 +138,8 @@ export function resolveAgreementPdfSubtitle(
 
 export async function generateSignedPdf(input: GenerateSignedPdfInput): Promise<Buffer> {
   const template = getTemplate(input.agreement.templateVersion)
+  const mode = input.mode ?? 'signed'
+  const isConsent7216 = input.agreement.type === 'CONSENT_7216'
   const usesDualSignature = Boolean(input.firmSnapshot || input.clientSnapshot)
 
   const vars: TemplateVars = {
@@ -151,9 +163,48 @@ export async function generateSignedPdf(input: GenerateSignedPdfInput): Promise<
     : undefined
   const heading = input.agreement.title?.trim() || template.title
 
+  if (isConsent7216) {
+    if (input.agreement.customContentHtml?.trim()) {
+      throw new Error('CONSENT_7216 PDF uses the built-in consent document')
+    }
+    if (mode === 'signed' && !input.consentFields) {
+      throw new Error('CONSENT_7216 signed PDF requires consent fields')
+    }
+
+    const signedAt = formatDate(signature.signedAt)
+    const authorizationBlock = (
+      <PdfConsentAuthorizationBlock
+        mode={mode}
+        taxpayerName={input.consentFields?.taxpayerName}
+        businessName={input.consentFields?.businessName}
+        tinLastFour={input.consentFields?.tinLastFour}
+        signaturePngBuffer={signature.pngBuffer}
+        printedName={signature.typedName}
+        title={input.consentFields?.signerTitle}
+        signedAt={signedAt}
+        audit={{
+          signedAtIso: signature.signedAt.toISOString(),
+          ipAddress: signature.ipAddress,
+          userAgent: signature.userAgent,
+        }}
+      />
+    )
+
+    return renderToBuffer(
+      <NdaPdfDocument
+        template={template}
+        vars={vars}
+        signature={signature}
+        mode={mode}
+        title={template.title}
+        subtitle={template.subtitle}
+        signatureBlock={authorizationBlock}
+      />
+    )
+  }
+
   // ── v2 path: inject HeaderBlock + SignatureBlock ──────────────────────────
   if (usesDualSignature) {
-    const mode = input.mode ?? 'signed'
     const sigMode: PdfSignatureMode =
       mode === 'preview' ? 'preview' : mode === 'view' ? 'view' : 'signed'
 
@@ -219,7 +270,7 @@ export async function generateSignedPdf(input: GenerateSignedPdfInput): Promise<
       vars={vars}
       signature={signature}
       bodyNodes={bodyNodes}
-      mode={input.mode ?? 'signed'}
+      mode={mode}
       title={input.agreement.title ?? undefined}
     />
   )

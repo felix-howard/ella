@@ -29,6 +29,7 @@ vi.mock('../../../lib/db', () => ({
     action: {
       create: vi.fn().mockResolvedValue({ id: 'action_1' }),
     },
+    $transaction: vi.fn(),
   },
 }))
 
@@ -91,6 +92,10 @@ function makeIncoming(overrides: Partial<TwilioIncomingMessage> = {}): TwilioInc
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(prisma.organization.findMany).mockResolvedValue([{ id: 'org_1' }] as never)
+  vi.mocked(prisma.$transaction).mockImplementation((operations) => {
+    if (Array.isArray(operations)) return Promise.all(operations) as never
+    return operations(prisma) as never
+  })
 })
 
 describe('processIncomingMessage — routing priority (Phase 03)', () => {
@@ -190,6 +195,14 @@ describe('processIncomingMessage — routing priority (Phase 03)', () => {
     expect(collisionCall).toBeTruthy()
     // Lead branch NOT invoked
     expect(vi.mocked(processLeadInbound)).not.toHaveBeenCalled()
+    expect(vi.mocked(prisma.$transaction)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(prisma.conversation.update)).toHaveBeenCalledWith({
+      where: { id: 'conv_1' },
+      data: {
+        lastMessageAt: expect.any(Date),
+        unreadCount: { increment: 1 },
+      },
+    })
     expect(vi.mocked(prisma.client.findFirst)).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ organizationId: 'org_1' }),
@@ -237,6 +250,7 @@ describe('processIncomingMessage — routing priority (Phase 03)', () => {
 
     expect(res.success).toBe(true)
     expect(res.isUnknownCaller).toBe(true)
+    expect(vi.mocked(prisma.$transaction)).toHaveBeenCalledTimes(1)
     expect(vi.mocked(findLeadByPhone)).toHaveBeenCalledWith('+15551234567', 'org_1')
     expect(vi.mocked(createPlaceholderConversation)).toHaveBeenCalledWith(
       '+15551234567',
@@ -305,6 +319,7 @@ describe('processIncomingMessage — routing priority (Phase 03)', () => {
 
     expect(res.success).toBe(true)
     expect(res.isUnknownCaller).toBe(true)
+    expect(vi.mocked(prisma.$transaction)).toHaveBeenCalledTimes(1)
     expect(vi.mocked(createPlaceholderConversation)).toHaveBeenCalledWith(
       '+15551234567',
       'org_1',

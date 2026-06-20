@@ -33,7 +33,7 @@ const oneTimeRows: OneTimeRow[] = [
   { kind: 'single', key: 'holdingLlcNew', label: 'Holding LLC (new)' },
   { kind: 'single', key: 'holdingLlcModify', label: 'Re-structure LLC basic' },
   { kind: 'single', key: 'personalTaxReturn', label: 'Personal tax return' },
-  { kind: 'business', key: 'businessTaxReturn', label: 'Business tax return' },
+  { kind: 'business', key: 'businessTaxReturn', label: 'Business tax return pre-pay (1 tax year)' },
 ]
 
 const numberInputClass =

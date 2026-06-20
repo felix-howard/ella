@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const prismaMocks = vi.hoisted(() => ({
   message: {
     updateMany: vi.fn(),
+    findFirst: vi.fn(),
   },
   smsSendLog: {
     updateMany: vi.fn(),
@@ -60,9 +61,10 @@ vi.mock('../../../services/sms', () => ({
 vi.mock('../../../services/voice', () => voiceMocks)
 
 vi.mock('../../../services/realtime/message-publisher', () => ({
-  publishMessageEventFromConversation: vi.fn(),
+  publishMessageEventFromConversation: vi.fn(() => Promise.resolve()),
 }))
 
+import { publishMessageEventFromConversation } from '../../../services/realtime/message-publisher'
 import { twilioWebhookRoute } from '../twilio'
 
 function createApp() {
@@ -96,6 +98,12 @@ describe('Twilio SMS status webhook', () => {
     vi.clearAllMocks()
     smsMocks.validateTwilioSignature.mockReturnValue({ valid: true })
     prismaMocks.message.updateMany.mockResolvedValue({ count: 1 })
+    prismaMocks.message.findFirst.mockResolvedValue({
+      id: 'msg_1',
+      conversationId: 'conv_1',
+      direction: 'OUTBOUND',
+      channel: 'SMS',
+    })
     prismaMocks.smsSendLog.updateMany.mockResolvedValue({ count: 1 })
     prismaMocks.smsSendLog.findFirst.mockResolvedValue({ leadId: 'lead_1' })
     prismaMocks.lead.updateMany.mockResolvedValue({ count: 1 })
@@ -114,6 +122,16 @@ describe('Twilio SMS status webhook', () => {
       where: { twilioSid: 'SM_status_1' },
       data: { twilioStatus: 'delivered' },
     })
+    await vi.waitFor(() => {
+      expect(publishMessageEventFromConversation).toHaveBeenCalledWith('conv_1', {
+        id: 'msg_1',
+        direction: 'OUTBOUND',
+        channel: 'SMS',
+        eventType: 'message.status.updated',
+        twilioStatus: 'delivered',
+        twilioErrorCode: null,
+      })
+    })
     expect(prismaMocks.smsSendLog.updateMany).toHaveBeenCalledWith({
       where: { twilioSid: 'SM_status_1' },
       data: { status: 'DELIVERED', error: undefined },
@@ -125,6 +143,13 @@ describe('Twilio SMS status webhook', () => {
   })
 
   it('persists failed delivery details without promoting lead lifecycle status', async () => {
+    prismaMocks.message.findFirst.mockResolvedValueOnce({
+      id: 'msg_1',
+      conversationId: 'conv_1',
+      direction: 'OUTBOUND',
+      channel: 'SMS',
+    })
+
     const res = await postStatus({
       MessageStatus: 'failed',
       ErrorCode: '30007',
@@ -146,5 +171,28 @@ describe('Twilio SMS status webhook', () => {
     })
     expect(prismaMocks.smsSendLog.findFirst).not.toHaveBeenCalled()
     expect(prismaMocks.lead.updateMany).not.toHaveBeenCalled()
+    await vi.waitFor(() => {
+      expect(publishMessageEventFromConversation).toHaveBeenCalledWith('conv_1', {
+        id: 'msg_1',
+        direction: 'OUTBOUND',
+        channel: 'SMS',
+        eventType: 'message.status.updated',
+        twilioStatus: 'failed:30007:Carrier violation',
+        twilioErrorCode: '30007',
+      })
+    })
+  })
+
+  it('does not fail the webhook when realtime status lookup fails', async () => {
+    prismaMocks.message.findFirst.mockRejectedValueOnce(new Error('realtime lookup failed'))
+
+    const res = await postStatus({ MessageStatus: 'delivered' })
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({
+      received: true,
+      processed: true,
+    })
+    expect(publishMessageEventFromConversation).not.toHaveBeenCalled()
   })
 })

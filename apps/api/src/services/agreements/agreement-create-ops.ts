@@ -22,10 +22,7 @@ import { prisma } from '../../lib/db'
 import { sanitizeAgreementHtml } from '../../lib/agreements/sanitize-html'
 import { findAgreementPlaceholders } from '../../lib/agreements/placeholders'
 import { renderDefaultAgreementHtml } from '../../lib/agreements/render-default-html'
-import {
-  currentTemplate,
-  defaultTemplateForType,
-} from '../../lib/agreements/template-registry'
+import { currentTemplate, defaultTemplateForType } from '../../lib/agreements/template-registry'
 import { generateAgreementToken, expiryDate, clampExpiryDays } from './token-service'
 import { sendAgreementInviteSms, sendAgreementInviteSmsForClient } from './agreement-sms'
 import { generateSignedPdf } from './pdf-generator'
@@ -52,7 +49,7 @@ import {
 // flag suppresses the signature block before the byte is read.
 const PREVIEW_PLACEHOLDER_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
-  'base64',
+  'base64'
 )
 
 const generateFirmSigNonce = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 10)
@@ -88,6 +85,7 @@ const DEFAULT_TITLES: Record<AgreementType, string> = {
   NDA: 'Non-Disclosure Agreement',
   ENGAGEMENT_LETTER: 'Engagement Letter',
   SERVICE_AGREEMENT: 'Service Agreement',
+  CONSENT_7216: 'Consent to Use and Disclose Tax Return Information',
   CUSTOM: 'Agreement',
 }
 
@@ -109,7 +107,11 @@ async function resolveContent(input: {
   orgId: string
   templateId?: string
   contentHtml?: string
-}): Promise<{ customContentHtml: string | null; templateVersion: string; templateId: string | null }> {
+}): Promise<{
+  customContentHtml: string | null
+  templateVersion: string
+  templateId: string | null
+}> {
   const sanitized = input.contentHtml ? sanitizeAgreementHtml(input.contentHtml) : ''
   const customContentHtml = sanitized ? sanitized : null
 
@@ -137,6 +139,19 @@ async function resolveContent(input: {
 
   // Type-specific content rules.
   const finalHtml = customContentHtml ?? snapshottedHtml
+  if (input.type === 'CONSENT_7216') {
+    if (input.templateId || finalHtml) {
+      throw new HTTPException(422, {
+        message: 'CONSENT_7216 uses the built-in consent document',
+      })
+    }
+    const builtInConsent = defaultTemplateForType(input.type)
+    return {
+      customContentHtml: null,
+      templateVersion: builtInConsent?.version ?? currentTemplate.version,
+      templateId: null,
+    }
+  }
   if (input.type === 'ENGAGEMENT_LETTER') {
     const placeholders = findAgreementPlaceholders(finalHtml)
     if (placeholders.length > 0) {
@@ -148,10 +163,7 @@ async function resolveContent(input: {
   if (input.type === 'CUSTOM' && !finalHtml) {
     throw new HTTPException(422, { message: 'CUSTOM agreement requires content' })
   }
-  if (
-    (input.type === 'ENGAGEMENT_LETTER' || input.type === 'SERVICE_AGREEMENT') &&
-    !finalHtml
-  ) {
+  if ((input.type === 'ENGAGEMENT_LETTER' || input.type === 'SERVICE_AGREEMENT') && !finalHtml) {
     throw new HTTPException(422, {
       message: 'Agreement requires either templateId or contentHtml',
     })
@@ -171,9 +183,10 @@ async function resolveContent(input: {
   }
 }
 
-function normalizeDeposit(
-  depositAmount: CreateAgreementInput['depositAmount'],
-): { depositAmount: Prisma.Decimal | string | null; depositStatus: 'PENDING' | null } {
+function normalizeDeposit(depositAmount: CreateAgreementInput['depositAmount']): {
+  depositAmount: Prisma.Decimal | string | null
+  depositStatus: 'PENDING' | null
+} {
   if (depositAmount == null) return { depositAmount: null, depositStatus: null }
   // Pass through Prisma Decimal / string / number untouched — Prisma coerces.
   return {
@@ -280,7 +293,20 @@ async function snapshotFirmSide(input: {
 
 export async function createAgreementForEntity(input: CreateAgreementInput) {
   const type = input.type ?? 'NDA'
-  const title = input.title?.trim() || DEFAULT_TITLES[type]
+  if (type === 'CONSENT_7216' && input.title?.trim()) {
+    throw new HTTPException(422, {
+      message: 'CONSENT_7216 uses the built-in consent title',
+    })
+  }
+  const title =
+    type === 'CONSENT_7216'
+      ? DEFAULT_TITLES.CONSENT_7216
+      : input.title?.trim() || DEFAULT_TITLES[type]
+  if (type === 'CONSENT_7216' && input.uploadedPdfKey) {
+    throw new HTTPException(422, {
+      message: 'CONSENT_7216 uses the built-in consent document',
+    })
+  }
   const isUploadedPdf = Boolean(input.uploadedPdfKey)
   // Uploaded PDFs always carry a firm counter-signature on the appended page, so
   // they use the v2 snapshot loader regardless of agreement type.
@@ -288,20 +314,19 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
 
   // NDA + Engagement Letter use the v2 snapshot loader (firm + business client
   // fields). Other types use the legacy narrow loader.
-  const entity =
-    usesFirmSnapshot
-      ? await loadEntityForV2Snapshot({
-          entityType: input.entityType,
-          entityId: input.entityId,
-          orgId: input.orgId,
-          requirePhone: true,
-        })
-      : await loadEntityWithOrg({
-          entityType: input.entityType,
-          entityId: input.entityId,
-          orgId: input.orgId,
-          requirePhone: true,
-        })
+  const entity = usesFirmSnapshot
+    ? await loadEntityForV2Snapshot({
+        entityType: input.entityType,
+        entityId: input.entityId,
+        orgId: input.orgId,
+        requirePhone: true,
+      })
+    : await loadEntityWithOrg({
+        entityType: input.entityType,
+        entityId: input.entityId,
+        orgId: input.orgId,
+        requirePhone: true,
+      })
 
   // Active-engagement gate is NDA-only. Other types are parallel-sendable.
   if (type === 'NDA') {
@@ -336,7 +361,10 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
     templateId = resolved.templateId
   }
 
-  const deposit = normalizeDeposit(input.depositAmount)
+  const deposit =
+    type === 'CONSENT_7216'
+      ? { depositAmount: null, depositStatus: null }
+      : normalizeDeposit(input.depositAmount)
 
   const trimmedNote = input.internalNote?.trim() || null
 
@@ -356,15 +384,13 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
         isUploadedPdf ||
         Boolean(
           v2.organization.address?.trim() &&
-            v2.organization.city?.trim() &&
-            v2.organization.state?.trim() &&
-            v2.organization.zip?.trim(),
+          v2.organization.city?.trim() &&
+          v2.organization.state?.trim() &&
+          v2.organization.zip?.trim()
         ),
       orgGoverningOk:
         isUploadedPdf ||
-        Boolean(
-          v2.organization.governingState?.trim() && v2.organization.governingCounty?.trim(),
-        ),
+        Boolean(v2.organization.governingState?.trim() && v2.organization.governingCounty?.trim()),
       orgContactOk:
         isUploadedPdf ||
         Boolean(v2.organization.firmPhone?.trim() && v2.organization.firmEmail?.trim()),
@@ -487,6 +513,12 @@ export async function renderPreviewPdf(input: {
   /** Override the PDF heading. Defaults to template title when omitted. */
   title?: string
 }): Promise<Buffer> {
+  const type = input.type ?? 'NDA'
+  if (type === 'CONSENT_7216' && (input.title?.trim() || input.contentHtml?.trim())) {
+    throw new HTTPException(422, {
+      message: 'CONSENT_7216 uses the built-in consent document and title',
+    })
+  }
   // v2 NDA preview: load full snapshot so header shows real firm + client
   // address. Signatures stay as placeholders (mode='preview' suppresses them).
   const v2Entity = await loadEntityForV2Snapshot(input)
@@ -501,7 +533,7 @@ export async function renderPreviewPdf(input: {
     }
   }
   const trimmedTitle = input.title?.trim() || null
-  const template = defaultTemplateForType(input.type ?? 'NDA') ?? currentTemplate
+  const template = defaultTemplateForType(type) ?? currentTemplate
 
   const firmAddress = composeAddressLine({
     address: v2Entity.organization.address,
@@ -533,7 +565,7 @@ export async function renderPreviewPdf(input: {
 
   return generateSignedPdf({
     agreement: {
-      type: input.type ?? 'NDA',
+      type,
       templateVersion: template.version,
       depositAmount: DEFAULT_DEPOSIT_AMOUNT,
       customContentHtml,

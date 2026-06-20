@@ -1,19 +1,19 @@
 /**
  * 3-step wizard for sending an agreement (NDA / Engagement Letter / Service
- * Agreement / Custom). Steps:
- *   1. Type picker — 4 cards
+ * Agreement / Consent / Custom). Steps:
+ *   1. Type picker — 5 cards
  *   2. Template picker — list filtered by type, "Start Blank" option.
  *      For NDA, a synthetic "Default NDA" card surfaces the built-in template
- *      so the picker step is consistent across types.
- *   3. Content editor — rich text + title + deposit toggle + link expiry
+ *      so the picker step is consistent across editable types.
+ *   3. Content editor/upload/consent confirm — metadata + link expiry
  *
  * On submit the wizard POSTs to the entity-aware /agreements endpoint via
  * useCreateAgreement, then closes itself on success (toast + cache invalidation
  * are handled by the mutation hook).
  *
  * State machine is a simple { step, type?, templateId? | 'blank' | 'builtin',
- * html, title, depositEnabled, depositAmount, expiryDays }. Back button steps
- * backward without losing already-entered fields.
+ * html, title, depositEnabled, depositAmount, expiryDays }. Consent skips
+ * customization and sends only its fixed built-in document.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -29,10 +29,11 @@ import {
   emptyStep3Draft,
   type Step3Draft,
 } from './wizard-steps/step3-content-editor'
+import { Step3UploadEditor, type UploadStep3Resolved } from './wizard-steps/step3-upload-editor'
 import {
-  Step3UploadEditor,
-  type UploadStep3Resolved,
-} from './wizard-steps/step3-upload-editor'
+  Step3ConsentSendConfirm,
+  type ConsentSendConfirmResolved,
+} from './wizard-steps/step3-consent-send-confirm'
 import {
   BLANK_TEMPLATE,
   BUILTIN_ENGAGEMENT_LETTER_TEMPLATE,
@@ -40,11 +41,7 @@ import {
   UPLOAD_PDF_TEMPLATE,
 } from './wizard-steps/template-sentinels'
 import { formatPhone } from '../../lib/formatters'
-import type {
-  Agreement,
-  AgreementType,
-  CreateAgreementPayload,
-} from '../../lib/api-client'
+import type { Agreement, AgreementType, CreateAgreementPayload } from '../../lib/api-client'
 import type { EntityRef, Recipient } from './types'
 
 interface Props {
@@ -57,6 +54,16 @@ interface Props {
 }
 
 type Step = 1 | 2 | 3
+
+export function buildConsentAgreementPayload(
+  resolved: ConsentSendConfirmResolved
+): CreateAgreementPayload {
+  return {
+    type: 'CONSENT_7216',
+    depositAmount: null,
+    expiryDays: resolved.expiryDays,
+  }
+}
 
 export function AgreementSendWizard({ entity, recipient, agreements, onClose }: Props) {
   const { t } = useTranslation()
@@ -83,8 +90,7 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
   const readinessQuery = useNdaReadiness(readinessType, needsReadiness)
   const setupMissing =
     needsReadiness &&
-    (readinessQuery.isError ||
-      (readinessQuery.data ? !readinessQuery.data.ready : false))
+    (readinessQuery.isError || (readinessQuery.data ? !readinessQuery.data.ready : false))
 
   // Esc closes the wizard unless a submit is in flight.
   useEffect(() => {
@@ -96,6 +102,13 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
   }, [mutation.isPending, onClose])
 
   const handleTypeSelect = (next: AgreementType) => {
+    if (mutation.isPending) return
+    if (next === 'CONSENT_7216') {
+      setType(next)
+      setTemplateId(null)
+      setStep(3)
+      return
+    }
     setType(next)
     if (next === 'CUSTOM') {
       // CUSTOM rejects templateId server-side; force blank editor.
@@ -115,8 +128,8 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
 
   const handleBack = () => {
     if (step === 3) {
-      // CUSTOM skipped Step 2 — bounce back to Step 1.
-      const target: Step = type === 'CUSTOM' ? 1 : 2
+      // CUSTOM and CONSENT_7216 skip Step 2 — bounce back to Step 1.
+      const target: Step = type === 'CUSTOM' || type === 'CONSENT_7216' ? 1 : 2
       setStep(target)
       return
     }
@@ -168,15 +181,22 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
     mutation.mutate(payload, { onSuccess: () => onClose() })
   }
 
+  const handleConsentSubmit = (resolved: ConsentSendConfirmResolved) => {
+    mutation.mutate(buildConsentAgreementPayload(resolved), { onSuccess: () => onClose() })
+  }
+
   const fullName = useMemo(
     () => [recipient.firstName, recipient.lastName].filter(Boolean).join(' '),
-    [recipient],
+    [recipient]
   )
 
   const titleKey: Record<Step, string> = {
     1: 'agreements.wizard.step1Title',
     2: 'agreements.wizard.step2Title',
-    3: 'agreements.wizard.step3Title',
+    3:
+      type === 'CONSENT_7216'
+        ? 'agreements.wizard.consent.stepTitle'
+        : 'agreements.wizard.step3Title',
   }
 
   const showBack = step !== 1
@@ -228,9 +248,7 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          {step === 1 && (
-            <Step1TypePicker agreements={agreements} onSelect={handleTypeSelect} />
-          )}
+          {step === 1 && <Step1TypePicker agreements={agreements} onSelect={handleTypeSelect} />}
           {step === 2 && type && (
             <Step2TemplatePicker type={type} onSelect={handleTemplateSelect} />
           )}
@@ -256,9 +274,17 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
               onSubmit={handleUploadSubmit}
             />
           )}
+          {step === 3 && type === 'CONSENT_7216' && (
+            <Step3ConsentSendConfirm
+              isSubmitting={mutation.isPending}
+              onCancel={onClose}
+              onSubmit={handleConsentSubmit}
+            />
+          )}
           {step === 3 &&
             type &&
             !isUploadMode &&
+            type !== 'CONSENT_7216' &&
             !(needsReadiness && (readinessQuery.isLoading || setupMissing)) && (
               <Step3ContentEditor
                 entity={entity}
@@ -274,6 +300,6 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
         </div>
       </div>
     </>,
-    document.body,
+    document.body
   )
 }

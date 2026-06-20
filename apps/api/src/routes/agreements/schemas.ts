@@ -37,6 +37,7 @@ export const agreementTypeSchema = z.enum([
   'NDA',
   'ENGAGEMENT_LETTER',
   'SERVICE_AGREEMENT',
+  'CONSENT_7216',
   'CUSTOM',
 ])
 
@@ -64,15 +65,34 @@ export const createAgreementBodySchema = z
     /** Staff-only context, never shown to recipient or in PDF. */
     internalNote: z.string().max(2000).trim().optional(),
     /** Link validity window in days. Server clamps to supported range. */
-    expiryDays: z
-      .number()
-      .int()
-      .min(MIN_EXPIRY_DAYS)
-      .max(MAX_EXPIRY_DAYS)
-      .optional(),
+    expiryDays: z.number().int().min(MIN_EXPIRY_DAYS).max(MAX_EXPIRY_DAYS).optional(),
   })
   .strict()
   .superRefine((val, ctx) => {
+    if (val.type === 'CONSENT_7216') {
+      if (val.title) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['title'],
+          message: 'CONSENT_7216 uses the built-in consent title',
+        })
+      }
+      if (val.contentHtml || val.templateId || val.uploadedPdfKey) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['contentHtml'],
+          message: 'CONSENT_7216 uses the built-in consent document',
+        })
+      }
+      if (val.depositAmount != null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['depositAmount'],
+          message: 'CONSENT_7216 does not support an initial payment',
+        })
+      }
+      return
+    }
     // Uploaded-PDF path: the PDF IS the body. Reject mixing it with HTML/template
     // sources, then short-circuit the content-required rules below.
     if (val.uploadedPdfKey) {
@@ -130,6 +150,23 @@ export const previewAgreementBodySchema = z
     title: z.string().min(1).max(200).optional(),
   })
   .strict()
+  .superRefine((val, ctx) => {
+    if (val.type !== 'CONSENT_7216') return
+    if (val.title) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['title'],
+        message: 'CONSENT_7216 uses the built-in consent title',
+      })
+    }
+    if (val.contentHtml) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['contentHtml'],
+        message: 'CONSENT_7216 uses the built-in consent document',
+      })
+    }
+  })
 
 /** Legacy alias retained for transitional callers. */
 export const previewNdaBodySchema = previewAgreementBodySchema
@@ -138,23 +175,14 @@ export const updateDepositBodySchema = z
   .object({
     depositStatus: z.enum(['PENDING', 'PAID', 'REFUNDED', 'FORFEITED']),
     depositNote: z.string().max(1000).optional().nullable(),
-    depositPaidAt: z
-      .string()
-      .datetime({ offset: true })
-      .optional()
-      .nullable(),
+    depositPaidAt: z.string().datetime({ offset: true }).optional().nullable(),
   })
   .strict()
 
 export const extendAgreementBodySchema = z
   .object({
     /** New validity window from now. Server clamps; omit to reuse stored expiryDays. */
-    days: z
-      .number()
-      .int()
-      .min(MIN_EXPIRY_DAYS)
-      .max(MAX_EXPIRY_DAYS)
-      .optional(),
+    days: z.number().int().min(MIN_EXPIRY_DAYS).max(MAX_EXPIRY_DAYS).optional(),
   })
   .strict()
 
@@ -177,6 +205,13 @@ export const signAgreementBodySchema = z
     // signing UI sends signerName + signerTitle for every client type.
     clientAuthRepName: z.string().min(2).max(120).optional(),
     clientAuthRepTitle: z.string().min(2).max(80).optional(),
+    taxpayerName: z.string().min(2).max(160).optional(),
+    businessName: z.string().max(200).optional(),
+    tinLastFour: z
+      .string()
+      .regex(/^\d{4}$/, 'tinLastFour must be exactly 4 digits')
+      .optional(),
+    consentSignerTitle: z.string().min(2).max(80).optional(),
   })
   .strict()
 

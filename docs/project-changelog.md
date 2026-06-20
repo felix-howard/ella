@@ -1,7 +1,88 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-19 ICT
+> **Last Updated:** 2026-06-20 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-06-20
+
+### Voice Calls Role Stability
+**Status:** Complete
+
+**Fixed:**
+- Outbound browser calls now resolve the real client phone server-side from `caseId/messageId`, so MANAGER/STAFF can call even when workspace APIs return masked phones.
+- Twilio outbound webhook now dials the DB-backed destination from the call message and attaches `CallSid` there, while keeping full phone hidden from non-admin responses and message content.
+- Incoming voice routing now includes MANAGER as org-wide eligible staff and lets STAFF receive unknown org calls, while keeping known-client STAFF routing through client assignment links.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/voice/__tests__/voice-routes.test.ts src/routes/webhooks/__tests__/twilio-voice-incoming.test.ts` pass, 14 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+
+---
+
+## 2026-06-19
+
+### Settings Scope Split
+**Status:** Complete
+
+**Changed:**
+- Workspace Settings now separates personal preferences into `My Settings` and org-wide configuration into `Organization`.
+- Moved theme, UI language, and staff SMS notification preferences under the personal scope.
+- Moved firm information, public form links, org slug, upload-link automation, and missed-call text-back under the organization scope.
+- Kept old Settings URL tabs compatible: `general` and `notifications` map to `My Settings`; `form-links` maps to `Organization`.
+- Updated NDA setup deep link to open the organization tab when firm info is missing.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with pre-existing warnings only
+- `pnpm i18n:check` pass, workspace 2925 keys and portal 531 keys
+
+---
+
+### Consent 7216 Agreement Type
+**Status:** Complete
+
+**Added:**
+- Added built-in `CONSENT_7216` agreement type for IRC 7216 consent, with fixed document rendering and no staff-side customization.
+- Workspace Agreements wizard now offers Consent to Use and Disclose Tax Return Information and sends it without content, template, title override, upload PDF, or initial payment.
+- Portal signing flow now collects taxpayer name, optional business name, TIN last four, signer title, signature, and the standard agreement acknowledgment checkbox; the taxpayer fields appear only for consent agreements.
+- Signed consent PDFs now include taxpayer authorization fields and save through the existing signed agreement PDF flow.
+
+**Validation:**
+- `pnpm -F @ella/api test -- agreement-types agreement-signing-service public-handlers pdf-generator` pass, 92 tests
+- `pnpm -F @ella/workspace test -- consent-agreement-wizard` pass, 4 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm i18n:check` pass, workspace 2917 keys and portal 531 keys
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status --schema prisma/schema.prisma` pass, database schema up to date
+
+**Notes:**
+- Final legal copy should be reviewed by Ella before production rollout.
+
+---
+
+### Messages Realtime Smoothness
+**Status:** Complete
+
+**Fixed:**
+- Added explicit case conversation read endpoint with org-scoped validation, stale-snapshot protection, and non-blocking `conversation.read` realtime publish.
+- Expanded Supabase Broadcast message payloads for message creation, SMS delivery status updates, and read-state changes.
+- Workspace Messages now patches active-thread delivery status, clears visible unread badges optimistically, and keeps optimistic sends until server confirmation reconciles them.
+- Twilio SMS status webhook now publishes realtime status update events after `Message.twilioStatus` changes, while preserving polling fallback.
+
+**Validation:**
+- `pnpm -F @ella/api test -- messages twilio-status` pass, 42 tests
+- `pnpm -F @ella/workspace test -- realtime messages messages-unread-patch` pass, 6 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+
+**Rollout QA:**
+- Verify staging/production Supabase Broadcast envs are configured for API service role and workspace anon client.
+- Verify Twilio SMS status webhook URL/signature config targets the deployed API.
+- Manual realtime feel checks pending in authenticated Twilio/Supabase environment.
 
 ---
 
@@ -177,6 +258,7 @@
 **Validation:**
 - `pnpm -F @ella/workspace type-check` pass
 - `pnpm -F @ella/workspace lint` pass with pre-existing warnings only
+- `pnpm i18n:check` pass
 - `pnpm -F @ella/workspace test` pass, 139 tests
 
 ---

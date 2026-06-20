@@ -2,6 +2,7 @@
  * Phase 07 fills in full test coverage. This stub proves the module wires up
  * and produces a valid PDF byte stream.
  */
+import React, { type ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
 import {
   generateSignedPdf,
@@ -9,6 +10,8 @@ import {
   shouldRenderAgreementPdfHeader,
   type GenerateSignedPdfInput,
 } from '../pdf-generator'
+import { PdfConsentAuthorizationBlock } from '../pdf-consent-authorization-block'
+import { getTemplate } from '../../../lib/agreements/template-registry'
 
 // 1x1 transparent PNG (valid minimal PNG for signature placeholder).
 const TRANSPARENT_PNG = Buffer.from(
@@ -33,7 +36,39 @@ function buildInput(overrides: Partial<GenerateSignedPdfInput> = {}): GenerateSi
   }
 }
 
+function textContent(node: ReactNode): string {
+  if (node == null || typeof node === 'boolean') return ''
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(textContent).join(' ')
+  if (React.isValidElement<{ children?: ReactNode }>(node)) {
+    if (typeof node.type === 'function') {
+      const component = node.type as (props: { children?: ReactNode }) => ReactNode
+      return textContent(component(node.props))
+    }
+    return textContent(node.props.children)
+  }
+  return ''
+}
+
 describe('generateSignedPdf', () => {
+  it('registers the built-in CONSENT_7216 template', () => {
+    const template = getTemplate('consent-7216-v1')
+
+    expect(template.version).toBe('consent-7216-v1')
+    expect(template.title).toBe('Consent to Use and Disclose Tax Return Information')
+    expect(
+      JSON.stringify(
+        template.render({
+          leadFullName: 'Jane Doe',
+          orgName: 'Acme Tax',
+          depositAmount: '',
+          date: '2026-06-19',
+          templateVersion: 'consent-7216-v1',
+        })
+      )
+    ).toContain('Federal law generally prohibits')
+  })
+
   it('produces a PDF buffer with the %PDF- magic header', async () => {
     const buffer = await generateSignedPdf(buildInput())
 
@@ -121,11 +156,121 @@ describe('generateSignedPdf', () => {
     ).toBeUndefined()
   })
 
+  it('omits the generated parties header but keeps legal subtitle for CONSENT_7216', () => {
+    expect(shouldRenderAgreementPdfHeader('CONSENT_7216')).toBe(false)
+    expect(
+      resolveAgreementPdfSubtitle(
+        'CONSENT_7216',
+        'Internal Revenue Code §7216 and Treas. Reg. §301.7216-3'
+      )
+    ).toBe('Internal Revenue Code §7216 and Treas. Reg. §301.7216-3')
+  })
+
   it('keeps the generated parties header and subtitle for NDA PDFs', () => {
     expect(shouldRenderAgreementPdfHeader('NDA')).toBe(true)
     expect(resolveAgreementPdfSubtitle('NDA', 'Mutual Confidentiality')).toBe(
       'Mutual Confidentiality'
     )
+  })
+
+  it('renders signed CONSENT_7216 PDF with taxpayer authorization fields', async () => {
+    const buffer = await generateSignedPdf(
+      buildInput({
+        agreement: {
+          type: 'CONSENT_7216',
+          templateVersion: 'consent-7216-v1',
+          depositAmount: '0.00',
+          title: 'Consent to Use and Disclose Tax Return Information',
+        },
+        consentFields: {
+          taxpayerName: 'Jane Doe',
+          businessName: 'Doe Consulting LLC',
+          tinLastFour: '1234',
+          signerTitle: 'Owner',
+        },
+      })
+    )
+
+    expect(buffer.subarray(0, 5).toString('ascii')).toBe('%PDF-')
+    expect(buffer.length).toBeGreaterThan(1000)
+  })
+
+  it('renders consent authorization text without generic dual-signature artifacts', () => {
+    const block = PdfConsentAuthorizationBlock({
+      mode: 'signed',
+      taxpayerName: 'Jane Doe',
+      businessName: null,
+      tinLastFour: '1234',
+      signaturePngBuffer: TRANSPARENT_PNG,
+      printedName: 'Jane A. Doe',
+      title: 'Owner',
+      signedAt: '2026-04-23',
+      audit: {
+        signedAtIso: '2026-04-23T12:00:00.000Z',
+        ipAddress: '203.0.113.42',
+        userAgent: 'Mozilla/5.0 Test',
+      },
+    })
+    const text = textContent(block).replace(/\s+/g, ' ')
+
+    expect(text).toContain('Taxpayer Authorization and Signature')
+    expect(text).toContain('Taxpayer Name Jane Doe')
+    expect(text).toContain('Business Name Not applicable')
+    expect(text).toContain('EIN/SSN Last Four ***-**-1234')
+    expect(text).toContain('Printed Name Jane A. Doe')
+    expect(text).toContain('Title Owner')
+    expect(text).toContain('Date 2026-04-23')
+    expect(text).toContain('Signed at: 2026-04-23T12:00:00.000Z')
+    expect(text).toContain('IP address: 203.0.113.42')
+    expect(text).toContain('User agent: Mozilla/5.0 Test')
+    expect(text).not.toContain('Firm Name')
+    expect(text).not.toContain('Client Name / Business Name')
+    expect(text).not.toContain('21. Signatures')
+  })
+
+  it('rejects custom content for CONSENT_7216 PDF rendering', async () => {
+    await expect(
+      generateSignedPdf(
+        buildInput({
+          agreement: {
+            type: 'CONSENT_7216',
+            templateVersion: 'consent-7216-v1',
+            depositAmount: '0.00',
+            customContentHtml: '<p>Custom consent</p>',
+          },
+          mode: 'preview',
+        })
+      )
+    ).rejects.toThrow(/CONSENT_7216 PDF uses the built-in consent document/)
+  })
+
+  it('requires consent fields for signed CONSENT_7216 PDF', async () => {
+    await expect(
+      generateSignedPdf(
+        buildInput({
+          agreement: {
+            type: 'CONSENT_7216',
+            templateVersion: 'consent-7216-v1',
+            depositAmount: '0.00',
+          },
+        })
+      )
+    ).rejects.toThrow(/CONSENT_7216 signed PDF requires consent fields/)
+  })
+
+  it('allows CONSENT_7216 preview PDF without taxpayer authorization fields', async () => {
+    const buffer = await generateSignedPdf(
+      buildInput({
+        agreement: {
+          type: 'CONSENT_7216',
+          templateVersion: 'consent-7216-v1',
+          depositAmount: '0.00',
+        },
+        mode: 'preview',
+      })
+    )
+
+    expect(buffer.subarray(0, 5).toString('ascii')).toBe('%PDF-')
   })
 
   it('renders long pasted custom HTML across multiple pages', async () => {

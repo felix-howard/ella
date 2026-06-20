@@ -25,7 +25,7 @@ export function SettingsGeneralTab() {
   )
 }
 
-function ThemeCard({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
+export function ThemeCard({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
   const { t } = useTranslation()
 
   return (
@@ -78,7 +78,7 @@ function ThemeCard({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => 
   )
 }
 
-function LanguageCard({ currentLanguage, changeLanguage }: { currentLanguage: Language; changeLanguage: (lang: Language) => void }) {
+export function LanguageCard({ currentLanguage, changeLanguage }: { currentLanguage: Language; changeLanguage: (lang: Language) => void }) {
   const { t } = useTranslation()
 
   return (
@@ -125,7 +125,7 @@ function LanguageCard({ currentLanguage, changeLanguage }: { currentLanguage: La
   )
 }
 
-function MissedCallTextBackCard() {
+export function MissedCallTextBackCard() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
 

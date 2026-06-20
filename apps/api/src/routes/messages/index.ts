@@ -15,9 +15,13 @@ import {
   translateMessageSchema,
   listMessagesQuerySchema,
   listConversationsQuerySchema,
+  markCaseMessagesReadSchema,
 } from './schemas'
 import { translateMessageToEnglish } from '../../services/ai'
-import { publishMessageEventFromConversation } from '../../services/realtime/message-publisher'
+import {
+  publishConversationReadEvent,
+  publishMessageEventFromConversation,
+} from '../../services/realtime/message-publisher'
 import {
   sendSmsOnly,
   isSmsEnabled,
@@ -92,6 +96,10 @@ const messageTranslationRateLimit = rateLimiter({
   windowMs: 60000,
 })
 
+type ScopedMessageCase =
+  | { taxCase: { id: string; client: { clientType: string; clientGroupId: string | null } } }
+  | { error: 'NOT_FOUND' | 'BUSINESS_CASE' }
+
 function withoutAttachmentR2Keys<T extends object>(message: T): Omit<T, 'attachmentR2Keys'> {
   const copy = { ...message } as T & { attachmentR2Keys?: unknown }
   delete copy.attachmentR2Keys
@@ -112,6 +120,83 @@ function getTwilioStatusCategory(status: string | null): string | null {
   if (!status) return null
   if (status.startsWith('ERROR:')) return 'failed'
   return status
+}
+
+async function getScopedMessageCase(caseId: string, user: AuthVariables['user']): Promise<ScopedMessageCase> {
+  const taxCase = await prisma.taxCase.findFirst({
+    where: { id: caseId, client: buildClientScopeFilter(user) },
+    select: { id: true, client: { select: { clientType: true, clientGroupId: true } } },
+  })
+
+  if (!taxCase) return { error: 'NOT_FOUND' as const }
+  if (isBizWithGroup(taxCase.client)) return { error: 'BUSINESS_CASE' as const }
+  return { taxCase }
+}
+
+async function markCaseConversationRead(
+  caseId: string,
+  user: AuthVariables['user'],
+  upTo?: Date
+) {
+  const scope = await getScopedMessageCase(caseId, user)
+  if ('error' in scope) return scope
+
+  const now = new Date()
+  const readAt = upTo && upTo.getTime() < now.getTime() ? upTo : now
+  const conversation = await prisma.conversation.upsert({
+    where: { caseId },
+    update: {},
+    create: { caseId },
+  })
+
+  let currentUnreadCount = conversation.unreadCount
+  let unreadCount = currentUnreadCount
+  let updateSucceeded = false
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const inboundAfterReadAt = await prisma.message.count({
+      where: {
+        conversationId: conversation.id,
+        direction: 'INBOUND',
+        createdAt: { gt: readAt },
+      },
+    })
+    unreadCount = Math.min(currentUnreadCount, inboundAfterReadAt)
+
+    const updateResult = await prisma.conversation.updateMany({
+      where: { id: conversation.id, unreadCount: currentUnreadCount },
+      data: { unreadCount },
+    })
+    if (updateResult.count > 0) {
+      updateSucceeded = true
+      break
+    }
+
+    const latestConversation = await prisma.conversation.findUnique({
+      where: { id: conversation.id },
+      select: { unreadCount: true },
+    })
+    currentUnreadCount = latestConversation?.unreadCount ?? currentUnreadCount
+  }
+
+  if (!updateSucceeded) {
+    throw new Error('Unable to mark conversation read after concurrent unread updates')
+  }
+
+  const readAtIso = readAt.toISOString()
+  publishConversationReadEvent(conversation.id, {
+    unreadCount,
+    readAt: readAtIso,
+  }).catch(() => {})
+
+  return {
+    conversation: {
+      ...conversation,
+      unreadCount,
+    },
+    unreadCount,
+    readAt: readAtIso,
+  }
 }
 
 // GET /messages/conversations - List all conversations for unified inbox
@@ -461,6 +546,28 @@ messagesRoute.get('/:caseId/unread', async (c) => {
   })
 })
 
+// POST /messages/:caseId/read - Mark case conversation messages as read.
+messagesRoute.post('/:caseId/read', zValidator('json', markCaseMessagesReadSchema), async (c) => {
+  const caseId = c.req.param('caseId')
+  const { upTo } = c.req.valid('json')
+  const user = c.get('user')
+
+  const result = await markCaseConversationRead(caseId, user, upTo)
+  if ('error' in result) {
+    if (result.error === 'NOT_FOUND') {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+    console.warn(`[Messages] Blocked conversation read for business case ${caseId} — use individual's case`)
+    return c.json({ error: 'BUSINESS_CASE', message: 'Use the individual owner\'s case for messaging' }, 400)
+  }
+
+  return c.json({
+    caseId,
+    unreadCount: result.unreadCount,
+    readAt: result.readAt,
+  })
+})
+
 // GET /messages/:caseId - Get conversation for case
 messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), async (c) => {
   const caseId = c.req.param('caseId')
@@ -468,17 +575,11 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
   const user = c.get('user')
 
-  // Verify case belongs to user's org before accessing conversation
-  const caseCheck = await prisma.taxCase.findFirst({
-    where: { id: caseId, client: buildClientScopeFilter(user) },
-    select: { id: true, client: { select: { clientType: true, clientGroupId: true } } },
-  })
-  if (!caseCheck) {
+  const caseCheck = await getScopedMessageCase(caseId, user)
+  if ('error' in caseCheck && caseCheck.error === 'NOT_FOUND') {
     return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
   }
-
-  // Prevent conversation creation for business cases linked to an individual via group
-  if (isBizWithGroup(caseCheck.client)) {
+  if ('error' in caseCheck && caseCheck.error === 'BUSINESS_CASE') {
     console.warn(`[Messages] Blocked conversation upsert for business case ${caseId} — use individual's case`)
     return c.json({ error: 'BUSINESS_CASE', message: 'Use the individual owner\'s case for messaging' }, 400)
   }
@@ -507,12 +608,14 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
     }),
   ])
 
-  // Reset unread count when fetching messages
+  // Keep legacy behavior: opening/fetching a thread marks currently rendered
+  // messages as read, while preserving newer inbound messages if one races in.
   if (conversation.unreadCount > 0) {
-    await prisma.conversation.update({
-      where: { id: conversation.id },
-      data: { unreadCount: 0 },
-    })
+    const newestRenderedAt = messages[0]?.createdAt
+    const readResult = await markCaseConversationRead(caseId, user, newestRenderedAt)
+    if (!('error' in readResult)) {
+      conversation.unreadCount = readResult.unreadCount
+    }
   }
 
   // Pre-resolve avatar URLs, deduplicated by staffId

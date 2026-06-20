@@ -96,6 +96,61 @@ function getCalledNumber(c: Context, formData: Record<string, unknown>): string 
   return queryCalledNumber || (formData.To || formData.Called || '') as string
 }
 
+async function resolveOutboundCallDestination(input: {
+  to?: string
+  messageId?: string
+  caseId?: string
+  callSid?: string
+}): Promise<string | null> {
+  const messageId = input.messageId?.trim()
+  const caseId = input.caseId?.trim()
+
+  if (messageId) {
+    const message = await prisma.message.findFirst({
+      where: {
+        id: messageId,
+        channel: 'CALL',
+        direction: 'OUTBOUND',
+        ...(caseId ? { conversation: { caseId } } : {}),
+      },
+      include: {
+        conversation: {
+          include: {
+            taxCase: {
+              include: { client: true },
+            },
+          },
+        },
+      },
+    })
+
+    if (message) {
+      if (input.callSid) {
+        await prisma.message.update({
+          where: { id: message.id },
+          data: { callSid: input.callSid },
+        })
+      }
+
+      const clientPhone = message.conversation?.taxCase.client.phone
+      if (clientPhone && isValidE164Phone(clientPhone)) {
+        return clientPhone
+      }
+
+      console.warn(`[Voice Webhook] Outbound message ${message.id} has no callable client phone`)
+      return null
+    }
+
+    console.warn('[Voice Webhook] Could not resolve outbound message for call')
+  }
+
+  if (input.to && isValidE164Phone(input.to)) {
+    return input.to
+  }
+
+  return null
+}
+
 function checkRateLimit(ip: string): boolean {
   const now = Date.now()
   const record = rateLimitMap.get(ip)
@@ -111,6 +166,40 @@ function checkRateLimit(ip: string): boolean {
 
   record.count++
   return true
+}
+
+async function publishTwilioStatusUpdateEvent(
+  messageSid: string,
+  status: string,
+  errorCode?: string
+): Promise<void> {
+  try {
+    const updatedCaseMessage = await prisma.message.findFirst({
+      where: {
+        twilioSid: messageSid,
+        conversationId: { not: null },
+      },
+      select: {
+        id: true,
+        conversationId: true,
+        direction: true,
+        channel: true,
+      },
+    })
+
+    if (!updatedCaseMessage?.conversationId) return
+
+    await publishMessageEventFromConversation(updatedCaseMessage.conversationId, {
+      id: updatedCaseMessage.id,
+      direction: updatedCaseMessage.direction,
+      channel: updatedCaseMessage.channel,
+      eventType: 'message.status.updated',
+      twilioStatus: status,
+      twilioErrorCode: errorCode ?? null,
+    })
+  } catch (error) {
+    console.error('[Twilio Status] Realtime publish skipped:', error)
+  }
 }
 
 // Cleanup old rate limit entries periodically
@@ -273,6 +362,10 @@ twilioWebhookRoute.post('/status', async (c) => {
       data: { twilioStatus: statusValue },
     })
 
+    if (updateResult.count > 0) {
+      publishTwilioStatusUpdateEvent(messageSid, statusValue, errorCode).catch(() => {})
+    }
+
     // Update SmsSendLog records (bulk lead SMS)
     const smsLogStatus = messageStatus === 'delivered' ? 'DELIVERED'
       : (messageStatus === 'undelivered' || messageStatus === 'failed') ? 'UNDELIVERED'
@@ -358,11 +451,25 @@ twilioWebhookRoute.post('/voice', async (c) => {
   }
 
   // Extract call parameters from Twilio
-  const to = formData.To as string
+  const requestedTo = formData.To as string | undefined
   const from = formData.From as string
   const callSid = formData.CallSid as string
+  const messageId = formData.messageId as string | undefined
+  const caseId = formData.caseId as string | undefined
 
-  console.log(`[Voice Webhook] Outbound call ${callSid}: ${from} -> ${to}`)
+  const to = await resolveOutboundCallDestination({
+    to: requestedTo,
+    messageId,
+    caseId,
+    callSid,
+  })
+
+  if (!to) {
+    console.warn(`[Voice Webhook] Outbound call ${callSid}: destination unavailable`)
+    return c.text(generateEmptyTwimlResponse(), 200, { 'Content-Type': 'application/xml' })
+  }
+
+  console.log(`[Voice Webhook] Outbound call ${callSid}: ${from} -> destination resolved`)
 
   // Generate TwiML response with recording enabled
   const twiml = generateTwimlVoiceResponse({
@@ -612,18 +719,27 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
     const clientOrgId = client?.organizationId ?? resolvedOrgId
 
     if (clientOrgId) {
-      // Get online staff: linked client managers + org admins for known callers,
-      // or org admins only for unknown callers.
+      // Get online staff: admins/managers can receive org-wide calls; staff
+      // receive known-client calls when linked, and unknown calls by org.
+      const eligibleStaff = client
+        ? [
+            { role: 'ADMIN' as const },
+            { role: 'MANAGER' as const },
+            { managedClientLinks: { some: { clientId: client.id } } },
+          ]
+        : [
+            { role: 'ADMIN' as const },
+            { role: 'MANAGER' as const },
+            { role: 'STAFF' as const },
+          ]
+
       const onlineStaff = await prisma.staffPresence.findMany({
         where: {
           isOnline: true,
           staff: {
             organizationId: clientOrgId,
             isActive: true,
-            OR: [
-              ...(client ? [{ managedClientLinks: { some: { clientId: client.id } } }] : []),
-              { role: 'ADMIN' },
-            ],
+            OR: eligibleStaff,
           },
         },
         include: { staff: { select: { id: true, role: true } } },

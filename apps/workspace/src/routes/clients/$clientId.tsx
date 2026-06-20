@@ -76,42 +76,13 @@ import { useOrgRole } from '../../hooks/use-org-role'
 import { useChatUnread } from '../../hooks/use-chat-unread'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, formatPhoneInput, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
-import { api, type TaxCaseStatus, type RawImage, type DigitalDoc, type ClientPreview, type BusinessType } from '../../lib/api-client'
+import { api, type TaxCaseStatus, type RawImage, type DigitalDoc, type ClientPreview } from '../../lib/api-client'
 import type { IdentityRetentionExtensionDays } from '../../lib/api-client'
 import { computeStatus } from '../../lib/computed-status'
 import { isScheduleCEligibleBusiness, BUSINESS_TYPE_LABELS } from '../../lib/business-type-helpers'
 import { IndividualScheduleCActivities } from '../../components/cases/tabs/schedule-c-tab/individual-schedule-c-activities'
 import { getLinkedBusinessesWithScheduleC } from '../../components/cases/tabs/schedule-c-tab/schedule-c-activities'
-
-type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'shared-docs' | 'contractors' | 'agreements' | 'payments'
-
-const VALID_TAB_PARAMS: TabType[] = [
-  'overview', 'files', 'checklist', 'schedule-c', 'schedule-e',
-  'data-entry', 'shared-docs', 'contractors', 'agreements', 'payments',
-]
-const DEFAULT_CLIENT_TAB: TabType = 'files'
-
-function getAvailableTabIds(
-  client: { clientType: 'INDIVIDUAL' | 'BUSINESS'; businessType?: BusinessType | null } | null | undefined,
-  flags: { canManagePayments: boolean } = { canManagePayments: true },
-): TabType[] {
-  if (!client) return VALID_TAB_PARAMS
-  const paymentsTabs = flags.canManagePayments ? (['payments'] as TabType[]) : []
-
-  if (client.clientType === 'BUSINESS') {
-    return [
-      'overview',
-      'files',
-      'contractors',
-      'data-entry',
-      'shared-docs',
-      ...paymentsTabs,
-      ...(isScheduleCEligibleBusiness(client) ? (['schedule-c'] as TabType[]) : []),
-    ]
-  }
-
-  return ['overview', 'files', 'agreements', ...paymentsTabs, 'data-entry', 'shared-docs', 'schedule-c', 'schedule-e']
-}
+import { DEFAULT_CLIENT_TAB, getAvailableTabIds, type TabType, VALID_TAB_PARAMS } from './client-detail-tabs'
 
 export const Route = createFileRoute('/clients/$clientId')({
   component: ClientDetailPage,
@@ -156,8 +127,8 @@ function ClientDetailPage() {
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
   const {
     canViewPhone,
-    canManageClients,
     canManagePayments,
+    canManageAgreements,
     isLoading: isRoleLoading,
   } = useOrgRole()
   // Multi-year engagement state
@@ -396,7 +367,7 @@ function ClientDetailPage() {
   }, [clientId, navigate, tabFromSearch, startTabTransition])
 
   useEffect(() => {
-    const availableTabIds = getAvailableTabIds(client, { canManagePayments })
+    const availableTabIds = getAvailableTabIds(client, { canManagePayments, canManageAgreements })
     if (!client || isRoleLoading || availableTabIds.includes(activeTab)) return
     startTabTransition(() => {
       setActiveTab(DEFAULT_CLIENT_TAB)
@@ -407,7 +378,7 @@ function ClientDetailPage() {
         replace: true,
       })
     })
-  }, [activeTab, canManagePayments, client, clientId, isRoleLoading, navigate, startTabTransition])
+  }, [activeTab, canManageAgreements, canManagePayments, client, clientId, isRoleLoading, navigate, startTabTransition])
 
   // Fetch engagements for this client (multi-year support)
   const { data: engagementsData } = useQuery({
@@ -732,7 +703,7 @@ function ClientDetailPage() {
     : [
         { id: 'overview', label: t('clientOverview.title'), icon: User },
         { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
-        agreementsTab,
+        ...(canManageAgreements ? [agreementsTab] : []),
         ...(canManagePayments ? [paymentsTab] : []),
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
         { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
@@ -1043,7 +1014,7 @@ function ClientDetailPage() {
 
       {/* Agreements Tab - NDA send/manage (parameterized shared component).
           Hidden for businesses: NDAs are scoped to the individual owner. */}
-      {activeTab === 'agreements' && !isBusiness && (
+      {activeTab === 'agreements' && !isBusiness && canManageAgreements && (
         <AgreementsTab
           entity={{ type: 'client', id: clientId }}
           recipient={{
@@ -1053,7 +1024,7 @@ function ClientDetailPage() {
             phone: client.phone,
           }}
           enabled={true}
-          canSend={canManageClients}
+          canSend={canManageAgreements}
         />
       )}
 

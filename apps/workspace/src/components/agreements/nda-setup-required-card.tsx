@@ -111,7 +111,7 @@ export function NdaSetupRequiredCard({ missing, isRefreshing, hasError, onClose 
                   ) : (
                     <RouterLink
                       to="/settings"
-                      search={{ tab: 'general', focus: item.focus }}
+                      search={{ tab: 'organization', focus: item.focus }}
                       className="text-sm font-medium text-primary hover:underline flex-shrink-0"
                       onClick={onClose}
                     >

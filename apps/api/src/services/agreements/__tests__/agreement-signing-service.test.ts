@@ -143,6 +143,7 @@ describe('toPublicView', () => {
     expect(view.depositAmount).toBe('$300.00')
     expect(view.templateVersion).toBe('v1')
     expect(view.templateTitle).toBe('Non-Disclosure Agreement')
+    expect(view.templateSubtitle).toBeNull()
     expect(view.templateSections.length).toBeGreaterThan(0)
     const body = JSON.stringify(view.templateSections)
     expect(body).toContain('Jane Doe')
@@ -202,6 +203,51 @@ describe('toPublicView', () => {
   it('coerces undefined customContentHtml to null', async () => {
     const view = await toPublicView(activeNda({ customContentHtml: undefined }) as any)
     expect(view.templateHtml).toBeNull()
+  })
+
+  it('renders CONSENT_7216 through the built-in consent template, not NDA sections', async () => {
+    const view = await toPublicView(
+      activeClientNda({
+        type: 'CONSENT_7216',
+        title: 'Consent to Disclosure',
+        templateVersion: 'consent-7216-v1',
+        depositAmount: null,
+      }) as any
+    )
+    expect(view.type).toBe('CONSENT_7216')
+    expect(view.templateTitle).toBe('Consent to Disclosure')
+    expect(view.templateSubtitle).toBe('Internal Revenue Code §7216 and Treas. Reg. §301.7216-3')
+    const body = JSON.stringify(view.templateSections)
+    expect(body).toContain('Federal law generally prohibits')
+    expect(body).toContain('Electronic Systems and Secure Portals')
+    expect(body).not.toContain('Protected Firm Information')
+  })
+
+  it('exposes CONSENT_7216 consent prefill values', async () => {
+    const view = await toPublicView(
+      activeClientNda({
+        type: 'CONSENT_7216',
+        templateVersion: 'consent-7216-v1',
+        client: {
+          id: 'client-1',
+          firstName: 'Lan Consulting LLC',
+          lastName: null,
+          name: 'Lan Consulting LLC',
+          clientType: 'BUSINESS',
+        },
+        signer: {
+          id: 'client-1',
+          firstName: 'Lan Consulting LLC',
+          lastName: null,
+          kind: 'client',
+        },
+      }) as any
+    )
+
+    expect(view.consentPrefill).toEqual({
+      taxpayerName: 'Lan Consulting LLC',
+      businessName: 'Lan Consulting LLC',
+    })
   })
 
   it('builds firmSnapshot + clientSnapshot for v2 agreements with firm signature', async () => {
@@ -294,7 +340,7 @@ describe('signNda', () => {
         createdByUserId: 'staff-1',
         depositAmount: '300.00',
         depositStatus: 'PENDING',
-      }),
+      })
     )
   })
 
@@ -325,7 +371,7 @@ describe('signNda', () => {
           customContentHtml: contentHtml,
           depositAmount: '750.00',
           depositStatus: 'PENDING',
-        }) as any,
+        }) as any
       )
       mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
 
@@ -338,10 +384,167 @@ describe('signNda', () => {
           depositAmount: '750.00',
           depositStatus: 'PENDING',
           signer: expect.objectContaining({ id: 'lead-1', kind: 'lead' }),
-        }),
+        })
       )
-    },
+    }
   )
+
+  it('persists consent taxpayer fields only for CONSENT_7216 signing', async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      activeClientNda({
+        id: 'agreement-consent-7216',
+        type: 'CONSENT_7216',
+        title: 'Consent to Disclosure',
+        depositAmount: null,
+        depositStatus: null,
+      }) as any
+    )
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+
+    await signAgreement({
+      ...baseInput,
+      taxpayerName: 'Lan Nguyen',
+      businessName: 'Lan Consulting LLC',
+      tinLastFour: '1234',
+      consentSignerTitle: 'Owner',
+    })
+
+    const updateArgs = mockUpdateMany.mock.calls[0][0] as any
+    expect(updateArgs.data).toMatchObject({
+      signerName: 'Jane Doe',
+      clientAuthRepTitle: 'Owner',
+      consentTaxpayerName: 'Lan Nguyen',
+      consentBusinessName: 'Lan Consulting LLC',
+      consentTinLastFour: '1234',
+    })
+    expect(mockGenPdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agreement: expect.objectContaining({ type: 'CONSENT_7216' }),
+        consentFields: {
+          taxpayerName: 'Lan Nguyen',
+          businessName: 'Lan Consulting LLC',
+          tinLastFour: '1234',
+          signerTitle: 'Owner',
+        },
+      })
+    )
+    expect(mockCreateDepositPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'agreement-consent-7216',
+        depositAmount: null,
+        depositStatus: null,
+      })
+    )
+  })
+
+  it('ignores consent taxpayer fields for non-consent signing', async () => {
+    mockFindUnique.mockResolvedValueOnce(activeNda() as any)
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+
+    await signAgreement({
+      ...baseInput,
+      taxpayerName: 'Jane Doe',
+      businessName: 'Doe Consulting LLC',
+      tinLastFour: '1234',
+      consentSignerTitle: 'Owner',
+    })
+
+    const updateArgs = mockUpdateMany.mock.calls[0][0] as any
+    expect(updateArgs.data).not.toHaveProperty('consentTaxpayerName')
+    expect(updateArgs.data).not.toHaveProperty('consentBusinessName')
+    expect(updateArgs.data).not.toHaveProperty('consentTinLastFour')
+    expect(mockGenPdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agreement: expect.objectContaining({ type: 'NDA' }),
+        consentFields: undefined,
+      })
+    )
+  })
+
+  it('rejects CONSENT_7216 signing without taxpayer name before upload', async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      activeClientNda({
+        id: 'agreement-consent-7216',
+        type: 'CONSENT_7216',
+        title: 'Consent to Disclosure',
+      }) as any
+    )
+
+    await expect(
+      signAgreement({
+        ...baseInput,
+        taxpayerName: ' ',
+        tinLastFour: '1234',
+      })
+    ).rejects.toMatchObject({ status: 400 })
+
+    expect(mockUpload).not.toHaveBeenCalled()
+    expect(mockUpdateMany).not.toHaveBeenCalled()
+  })
+
+  it('rejects CONSENT_7216 signing without a four-digit TIN suffix', async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      activeClientNda({
+        id: 'agreement-consent-7216',
+        type: 'CONSENT_7216',
+        title: 'Consent to Disclosure',
+      }) as any
+    )
+
+    await expect(
+      signAgreement({
+        ...baseInput,
+        taxpayerName: 'Lan Nguyen',
+        tinLastFour: '12A4',
+      })
+    ).rejects.toMatchObject({ status: 400 })
+
+    expect(mockUpload).not.toHaveBeenCalled()
+    expect(mockUpdateMany).not.toHaveBeenCalled()
+  })
+
+  it('rejects full TIN values for CONSENT_7216 signing', async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      activeClientNda({
+        id: 'agreement-consent-7216',
+        type: 'CONSENT_7216',
+        title: 'Consent to Disclosure',
+      }) as any
+    )
+
+    await expect(
+      signAgreement({
+        ...baseInput,
+        taxpayerName: 'Lan Nguyen',
+        tinLastFour: '123456789',
+      })
+    ).rejects.toMatchObject({ status: 400 })
+
+    expect(mockUpload).not.toHaveBeenCalled()
+    expect(mockUpdateMany).not.toHaveBeenCalled()
+  })
+
+  it('rejects oversized CONSENT_7216 taxpayer fields before upload', async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      activeClientNda({
+        id: 'agreement-consent-7216',
+        type: 'CONSENT_7216',
+        title: 'Consent to Disclosure',
+      }) as any
+    )
+
+    await expect(
+      signAgreement({
+        ...baseInput,
+        taxpayerName: 'A'.repeat(161),
+        businessName: 'B'.repeat(201),
+        tinLastFour: '1234',
+      })
+    ).rejects.toMatchObject({ status: 400 })
+
+    expect(mockUpload).not.toHaveBeenCalled()
+    expect(mockUpdateMany).not.toHaveBeenCalled()
+  })
 
   it('uses nonced keys (unique per attempt) for R2 uploads', async () => {
     mockFindUnique.mockResolvedValueOnce(activeNda() as any)

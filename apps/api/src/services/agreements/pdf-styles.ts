@@ -25,6 +25,15 @@ export const pdfStyles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
+  consentTitleBlock: {
+    marginBottom: 10,
+  },
+  consentTitleLine: {
+    fontSize: 21,
+    lineHeight: 1.15,
+    fontFamily: 'Helvetica-Bold',
+    textAlign: 'center',
+  },
   titleBodySpacer: {
     height: 18,
   },
@@ -165,5 +174,47 @@ export const pdfStyles = StyleSheet.create({
     color: '#374151',
     marginBottom: 20,
     textAlign: 'center',
+  },
+  consentSubtitle: {
+    fontSize: 12,
+    lineHeight: 1.25,
+    fontFamily: 'Helvetica-Bold',
+    color: '#374151',
+    marginBottom: 28,
+    textAlign: 'center',
+  },
+
+  // ── Consent 7216 taxpayer authorization block ───────────────────────────
+  consentSection: {
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#d1d5db',
+  },
+  consentSectionHeading: {
+    fontSize: 14,
+    fontFamily: 'Helvetica-Bold',
+    marginBottom: 14,
+  },
+  consentRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    alignItems: 'flex-end',
+  },
+  consentRowLabel: {
+    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+    width: 160,
+    color: '#374151',
+  },
+  consentRowValue: {
+    fontSize: 11,
+    flex: 1,
+  },
+  consentAuditBlock: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
   },
 })

@@ -109,9 +109,24 @@ function containsStyle(node: React.ReactNode, style: unknown): boolean {
     if (typeof child !== 'object' || child == null) continue
     const el = child as React.ReactElement<{ style?: unknown; children?: React.ReactNode }>
     if (el.props?.style === style) return true
+    if (Array.isArray(el.props?.style) && el.props.style.includes(style)) return true
     if (containsStyle(el.props?.children, style)) return true
   }
   return false
+}
+
+function textContent(node: React.ReactNode): string {
+  if (node == null || typeof node === 'boolean') return ''
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(textContent).join(' ')
+  if (React.isValidElement<{ children?: React.ReactNode }>(node)) {
+    if (typeof node.type === 'function') {
+      const component = node.type as (props: { children?: React.ReactNode }) => React.ReactNode
+      return textContent(component(node.props))
+    }
+    return textContent(node.props.children)
+  }
+  return ''
 }
 
 function renderEngagementDocument(
@@ -136,6 +151,25 @@ function renderEngagementDocument(
     bodyNodes: [React.createElement(Text, { key: 'body' }, 'Body')],
     signatureBlock: React.createElement(Text, { key: 'sig' }, 'Signature'),
     ...overrides,
+  })
+}
+
+function renderConsentDocument() {
+  return NdaPdfDocument({
+    template: getTemplate('consent-7216-v1'),
+    vars: {
+      leadFullName: 'Jane Doe',
+      orgName: 'Acme Tax LLC',
+      depositAmount: '$0.00',
+      date: '2026-05-06',
+      templateVersion: 'consent-7216-v1',
+      confidentialityYears: 'five (5)',
+    },
+    signature: BASE_SIGNATURE,
+    mode: 'preview',
+    title: 'Consent to Use and Disclose Tax Return Information',
+    subtitle: 'Internal Revenue Code §7216 and Treas. Reg. §301.7216-3',
+    signatureBlock: React.createElement(Text, { key: 'sig' }, 'Signature'),
   })
 }
 
@@ -257,5 +291,16 @@ describe('v2 title/body spacing', () => {
         pdfStyles.titleBodySpacer
       )
     ).toBe(false)
+  })
+})
+
+describe('CONSENT_7216 PDF title layout', () => {
+  it('renders fixed title lines and a consent-specific subtitle style', () => {
+    const document = renderConsentDocument()
+
+    expect(textContent(document)).toContain('Consent to Use and Disclose Tax Return Information')
+    expect(containsStyle(document, pdfStyles.consentTitleBlock)).toBe(true)
+    expect(containsStyle(document, pdfStyles.consentTitleLine)).toBe(true)
+    expect(containsStyle(document, pdfStyles.consentSubtitle)).toBe(true)
   })
 })

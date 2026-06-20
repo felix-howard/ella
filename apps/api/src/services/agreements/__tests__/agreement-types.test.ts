@@ -177,7 +177,7 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
       // a future special-case that bypasses templates for NDA would fail here.
       mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
       mockTemplateFindFirst.mockResolvedValueOnce(
-        dbTemplate({ id: 'tpl-nda', type: 'NDA', contentHtml: '<p>Org NDA body</p>' }) as any,
+        dbTemplate({ id: 'tpl-nda', type: 'NDA', contentHtml: '<p>Org NDA body</p>' }) as any
       )
       mockAgreementCreate.mockResolvedValueOnce(dbAgreement() as any)
 
@@ -201,9 +201,7 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
     it('snapshots contentHtml from a matching org-level template', async () => {
       mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
       mockTemplateFindFirst.mockResolvedValueOnce(dbTemplate() as any)
-      mockAgreementCreate.mockResolvedValueOnce(
-        dbAgreement({ type: 'ENGAGEMENT_LETTER' }) as any,
-      )
+      mockAgreementCreate.mockResolvedValueOnce(dbAgreement({ type: 'ENGAGEMENT_LETTER' }) as any)
 
       await createAgreementForEntity({
         entityType: 'lead',
@@ -241,7 +239,7 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
           staffId: 'staff-1',
           type: 'ENGAGEMENT_LETTER',
           templateId: 'tpl-missing',
-        }),
+        })
       ).rejects.toMatchObject({ status: 404 })
 
       expect(mockAgreementCreate).not.toHaveBeenCalled()
@@ -262,7 +260,7 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
           staffId: 'staff-1',
           type: 'ENGAGEMENT_LETTER',
           templateId: 'tpl-archived',
-        }),
+        })
       ).rejects.toMatchObject({ status: 404 })
 
       // Confirm the WHERE clause carries isArchived:false — archived rows
@@ -284,7 +282,7 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
           staffId: 'staff-1',
           type: 'ENGAGEMENT_LETTER',
           templateId: 'tpl-nda',
-        }),
+        })
       ).rejects.toMatchObject({ status: 422 })
       expect(mockAgreementCreate).not.toHaveBeenCalled()
     })
@@ -299,7 +297,7 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
           orgId: 'org-1',
           staffId: 'staff-1',
           type: 'ENGAGEMENT_LETTER',
-        }),
+        })
       ).rejects.toMatchObject({ status: 422 })
       expect(mockAgreementCreate).not.toHaveBeenCalled()
     })
@@ -315,7 +313,7 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
           staffId: 'staff-1',
           type: 'ENGAGEMENT_LETTER',
           contentHtml: '<p>Fee: [Amount]</p>',
-        }),
+        })
       ).rejects.toMatchObject({ status: 422 })
 
       expect(mockAgreementCreate).not.toHaveBeenCalled()
@@ -324,9 +322,7 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
     it('caller-supplied contentHtml wins over templateId snapshot', async () => {
       mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
       mockTemplateFindFirst.mockResolvedValueOnce(dbTemplate() as any)
-      mockAgreementCreate.mockResolvedValueOnce(
-        dbAgreement({ type: 'ENGAGEMENT_LETTER' }) as any,
-      )
+      mockAgreementCreate.mockResolvedValueOnce(dbAgreement({ type: 'ENGAGEMENT_LETTER' }) as any)
 
       await createAgreementForEntity({
         entityType: 'lead',
@@ -358,15 +354,13 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
           orgId: 'org-1',
           staffId: 'staff-1',
           type: 'SERVICE_AGREEMENT',
-        }),
+        })
       ).rejects.toMatchObject({ status: 422 })
     })
 
     it('uses default title when title not supplied', async () => {
       mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
-      mockAgreementCreate.mockResolvedValueOnce(
-        dbAgreement({ type: 'SERVICE_AGREEMENT' }) as any,
-      )
+      mockAgreementCreate.mockResolvedValueOnce(dbAgreement({ type: 'SERVICE_AGREEMENT' }) as any)
 
       await createAgreementForEntity({
         entityType: 'lead',
@@ -382,12 +376,91 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
     })
   })
 
+  describe('CONSENT_7216', () => {
+    it('creates without content/template/deposit and stores built-in metadata defaults', async () => {
+      mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
+      mockAgreementCreate.mockResolvedValueOnce(
+        dbAgreement({
+          type: 'CONSENT_7216',
+          title: 'Consent to Use and Disclose Tax Return Information',
+        }) as any
+      )
+
+      await createAgreementForEntity({
+        entityType: 'lead',
+        entityId: 'lead-1',
+        orgId: 'org-1',
+        staffId: 'staff-1',
+        type: 'CONSENT_7216',
+        depositAmount: '500.00',
+      })
+
+      const created = (mockAgreementCreate.mock.calls[0][0] as any).data
+      expect(created.type).toBe('CONSENT_7216')
+      expect(created.title).toBe('Consent to Use and Disclose Tax Return Information')
+      expect(created.templateVersion).toBe('consent-7216-v1')
+      expect(created.customContentHtml).toBeNull()
+      expect(created.templateId).toBeNull()
+      expect(created.depositAmount).toBeNull()
+      expect(created.depositStatus).toBeNull()
+      expect(mockTemplateFindFirst).not.toHaveBeenCalled()
+      expect(mockStaffFindUnique).not.toHaveBeenCalled()
+    })
+
+    it('rejects caller-supplied content or templates', async () => {
+      mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
+
+      await expect(
+        createAgreementForEntity({
+          entityType: 'lead',
+          entityId: 'lead-1',
+          orgId: 'org-1',
+          staffId: 'staff-1',
+          type: 'CONSENT_7216',
+          contentHtml: '<p>Custom consent</p>',
+        })
+      ).rejects.toMatchObject({ status: 422 })
+
+      expect(mockAgreementCreate).not.toHaveBeenCalled()
+    })
+
+    it('rejects caller-supplied title override', async () => {
+      await expect(
+        createAgreementForEntity({
+          entityType: 'lead',
+          entityId: 'lead-1',
+          orgId: 'org-1',
+          staffId: 'staff-1',
+          type: 'CONSENT_7216',
+          title: 'Custom Consent Title',
+        })
+      ).rejects.toMatchObject({ status: 422 })
+
+      expect(mockLeadFindFirst).not.toHaveBeenCalled()
+      expect(mockAgreementCreate).not.toHaveBeenCalled()
+    })
+
+    it('rejects uploaded PDF source', async () => {
+      await expect(
+        createAgreementForEntity({
+          entityType: 'lead',
+          entityId: 'lead-1',
+          orgId: 'org-1',
+          staffId: 'staff-1',
+          type: 'CONSENT_7216',
+          uploadedPdfKey: 'agreement-uploads/lead-1/source.pdf',
+        })
+      ).rejects.toMatchObject({ status: 422 })
+
+      expect(mockLeadFindFirst).not.toHaveBeenCalled()
+      expect(mockAgreementCreate).not.toHaveBeenCalled()
+    })
+  })
+
   describe('CUSTOM', () => {
     it('creates with sanitized customContentHtml when supplied', async () => {
       mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
-      mockAgreementCreate.mockResolvedValueOnce(
-        dbAgreement({ type: 'CUSTOM' }) as any,
-      )
+      mockAgreementCreate.mockResolvedValueOnce(dbAgreement({ type: 'CUSTOM' }) as any)
 
       await createAgreementForEntity({
         entityType: 'lead',
@@ -415,7 +488,7 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
           orgId: 'org-1',
           staffId: 'staff-1',
           type: 'CUSTOM',
-        }),
+        })
       ).rejects.toMatchObject({ status: 422 })
       expect(mockAgreementCreate).not.toHaveBeenCalled()
     })
@@ -423,7 +496,7 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
     it('honors caller-supplied title', async () => {
       mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
       mockAgreementCreate.mockResolvedValueOnce(
-        dbAgreement({ type: 'CUSTOM', title: 'Mutual NDA — 2026 Acquisition' }) as any,
+        dbAgreement({ type: 'CUSTOM', title: 'Mutual NDA — 2026 Acquisition' }) as any
       )
 
       await createAgreementForEntity({

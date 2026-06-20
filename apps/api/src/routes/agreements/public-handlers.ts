@@ -62,6 +62,10 @@ publicRoute.post(
       userAgent: extractUserAgent(c),
       clientAuthRepName: body.clientAuthRepName,
       clientAuthRepTitle: body.clientAuthRepTitle,
+      taxpayerName: body.taxpayerName,
+      businessName: body.businessName,
+      tinLastFour: body.tinLastFour,
+      consentSignerTitle: body.consentSignerTitle,
     })
     return c.json({ success: true, data: result })
   },

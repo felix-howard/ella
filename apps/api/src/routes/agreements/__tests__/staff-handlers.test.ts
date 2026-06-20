@@ -47,7 +47,12 @@ vi.mock('../../../middleware/auth', () => {
     await next()
   }
   const requireOrgAdmin = async (_c: any, next: () => Promise<void>) => next()
-  return { authMiddleware, requireOrgAdmin, requireAdminOrManager: requireOrgAdmin, clerkMiddleware: authMiddleware }
+  return {
+    authMiddleware,
+    requireOrgAdmin,
+    requireAdminOrManager: requireOrgAdmin,
+    clerkMiddleware: authMiddleware,
+  }
 })
 
 import { Hono } from 'hono'
@@ -168,35 +173,34 @@ describe('Staff NDA handlers', () => {
       expect(created.customContentHtml).toBe('<p>Custom <strong>terms</strong></p>')
     })
 
-    it.each([
-      'ENGAGEMENT_LETTER',
-      'SERVICE_AGREEMENT',
-      'CUSTOM',
-    ] as const)('accepts depositAmount when creating %s agreements', async (type) => {
-      mockLeadFindFirst.mockResolvedValueOnce(lead() as any)
-      mockNdaCreate.mockResolvedValueOnce(
-        nda({
-          id: `${type.toLowerCase().replaceAll('_', '-')}-1`,
+    it.each(['ENGAGEMENT_LETTER', 'SERVICE_AGREEMENT', 'CUSTOM'] as const)(
+      'accepts depositAmount when creating %s agreements',
+      async (type) => {
+        mockLeadFindFirst.mockResolvedValueOnce(lead() as any)
+        mockNdaCreate.mockResolvedValueOnce(
+          nda({
+            id: `${type.toLowerCase().replaceAll('_', '-')}-1`,
+            type,
+            title: `${type} Test`,
+            depositAmount: '500.00',
+            depositStatus: 'PENDING',
+          }) as any
+        )
+
+        const res = await createReq({
           type,
           title: `${type} Test`,
+          contentHtml: '<p>Agreement terms</p>',
           depositAmount: '500.00',
-          depositStatus: 'PENDING',
-        }) as any,
-      )
+        })
 
-      const res = await createReq({
-        type,
-        title: `${type} Test`,
-        contentHtml: '<p>Agreement terms</p>',
-        depositAmount: '500.00',
-      })
-
-      expect(res.status).toBe(201)
-      const created = (mockNdaCreate.mock.calls[0][0] as any).data
-      expect(created.type).toBe(type)
-      expect(created.depositAmount).toBe('500.00')
-      expect(created.depositStatus).toBe('PENDING')
-    })
+        expect(res.status).toBe(201)
+        const created = (mockNdaCreate.mock.calls[0][0] as any).data
+        expect(created.type).toBe(type)
+        expect(created.depositAmount).toBe('500.00')
+        expect(created.depositStatus).toBe('PENDING')
+      }
+    )
 
     it('strips disallowed tags via sanitizer (script removed)', async () => {
       mockLeadFindFirst.mockResolvedValueOnce(lead() as any)
@@ -226,6 +230,26 @@ describe('Staff NDA handlers', () => {
     it('rejects extra body keys (strict schema)', async () => {
       const res = await createReq({ contentHtml: '<p>x</p>', extra: 'nope' })
       expect(res.status).toBe(400)
+    })
+
+    it('rejects uploaded PDF source for CONSENT_7216', async () => {
+      const res = await createReq({
+        type: 'CONSENT_7216',
+        uploadedPdfKey: 'agreement-uploads/lead-1/source.pdf',
+      })
+      expect(res.status).toBe(400)
+      expect(mockLeadFindFirst).not.toHaveBeenCalled()
+      expect(mockNdaCreate).not.toHaveBeenCalled()
+    })
+
+    it('rejects custom title for CONSENT_7216', async () => {
+      const res = await createReq({
+        type: 'CONSENT_7216',
+        title: 'Custom Consent Title',
+      })
+      expect(res.status).toBe(400)
+      expect(mockLeadFindFirst).not.toHaveBeenCalled()
+      expect(mockNdaCreate).not.toHaveBeenCalled()
     })
 
     it('returns 404 when lead not found / not in caller org', async () => {
@@ -325,6 +349,21 @@ describe('Staff NDA handlers', () => {
       const buf = Buffer.from(await res.arrayBuffer())
       expect(buf.subarray(0, 5).toString('ascii')).toBe('%PDF-')
     }, 15_000)
+
+    it('rejects custom title or content for CONSENT_7216 preview', async () => {
+      const titleRes = await previewReq({
+        type: 'CONSENT_7216',
+        title: 'Custom Consent Title',
+      })
+      expect(titleRes.status).toBe(400)
+
+      const contentRes = await previewReq({
+        type: 'CONSENT_7216',
+        contentHtml: '<p>Custom consent</p>',
+      })
+      expect(contentRes.status).toBe(400)
+      expect(mockLeadFindFirst).not.toHaveBeenCalled()
+    })
 
     it('returns 400 for oversized payload', async () => {
       const big = 'a'.repeat(60_000)
@@ -456,7 +495,7 @@ describe('Staff NDA handlers', () => {
 
     it('rotates token when expired (rotated=true, update called)', async () => {
       mockNdaFindFirst.mockResolvedValueOnce(
-        nda({ expiresAt: new Date('2020-01-01T00:00:00Z'), lead: lead() }) as any,
+        nda({ expiresAt: new Date('2020-01-01T00:00:00Z'), lead: lead() }) as any
       )
       mockNdaUpdate.mockResolvedValueOnce(nda({ lead: lead() }) as any)
 

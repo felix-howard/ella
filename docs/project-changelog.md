@@ -7,6 +7,36 @@
 
 ## 2026-06-20
 
+### Messages Realtime Fan-out
+**Status:** Complete
+
+**Fixed:**
+- Messages realtime subscription now uses one Supabase Broadcast channel per organization and fans events out to every mounted listener.
+- Sidebar badge, conversation list, and active message thread now receive the same inbound SMS event instead of depending on duplicate same-name channel subscriptions.
+- Active thread still refetches server data for secure reconciliation; fallback polling remains only backup.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/lib/realtime-message-events.test.ts src/hooks/use-realtime-messages.test.ts src/routes/messages-unread-patch.test.ts` pass, 7 tests
+- `pnpm -F @ella/workspace type-check` pass
+
+---
+
+### Messages Conversation Switching Flicker
+**Status:** Complete
+
+**Fixed:**
+- Messages conversation list no longer enters full skeleton loading when staff switches active conversations.
+- Conversation detail now ignores stale API responses from previously selected cases, preventing old thread data from overwriting the current conversation.
+- Previously opened conversation details keep a small in-memory cache so returning to a thread does not blank the panel before refresh.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- src/routes/messages-unread-patch.test.ts src/lib/optimistic-message-merge.test.ts` pass, 7 tests
+- `pnpm -F @ella/workspace lint` pass with pre-existing warnings only
+- `pnpm -F @ella/workspace build` pass with pre-existing route/chunk warnings only
+
+---
+
 ### Voice Calls Role Stability
 **Status:** Complete
 

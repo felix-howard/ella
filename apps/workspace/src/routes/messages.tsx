@@ -35,16 +35,19 @@ function MessagesLayout() {
   const [isLoading, setIsLoading] = useState(true)
   const [_isRefreshing, setIsRefreshing] = useState(false)
   const conversationsRef = useRef<Conversation[]>([])
+  const activeCaseIdRef = useRef<string | undefined>(undefined)
   const queryClient = useQueryClient()
 
   const { sidebarCollapsed } = useUIStore()
   const isMobile = useIsMobile()
   const params = useParams({ strict: false })
   const activeCaseId = (params as { caseId?: string }).caseId
+  activeCaseIdRef.current = activeCaseId
 
   // Fetch conversations
   const fetchConversations = useCallback(async (silent = false) => {
-    if (!silent) setIsLoading(true)
+    const showInitialLoading = !silent && conversationsRef.current.length === 0
+    if (showInitialLoading) setIsLoading(true)
     else setIsRefreshing(true)
 
     try {
@@ -53,8 +56,9 @@ function MessagesLayout() {
       })
       let nextConversations = response.conversations
       let nextTotalUnread = response.totalUnread
-      if (activeCaseId) {
-        const unreadPatch = getConversationUnreadPatch(nextConversations, activeCaseId, 0)
+      const currentActiveCaseId = activeCaseIdRef.current
+      if (currentActiveCaseId) {
+        const unreadPatch = getConversationUnreadPatch(nextConversations, currentActiveCaseId, 0)
         nextConversations = unreadPatch.conversations
         nextTotalUnread = adjustUnreadCount(
           nextTotalUnread,
@@ -64,9 +68,12 @@ function MessagesLayout() {
         queryClient.setQueryData<number>(['unread-count'], (current) =>
           adjustUnreadCount(current, unreadPatch.previousUnreadCount, unreadPatch.nextUnreadCount)
         )
-        queryClient.setQueryData(['unread-count', 'case', activeCaseId], { unreadCount: 0 })
+        queryClient.setQueryData(['unread-count', 'case', currentActiveCaseId], { unreadCount: 0 })
       }
 
+      nextConversations.forEach((conversation) => {
+        queryClient.setQueryData(['messages', 'conversation-summary', conversation.caseId], conversation)
+      })
       conversationsRef.current = nextConversations
       setConversations(nextConversations)
       setTotalUnread(nextTotalUnread)
@@ -78,7 +85,7 @@ function MessagesLayout() {
       setIsLoading(false)
       setIsRefreshing(false)
     }
-  }, [activeCaseId, queryClient])
+  }, [queryClient])
 
   const setConversationUnread = useCallback((caseId: string, nextUnreadCount: number) => {
     const unreadPatch = getConversationUnreadPatch(conversationsRef.current, caseId, nextUnreadCount)
@@ -120,8 +127,10 @@ function MessagesLayout() {
   })
 
   useEffect(() => {
-    if (activeCaseId) setConversationUnread(activeCaseId, 0)
-  }, [activeCaseId, setConversationUnread])
+    if (!activeCaseId) return
+    setConversationUnread(activeCaseId, 0)
+    void fetchConversations(true)
+  }, [activeCaseId, fetchConversations, setConversationUnread])
 
   // Initial fetch
   useEffect(() => {

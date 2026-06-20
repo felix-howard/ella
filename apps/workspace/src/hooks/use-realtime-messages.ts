@@ -6,50 +6,16 @@
 import { useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useOrganization } from '@clerk/clerk-react'
-import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase'
-import type { RealtimeChannel } from '@supabase/supabase-js'
+import { isSupabaseConfigured } from '../lib/supabase'
+import {
+  subscribeToRealtimeMessageEvents,
+  type MessageEventPayload,
+  type MessageEventType,
+} from '../lib/realtime-message-events'
 import type { ChatContext } from '../types/chat-context'
 import type { Conversation } from '../lib/api-client'
 
-type MessageChannel = 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
-
-interface BaseMessageEventPayload {
-  conversationId?: string
-  caseId?: string
-  leadId?: string
-  timestamp: string
-}
-
-interface MessageCreatedEventPayload extends BaseMessageEventPayload {
-  eventType?: 'message.created'
-  messageId: string
-  direction: 'INBOUND' | 'OUTBOUND'
-  channel: MessageChannel
-}
-
-interface MessageStatusUpdatedEventPayload extends BaseMessageEventPayload {
-  eventType: 'message.status.updated'
-  messageId: string
-  direction: 'INBOUND' | 'OUTBOUND'
-  channel: MessageChannel
-  twilioStatus: string | null
-  twilioErrorCode?: string | null
-}
-
-interface ConversationReadEventPayload extends BaseMessageEventPayload {
-  eventType: 'conversation.read'
-  conversationId: string
-  caseId: string
-  unreadCount: number
-  readAt: string
-}
-
-export type MessageEventPayload =
-  | MessageCreatedEventPayload
-  | MessageStatusUpdatedEventPayload
-  | ConversationReadEventPayload
-
-export type MessageEventType = NonNullable<MessageEventPayload['eventType']>
+export type { MessageEventPayload, MessageEventType } from '../lib/realtime-message-events'
 
 interface UseRealtimeMessagesOptions {
   /** Filter events to a specific chat context (case or lead). */
@@ -127,7 +93,6 @@ export function useRealtimeMessages(options: UseRealtimeMessagesOptions = {}) {
   const { context, caseId, enabled = true, onEvent } = options
   const queryClient = useQueryClient()
   const { organization } = useOrganization()
-  const channelRef = useRef<RealtimeChannel | null>(null)
   const onEventRef = useRef(onEvent)
 
   useEffect(() => {
@@ -142,57 +107,29 @@ export function useRealtimeMessages(options: UseRealtimeMessagesOptions = {}) {
       return
     }
 
-    const supabase = getSupabaseClient()
-    if (!supabase) {
-      return
-    }
-
-    const channelName = `org:${organization.id}:messages`
-
-    const channel = supabase.channel(channelName)
-      .on('broadcast', { event: 'message' }, (payload) => {
-        const data = payload.payload as MessageEventPayload
-
-        if (import.meta.env.DEV) {
-          console.log('[Realtime] Message event received:', data)
-        }
-
-        // Apply filters: prefer new `context`; fall back to legacy `caseId`.
-        if (context) {
-          if (!matchesContext(context, data)) return
-        } else if (caseId && data.caseId !== caseId) {
-          return
-        }
-
-        // Invalidate shared caches for server reconciliation.
-        queryClient.invalidateQueries({ queryKey: ['conversations'] })
-        queryClient.invalidateQueries({ queryKey: ['unread-count'] })
-
-        // Invalidate scoped message-list caches for whichever owner published.
-        if (data.caseId) {
-          queryClient.invalidateQueries({ queryKey: ['messages', 'case', data.caseId] })
-        }
-        if (data.leadId) {
-          queryClient.invalidateQueries({ queryKey: ['messages', 'lead', data.leadId] })
-        }
-
-        // Call onEvent callback (for manual-fetch components)
-        onEventRef.current?.(data)
-      })
-      .subscribe((status) => {
-        if (import.meta.env.DEV) {
-          console.log(`[Realtime] Channel ${channelName} status:`, status)
-        }
-      })
-
-    channelRef.current = channel
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current)
-        channelRef.current = null
+    return subscribeToRealtimeMessageEvents(organization.id, (data) => {
+      // Apply filters: prefer new `context`; fall back to legacy `caseId`.
+      if (context) {
+        if (!matchesContext(context, data)) return
+      } else if (caseId && data.caseId !== caseId) {
+        return
       }
-    }
+
+      // Invalidate shared caches for server reconciliation.
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['unread-count'] })
+
+      // Invalidate scoped message-list caches for whichever owner published.
+      if (data.caseId) {
+        queryClient.invalidateQueries({ queryKey: ['messages', 'case', data.caseId] })
+      }
+      if (data.leadId) {
+        queryClient.invalidateQueries({ queryKey: ['messages', 'lead', data.leadId] })
+      }
+
+      // Call onEvent callback (for manual-fetch components)
+      onEventRef.current?.(data)
+    })
     // context is stable when derived from callers; we depend on its scalar parts
     // to avoid resubscription churn from object identity changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps

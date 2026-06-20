@@ -43,9 +43,7 @@ export async function publishMessageEvent(
       method: 'POST',
       headers: getSupabaseHeaders(),
       body: JSON.stringify({
-        channel: channelName,
-        event: 'message',
-        payload,
+        messages: [{ topic: channelName, event: 'message', payload }],
       }),
     })
 

@@ -52,9 +52,11 @@ export type MessageEventListener = (data: MessageEventPayload) => void
 interface MessageChannelState {
   channel: RealtimeChannel
   listeners: Set<MessageEventListener>
+  cleanupTimer: ReturnType<typeof setTimeout> | null
 }
 
 const messageChannels = new Map<string, MessageChannelState>()
+const CHANNEL_CLEANUP_DELAY_MS = 1000
 
 export function subscribeToRealtimeMessageEvents(
   organizationId: string,
@@ -87,8 +89,11 @@ export function subscribeToRealtimeMessageEvents(
         }
       })
 
-    state = { channel, listeners }
+    state = { channel, listeners, cleanupTimer: null }
     messageChannels.set(organizationId, state)
+  } else if (state.cleanupTimer) {
+    clearTimeout(state.cleanupTimer)
+    state.cleanupTimer = null
   }
 
   state.listeners.add(listener)
@@ -100,7 +105,12 @@ export function subscribeToRealtimeMessageEvents(
     currentState.listeners.delete(listener)
     if (currentState.listeners.size > 0) return
 
-    supabase.removeChannel(currentState.channel)
-    messageChannels.delete(organizationId)
+    currentState.cleanupTimer = setTimeout(() => {
+      const latestState = messageChannels.get(organizationId)
+      if (!latestState || latestState !== currentState || latestState.listeners.size > 0) return
+
+      supabase.removeChannel(latestState.channel)
+      messageChannels.delete(organizationId)
+    }, CHANNEL_CLEANUP_DELAY_MS)
   }
 }

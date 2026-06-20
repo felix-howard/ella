@@ -12,11 +12,13 @@ import { cn } from '@ella/ui'
 import { ArrowLeft } from 'lucide-react'
 import { MessageThread, QuickActionsBar, CallButton, ActiveCallModal } from '../../components/messaging'
 import { useVoiceCall } from '../../hooks/use-voice-call'
-import { useRealtimeMessages } from '../../hooks/use-realtime-messages'
+import { getMessageEventType, useRealtimeMessages } from '../../hooks/use-realtime-messages'
 import { formatPhone, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { api } from '../../lib/api-client'
-import type { Message, TaxCaseStatus, Language } from '../../lib/api-client'
+import { dedupeMessagesById, mergeFetchedMessages } from '../../lib/optimistic-message-merge'
+import type { TaxCaseStatus, Language } from '../../lib/api-client'
+import type { OptimisticMessage } from '../../lib/optimistic-message-merge'
 
 export const Route = createFileRoute('/messages/$caseId')({
   component: ConversationDetailView,
@@ -24,31 +26,7 @@ export const Route = createFileRoute('/messages/$caseId')({
 
 // Fallback polling interval (60 seconds — realtime handles instant updates)
 const FALLBACK_POLLING_INTERVAL = 60000
-const OPTIMISTIC_MATCH_WINDOW_MS = 60000
-
-type LocalMessage = Message & {
-  _optimistic?: 'sending' | 'failed'
-  _attachmentFiles?: File[]
-}
-
-function isLikelyServerCopy(optimistic: LocalMessage, message: Message): boolean {
-  if (!optimistic.id.startsWith('temp-') || message.id.startsWith('temp-')) return false
-  if (message.direction !== optimistic.direction || message.channel !== optimistic.channel) return false
-  if (message.content !== optimistic.content) return false
-
-  const optimisticAttachmentCount = optimistic.attachmentUrls?.length ?? 0
-  const messageAttachmentCount = message.attachmentUrls?.length ?? 0
-  if (optimisticAttachmentCount !== messageAttachmentCount) return false
-
-  const optimisticTime = new Date(optimistic.createdAt).getTime()
-  const messageTime = new Date(message.createdAt).getTime()
-  return messageTime >= optimisticTime - 1000 && messageTime <= optimisticTime + OPTIMISTIC_MATCH_WINDOW_MS
-}
-
-function dedupeMessagesById(messages: LocalMessage[]): LocalMessage[] {
-  return Array.from(new Map(messages.map((message) => [message.id, message])).values())
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-}
+type LocalMessage = OptimisticMessage
 
 function ConversationDetailView() {
   const { t } = useTranslation()
@@ -66,6 +44,7 @@ function ConversationDetailView() {
   const currentCaseIdRef = useRef<string>(caseId)
   const isSendingMessageRef = useRef(false)
   const optimisticPreviewUrlsRef = useRef<Set<string>>(new Set())
+  const lastMarkedReadRef = useRef<string | null>(null)
   currentCaseIdRef.current = caseId
 
   // Voice call state
@@ -91,6 +70,29 @@ function ConversationDetailView() {
     }
   }, [revokeAllOptimisticPreviewUrls])
 
+  const markLatestRenderedRead = useCallback((latestRenderedAt?: string) => {
+    if (!latestRenderedAt) return
+
+    const readKey = `${caseId}:${latestRenderedAt}`
+    if (lastMarkedReadRef.current === readKey) return
+    lastMarkedReadRef.current = readKey
+
+    api.messages.markRead(caseId, { upTo: latestRenderedAt })
+      .then((result) => {
+        queryClient.setQueryData(['unread-count', 'case', caseId], {
+          unreadCount: result.unreadCount,
+        })
+        queryClient.invalidateQueries({ queryKey: ['unread-count'] })
+        queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      })
+      .catch((error) => {
+        lastMarkedReadRef.current = null
+        if (import.meta.env.DEV) {
+          console.error('Failed to mark conversation read:', error)
+        }
+      })
+  }, [caseId, queryClient])
+
   // Fetch messages
   const fetchMessages = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true)
@@ -99,23 +101,13 @@ function ConversationDetailView() {
       const response = await api.messages.list(caseId)
       // Messages come in desc order from API, reverse for display
       const fetchedMessages = response.messages.reverse()
+      const latestRenderedAt = fetchedMessages[fetchedMessages.length - 1]?.createdAt
 
       // Merge fetched messages with existing, keeping optimistic (temp-*) messages
       setMessages((prev) => {
-        // Keep optimistic messages that are still pending
-        const optimisticMessages = prev.filter((m) => {
-          if (!m.id.startsWith('temp-')) return false
-          if (!fetchedMessages.some((message) => isLikelyServerCopy(m, message))) return true
-          revokeOptimisticPreviewUrls(m.attachmentUrls)
-          return false
-        })
-        const messageMap = new Map(fetchedMessages.map((m) => [m.id, m]))
-        // Add back optimistic messages (they'll be replaced when API responds)
-        optimisticMessages.forEach((m) => messageMap.set(m.id, m))
-        return Array.from(messageMap.values()).sort(
-          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        )
+        return mergeFetchedMessages(prev, fetchedMessages, revokeOptimisticPreviewUrls)
       })
+      markLatestRenderedRead(latestRenderedAt)
     } catch (error) {
       if (import.meta.env.DEV) {
         console.error('Failed to fetch messages:', error)
@@ -123,7 +115,7 @@ function ConversationDetailView() {
     } finally {
       setIsLoading(false)
     }
-  }, [caseId, revokeOptimisticPreviewUrls])
+  }, [caseId, markLatestRenderedRead, revokeOptimisticPreviewUrls])
 
   // Fetch case data for header
   const fetchCaseData = useCallback(async () => {
@@ -149,10 +141,26 @@ function ConversationDetailView() {
     }
   }, [caseId])
 
-  // Subscribe to realtime message events — refetch messages on new events
+  // Subscribe to realtime message events — patch status immediately, then reconcile.
   useRealtimeMessages({
     caseId,
-    onEvent: () => fetchMessages(true),
+    onEvent: (event) => {
+      const eventType = getMessageEventType(event)
+
+      if (event.eventType === 'message.status.updated') {
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === event.messageId
+              ? { ...message, twilioStatus: event.twilioStatus }
+              : message
+          )
+        )
+      }
+
+      if (eventType === 'message.created' || eventType === 'message.status.updated') {
+        void fetchMessages(true)
+      }
+    },
   })
 
   // Initial fetch and reset when case changes
@@ -163,6 +171,7 @@ function ConversationDetailView() {
       setMessages([])
       setIsLoading(true)
       setCaseData(null)
+      lastMarkedReadRef.current = null
       prevCaseIdRef.current = caseId
     }
     fetchMessages()
@@ -247,11 +256,6 @@ function ConversationDetailView() {
 
         // Mark as failed so user can retry
         setMessages((prev) => {
-          const hasServerCopy = prev.some((m) => isLikelyServerCopy(optimisticMessage, m))
-          if (hasServerCopy) {
-            revokeOptimisticPreviewUrls(attachmentUrls)
-            return prev.filter((m) => m.id !== tempId)
-          }
           return prev.map((m) =>
             m.id === tempId ? { ...m, _optimistic: 'failed' } : m
           )

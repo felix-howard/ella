@@ -14,7 +14,7 @@ export const ONE_TIME_LABELS: Record<keyof PricingCalculatorInput['oneTime'], st
   holdingLlcNew: 'Holding LLC (new)',
   holdingLlcModify: 'Re-structure LLC basic',
   personalTaxReturn: 'Personal tax return',
-  businessTaxReturn: 'Business tax return',
+  businessTaxReturn: 'Business tax return pre-pay (1 tax year)',
 }
 
 export function createDefaultPricingInput(): PricingCalculatorInput {

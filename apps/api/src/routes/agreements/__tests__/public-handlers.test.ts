@@ -41,7 +41,10 @@ const VALID_PNG_DATA_URL =
 // Unique-enough token per test case so per-token rate limiter doesn't leak state
 function freshToken(seed: string): string {
   const base = `tokhandlers${seed}${Date.now()}${Math.random().toString(36).slice(2)}`
-  return base.replace(/[^A-Za-z0-9]/g, '').slice(0, 28).padEnd(28, 'x')
+  return base
+    .replace(/[^A-Za-z0-9]/g, '')
+    .slice(0, 28)
+    .padEnd(28, 'x')
 }
 
 function activeNda(token: string, overrides: Record<string, unknown> = {}) {
@@ -105,7 +108,7 @@ describe('Public NDA handlers', () => {
     it('still returns view with expired=true when expiry past (UI shows error)', async () => {
       const token = freshToken('view-expired')
       mockFindUnique.mockResolvedValueOnce(
-        activeNda(token, { expiresAt: new Date('2020-01-01T00:00:00Z') }) as any,
+        activeNda(token, { expiresAt: new Date('2020-01-01T00:00:00Z') }) as any
       )
       const res = await app.request(`/public/nda/${token}`)
       const json = await res.json()
@@ -141,6 +144,66 @@ describe('Public NDA handlers', () => {
       expect(json.data.downloadUrl).toBe('https://r2.test/signed/pdf')
     })
 
+    it('accepts consent taxpayer fields for CONSENT_7216 signing', async () => {
+      const token = freshToken('sign-consent')
+      mockFindUnique.mockResolvedValueOnce(
+        activeNda(token, {
+          type: 'CONSENT_7216',
+          depositAmount: null,
+          depositStatus: null,
+        }) as any
+      )
+      mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+
+      const res = await postSign(
+        token,
+        signBody({
+          taxpayerName: 'Jane Doe',
+          businessName: 'Jane Consulting LLC',
+          tinLastFour: '1234',
+          consentSignerTitle: 'Owner',
+        })
+      )
+
+      expect(res.status).toBe(200)
+      expect((mockUpdateMany.mock.calls[0][0] as any).data).toMatchObject({
+        consentTaxpayerName: 'Jane Doe',
+        consentBusinessName: 'Jane Consulting LLC',
+        consentTinLastFour: '1234',
+        clientAuthRepTitle: 'Owner',
+      })
+    })
+
+    it('rejects full TIN values for CONSENT_7216 signing at the route schema', async () => {
+      const token = freshToken('sign-consent-full-tin')
+      const res = await postSign(
+        token,
+        signBody({
+          taxpayerName: 'Jane Doe',
+          tinLastFour: '123456789',
+          consentSignerTitle: 'Owner',
+        })
+      )
+
+      expect(res.status).toBe(400)
+      expect(mockFindUnique).not.toHaveBeenCalled()
+      expect(mockUpdateMany).not.toHaveBeenCalled()
+    })
+
+    it('keeps non-consent signing compatible without consent fields', async () => {
+      const token = freshToken('sign-non-consent-no-consent-fields')
+      mockFindUnique.mockResolvedValueOnce(activeNda(token) as any)
+      mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+
+      const res = await postSign(token, signBody())
+
+      expect(res.status).toBe(200)
+      const data = (mockUpdateMany.mock.calls[0][0] as any).data
+      expect(data).not.toHaveProperty('consentTaxpayerName')
+      expect(data).not.toHaveProperty('consentBusinessName')
+      expect(data).not.toHaveProperty('consentTinLastFour')
+    })
+
     it('returns 409 on double-sign (updateMany count=0 — winning concurrent signer)', async () => {
       const token = freshToken('sign-race')
       mockFindUnique.mockResolvedValueOnce(activeNda(token) as any)
@@ -153,7 +216,7 @@ describe('Public NDA handlers', () => {
     it('returns 410 when NDA expired', async () => {
       const token = freshToken('sign-expired')
       mockFindUnique.mockResolvedValueOnce(
-        activeNda(token, { expiresAt: new Date('2020-01-01T00:00:00Z') }) as any,
+        activeNda(token, { expiresAt: new Date('2020-01-01T00:00:00Z') }) as any
       )
       const res = await postSign(token, signBody())
       expect(res.status).toBe(410)
@@ -177,7 +240,10 @@ describe('Public NDA handlers', () => {
     it('returns 400 when signaturePngDataUrl missing PNG prefix', async () => {
       const token = freshToken('sign-nopng')
       // schema-level rejection — no prisma call reached
-      const res = await postSign(token, signBody({ signaturePngDataUrl: 'data:image/jpeg;base64,AAAA' }))
+      const res = await postSign(
+        token,
+        signBody({ signaturePngDataUrl: 'data:image/jpeg;base64,AAAA' })
+      )
       expect(res.status).toBe(400)
       expect(mockFindUnique).not.toHaveBeenCalled()
     })

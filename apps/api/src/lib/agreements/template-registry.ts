@@ -8,6 +8,7 @@
  * Extension model: bumping a built-in = copy the file, register here.
  */
 import type { AgreementType } from '@ella/db'
+import { consent7216Template } from './template-consent-7216'
 import { engagementLetterTemplate } from './template-engagement-letter'
 import { templateV1 } from './template-v1'
 import { templateV2 } from './template-v2'
@@ -24,7 +25,7 @@ function buildRegistry(templates: NdaTemplate[]): Record<string, NdaTemplate> {
   return registry
 }
 
-const REGISTRY = buildRegistry([templateV1, templateV2, engagementLetterTemplate])
+const REGISTRY = buildRegistry([templateV1, templateV2, engagementLetterTemplate, consent7216Template])
 
 export function getTemplate(version: string): NdaTemplate {
   const template = REGISTRY[version]
@@ -50,5 +51,6 @@ export const currentTemplate: NdaTemplate = templateV2
 export function defaultTemplateForType(type: AgreementType): NdaTemplate | null {
   if (type === 'NDA') return templateV2
   if (type === 'ENGAGEMENT_LETTER') return engagementLetterTemplate
+  if (type === 'CONSENT_7216') return consent7216Template
   return null
 }

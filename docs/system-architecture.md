@@ -398,18 +398,21 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Recording endpoints with auth
 
 **Realtime Messaging (Supabase Broadcast):**
-- **Backend Publisher** (`apps/api/src/services/realtime/message-publisher.ts`): Publishes lightweight message events to Supabase Broadcast channels after message creation. Event payload: `{ conversationId, caseId, messageId, direction, channel, timestamp }`. Org-scoped channels use format `org:{clerkOrgId}:messages`. Non-blocking: publish failures don't interrupt message flow. Gracefully degrades if Supabase not configured.
+- **Backend Publisher** (`apps/api/src/services/realtime/message-publisher.ts`): Publishes lightweight message events to Supabase Broadcast channels after message creation or read-state changes. Event payload includes `eventType` (`message.created`, `message.status.updated`, or `conversation.read`) plus the relevant lightweight fields: `{ conversationId, caseId, leadId, messageId, direction, channel, twilioStatus, twilioErrorCode, unreadCount, readAt, timestamp }`. Org-scoped channels use format `org:{clerkOrgId}:messages`. Non-blocking: publish failures don't interrupt message flow. Gracefully degrades if Supabase not configured.
 - **Frontend Subscription** (`apps/workspace/src/hooks/use-realtime-messages.ts`): React hook using Supabase client to subscribe to org-scoped message channels. On event receipt: invalidates React Query caches (`conversations`, `unread-count`, `messages`). Optional `caseId` filter for component-level subscriptions. Gracefully handles missing Supabase config.
 - **60-Second Fallback Polling**: Retained as safety net if Realtime unavailable. React Query cache auto-refetch at 60s intervals keeps data fresh.
 - **Performance Impact**: Near-instant updates (100-500ms vs 10-30s polling). Org-scoped isolation ensures no cross-org leaks. Broadcast channels auto-cleanup after unsubscribe.
+
+**Read Contract:**
+- `POST /messages/:caseId/read` marks an org-scoped case conversation as read, accepts optional `upTo` to preserve newer inbound messages, returns `caseId`, `unreadCount`, and `readAt`, and publishes a non-blocking `conversation.read` realtime event for UI refreshes.
 
 **Webhooks:**
 - `POST /webhooks/clerk` - Clerk event sync (user/org/membership lifecycle). Signed with Svix. Handlers: user.updated (sync email/name/avatar), user.deleted (deactivate staff), organization.created/updated (upsert org), organizationMembership.created/updated/deleted (sync staff member, handle out-of-order events). Uses upserts for idempotency. Returns 500 on handler error for Clerk retry.
 - `POST /webhooks/twilio/sms` - Twilio incoming SMS webhook. Resolves exactly one active org from recipient Twilio number before client/lead lookup, routes known callers within that org, creates resolved-org placeholder conversations for unknown callers, and publishes realtime events. Unresolved or ambiguous recipient org returns `ORG_NOT_RESOLVED` without cross-tenant phone lookup; there is no global single-org fallback.
 - `POST /webhooks/twilio/status` - Twilio SMS delivery status updates (queued, sent, delivered, undelivered, failed). Updates `Message.twilioStatus` + `SmsSendLog.status/error`, persists failed/undelivered details for `latestSms`, and uses an atomic transaction to update Lead status (`NEW`/`SENT` → `CONTACTED`) on confirmed delivery when a matching `SmsSendLog` exists.
-- `POST /webhooks/twilio/voice` - Twilio outbound call connection. Returns TwiML for recording setup
+- `POST /webhooks/twilio/voice` - Twilio outbound call connection. Resolves DB-backed destination from `messageId`/`caseId` before dialing, so masked workspace phones are never needed by the browser. Falls back to a valid legacy `To` parameter for older clients. Returns TwiML for recording setup.
 - `POST /webhooks/twilio/voice/recording` - Twilio outbound call recording completion. Stores recording URL + duration in Message
-- `POST /webhooks/twilio/voice/incoming` - Twilio incoming call from customer. Resolves exactly one active org from called number, routes known callers to linked client managers plus org admins, routes unknown callers to resolved-org admins only, and uses no-staff hangup/missed-call handling if org cannot be resolved, org mapping is ambiguous, or no eligible staff are online. There is no global single-org fallback. Voice callbacks carry called-number context and require resolved org context before missed-call textback or placeholder persistence.
+- `POST /webhooks/twilio/voice/incoming` - Twilio incoming call from customer. Resolves exactly one active org from called number, routes known callers to linked client managers plus org-wide ADMIN/MANAGER staff, routes unknown callers to online ADMIN/MANAGER/STAFF in the resolved org, and uses no-staff hangup/missed-call handling if org cannot be resolved, org mapping is ambiguous, or no eligible staff are online. There is no global single-org fallback. Voice callbacks carry called-number context and require resolved org context before missed-call textback or placeholder persistence.
 - `POST /webhooks/twilio/voice/status` - Twilio call status updates (terminal states). Updates Message.callStatus + content
 - `POST /webhooks/twilio/voice/dial-complete` - Twilio dial completion (after ring timeout). Returns missed-call/no-staff hangup TwiML when unanswered
 - `POST /webhooks/twilio/voice/voicemail-recording` - Twilio voicemail recording completion. Creates voicemail message for known/unknown callers, increments conversation.unreadCount
@@ -2462,6 +2465,12 @@ All avatar/notes UI will need i18n keys in workspace:
 - `profile.avatarUpdated` - Success toast
 - `profile.notesPlaceholder` - Editor hint text
 - Error keys for validation failures
+
+## Agreement Signing Types
+
+**Built-in and custom agreements:** Agreement records are org-scoped and signed through tokenized public links. Supported types include `NDA`, `ENGAGEMENT_LETTER`, `SERVICE_AGREEMENT`, `CUSTOM`, and `CONSENT_7216`.
+
+**CONSENT_7216:** Uses a fixed built-in IRC 7216 consent template (`consent-7216-v1`). Staff can send it from the Agreements wizard without content/template customization, uploaded source PDF, title override, or initial payment. Portal signing collects taxpayer name, optional business name, TIN last four, signer title, signature PNG, IP, and user agent. Signed PDFs store the taxpayer authorization fields on the Agreement row and save/download through the existing signed agreement PDF/R2 flow.
 
 ## Initial Payment Flow (Post-Agreement Signing)
 

@@ -499,7 +499,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
         // Note: SDK handles getUserMedia internally
         const call = await deviceRef.current.connect({
           params: {
-            To: toPhone,
+            messageId: callRecord.messageId,
             caseId,
           },
         })

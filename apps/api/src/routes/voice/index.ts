@@ -15,6 +15,7 @@ import { getAuditRequestContext, logStaffActivity } from '../../services/activit
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import type { AuthUser } from '../../services/auth'
+import { serializePhone } from '../../lib/phone-privacy'
 
 const voiceRoutes = new Hono<{ Variables: AuthVariables }>()
 
@@ -236,7 +237,7 @@ voiceRoutes.get('/caller/:phone', async (c) => {
 // Schema for initiating call
 const initiateCallSchema = z.object({
   caseId: z.string().min(1, 'Case ID required'),
-  toPhone: z.string().regex(/^\+[1-9]\d{9,14}$/, 'Phone must be E.164 format'),
+  toPhone: z.string().optional(),
 })
 
 /**
@@ -256,7 +257,7 @@ voiceRoutes.post('/calls', zValidator('json', initiateCallSchema), async (c) => 
     return c.json({ error: 'UNAUTHORIZED', message: 'Staff authentication required' }, 401)
   }
 
-  const { caseId, toPhone } = c.req.valid('json')
+  const { caseId } = c.req.valid('json')
 
   try {
     // Verify case exists
@@ -267,6 +268,11 @@ voiceRoutes.post('/calls', zValidator('json', initiateCallSchema), async (c) => 
 
     if (!taxCase) {
       return c.json({ error: 'CASE_NOT_FOUND', message: 'Tax case not found' }, 404)
+    }
+
+    const toPhone = taxCase.client.phone
+    if (!toPhone || !isValidE164Phone(toPhone)) {
+      return c.json({ error: 'CLIENT_PHONE_INVALID', message: 'Client phone is not callable' }, 400)
     }
 
     // Get or create conversation
@@ -286,7 +292,7 @@ voiceRoutes.post('/calls', zValidator('json', initiateCallSchema), async (c) => 
         conversationId: conversation.id,
         channel: 'CALL',
         direction: 'OUTBOUND',
-        content: `Outgoing call to ${toPhone}`,
+        content: 'Outgoing call',
         isSystem: false,
         callStatus: 'initiated',
         sentById: user.staffId,
@@ -346,7 +352,7 @@ voiceRoutes.post('/calls', zValidator('json', initiateCallSchema), async (c) => 
     return c.json({
       messageId: message.id,
       conversationId: conversation.id,
-      toPhone,
+      toPhone: serializePhone(user, toPhone),
       clientName: taxCase.client.name,
     })
   } catch (error) {

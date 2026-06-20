@@ -41,6 +41,12 @@ interface NdaPdfDocumentProps {
   signatureBlock?: ReactElement
 }
 
+const CONSENT_7216_TITLE = 'Consent to Use and Disclose Tax Return Information'
+const CONSENT_7216_TITLE_LINES = [
+  'Consent to Use and Disclose',
+  'Tax Return Information',
+] as const
+
 export function NdaPdfDocument({
   template,
   vars,
@@ -56,6 +62,7 @@ export function NdaPdfDocument({
   const isPreview = mode === 'preview'
   const isV2 = !!headerBlock || !!signatureBlock
   const heading = title?.trim() || template.title
+  const isConsent7216 = template.version === 'consent-7216-v1' && heading === CONSENT_7216_TITLE
   const renderTitleBodySpacer = isV2 && !subtitle && !headerBlock
 
   return (
@@ -67,12 +74,22 @@ export function NdaPdfDocument({
     >
       <Page size="LETTER" style={s.page} wrap>
         {/* Title — shared across v1 and v2 */}
-        <Text style={s.title}>{heading}</Text>
+        {isConsent7216 ? (
+          <View style={s.consentTitleBlock}>
+            {CONSENT_7216_TITLE_LINES.map((line) => (
+              <Text key={line} style={s.consentTitleLine}>
+                {line}
+              </Text>
+            ))}
+          </View>
+        ) : (
+          <Text style={s.title}>{heading}</Text>
+        )}
 
         {/* v2: styled tagline subtitle; v1: org name + date */}
         {isV2 ? (
           subtitle ? (
-            <Text style={s.v2Subtitle}>{subtitle}</Text>
+            <Text style={isConsent7216 ? s.consentSubtitle : s.v2Subtitle}>{subtitle}</Text>
           ) : null
         ) : (
           <Text style={s.subtitle}>

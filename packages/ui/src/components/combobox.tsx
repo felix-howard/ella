@@ -1,5 +1,8 @@
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '../lib/utils'
+import { getComboboxFloatingLayout, type ComboboxFloatingLayout } from './combobox-floating'
+import { ComboboxListbox } from './combobox-listbox'
 
 /**
  * One selectable row in the {@link Combobox} dropdown.
@@ -63,8 +66,10 @@ const Combobox = React.forwardRef<HTMLInputElement, ComboboxProps>(function Comb
   const reactId = React.useId()
   const baseId = id ?? reactId
   const listboxId = `${baseId}-listbox`
+  const inputRef = React.useRef<HTMLInputElement | null>(null)
   const [open, setOpen] = React.useState(false)
   const [activeIndex, setActiveIndex] = React.useState(0)
+  const [layout, setLayout] = React.useState<ComboboxFloatingLayout | null>(null)
 
   // Keep the highlighted option in range as the result set changes.
   React.useEffect(() => {
@@ -73,6 +78,32 @@ const Combobox = React.forwardRef<HTMLInputElement, ComboboxProps>(function Comb
 
   const showPanel = open && query.trim().length > 0
   const optionId = (index: number) => `${baseId}-opt-${index}`
+
+  const setInputRef = React.useCallback(
+    (node: HTMLInputElement | null) => {
+      inputRef.current = node
+      if (typeof ref === 'function') ref(node)
+      else if (ref) ref.current = node
+    },
+    [ref],
+  )
+
+  const updateLayout = React.useCallback(() => {
+    const node = inputRef.current
+    if (!node) return
+    setLayout(getComboboxFloatingLayout(node.getBoundingClientRect(), window.innerHeight))
+  }, [])
+
+  React.useLayoutEffect(() => {
+    if (!showPanel) return
+    updateLayout()
+    window.addEventListener('resize', updateLayout)
+    window.addEventListener('scroll', updateLayout, true)
+    return () => {
+      window.removeEventListener('resize', updateLayout)
+      window.removeEventListener('scroll', updateLayout, true)
+    }
+  }, [showPanel, updateLayout])
 
   const select = (item: ComboboxItem) => {
     onSelect(item)
@@ -98,10 +129,24 @@ const Combobox = React.forwardRef<HTMLInputElement, ComboboxProps>(function Comb
     }
   }
 
+  const listbox = showPanel ? (
+    <ComboboxListbox
+      id={listboxId}
+      items={items}
+      loading={loading}
+      emptyMessage={emptyMessage}
+      activeIndex={activeIndex}
+      layout={layout}
+      optionId={optionId}
+      onActiveIndexChange={setActiveIndex}
+      onSelect={select}
+    />
+  ) : null
+
   return (
     <div className={cn('relative', className)}>
       <input
-        ref={ref}
+        ref={setInputRef}
         id={baseId}
         type="text"
         role="combobox"
@@ -124,68 +169,7 @@ const Combobox = React.forwardRef<HTMLInputElement, ComboboxProps>(function Comb
         className="flex h-10 w-full rounded-lg border border-input bg-card px-3.5 text-sm text-foreground transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
       />
 
-      {showPanel && (
-        <ul
-          id={listboxId}
-          role="listbox"
-          className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-border bg-card py-1 shadow-lg"
-        >
-          {loading && items.length === 0 && (
-            <li role="presentation" className="px-3 py-2 text-xs text-muted-foreground">
-              Searching…
-            </li>
-          )}
-          {!loading && items.length === 0 && (
-            <li role="presentation" className="px-3 py-2 text-xs text-muted-foreground">
-              {emptyMessage}
-            </li>
-          )}
-          {items.map((item, index) => {
-            const previousGroup = index > 0 ? items[index - 1].group : undefined
-            const header = item.group && item.group !== previousGroup ? item.group : null
-            const active = index === activeIndex
-            return (
-              <React.Fragment key={item.id}>
-                {header && (
-                  <li
-                    role="presentation"
-                    className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-                  >
-                    {header}
-                  </li>
-                )}
-                <li
-                  id={optionId(index)}
-                  role="option"
-                  aria-selected={active}
-                  // mousedown (not click) so selection runs before the input blur closes the panel
-                  onMouseDown={(event) => {
-                    event.preventDefault()
-                    select(item)
-                  }}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  className={cn(
-                    'flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm text-foreground',
-                    active && 'bg-primary-light/40',
-                  )}
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{item.label}</span>
-                    {item.hint && (
-                      <span className="block truncate text-xs text-muted-foreground">{item.hint}</span>
-                    )}
-                  </span>
-                  {item.badge && (
-                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                      {item.badge}
-                    </span>
-                  )}
-                </li>
-              </React.Fragment>
-            )
-          })}
-        </ul>
-      )}
+      {listbox && typeof document !== 'undefined' ? createPortal(listbox, document.body) : listbox}
     </div>
   )
 })

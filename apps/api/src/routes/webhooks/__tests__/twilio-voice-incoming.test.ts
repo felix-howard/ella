@@ -15,6 +15,7 @@ const prismaMocks = vi.hoisted(() => ({
   message: {
     create: vi.fn(),
     findFirst: vi.fn(),
+    update: vi.fn(),
     updateMany: vi.fn(),
   },
   conversation: {
@@ -115,6 +116,34 @@ async function postIncomingCall(input: { from?: string; to?: string; ip?: string
   })
 }
 
+async function postOutboundVoice(input: {
+  to?: string
+  messageId?: string
+  caseId?: string
+  ip?: string
+} = {}) {
+  const body = new URLSearchParams({
+    From: 'client:staff_1',
+    CallSid: 'CA_outbound',
+  })
+
+  if (input.to !== undefined) body.set('To', input.to)
+  if (input.messageId !== undefined) body.set('messageId', input.messageId)
+  if (input.caseId !== undefined) body.set('caseId', input.caseId)
+
+  return createApp().request('/webhooks/twilio/voice', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+      'x-twilio-signature': 'valid',
+      'x-forwarded-host': 'api.example.test',
+      'x-forwarded-proto': 'https',
+      'x-forwarded-for': input.ip ?? `127.0.3.${Math.floor(Math.random() * 200) + 1}`,
+    },
+    body,
+  })
+}
+
 async function postVoicemailRecording(input: {
   from?: string
   to?: string
@@ -195,6 +224,8 @@ describe('Twilio voice incoming webhook', () => {
     voiceMocks.isValidE164Phone.mockImplementation((phone: string) => /^\+[1-9]\d{9,14}$/.test(phone))
     voiceMocks.generateNoStaffTwiml.mockReturnValue('<Response><Say>Voicemail</Say></Response>')
     voiceMocks.generateVoicemailTwiml.mockReturnValue('<Response><Hangup /></Response>')
+    voiceMocks.generateTwimlVoiceResponse.mockReturnValue('<Response><Dial /></Response>')
+    voiceMocks.generateEmptyTwimlResponse.mockReturnValue('<Response></Response>')
     voiceMocks.sanitizeRecordingDuration.mockReturnValue(12)
     voiceMocks.formatVoicemailDuration.mockReturnValue('0:12')
     voiceMocks.generateIncomingTwiml.mockImplementation(({ staffIdentities }) =>
@@ -202,6 +233,7 @@ describe('Twilio voice incoming webhook', () => {
     )
     voiceMocks.createPlaceholderConversation.mockResolvedValue({ id: 'conversation_unknown' })
     prismaMocks.message.findFirst.mockResolvedValue(null)
+    prismaMocks.message.update.mockResolvedValue({ id: 'message_1' })
     prismaMocks.$transaction.mockImplementation(async (callback) =>
       callback({
         message: {
@@ -212,6 +244,42 @@ describe('Twilio voice incoming webhook', () => {
         },
       })
     )
+  })
+
+  it('resolves outbound call destination from messageId instead of browser-visible phone', async () => {
+    prismaMocks.message.findFirst.mockResolvedValueOnce({
+      id: 'message_outbound',
+      conversation: {
+        caseId: 'case_1',
+        taxCase: {
+          client: { phone: '+15554443333' },
+        },
+      },
+    })
+
+    const res = await postOutboundVoice({
+      to: '*** *** 3333',
+      messageId: 'message_outbound',
+      caseId: 'case_1',
+    })
+
+    expect(res.status).toBe(200)
+    expect(voiceMocks.generateTwimlVoiceResponse).toHaveBeenCalledWith(expect.objectContaining({
+      to: '+15554443333',
+      callerId: '+15550000000',
+    }))
+    expect(prismaMocks.message.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        id: 'message_outbound',
+        channel: 'CALL',
+        direction: 'OUTBOUND',
+        conversation: { caseId: 'case_1' },
+      },
+    }))
+    expect(prismaMocks.message.update).toHaveBeenCalledWith({
+      where: { id: 'message_outbound' },
+      data: { callSid: 'CA_outbound' },
+    })
   })
 
   it('scopes known caller lookup to the organization resolved from the called number', async () => {
@@ -233,10 +301,11 @@ describe('Twilio voice incoming webhook', () => {
       where: expect.objectContaining({
         staff: expect.objectContaining({
           organizationId: 'org_a',
-          OR: [
-            { managedClientLinks: { some: { clientId: 'client_a' } } },
+          OR: expect.arrayContaining([
             { role: 'ADMIN' },
-          ],
+            { role: 'MANAGER' },
+            { managedClientLinks: { some: { clientId: 'client_a' } } },
+          ]),
         }),
       }),
     }))
@@ -334,22 +403,31 @@ describe('Twilio voice incoming webhook', () => {
     expect(smsMocks.sendMissedCallTextBack).not.toHaveBeenCalled()
   })
 
-  it('routes unknown callers only to admins in the resolved organization', async () => {
+  it('routes unknown callers to online admin, manager, and staff in the resolved organization', async () => {
     prismaMocks.organization.findMany.mockResolvedValue([{ id: 'org_a' }])
     prismaMocks.client.findFirst.mockResolvedValue(null)
     prismaMocks.staffPresence.findMany.mockResolvedValue([
       { deviceId: 'staff_admin_device', staff: { id: 'staff_admin', role: 'ADMIN' } },
+      { deviceId: 'staff_manager_device', staff: { id: 'staff_manager', role: 'MANAGER' } },
+      { deviceId: 'staff_member_device', staff: { id: 'staff_member', role: 'STAFF' } },
     ])
 
     const res = await postIncomingCall({ from: '+15553334444', to: '+15550000001' })
 
     expect(res.status).toBe(200)
     expect(await res.text()).toContain('staff_admin_device')
+    expect(voiceMocks.generateIncomingTwiml).toHaveBeenCalledWith(expect.objectContaining({
+      staffIdentities: ['staff_admin_device', 'staff_manager_device', 'staff_member_device'],
+    }))
     expect(prismaMocks.staffPresence.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         staff: expect.objectContaining({
           organizationId: 'org_a',
-          OR: [{ role: 'ADMIN' }],
+          OR: [
+            { role: 'ADMIN' },
+            { role: 'MANAGER' },
+            { role: 'STAFF' },
+          ],
         }),
       }),
     }))

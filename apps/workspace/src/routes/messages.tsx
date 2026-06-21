@@ -19,6 +19,7 @@ import {
   useRealtimeMessages,
 } from '../hooks/use-realtime-messages'
 import { api } from '../lib/api-client'
+import { logMessageRealtimeDebug } from '../lib/realtime-message-events'
 import type { Conversation } from '../lib/api-client'
 
 export const Route = createFileRoute('/messages')({
@@ -51,12 +52,16 @@ function MessagesLayout() {
     else setIsRefreshing(true)
 
     try {
+      const currentActiveCaseId = activeCaseIdRef.current
+      logMessageRealtimeDebug('messages-layout.fetch.start', {
+        silent,
+        activeCaseId: currentActiveCaseId,
+      })
       const response = await api.messages.listConversations({
         limit: 50,
       })
       let nextConversations = response.conversations
       let nextTotalUnread = response.totalUnread
-      const currentActiveCaseId = activeCaseIdRef.current
       if (currentActiveCaseId) {
         const unreadPatch = getConversationUnreadPatch(nextConversations, currentActiveCaseId, 0)
         nextConversations = unreadPatch.conversations
@@ -77,7 +82,23 @@ function MessagesLayout() {
       conversationsRef.current = nextConversations
       setConversations(nextConversations)
       setTotalUnread(nextTotalUnread)
+      const activeConversation = currentActiveCaseId
+        ? nextConversations.find((conversation) => conversation.caseId === currentActiveCaseId)
+        : null
+      logMessageRealtimeDebug('messages-layout.fetch.done', {
+        silent,
+        activeCaseId: currentActiveCaseId,
+        conversationCount: nextConversations.length,
+        totalUnread: nextTotalUnread,
+        activeUnreadCount: activeConversation?.unreadCount,
+        activeLastMessageId: activeConversation?.lastMessage?.id,
+        activeLastMessageAt: activeConversation?.lastMessageAt,
+        activeLastMessageDirection: activeConversation?.lastMessage?.direction,
+      })
     } catch (error) {
+      logMessageRealtimeDebug('messages-layout.fetch.error', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+      })
       if (import.meta.env.DEV) {
         console.error('Failed to fetch conversations:', error)
       }
@@ -107,6 +128,13 @@ function MessagesLayout() {
   useRealtimeMessages({
     onEvent: (event) => {
       const eventType = getMessageEventType(event)
+      logMessageRealtimeDebug('messages-layout.event', {
+        eventType,
+        eventCaseId: event.caseId,
+        activeCaseId,
+        direction: 'direction' in event ? event.direction : undefined,
+        messageId: 'messageId' in event ? event.messageId : undefined,
+      })
 
       if (event.eventType === 'conversation.read' && event.caseId === activeCaseId) {
         setConversationUnread(event.caseId, 0)

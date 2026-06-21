@@ -7,6 +7,22 @@
 
 ## 2026-06-20
 
+### Messages Realtime Presence Stability
+**Status:** Complete
+
+**Fixed:**
+- Message detail and floating chatbox now use the global `VoiceCallProvider` instead of creating extra `useVoiceCall()` instances.
+- Prevents duplicate Twilio Device registration lifecycles from repeatedly calling `/voice/presence/unregister` and hitting 429 rate limits.
+- Presence register calls no longer retry on 429; unregister and heartbeat already used no-retry behavior.
+- Supabase message broadcast channel cleanup now waits briefly before removing the shared org channel, avoiding socket churn during quick route remounts.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/lib/realtime-message-events.test.ts src/hooks/use-realtime-messages.test.ts src/routes/messages-unread-patch.test.ts` pass, 8 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with 10 pre-existing warnings
+
+---
+
 ### Messages Supabase Broadcast REST Payload
 **Status:** Complete
 

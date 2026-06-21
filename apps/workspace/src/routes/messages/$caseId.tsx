@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { ArrowLeft } from 'lucide-react'
 import { MessageThread, QuickActionsBar, CallButton, ActiveCallModal } from '../../components/messaging'
-import { useVoiceCall } from '../../hooks/use-voice-call'
+import { useVoiceCallContext } from '../../components/voice'
 import { getMessageEventType, useRealtimeMessages } from '../../hooks/use-realtime-messages'
 import { formatPhone, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { useOrgRole } from '../../hooks/use-org-role'
@@ -67,7 +67,7 @@ function ConversationDetailView() {
   currentCaseIdRef.current = caseId
 
   // Voice call state
-  const [voiceState, voiceActions] = useVoiceCall()
+  const { state: voiceState, actions: voiceActions } = useVoiceCallContext()
   const [showCallModal, setShowCallModal] = useState(false)
 
   const revokeOptimisticPreviewUrls = useCallback((urls?: string[]) => {

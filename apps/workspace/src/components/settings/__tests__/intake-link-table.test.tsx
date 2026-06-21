@@ -119,4 +119,23 @@ describe('IntakeLinkTable', () => {
     expect(markup).toContain('English US / Backend default: Official Channel')
     expect(markup).not.toContain('English US / Default message')
   })
+
+  it('shows intake URLs without truncating the text', () => {
+    const markup = renderToStaticMarkup(
+      <IntakeLinkTable
+        orgSlug="ella-tax-services-long-slug"
+        generalUrlPath="/form/ella-tax-services-long-slug/very-long-staff-intake-link"
+        generalAutoSend
+        generalLanguage="EN"
+        generalTemplateId="official-channel"
+        staffLinks={[]}
+        canManageClients
+        onEditStaff={() => undefined}
+      />
+    )
+
+    expect(markup).toContain('http://localhost:5173/form/ella-tax-services-long-slug/very-long-staff-intake-link')
+    expect(markup).toContain('break-all')
+    expect(markup).not.toContain('truncate')
+  })
 })

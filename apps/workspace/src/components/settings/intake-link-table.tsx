@@ -144,7 +144,12 @@ export function IntakeLinkTable({
               <div className="flex min-w-0 items-center gap-2">
                 <LinkIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 {row.url ? (
-                  <code className="min-w-0 truncate rounded bg-muted px-2 py-1 text-xs text-foreground">{row.url}</code>
+                  <code
+                    title={row.url}
+                    className="min-w-0 max-w-full whitespace-normal break-all rounded bg-muted px-2 py-1 text-xs leading-relaxed text-foreground"
+                  >
+                    {row.url}
+                  </code>
                 ) : (
                   <span className="text-xs italic text-muted-foreground">
                     {orgSlug ? t('settings.staffSlugMissing') : t('settings.noSlugConfigured')}

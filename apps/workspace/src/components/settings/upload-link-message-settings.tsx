@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Switch, cn } from '@ella/ui'
 import type { Language, UploadLinkTemplateId } from '../../lib/api-client'
 import { ClientSmsTemplateSelector } from '../clients/client-sms-template-selector'
-import { resolveClientSmsTemplateId } from '../clients/client-sms-templates'
+import { DEFAULT_CLIENT_SMS_TEMPLATE_ID, resolveClientSmsTemplateId } from '../clients/client-sms-templates'
 
 interface UploadLinkMessageSettingsProps {
   autoSend: boolean
@@ -104,6 +104,7 @@ export function UploadLinkMessageSettings({
             labelKey="settings.uploadLinkMessage"
             inheritLabelKey={allowDefaultTemplate ? 'settings.useDefaultUploadMessage' : undefined}
             inheritDescriptionKey={allowDefaultTemplate ? 'settings.useDefaultUploadMessageDescription' : undefined}
+            inheritPreviewTemplateId={allowDefaultTemplate ? DEFAULT_CLIENT_SMS_TEMPLATE_ID : undefined}
             onInherit={allowDefaultTemplate ? () => onTemplateChange(null) : undefined}
             className="mb-0"
           />

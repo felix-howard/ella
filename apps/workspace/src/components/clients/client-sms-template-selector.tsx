@@ -17,6 +17,7 @@ interface ClientSmsTemplateSelectorProps {
   labelKey?: string
   inheritLabelKey?: string
   inheritDescriptionKey?: string
+  inheritPreviewTemplateId?: ClientSmsTemplateId
   onInherit?: () => void
 }
 
@@ -30,9 +31,17 @@ export function ClientSmsTemplateSelector({
   labelKey = 'confirmStep.templateLabel',
   inheritLabelKey,
   inheritDescriptionKey,
+  inheritPreviewTemplateId,
   onInherit,
 }: ClientSmsTemplateSelectorProps) {
   const { t } = useTranslation()
+  const inheritPreviewTemplate = inheritPreviewTemplateId
+    ? CLIENT_SMS_TEMPLATES.find((template) => template.id === inheritPreviewTemplateId)
+    : null
+  const inheritPreviewTemplateLabel = inheritPreviewTemplate ? t(inheritPreviewTemplate.labelKey) : undefined
+  const inheritPreviewMessage = inheritPreviewTemplate
+    ? getClientSmsTemplate(inheritPreviewTemplate.id, language)
+    : null
 
   return (
     <div className={cn('mb-3 space-y-2', className)}>
@@ -68,11 +77,18 @@ export function ClientSmsTemplateSelector({
             </span>
             <span className="min-w-0 space-y-1">
               <span className="block text-sm font-medium text-foreground">
-                {t(inheritLabelKey)}
+                {inheritPreviewTemplateLabel
+                  ? t(inheritLabelKey, { template: inheritPreviewTemplateLabel })
+                  : t(inheritLabelKey)}
               </span>
               {inheritDescriptionKey && (
                 <span className="block text-xs leading-relaxed text-muted-foreground">
                   {t(inheritDescriptionKey)}
+                </span>
+              )}
+              {inheritPreviewMessage && (
+                <span className="block text-xs leading-relaxed text-muted-foreground">
+                  {inheritPreviewMessage}
                 </span>
               )}
             </span>

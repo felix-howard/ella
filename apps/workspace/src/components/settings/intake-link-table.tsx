@@ -5,7 +5,11 @@ import { Button, cn } from '@ella/ui'
 import type { IntakeLinkStaffRow, Language, UploadLinkTemplateId } from '../../lib/api-client'
 import { PORTAL_BASE_URL } from '../../lib/constants'
 import { toast } from '../../stores/toast-store'
-import { CLIENT_SMS_TEMPLATES, resolveClientSmsTemplateId } from '../clients/client-sms-templates'
+import {
+  CLIENT_SMS_TEMPLATES,
+  DEFAULT_CLIENT_SMS_TEMPLATE_ID,
+  resolveClientSmsTemplateId,
+} from '../clients/client-sms-templates'
 
 interface IntakeLinkTableProps {
   orgSlug: string | null
@@ -31,19 +35,19 @@ function fullUrl(path: string | null) {
   return path ? `${PORTAL_BASE_URL}${path}` : null
 }
 
-export function formatUploadSummary(
+function formatUploadSummary(
   t: (key: string, options?: Record<string, string>) => string,
   autoSend: boolean,
   language: Language,
   templateId: UploadLinkTemplateId | null
 ) {
   if (!autoSend) return t('settings.uploadMessageOff')
-  const template = templateId
-    ? CLIENT_SMS_TEMPLATES.find((item) => item.id === resolveClientSmsTemplateId(templateId))
-    : null
+  const resolvedTemplateId = templateId ? resolveClientSmsTemplateId(templateId) : DEFAULT_CLIENT_SMS_TEMPLATE_ID
+  const template = CLIENT_SMS_TEMPLATES.find((item) => item.id === resolvedTemplateId)
+  const templateLabel = template ? t(template.labelKey) : resolvedTemplateId
   return t('settings.uploadMessageSummary', {
     language: language === 'EN' ? t('settings.messageLanguageEnglishUs') : t('settings.messageLanguageVietnamese'),
-    template: template ? t(template.labelKey) : t('settings.useDefaultUploadMessage'),
+    template: templateId ? templateLabel : t('settings.useDefaultUploadMessage', { template: templateLabel }),
   })
 }
 

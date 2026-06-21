@@ -13,6 +13,7 @@ vi.mock('react-i18next', async (importOriginal) => {
       t: (key: string, options?: Record<string, string>) => {
         if (key === 'settings.uploadMessageSummary') return `${options?.language} / ${options?.template}`
         if (key === 'settings.usesOrganizationDefaultSummary') return `Uses organization default: ${options?.summary}`
+        if (key === 'settings.useDefaultUploadMessage') return `Backend default: ${options?.template}`
         return {
           'confirmStep.templateOfficialChannel': 'Official Channel',
           'confirmStep.templateTaxDocuments': 'Tax Documents',
@@ -27,7 +28,6 @@ vi.mock('react-i18next', async (importOriginal) => {
           'settings.messageLanguageEnglishUs': 'English US',
           'settings.messageLanguageVietnamese': 'Vietnamese',
           'settings.staffSlugMissing': 'Staff slug missing',
-          'settings.useDefaultUploadMessage': 'Default message',
           'settings.uploadMessageOff': 'Off',
         }[key] ?? key
       },
@@ -100,5 +100,23 @@ describe('IntakeLinkTable', () => {
     )
 
     expect(markup).toContain('Uses organization default: English US / Tax Documents')
+  })
+
+  it('summarizes unset templates as the current backend default template', () => {
+    const markup = renderToStaticMarkup(
+      <IntakeLinkTable
+        orgSlug="ella-tax"
+        generalUrlPath="/form/ella-tax"
+        generalAutoSend
+        generalLanguage="EN"
+        generalTemplateId={null}
+        staffLinks={[]}
+        canManageClients
+        onEditStaff={() => undefined}
+      />
+    )
+
+    expect(markup).toContain('English US / Backend default: Official Channel')
+    expect(markup).not.toContain('English US / Default message')
   })
 })

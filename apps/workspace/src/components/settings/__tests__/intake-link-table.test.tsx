@@ -156,4 +156,22 @@ describe('IntakeLinkTable', () => {
     expect(markup).toContain('md:items-start')
     expect(markup).not.toContain('md:items-center')
   })
+
+  it('uses a fixed actions column so row column boundaries stay aligned', () => {
+    const markup = renderToStaticMarkup(
+      <IntakeLinkTable
+        orgSlug="ella-tax"
+        generalUrlPath="/form/ella-tax"
+        generalAutoSend
+        generalLanguage="EN"
+        generalTemplateId="official-channel"
+        staffLinks={[staffRow({ useOrgUploadLinkDefaults: true })]}
+        canManageClients
+        onEditStaff={() => undefined}
+      />
+    )
+
+    expect(markup).toContain('md:grid-cols-[1.1fr_1fr_1.5fr_1.2fr_6.5rem]')
+    expect(markup).not.toContain('md:grid-cols-[1.1fr_1fr_1.5fr_1.2fr_auto]')
+  })
 })

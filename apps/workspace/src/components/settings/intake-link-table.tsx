@@ -110,7 +110,7 @@ export function IntakeLinkTable({
 
   return (
     <div className="space-y-3">
-      <div className="hidden gap-3 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[1.1fr_1fr_1.5fr_1.2fr_auto]">
+      <div className="hidden gap-3 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[1.1fr_1fr_1.5fr_1.2fr_6.5rem]">
         <span>{t('settings.intakeLinkColumnName')}</span>
         <span>{t('settings.intakeLinkColumnAssignment')}</span>
         <span>{t('settings.intakeLinkColumnUrl')}</span>
@@ -122,7 +122,7 @@ export function IntakeLinkTable({
         {rows.map((row) => (
           <div
             key={row.key}
-            className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[1.1fr_1fr_1.5fr_1.2fr_auto] md:items-start"
+            className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[1.1fr_1fr_1.5fr_1.2fr_6.5rem] md:items-start"
           >
             <div className="min-w-0">
               <span className="mb-1 block text-xs font-medium text-muted-foreground md:hidden">

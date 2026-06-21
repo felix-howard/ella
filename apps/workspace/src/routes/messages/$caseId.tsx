@@ -16,6 +16,7 @@ import { getMessageEventType, useRealtimeMessages } from '../../hooks/use-realti
 import { formatPhone, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { api } from '../../lib/api-client'
+import { logMessageRealtimeDebug } from '../../lib/realtime-message-events'
 import { dedupeMessagesById, mergeFetchedMessages } from '../../lib/optimistic-message-merge'
 import type { Conversation, TaxCaseStatus, Language } from '../../lib/api-client'
 import type { OptimisticMessage } from '../../lib/optimistic-message-merge'
@@ -113,8 +114,17 @@ function ConversationDetailView() {
     if (lastMarkedReadRef.current === readKey) return
     lastMarkedReadRef.current = readKey
 
+    logMessageRealtimeDebug('message-thread.mark-read.start', {
+      caseId,
+      upTo: latestRenderedAt,
+    })
     api.messages.markRead(caseId, { upTo: latestRenderedAt })
       .then((result) => {
+        logMessageRealtimeDebug('message-thread.mark-read.done', {
+          caseId,
+          unreadCount: result.unreadCount,
+          readAt: result.readAt,
+        })
         queryClient.setQueryData(['unread-count', 'case', caseId], {
           unreadCount: result.unreadCount,
         })
@@ -123,6 +133,10 @@ function ConversationDetailView() {
       })
       .catch((error) => {
         lastMarkedReadRef.current = null
+        logMessageRealtimeDebug('message-thread.mark-read.error', {
+          caseId,
+          message: error instanceof Error ? error.message : 'Unknown error',
+        })
         if (import.meta.env.DEV) {
           console.error('Failed to mark conversation read:', error)
         }
@@ -136,12 +150,27 @@ function ConversationDetailView() {
     if (!silent && !hasCachedMessages) setIsLoading(true)
 
     try {
+      logMessageRealtimeDebug('message-thread.fetch.start', {
+        caseId: requestCaseId,
+        silent,
+        hasCachedMessages,
+      })
       const response = await api.messages.list(requestCaseId)
       if (currentCaseIdRef.current !== requestCaseId) return
 
       // Messages come in desc order from API, reverse for display
       const fetchedMessages = response.messages.reverse()
       const latestRenderedAt = fetchedMessages[fetchedMessages.length - 1]?.createdAt
+      const latestMessage = fetchedMessages[fetchedMessages.length - 1]
+      logMessageRealtimeDebug('message-thread.fetch.done', {
+        caseId: requestCaseId,
+        silent,
+        fetchedCount: fetchedMessages.length,
+        latestMessageId: latestMessage?.id,
+        latestMessageAt: latestMessage?.createdAt,
+        latestDirection: latestMessage?.direction,
+        conversationUnreadCount: response.conversation.unreadCount,
+      })
 
       // Merge fetched messages with existing, keeping optimistic (temp-*) messages
       setCurrentMessages((prev) => {
@@ -149,6 +178,10 @@ function ConversationDetailView() {
       })
       markLatestRenderedRead(latestRenderedAt)
     } catch (error) {
+      logMessageRealtimeDebug('message-thread.fetch.error', {
+        caseId: requestCaseId,
+        message: error instanceof Error ? error.message : 'Unknown error',
+      })
       if (import.meta.env.DEV) {
         console.error('Failed to fetch messages:', error)
       }
@@ -193,6 +226,13 @@ function ConversationDetailView() {
     caseId,
     onEvent: (event) => {
       const eventType = getMessageEventType(event)
+      logMessageRealtimeDebug('message-thread.event', {
+        caseId,
+        eventType,
+        eventCaseId: event.caseId,
+        direction: 'direction' in event ? event.direction : undefined,
+        messageId: 'messageId' in event ? event.messageId : undefined,
+      })
 
       if (event.eventType === 'message.status.updated') {
         setCurrentMessages((prev) =>

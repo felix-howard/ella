@@ -38,6 +38,7 @@ export function OrgSlugEditor() {
       api.orgSettings.update({ slug: newSlug }),
     onSuccess: (result) => {
       queryClient.setQueryData(['org-settings'], result)
+      queryClient.invalidateQueries({ queryKey: ['org-intake-links'] })
       toast.success(t('settings.saved'))
       setIsEditing(false)
     },
@@ -79,24 +80,26 @@ export function OrgSlugEditor() {
     setIsEditing(false)
   }
 
-  if (isLoading || !canManageClients) return null
+  if (isLoading) return null
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="flex items-center gap-2.5 mb-3">
         <Globe className="w-4 h-4 text-primary" />
         <span className="text-sm font-medium text-foreground">
-          {t('settings.orgSlug')}
+          {t('settings.organizationUrlSlug')}
         </span>
       </div>
       <p className="text-xs text-muted-foreground mb-3">
-        {t('settings.orgSlugDescription', 'Your organization slug is used in all form links below.')}
+        {t('settings.organizationUrlSlugDescription')}
       </p>
 
       {isEditing ? (
         <div className="space-y-2">
           <div className="flex gap-2">
             <Input
+              id="organization-url-slug-input"
+              aria-label={t('settings.organizationUrlSlug')}
               value={slugValue}
               onChange={(e) => {
                 setSlugValue(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
@@ -141,16 +144,18 @@ export function OrgSlugEditor() {
           <code className="px-2 py-1 bg-muted rounded text-sm">
             {data?.slug || t('settings.noSlugSet')}
           </code>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setSlugValue(data?.slug || '')
-              setIsEditing(true)
-            }}
-          >
-            {data?.slug ? t('common.edit') : t('settings.setSlug')}
-          </Button>
+          {canManageClients && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setSlugValue(data?.slug || '')
+                setIsEditing(true)
+              }}
+            >
+              {data?.slug ? t('common.edit') : t('settings.setSlug')}
+            </Button>
+          )}
         </div>
       )}
     </div>

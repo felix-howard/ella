@@ -8,7 +8,7 @@
 
 ## Overview
 - Priority: high
-- Status: pending
+- Status: complete
 - Description: remove the dedicated `Form Link` tab and show personal intake link as a compact read-only Overview section.
 
 ## Key Insights
@@ -64,12 +64,17 @@
 8. Keep API client methods until Phase 04 confirms no remaining callers, then remove unused methods if safe.
 
 ## Todo List
-- [ ] Form Link tab removed
-- [ ] Overview read-only card added
-- [ ] Copy action works
-- [ ] Manage in Settings link added
-- [ ] Missing slug state added
-- [ ] Profile-side editable mutations removed
+- [x] Form Link tab removed
+- [x] Overview read-only card added
+- [x] Copy action works
+- [x] Manage in Settings link added
+- [x] Missing slug state added
+- [x] Profile-side editable mutations removed
+
+## Validation
+- `pnpm -F @ella/workspace test -- profile-tabs` passed, 11 tests.
+- `pnpm -F @ella/workspace type-check` passed.
+- `pnpm -F @ella/workspace lint` failed on pre-existing Phase 02 lint error in `apps/workspace/src/components/settings/intake-link-settings-modal.tsx` (`react-hooks/set-state-in-effect`); no Phase 03 lint errors reported.
 
 ## Success Criteria
 - Team profile has Overview, Documents, and Invoices tabs only when applicable.

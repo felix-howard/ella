@@ -253,11 +253,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /rental/:token/submit` - Submit form, create version entry
 - Staff routes authenticated, public routes token-authenticated
 
-**Public Client Intake Form (3 - Phase 02):**
-- `GET /form/:orgSlug` - Get intake form metadata (public, no auth). Returns form fields, validation rules, client language preference
-- `GET /form/:orgSlug/:staffSlug` - Get form routed to specific staff member (public). Staff-specific form via formSlug, includes manager assignment
-- `POST /form/:orgSlug/submit` - Submit completed intake form (public). Creates Client record with source=GENERIC_FORM (no staff) or STAFF_FORM (routed to staff), optional file uploads, returns confirmationUrl. autoSendFormClientUploadLink controls SMS notification after submission.
-- Public endpoints unauthenticated; orgSlug + staffSlug route to correct staff member; ClientSource distinguishes generic forms vs staff-routed forms
+**Public Client Intake Form:**
+- `GET /form/:orgSlug` - Get intake form metadata (public, no auth). The general org link is unassigned and creates clients with `source=GENERIC_FORM`.
+- `GET /form/:orgSlug/:staffSlug` - Get a staff-routed intake form. Staff-specific links use `Staff.formSlug` and assign new clients to that staff member with `source=STAFF_FORM`.
+- `POST /form/:orgSlug/submit` - Submit completed intake form (public). Creates Client records, optional related business records, optional file uploads, and returns `confirmationUrl`.
+- `Settings > Organization > Client Intake` is the source of truth for link management. Organization defaults include `autoSendFormClientUploadLink`, `defaultUploadLinkTemplateId`, and `defaultUploadLinkLanguage`; staff links can inherit those defaults through `Staff.useOrgUploadLinkDefaults` or override auto-send/template/language per staff member.
+- Upload-link SMS language is explicit `EN` or `VI`. Public form client language no longer controls the upload-link SMS template language after submit.
+- Public endpoints unauthenticated; `orgSlug` + optional `staffSlug` route to the correct organization/staff member, and `ClientSource` distinguishes generic forms from staff-routed forms.
 - Public registration header contract: `Organization.registrationHeaderMode`, `registrationTitle`, and `registrationSubtitle` control `/register/:orgSlug`. `Campaign.formHeaderMode`, `formTitle`, and `formSubtitle` control `/register/:orgSlug/:campaignSlug`. Modes are `DEFAULT`, `CUSTOM`, and `HIDDEN`; campaign `DEFAULT` inherits org behavior. Header values are sanitized plain text, public responses expose title/subtitle only for `CUSTOM`, stale non-custom copy is suppressed, and campaign `formIntroContent` remains separate rich content above the form.
 
 **Lead Management (9 - Phase 02 API Endpoints + Tag-Based Categorization Complete):**
@@ -273,9 +275,10 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `DELETE /leads/:id` - Delete lead (org-scoped, admin/manager required)
 - Rate limiter on public create (5/min), authMiddleware + requireAdminOrManager on all protected endpoints (except team management). Phone normalized to E.164 format. Tags: flexible string array (1-100 chars each), stored with GIN index for fast containment queries. SMS integration via Twilio with optional staff form routing
 
-**Team & Organization (19 - Phase 3 + Phase 02 Profile API + Phase 04 Navigation + Phase 02 Intake Form):**
-- `GET /org-settings` - Get org profile + autoSendFormClientUploadLink toggle (Phase 02 Intake Form)
-- `PATCH /org-settings` - Update org profile + autoSendFormClientUploadLink (admin/manager only, Phase 02 Intake Form)
+**Team & Organization (19 - Phase 3 + Phase 02 Profile API + Phase 04 Navigation + Client Intake):**
+- `GET /org-settings` - Get org profile, org slug, upload-link automation defaults, and default upload-link SMS language.
+- `PATCH /org-settings` - Update org profile, org slug, `autoSendFormClientUploadLink`, `defaultUploadLinkTemplateId`, and `defaultUploadLinkLanguage` (admin/manager only).
+- `GET /org-settings/intake-links` - Admin/manager list of the general org intake link and active staff personal intake links with effective upload-link settings.
 - `GET /team/members` - Admins list active/archived org staff via `includeArchived`; non-admins get only their own active staff record and must have `staffId` (`400` if missing)
 - `POST /team/invite` - Send Clerk org invitation via Backend API (admin only, webhook syncs results to DB)
 - `PATCH /team/members/:staffId/role` - Update role via Clerk Backend API (admin only, webhook syncs to DB)
@@ -292,8 +295,9 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /team/members/:staffId/files/:fileId/download-url` - Return a 900-second signed download URL after owner/admin authorization.
 - `DELETE /team/members/:staffId/files/:fileId` - Soft-delete a staff file and mark it inactive. Staff cannot delete their own paid invoices.
 - `PATCH /team/members/:staffId/files/:fileId/invoice-status` - Admin-only invoice status mutation with guarded transitions and stale-update conflict handling.
-- `GET /staff/me` - Get current staff details with avatarUrl + formSlug field (Phase 04 navigation + Phase 02 Intake Form)
+- `GET /staff/me` - Get current staff details with avatarUrl, formSlug, and personal intake upload-link preference fields.
 - `PATCH /staff/me/form-slug` - Update personal form slug (self only, Phase 02 Intake Form)
+- `PATCH /staff/:staffId/intake-link` - Admin/manager update for Settings-owned staff intake link settings: `formSlug`, inheritance, auto-send toggle, default template, and explicit language.
 - `GET /client-assignments` - List staff-client mappings
 - `POST /client-assignments` - Create assignment (app-level, not Clerk-synced)
 - `POST /client-assignments/bulk` - Bulk assign (app-level, not Clerk-synced)

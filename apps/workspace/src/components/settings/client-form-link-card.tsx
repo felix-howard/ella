@@ -1,34 +1,38 @@
-/**
- * Client Form Link Card - Shows generic intake form link + auto-send toggle
- * Used in Settings Form Links tab
- */
 import { useState } from 'react'
-import { Copy, Check, Link as LinkIcon, Send } from 'lucide-react'
+import { Loader2, Link as LinkIcon } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Card, cn } from '@ella/ui'
-import { api } from '../../lib/api-client'
-import { PORTAL_BASE_URL } from '../../lib/constants'
+import { Card } from '@ella/ui'
+import { api, type IntakeLinkStaffRow, type OrgSettingsUpdateInput } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
-import { ClientSmsTemplateSelector } from '../clients/client-sms-template-selector'
-import { resolveClientSmsTemplateId } from '../clients/client-sms-templates'
-import type { ClientSmsTemplateId } from '../clients/client-sms-templates'
+import { useOrgRole } from '../../hooks/use-org-role'
+import { OrgSlugEditor } from './org-slug-editor'
+import { IntakeLinkSettingsModal } from './intake-link-settings-modal'
+import { IntakeLinkTable } from './intake-link-table'
+import { UploadLinkMessageSettings } from './upload-link-message-settings'
 
 export function ClientFormLinkCard() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [copied, setCopied] = useState(false)
+  const { canManageClients } = useOrgRole()
+  const [editingStaff, setEditingStaff] = useState<IntakeLinkStaffRow | null>(null)
 
-  const { data, isLoading } = useQuery({
+  const orgSettings = useQuery({
     queryKey: ['org-settings'],
     queryFn: () => api.orgSettings.get(),
   })
 
-  const toggleMutation = useMutation({
-    mutationFn: (enabled: boolean) =>
-      api.orgSettings.update({ autoSendFormClientUploadLink: enabled }),
+  const intakeLinks = useQuery({
+    queryKey: ['org-intake-links'],
+    queryFn: () => api.orgSettings.getIntakeLinks(),
+    enabled: canManageClients,
+  })
+
+  const updateDefaults = useMutation({
+    mutationFn: (data: OrgSettingsUpdateInput) => api.orgSettings.update(data),
     onSuccess: (result) => {
       queryClient.setQueryData(['org-settings'], result)
+      queryClient.invalidateQueries({ queryKey: ['org-intake-links'] })
       toast.success(t('settings.saved'))
     },
     onError: () => {
@@ -36,133 +40,94 @@ export function ClientFormLinkCard() {
     },
   })
 
-  const templateMutation = useMutation({
-    mutationFn: (templateId: ClientSmsTemplateId) =>
-      api.orgSettings.update({ defaultUploadLinkTemplateId: templateId }),
-    onSuccess: (result) => {
-      queryClient.setQueryData(['org-settings'], result)
-      toast.success(t('settings.saved'))
-    },
-    onError: () => {
-      toast.error(t('settings.saveFailed'))
-    },
-  })
-
-  const formLink = data?.slug ? `${PORTAL_BASE_URL}/form/${data.slug}` : null
-  const isAutoSendEnabled = data?.autoSendFormClientUploadLink ?? false
-  const selectedTemplateId = resolveClientSmsTemplateId(data?.defaultUploadLinkTemplateId)
-
-  const handleCopy = async () => {
-    if (!formLink) return
-    try {
-      await navigator.clipboard.writeText(formLink)
-      setCopied(true)
-      toast.success(t('settings.linkCopied'))
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      toast.error(t('settings.copyFailed'))
-    }
-  }
-
-  if (isLoading) {
+  if (orgSettings.isLoading || (canManageClients && intakeLinks.isLoading)) {
     return (
       <Card className="p-6">
-        <div className="h-24 bg-muted rounded animate-pulse" />
+        <div className="h-48 rounded bg-muted animate-pulse" />
       </Card>
     )
   }
 
+  const settings = orgSettings.data
+  const links = intakeLinks.data
+  const defaultAutoSend = settings?.autoSendFormClientUploadLink ?? links?.organization.autoSendUploadLink ?? false
+  const defaultLanguage = settings?.defaultUploadLinkLanguage ?? links?.organization.defaultUploadLinkLanguage ?? 'EN'
+  const defaultTemplateId = settings
+    ? settings.defaultUploadLinkTemplateId
+    : links?.organization.defaultUploadLinkTemplateId ?? null
+  const isUpdatingDefaults = updateDefaults.isPending
+
   return (
-    <Card className="p-6 space-y-4">
-      {/* Form Link Section */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
-            <LinkIcon className="w-4 h-4 text-primary" />
+    <section data-settings-focus="client-intake" className="space-y-4">
+      <Card className="p-6">
+        <div className="mb-5 flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+            <LinkIcon className="h-5 w-5 text-primary" />
           </div>
-          <div>
-            <h3 className="text-sm font-medium text-foreground">
-              {t('settings.clientFormLink')}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              {t('settings.clientFormLinkDescription')}
-            </p>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-foreground">{t('settings.clientIntake')}</h2>
+            <p className="text-sm text-muted-foreground">{t('settings.clientIntakeDescription')}</p>
           </div>
         </div>
-      </div>
 
-      {formLink ? (
-        <div className="flex items-center gap-2">
-          <code className="flex-1 px-3 py-2 bg-muted rounded-lg text-sm text-foreground truncate">
-            {formLink}
-          </code>
-          <button
-            onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-border bg-background hover:bg-muted transition-colors shrink-0"
-          >
-            {copied ? (
-              <Check className="w-4 h-4 text-primary" />
-            ) : (
-              <Copy className="w-4 h-4" />
-            )}
-            {copied ? t('settings.copied') : t('settings.copy')}
-          </button>
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground italic">
-          {t('settings.noSlugConfigured')}
-        </p>
-      )}
+        <div className="space-y-4">
+          <OrgSlugEditor />
 
-      <p className="text-xs text-muted-foreground">
-        {t('settings.genericFormNote')}
-      </p>
-
-      {/* Auto-send toggle */}
-      <div className="pt-4 border-t border-border/50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
-              <Send className="w-4 h-4 text-primary" />
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-medium text-foreground">{t('settings.defaultUploadMessageSettings')}</h3>
+                <p className="text-xs text-muted-foreground">{t('settings.defaultUploadMessageSettingsDescription')}</p>
+              </div>
+              {isUpdatingDefaults && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-foreground">
-                {t('settings.autoSendUploadLink')}
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                {t('settings.autoSendUploadLinkDescription')}
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => toggleMutation.mutate(!isAutoSendEnabled)}
-            disabled={toggleMutation.isPending}
-            className={cn(
-              'relative w-11 h-6 rounded-full transition-colors cursor-pointer',
-              isAutoSendEnabled ? 'bg-primary' : 'bg-muted-foreground/30'
-            )}
-          >
-            <span
-              className={cn(
-                'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform',
-                isAutoSendEnabled && 'translate-x-5'
-              )}
+            <UploadLinkMessageSettings
+              autoSend={defaultAutoSend}
+              language={defaultLanguage}
+              templateId={defaultTemplateId}
+              disabled={!canManageClients || isUpdatingDefaults}
+              name="orgDefaultUploadLinkTemplate"
+              onAutoSendChange={(enabled) => updateDefaults.mutate({ autoSendFormClientUploadLink: enabled })}
+              onLanguageChange={(language) => updateDefaults.mutate({ defaultUploadLinkLanguage: language })}
+              onTemplateChange={(templateId) => updateDefaults.mutate({ defaultUploadLinkTemplateId: templateId })}
+              allowDefaultTemplate
             />
-          </button>
-        </div>
+          </div>
 
-        <div className="mt-4">
-          <ClientSmsTemplateSelector
-            language={data?.smsLanguage ?? 'VI'}
-            selectedTemplateId={selectedTemplateId}
-            onSelect={(templateId) => templateMutation.mutate(templateId)}
-            disabled={templateMutation.isPending || toggleMutation.isPending}
-            name="orgDefaultUploadLinkTemplate"
-            className="mb-0"
-          />
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="mb-4">
+              <h3 className="text-sm font-medium text-foreground">{t('settings.intakeLinks')}</h3>
+              <p className="text-xs text-muted-foreground">{t('settings.intakeLinksDescription')}</p>
+            </div>
+            {intakeLinks.isError ? (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                {t('settings.intakeLinksLoadError')}
+              </p>
+            ) : !canManageClients ? (
+              <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                {t('settings.intakeLinksPermissionRequired')}
+              </p>
+            ) : (
+              <IntakeLinkTable
+                orgSlug={links?.organization.slug ?? null}
+                generalUrlPath={links?.generalLink.urlPath ?? null}
+                generalAutoSend={defaultAutoSend}
+                generalLanguage={defaultLanguage}
+                generalTemplateId={defaultTemplateId}
+                staffLinks={links?.staffLinks ?? []}
+                canManageClients={canManageClients}
+                onEditStaff={setEditingStaff}
+              />
+            )}
+          </div>
         </div>
-      </div>
-    </Card>
+      </Card>
+
+      <IntakeLinkSettingsModal
+        staff={editingStaff}
+        open={Boolean(editingStaff)}
+        onClose={() => setEditingStaff(null)}
+      />
+    </section>
   )
 }

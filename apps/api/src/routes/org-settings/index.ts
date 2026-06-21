@@ -33,6 +33,7 @@ const updateOrgSettingsSchema = z.object({
   missedCallTextBack: z.boolean().optional(),
   autoSendFormClientUploadLink: z.boolean().optional(),
   defaultUploadLinkTemplateId: z.enum(UPLOAD_LINK_TEMPLATE_IDS).nullable().optional(),
+  defaultUploadLinkLanguage: z.enum(['VI', 'EN']).optional(),
   slug: z.string().min(2).max(50).regex(/^[a-z0-9-]+$/).optional().nullable(),
   // Firm address + governing law (NDA header)
   address: z.string().max(200).nullable().optional(),
@@ -72,6 +73,7 @@ orgSettingsRoute.get('/', async (c) => {
       missedCallTextBack: true,
       autoSendFormClientUploadLink: true,
       defaultUploadLinkTemplateId: true,
+      defaultUploadLinkLanguage: true,
       slug: true,
       address: true,
       city: true,
@@ -98,6 +100,7 @@ orgSettingsRoute.get('/', async (c) => {
     missedCallTextBack: org.missedCallTextBack,
     autoSendFormClientUploadLink: org.autoSendFormClientUploadLink,
     defaultUploadLinkTemplateId: org.defaultUploadLinkTemplateId,
+    defaultUploadLinkLanguage: org.defaultUploadLinkLanguage,
     slug: org.slug,
     address: org.address,
     city: org.city,
@@ -109,6 +112,83 @@ orgSettingsRoute.get('/', async (c) => {
     twilioInboundNumber: getTwilioInboundNumber(org.firmPhone),
     firmEmail: org.firmEmail,
     firmWebsite: org.firmWebsite,
+  })
+})
+
+// GET /org-settings/intake-links - List org and staff intake link settings
+orgSettingsRoute.get('/intake-links', async (c) => {
+  const user = c.get('user')
+  if (!user?.organizationId) {
+    return c.json({ error: 'No organization' }, 403)
+  }
+  if (!isAdminOrManager(user)) {
+    return c.json({ error: 'Admin access required' }, 403)
+  }
+
+  const org = await prisma.organization.findUnique({
+    where: { id: user.organizationId },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      autoSendFormClientUploadLink: true,
+      defaultUploadLinkTemplateId: true,
+      defaultUploadLinkLanguage: true,
+      staff: {
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          role: true,
+          formSlug: true,
+          useOrgUploadLinkDefaults: true,
+          autoSendUploadLink: true,
+          defaultUploadLinkTemplateId: true,
+          defaultUploadLinkLanguage: true,
+        },
+        orderBy: { name: 'asc' },
+      },
+    },
+  })
+
+  if (!org) {
+    return c.json({ error: 'Organization not found' }, 404)
+  }
+
+  const orgDefaults = {
+    autoSendUploadLink: org.autoSendFormClientUploadLink,
+    defaultUploadLinkTemplateId: org.defaultUploadLinkTemplateId,
+    defaultUploadLinkLanguage: org.defaultUploadLinkLanguage,
+  }
+
+  return c.json({
+    organization: {
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      ...orgDefaults,
+    },
+    generalLink: {
+      urlPath: org.slug ? `/form/${org.slug}` : null,
+      ...orgDefaults,
+    },
+    staffLinks: org.staff.map((staff) => {
+      const effectiveSettings = staff.useOrgUploadLinkDefaults
+        ? orgDefaults
+        : {
+            autoSendUploadLink: staff.autoSendUploadLink,
+            defaultUploadLinkTemplateId: staff.defaultUploadLinkTemplateId,
+            defaultUploadLinkLanguage: staff.defaultUploadLinkLanguage ?? org.defaultUploadLinkLanguage,
+          }
+
+      return {
+        ...staff,
+        urlPath: org.slug && staff.formSlug ? `/form/${org.slug}/${staff.formSlug}` : null,
+        effectiveAutoSendUploadLink: effectiveSettings.autoSendUploadLink,
+        effectiveDefaultUploadLinkTemplateId: effectiveSettings.defaultUploadLinkTemplateId,
+        effectiveDefaultUploadLinkLanguage: effectiveSettings.defaultUploadLinkLanguage,
+      }
+    }),
   })
 })
 
@@ -221,6 +301,7 @@ orgSettingsRoute.patch(
           missedCallTextBack: true,
           autoSendFormClientUploadLink: true,
           defaultUploadLinkTemplateId: true,
+          defaultUploadLinkLanguage: true,
           slug: true,
           clerkOrgId: true,
           address: true,
@@ -285,6 +366,7 @@ orgSettingsRoute.patch(
       missedCallTextBack: updated.missedCallTextBack,
       autoSendFormClientUploadLink: updated.autoSendFormClientUploadLink,
       defaultUploadLinkTemplateId: updated.defaultUploadLinkTemplateId,
+      defaultUploadLinkLanguage: updated.defaultUploadLinkLanguage,
       slug: updated.slug,
       address: updated.address,
       city: updated.city,

@@ -14,6 +14,7 @@ interface ClientSmsTemplateSelectorProps {
   disabled?: boolean
   name?: string
   className?: string
+  labelKey?: string
   inheritLabelKey?: string
   inheritDescriptionKey?: string
   onInherit?: () => void
@@ -26,6 +27,7 @@ export function ClientSmsTemplateSelector({
   disabled = false,
   name = 'clientSmsTemplate',
   className,
+  labelKey = 'confirmStep.templateLabel',
   inheritLabelKey,
   inheritDescriptionKey,
   onInherit,
@@ -35,9 +37,9 @@ export function ClientSmsTemplateSelector({
   return (
     <div className={cn('mb-3 space-y-2', className)}>
       <p className="text-xs font-medium text-muted-foreground">
-        {t('confirmStep.templateLabel')}
+        {t(labelKey)}
       </p>
-      <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={t('confirmStep.templateLabel')}>
+      <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={t(labelKey)}>
         {onInherit && inheritLabelKey && (
           <label
             className={cn(

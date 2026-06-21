@@ -33,7 +33,7 @@ function ProfilePage() {
   const { t } = useTranslation()
   const { staffId } = Route.useParams()
   const { focus } = Route.useSearch()
-  const { canManageTeam, staffId: currentUserStaffId } = useOrgRole()
+  const { canManageClients, canManageTeam, staffId: currentUserStaffId } = useOrgRole()
   const queryClient = useQueryClient()
 
   const {
@@ -45,7 +45,7 @@ function ProfilePage() {
     queryFn: () => api.team.getProfile(staffId),
   })
 
-  const { data: orgSettings } = useQuery({
+  const { data: orgSettings, isLoading: isOrgSettingsLoading } = useQuery({
     queryKey: ['org-settings'],
     queryFn: () => api.orgSettings.get(),
   })
@@ -195,10 +195,12 @@ function ProfilePage() {
         canEdit={canEdit}
         canChangeRole={canChangeRole}
         canManageTeam={canManageTeam}
+        canManageClients={canManageClients}
         isOwnProfile={isOwnProfile}
         canArchive={canArchive}
         isArchived={isArchived}
         orgSettings={orgSettings}
+        isOrgSettingsLoading={isOrgSettingsLoading}
         onRoleChange={async (role) => {
           await roleMutation.mutateAsync(role)
         }}

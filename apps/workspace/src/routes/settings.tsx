@@ -21,7 +21,7 @@ const VALID_TABS: SettingsTab[] = [
 ]
 
 /** Section ids that the NDA wizard's "Set up" deep links target. */
-const VALID_FOCUS = ['firm-info'] as const
+const VALID_FOCUS = ['firm-info', 'client-intake'] as const
 type SettingsFocus = (typeof VALID_FOCUS)[number]
 
 function normalizeTab(tab: unknown): SettingsTab | undefined {
@@ -75,7 +75,7 @@ function SettingsPage() {
 
   return (
     <PageContainer>
-      <div className="max-w-3xl">
+      <div className="max-w-5xl">
         <h1 className="text-2xl font-bold text-foreground mb-6">{t('settings.title')}</h1>
 
         <Tabs defaultValue="account" value={activeTab} onValueChange={handleTabChange} variant="underline">

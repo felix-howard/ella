@@ -1,11 +1,11 @@
 # Client Intake Link Management Redesign
 
 ## Status
-- Phase 01: pending
-- Phase 02: pending
-- Phase 03: pending
-- Phase 04: pending
-- Phase 05: pending
+- Phase 01: complete
+- Phase 02: complete
+- Phase 03: complete
+- Phase 04: complete
+- Phase 05: complete
 
 ## Goal
 Move all client intake link configuration into one organization settings surface, remove the Team Profile `Form Link` tab, and show each staff personal intake link as read-only context in Overview.
@@ -19,19 +19,19 @@ Move all client intake link configuration into one organization settings surface
 - Team Profile Overview only shows/copies the personal intake link and links admins/managers back to Settings.
 
 ## Phase 01
-- [ ] [Database and API Contract](phase-01-database-and-api-contract.md)
+- [x] [Database and API Contract](phase-01-database-and-api-contract.md)
 
 ## Phase 02
-- [ ] [Settings Client Intake UI](phase-02-settings-client-intake-ui.md)
+- [x] [Settings Client Intake UI](phase-02-settings-client-intake-ui.md)
 
 ## Phase 03
-- [ ] [Team Profile Overview Shortcut](phase-03-team-profile-overview-shortcut.md)
+- [x] [Team Profile Overview Shortcut](phase-03-team-profile-overview-shortcut.md)
 
 ## Phase 04
-- [ ] [Tests and Locale Updates](phase-04-tests-and-locale-updates.md)
+- [x] [Tests and Locale Updates](phase-04-tests-and-locale-updates.md)
 
 ## Phase 05
-- [ ] [Docs and Final Validation](phase-05-docs-and-final-validation.md)
+- [x] [Docs and Final Validation](phase-05-docs-and-final-validation.md)
 
 ## Key Dependencies
 - Phase 02 depends on Phase 01 API/types.

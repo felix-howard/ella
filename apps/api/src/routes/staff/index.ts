@@ -35,6 +35,21 @@ const updateFormSlugSchema = z.object({
 const updateAutoSendUploadLinkSchema = z.object({
   autoSendUploadLink: z.boolean().optional(),
   defaultUploadLinkTemplateId: z.enum(UPLOAD_LINK_TEMPLATE_IDS).nullable().optional(),
+  defaultUploadLinkLanguage: z.enum(['VI', 'EN']).nullable().optional(),
+})
+
+const updateIntakeLinkSchema = z.object({
+  formSlug: z
+    .string()
+    .min(2)
+    .max(50)
+    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens')
+    .nullable()
+    .optional(),
+  useOrgUploadLinkDefaults: z.boolean().optional(),
+  autoSendUploadLink: z.boolean().optional(),
+  defaultUploadLinkTemplateId: z.enum(UPLOAD_LINK_TEMPLATE_IDS).nullable().optional(),
+  defaultUploadLinkLanguage: z.enum(['VI', 'EN']).nullable().optional(),
 })
 
 // GET /staff/me - Get current staff profile (including language and orgRole)
@@ -56,6 +71,8 @@ staffRoute.get('/me', async (c) => {
       formSlug: true,
       autoSendUploadLink: true,
       defaultUploadLinkTemplateId: true,
+      useOrgUploadLinkDefaults: true,
+      defaultUploadLinkLanguage: true,
     },
   })
 
@@ -129,8 +146,7 @@ staffRoute.patch(
   }
 )
 
-// PATCH /staff/:staffId/form-slug - Update form slug for a specific staff member
-// Admins/managers can update any member's slug; others can only update their own
+// Legacy compatibility route. Settings Client Intake is the canonical staff link editor.
 staffRoute.patch(
   '/:staffId/form-slug',
   zValidator('json', updateFormSlugSchema),
@@ -139,17 +155,14 @@ staffRoute.patch(
     if (!user?.staffId) {
       return c.json({ error: 'Staff record not found' }, 404)
     }
+    if (!isAdminOrManager(user)) {
+      return c.json({ error: 'Admin access required' }, 403)
+    }
 
     const targetStaffId = c.req.param('staffId')
 
     // Resolve 'me' to current user's staffId
     const resolvedStaffId = targetStaffId === 'me' ? user.staffId : targetStaffId
-
-    // Non-admins can only update their own slug
-    const isAdmin = isAdminOrManager(user)
-    if (!isAdmin && resolvedStaffId !== user.staffId) {
-      return c.json({ error: 'Forbidden' }, 403)
-    }
 
     // Verify target staff belongs to same org
     if (resolvedStaffId !== user.staffId) {
@@ -231,16 +244,27 @@ staffRoute.patch(
     if (!user?.staffId) {
       return c.json({ error: 'Staff record not found' }, 404)
     }
+    if (!isAdminOrManager(user)) {
+      return c.json({ error: 'Admin access required' }, 403)
+    }
 
-    const { autoSendUploadLink, defaultUploadLinkTemplateId } = c.req.valid('json')
+    const { autoSendUploadLink, defaultUploadLinkTemplateId, defaultUploadLinkLanguage } = c.req.valid('json')
 
     const updated = await prisma.staff.update({
       where: { id: user.staffId },
       data: {
+        useOrgUploadLinkDefaults: false,
         ...(autoSendUploadLink !== undefined && { autoSendUploadLink }),
         ...(defaultUploadLinkTemplateId !== undefined && { defaultUploadLinkTemplateId }),
+        ...(defaultUploadLinkLanguage !== undefined && { defaultUploadLinkLanguage }),
       },
-      select: { id: true, autoSendUploadLink: true, defaultUploadLinkTemplateId: true },
+      select: {
+        id: true,
+        useOrgUploadLinkDefaults: true,
+        autoSendUploadLink: true,
+        defaultUploadLinkTemplateId: true,
+        defaultUploadLinkLanguage: true,
+      },
     })
 
     await logStaffActivity({
@@ -253,12 +277,124 @@ staffRoute.patch(
       action: ACTIVITY_ACTIONS.SETTINGS.STAFF_UPDATED,
       riskLevel: ActivityRiskLevel.LOW,
       metadata: {
-        changedFields: getChangedFieldNames({ autoSendUploadLink, defaultUploadLinkTemplateId }),
+        changedFields: getChangedFieldNames({ autoSendUploadLink, defaultUploadLinkTemplateId, defaultUploadLinkLanguage }),
       },
       request: getAuditRequestContext(c),
     })
 
     return c.json(updated)
+  }
+)
+
+// PATCH /staff/:staffId/intake-link - Settings-owned staff intake link update
+staffRoute.patch(
+  '/:staffId/intake-link',
+  zValidator('json', updateIntakeLinkSchema),
+  async (c) => {
+    const user = c.get('user')
+    if (!user?.organizationId || !user.staffId) {
+      return c.json({ error: 'Staff record not found' }, 404)
+    }
+    if (!isAdminOrManager(user)) {
+      return c.json({ error: 'Admin access required' }, 403)
+    }
+
+    const targetStaffId = c.req.param('staffId')
+    const data = c.req.valid('json')
+
+    const targetStaff = await prisma.staff.findFirst({
+      where: { id: targetStaffId, organizationId: user.organizationId, isActive: true },
+      select: { id: true },
+    })
+    if (!targetStaff) {
+      return c.json({ error: 'Staff member not found' }, 404)
+    }
+
+    if (data.formSlug) {
+      const existing = await prisma.staff.findFirst({
+        where: {
+          organizationId: user.organizationId,
+          formSlug: data.formSlug,
+          id: { not: targetStaffId },
+        },
+        select: { id: true },
+      })
+
+      if (existing) {
+        return c.json(
+          { error: 'SLUG_TAKEN', message: 'This form slug is already in use by another staff member.' },
+          409
+        )
+      }
+    }
+
+    const updateData = {
+      ...(data.formSlug !== undefined && { formSlug: data.formSlug }),
+      ...(data.useOrgUploadLinkDefaults !== undefined && {
+        useOrgUploadLinkDefaults: data.useOrgUploadLinkDefaults,
+      }),
+      ...(data.autoSendUploadLink !== undefined && { autoSendUploadLink: data.autoSendUploadLink }),
+      ...(data.defaultUploadLinkTemplateId !== undefined && {
+        defaultUploadLinkTemplateId: data.defaultUploadLinkTemplateId,
+      }),
+      ...(data.defaultUploadLinkLanguage !== undefined && {
+        defaultUploadLinkLanguage: data.defaultUploadLinkLanguage,
+      }),
+    }
+
+    try {
+      const updateResult = await prisma.staff.updateMany({
+        where: { id: targetStaffId, organizationId: user.organizationId, isActive: true },
+        data: updateData,
+      })
+      if (updateResult.count === 0) {
+        return c.json({ error: 'Staff member not found' }, 404)
+      }
+
+      const updated = await prisma.staff.findFirst({
+        where: { id: targetStaffId, organizationId: user.organizationId, isActive: true },
+        select: {
+          id: true,
+          formSlug: true,
+          useOrgUploadLinkDefaults: true,
+          autoSendUploadLink: true,
+          defaultUploadLinkTemplateId: true,
+          defaultUploadLinkLanguage: true,
+        },
+      })
+      if (!updated) {
+        return c.json({ error: 'Staff member not found' }, 404)
+      }
+
+      await logStaffActivity({
+        organizationId: user.organizationId,
+        actorStaffId: user.staffId,
+        category: ACTIVITY_CATEGORIES.SETTINGS,
+        targetType: ACTIVITY_TARGET_TYPES.STAFF,
+        targetId: targetStaffId,
+        summary: 'Updated staff intake link settings',
+        action: ACTIVITY_ACTIONS.SETTINGS.STAFF_UPDATED,
+        riskLevel: ActivityRiskLevel.MEDIUM,
+        metadata: {
+          changedFields: getChangedFieldNames(data),
+          editedSelf: targetStaffId === user.staffId,
+        },
+        request: getAuditRequestContext(c),
+      })
+
+      return c.json(updated)
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        return c.json(
+          { error: 'SLUG_TAKEN', message: 'This form slug is already in use by another staff member.' },
+          409
+        )
+      }
+      throw error
+    }
   }
 )
 

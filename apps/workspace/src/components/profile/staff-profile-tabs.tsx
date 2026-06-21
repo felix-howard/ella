@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Archive, FileText, Link2, Loader2, Receipt, User } from 'lucide-react'
+import { Archive, FileText, Loader2, Receipt, User } from 'lucide-react'
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@ella/ui'
 import type { AppRole, OrgSettings, ProfileResponse } from '../../lib/api-client'
 import { ProfileForm } from './profile-form'
@@ -22,10 +22,12 @@ interface StaffProfileTabsProps {
   canEdit: boolean
   canChangeRole: boolean
   canManageTeam: boolean
+  canManageClients: boolean
   isOwnProfile: boolean
   canArchive: boolean
   isArchived: boolean
   orgSettings?: OrgSettings
+  isOrgSettingsLoading?: boolean
   onRoleChange: (role: AppRole) => Promise<void>
   isRoleChangePending: boolean
   onArchive: () => void
@@ -40,10 +42,12 @@ export function StaffProfileTabs({
   canEdit,
   canChangeRole,
   canManageTeam,
+  canManageClients,
   isOwnProfile,
   canArchive,
   isArchived,
   orgSettings,
+  isOrgSettingsLoading = false,
   onRoleChange,
   isRoleChangePending,
   onArchive,
@@ -57,7 +61,6 @@ export function StaffProfileTabs({
   const canAccessStaffFiles = canEdit
   const activeTabAvailable =
     activeTab === 'overview' ||
-    activeTab === 'form-link' ||
     ((activeTab === 'documents' || activeTab === 'invoices') && canAccessStaffFiles)
   const visibleActiveTab = activeTabAvailable ? activeTab : 'overview'
 
@@ -87,10 +90,6 @@ export function StaffProfileTabs({
               </TabsTrigger>
             </>
           )}
-          <TabsTrigger value="form-link" className="gap-2">
-            <Link2 className="w-4 h-4" />
-            {t('profile.tabs.formLink')}
-          </TabsTrigger>
         </TabsList>
       </div>
 
@@ -112,6 +111,13 @@ export function StaffProfileTabs({
           </div>
 
           <div className="space-y-6 lg:col-span-1">
+            <StaffFormLinkCard
+              staffName={staff.name}
+              formSlug={staff.formSlug}
+              orgSlug={orgSettings?.slug || null}
+              canManageIntakeLinks={canManageClients}
+              isOrgSettingsLoading={isOrgSettingsLoading}
+            />
             <AssignedClientsList clients={managedClients} totalCount={managedCount} />
             {canAccessStaffFiles && (
               <StaffPaymentInfoCard
@@ -164,19 +170,6 @@ export function StaffProfileTabs({
           </TabsContent>
         </>
       )}
-
-      <TabsContent value="form-link">
-        <StaffFormLinkCard
-          staffId={staffId}
-          formSlug={staff.formSlug}
-          orgSlug={orgSettings?.slug || null}
-          canEdit={canEdit}
-          canEditAutoSend={isOwnProfile}
-          autoSendUploadLink={staff.autoSendUploadLink ?? false}
-          defaultUploadLinkTemplateId={staff.defaultUploadLinkTemplateId}
-          templateLanguage={orgSettings?.smsLanguage ?? 'VI'}
-        />
-      </TabsContent>
 
     </Tabs>
   )

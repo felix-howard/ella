@@ -7,6 +7,25 @@
 
 ## 2026-06-21
 
+### Client Intake Link Management Redesign
+**Status:** Complete
+
+**Changed:**
+- Settings `Organization > Client Intake` is now the canonical place to manage the org intake slug, general intake link, staff personal intake links, upload-link automation, message template, and explicit message language.
+- Team Profile no longer has a separate `Form Link` tab; Overview now shows a read-only Personal Intake Link card with copy action and a Settings shortcut for admins/managers.
+- Staff intake links can inherit org upload-link defaults or use staff-specific auto-send, template, and language settings.
+- Public intake form submission now sends upload-link SMS using configured org/staff message language, not the client's form language choice.
+
+**Validation:**
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status --schema prisma/schema.prisma` pass
+- `pnpm -F @ella/api test -- src/routes/form/__tests__/form-template-selection.test.ts src/routes/staff/__tests__/intake-link.test.ts src/routes/org-settings/__tests__/intake-links.test.ts src/routes/team/__tests__/team-routes.test.ts` pass, 45 tests
+- `pnpm -F @ella/workspace test -- src/components/profile/__tests__/profile-tabs.test.tsx src/components/settings/__tests__/upload-link-message-settings.test.tsx src/components/settings/__tests__/client-form-link-card.test.tsx src/components/settings/__tests__/intake-link-table.test.tsx` pass, 15 tests
+- `pnpm -F @ella/db type-check`, `pnpm -F @ella/api type-check`, `pnpm -F @ella/workspace type-check`, and `pnpm -F @ella/portal type-check` pass
+- `pnpm i18n:check`, `pnpm lint`, and `git diff --check` pass; lint has warnings only in existing Fast Refresh/hook categories
+- Code review findings fixed: legacy STAFF mutation bypass blocked and migration backfills made replay-safe
+
+---
+
 ### Pricing Business Tax Return Yearly Display
 **Status:** Complete
 

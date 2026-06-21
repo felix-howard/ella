@@ -99,11 +99,12 @@ beforeEach(() => {
 })
 
 describe('POST /form/:orgSlug/submit upload-link template defaults', () => {
-  it('preserves existing SMS fallback when no org or staff template is configured', async () => {
+  it('uses the configured org language for SMS fallback when no template is configured', async () => {
     organizationFindFirstMock.mockResolvedValue({
       id: 'org_1',
       autoSendFormClientUploadLink: true,
       defaultUploadLinkTemplateId: null,
+      defaultUploadLinkLanguage: 'VI',
     })
 
     const res = await buildApp().request('/form/ella-tax/submit', {
@@ -119,7 +120,7 @@ describe('POST /form/:orgSlug/submit upload-link template defaults', () => {
       '+14155550101',
       'https://portal.test/upload/token',
       2025,
-      'EN',
+      'VI',
       undefined,
       null
     )
@@ -130,6 +131,7 @@ describe('POST /form/:orgSlug/submit upload-link template defaults', () => {
       id: 'org_1',
       autoSendFormClientUploadLink: true,
       defaultUploadLinkTemplateId: 'tax-documents',
+      defaultUploadLinkLanguage: 'EN',
     })
 
     const res = await buildApp().request('/form/ella-tax/submit', {
@@ -148,11 +150,14 @@ describe('POST /form/:orgSlug/submit upload-link template defaults', () => {
       id: 'org_1',
       autoSendFormClientUploadLink: true,
       defaultUploadLinkTemplateId: 'tax-documents',
+      defaultUploadLinkLanguage: 'EN',
     })
     staffFindFirstMock.mockResolvedValue({
       id: 'staff_1',
       autoSendUploadLink: true,
       defaultUploadLinkTemplateId: 'official-channel',
+      useOrgUploadLinkDefaults: false,
+      defaultUploadLinkLanguage: 'EN',
     })
 
     const res = await buildApp().request('/form/ella-tax/submit', {
@@ -165,5 +170,90 @@ describe('POST /form/:orgSlug/submit upload-link template defaults', () => {
     const customMessage = vi.mocked(sendWelcomeMessage).mock.calls[0][6]
     expect(customMessage).toContain('official communication channel')
     expect(vi.mocked(sendWelcomeMessage).mock.calls[0][7]).toBe('staff_1')
+  })
+
+  it('does not use the submitted client language for staff upload-link SMS settings', async () => {
+    organizationFindFirstMock.mockResolvedValue({
+      id: 'org_1',
+      autoSendFormClientUploadLink: true,
+      defaultUploadLinkTemplateId: 'tax-documents',
+      defaultUploadLinkLanguage: 'VI',
+    })
+    staffFindFirstMock.mockResolvedValue({
+      id: 'staff_1',
+      autoSendUploadLink: true,
+      defaultUploadLinkTemplateId: 'official-channel',
+      useOrgUploadLinkDefaults: false,
+      defaultUploadLinkLanguage: 'EN',
+    })
+
+    const res = await buildApp().request('/form/ella-tax/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validIndividualBody('staff-a'), language: 'VI' }),
+    })
+
+    expect(res.status).toBe(200)
+    const call = vi.mocked(sendWelcomeMessage).mock.calls[0]
+    expect(call[5]).toBe('EN')
+    expect(call[6]).toContain('official communication channel')
+    expect(call[6]).not.toContain('kênh liên lạc chính thức')
+    expect(call[7]).toBe('staff_1')
+  })
+
+  it('uses the backend default message when custom staff template is unset', async () => {
+    organizationFindFirstMock.mockResolvedValue({
+      id: 'org_1',
+      autoSendFormClientUploadLink: true,
+      defaultUploadLinkTemplateId: 'tax-documents',
+      defaultUploadLinkLanguage: 'VI',
+    })
+    staffFindFirstMock.mockResolvedValue({
+      id: 'staff_1',
+      autoSendUploadLink: true,
+      defaultUploadLinkTemplateId: null,
+      useOrgUploadLinkDefaults: false,
+      defaultUploadLinkLanguage: 'EN',
+    })
+
+    const res = await buildApp().request('/form/ella-tax/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(validIndividualBody('staff-a')),
+    })
+
+    expect(res.status).toBe(200)
+    const call = vi.mocked(sendWelcomeMessage).mock.calls[0]
+    expect(call[5]).toBe('EN')
+    expect(call[6]).toBeUndefined()
+    expect(call[7]).toBe('staff_1')
+  })
+
+  it('uses org upload-link settings for staff links configured to inherit defaults', async () => {
+    organizationFindFirstMock.mockResolvedValue({
+      id: 'org_1',
+      autoSendFormClientUploadLink: true,
+      defaultUploadLinkTemplateId: 'tax-documents',
+      defaultUploadLinkLanguage: 'VI',
+    })
+    staffFindFirstMock.mockResolvedValue({
+      id: 'staff_1',
+      autoSendUploadLink: false,
+      defaultUploadLinkTemplateId: 'official-channel',
+      useOrgUploadLinkDefaults: true,
+      defaultUploadLinkLanguage: 'EN',
+    })
+
+    const res = await buildApp().request('/form/ella-tax/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(validIndividualBody('staff-a')),
+    })
+
+    expect(res.status).toBe(200)
+    const call = vi.mocked(sendWelcomeMessage).mock.calls[0]
+    expect(call[5]).toBe('VI')
+    expect(call[6]).toContain('hồ sơ thuế năm {{tax_year}}')
+    expect(call[7]).toBe('staff_1')
   })
 })

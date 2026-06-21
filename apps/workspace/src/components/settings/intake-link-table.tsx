@@ -122,7 +122,7 @@ export function IntakeLinkTable({
         {rows.map((row) => (
           <div
             key={row.key}
-            className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[1.1fr_1fr_1.5fr_1.2fr_auto] md:items-center"
+            className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[1.1fr_1fr_1.5fr_1.2fr_auto] md:items-start"
           >
             <div className="min-w-0">
               <span className="mb-1 block text-xs font-medium text-muted-foreground md:hidden">

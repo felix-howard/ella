@@ -7,7 +7,7 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { ActivityRiskLevel, Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
-import { isAdminOrManager } from '../../lib/org-scope'
+import { isAdminOrManager, isOrgAdmin } from '../../lib/org-scope'
 import { requireAdminOrManager, requireOrg } from '../../middleware/auth'
 import { resolveAvatarUrl } from '../../services/storage'
 import { UPLOAD_LINK_TEMPLATE_IDS } from '../../services/sms/upload-link-template-resolver'
@@ -51,6 +51,10 @@ const updateIntakeLinkSchema = z.object({
   defaultUploadLinkTemplateId: z.enum(UPLOAD_LINK_TEMPLATE_IDS).nullable().optional(),
   defaultUploadLinkLanguage: z.enum(['VI', 'EN']).nullable().optional(),
 })
+
+function resolveStaffIdParam(staffIdParam: string, currentStaffId: string) {
+  return staffIdParam === 'me' ? currentStaffId : staffIdParam
+}
 
 // GET /staff/me - Get current staff profile (including language and orgRole)
 staffRoute.get('/me', async (c) => {
@@ -149,30 +153,34 @@ staffRoute.patch(
 // Legacy compatibility route. Settings Client Intake is the canonical staff link editor.
 staffRoute.patch(
   '/:staffId/form-slug',
-  zValidator('json', updateFormSlugSchema),
-  async (c) => {
+  async (c, next) => {
     const user = c.get('user')
-    if (!user?.staffId) {
+    if (!user?.organizationId || !user.staffId) {
       return c.json({ error: 'Staff record not found' }, 404)
     }
-    if (!isAdminOrManager(user)) {
+
+    const resolvedStaffId = resolveStaffIdParam(c.req.param('staffId'), user.staffId)
+    if (!isOrgAdmin(user) && resolvedStaffId !== user.staffId) {
       return c.json({ error: 'Admin access required' }, 403)
     }
 
-    const targetStaffId = c.req.param('staffId')
+    await next()
+  },
+  zValidator('json', updateFormSlugSchema),
+  async (c) => {
+    const user = c.get('user')
+    if (!user?.organizationId || !user.staffId) {
+      return c.json({ error: 'Staff record not found' }, 404)
+    }
 
-    // Resolve 'me' to current user's staffId
-    const resolvedStaffId = targetStaffId === 'me' ? user.staffId : targetStaffId
+    const resolvedStaffId = resolveStaffIdParam(c.req.param('staffId'), user.staffId)
 
-    // Verify target staff belongs to same org
-    if (resolvedStaffId !== user.staffId) {
-      const targetStaff = await prisma.staff.findFirst({
-        where: { id: resolvedStaffId, organizationId: user.organizationId },
-        select: { id: true },
-      })
-      if (!targetStaff) {
-        return c.json({ error: 'Staff member not found' }, 404)
-      }
+    const targetStaff = await prisma.staff.findFirst({
+      where: { id: resolvedStaffId, organizationId: user.organizationId, isActive: true },
+      select: { id: true },
+    })
+    if (!targetStaff) {
+      return c.json({ error: 'Staff member not found' }, 404)
     }
 
     const { formSlug } = c.req.valid('json')
@@ -197,11 +205,21 @@ staffRoute.patch(
     }
 
     try {
-      const updated = await prisma.staff.update({
-        where: { id: resolvedStaffId },
+      const updateResult = await prisma.staff.updateMany({
+        where: { id: resolvedStaffId, organizationId: user.organizationId, isActive: true },
         data: { formSlug },
+      })
+      if (updateResult.count === 0) {
+        return c.json({ error: 'Staff member not found' }, 404)
+      }
+
+      const updated = await prisma.staff.findFirst({
+        where: { id: resolvedStaffId, organizationId: user.organizationId, isActive: true },
         select: { id: true, formSlug: true },
       })
+      if (!updated) {
+        return c.json({ error: 'Staff member not found' }, 404)
+      }
 
       await logStaffActivity({
         organizationId: user.organizationId,
@@ -289,17 +307,27 @@ staffRoute.patch(
 // PATCH /staff/:staffId/intake-link - Settings-owned staff intake link update
 staffRoute.patch(
   '/:staffId/intake-link',
+  async (c, next) => {
+    const user = c.get('user')
+    if (!user?.organizationId || !user.staffId) {
+      return c.json({ error: 'Staff record not found' }, 404)
+    }
+
+    const targetStaffId = resolveStaffIdParam(c.req.param('staffId'), user.staffId)
+    if (!isOrgAdmin(user) && targetStaffId !== user.staffId) {
+      return c.json({ error: 'Admin access required' }, 403)
+    }
+
+    await next()
+  },
   zValidator('json', updateIntakeLinkSchema),
   async (c) => {
     const user = c.get('user')
     if (!user?.organizationId || !user.staffId) {
       return c.json({ error: 'Staff record not found' }, 404)
     }
-    if (!isAdminOrManager(user)) {
-      return c.json({ error: 'Admin access required' }, 403)
-    }
 
-    const targetStaffId = c.req.param('staffId')
+    const targetStaffId = resolveStaffIdParam(c.req.param('staffId'), user.staffId)
     const data = c.req.valid('json')
 
     const targetStaff = await prisma.staff.findFirst({

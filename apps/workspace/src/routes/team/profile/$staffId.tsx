@@ -33,7 +33,7 @@ function ProfilePage() {
   const { t } = useTranslation()
   const { staffId } = Route.useParams()
   const { focus } = Route.useSearch()
-  const { canManageClients, canManageTeam, staffId: currentUserStaffId } = useOrgRole()
+  const { canManageAnyIntakeLink, canManageTeam, staffId: currentUserStaffId } = useOrgRole()
   const queryClient = useQueryClient()
 
   const {
@@ -195,7 +195,7 @@ function ProfilePage() {
         canEdit={canEdit}
         canChangeRole={canChangeRole}
         canManageTeam={canManageTeam}
-        canManageClients={canManageClients}
+        canManageAnyIntakeLink={canManageAnyIntakeLink}
         isOwnProfile={isOwnProfile}
         canArchive={canArchive}
         isArchived={isArchived}

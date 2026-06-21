@@ -22,7 +22,7 @@ interface StaffProfileTabsProps {
   canEdit: boolean
   canChangeRole: boolean
   canManageTeam: boolean
-  canManageClients: boolean
+  canManageAnyIntakeLink: boolean
   isOwnProfile: boolean
   canArchive: boolean
   isArchived: boolean
@@ -42,7 +42,7 @@ export function StaffProfileTabs({
   canEdit,
   canChangeRole,
   canManageTeam,
-  canManageClients,
+  canManageAnyIntakeLink,
   isOwnProfile,
   canArchive,
   isArchived,
@@ -59,6 +59,7 @@ export function StaffProfileTabs({
   const canShowRoleControl = canChangeRole && !isOwnProfile
   const canShowContractorAgentControl = canManageTeam && !isOwnProfile
   const canAccessStaffFiles = canEdit
+  const canManageProfileIntakeLink = isOwnProfile || canManageAnyIntakeLink
   const activeTabAvailable =
     activeTab === 'overview' ||
     ((activeTab === 'documents' || activeTab === 'invoices') && canAccessStaffFiles)
@@ -115,7 +116,7 @@ export function StaffProfileTabs({
               staffName={staff.name}
               formSlug={staff.formSlug}
               orgSlug={orgSettings?.slug || null}
-              canManageIntakeLinks={canManageClients}
+              canManageIntakeLinks={canManageProfileIntakeLink}
               isOrgSettingsLoading={isOrgSettingsLoading}
             />
             <AssignedClientsList clients={managedClients} totalCount={managedCount} />

@@ -47,7 +47,7 @@ const ITEMS: ItemConfig[] = [
 
 export function NdaSetupRequiredCard({ missing, isRefreshing, hasError, onClose }: Props) {
   const { t } = useTranslation()
-  const { canManageClients } = useOrgRole()
+  const { canManageOrganizationSettings } = useOrgRole()
   const qc = useQueryClient()
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['nda-readiness'] })
@@ -69,7 +69,7 @@ export function NdaSetupRequiredCard({ missing, isRefreshing, hasError, onClose 
       {!hasError && <ul className="space-y-2">
         {ITEMS.map((item) => {
           const isMissing = missing.includes(item.key)
-          const canFix = isMissing && (item.scope === 'staff' || canManageClients)
+          const canFix = isMissing && (item.scope === 'staff' || canManageOrganizationSettings)
 
           return (
             <li

@@ -70,7 +70,7 @@ describe('IntakeLinkTable', () => {
         generalLanguage="EN"
         generalTemplateId={null}
         staffLinks={[staffRow()]}
-        canManageClients
+        canEditStaffLinks
         onEditStaff={() => undefined}
       />
     )
@@ -94,7 +94,7 @@ describe('IntakeLinkTable', () => {
             effectiveDefaultUploadLinkTemplateId: 'tax-documents',
           }),
         ]}
-        canManageClients
+        canEditStaffLinks
         onEditStaff={() => undefined}
       />
     )
@@ -111,7 +111,7 @@ describe('IntakeLinkTable', () => {
         generalLanguage="EN"
         generalTemplateId={null}
         staffLinks={[]}
-        canManageClients
+        canEditStaffLinks
         onEditStaff={() => undefined}
       />
     )
@@ -129,7 +129,7 @@ describe('IntakeLinkTable', () => {
         generalLanguage="EN"
         generalTemplateId="official-channel"
         staffLinks={[]}
-        canManageClients
+        canEditStaffLinks
         onEditStaff={() => undefined}
       />
     )
@@ -148,7 +148,7 @@ describe('IntakeLinkTable', () => {
         generalLanguage="EN"
         generalTemplateId="official-channel"
         staffLinks={[staffRow({ useOrgUploadLinkDefaults: true })]}
-        canManageClients
+        canEditStaffLinks
         onEditStaff={() => undefined}
       />
     )
@@ -166,12 +166,31 @@ describe('IntakeLinkTable', () => {
         generalLanguage="EN"
         generalTemplateId="official-channel"
         staffLinks={[staffRow({ useOrgUploadLinkDefaults: true })]}
-        canManageClients
+        canEditStaffLinks
         onEditStaff={() => undefined}
       />
     )
 
     expect(markup).toContain('md:grid-cols-[1.1fr_1fr_1.5fr_1.2fr_6.5rem]')
     expect(markup).not.toContain('md:grid-cols-[1.1fr_1fr_1.5fr_1.2fr_auto]')
+  })
+
+  it('can hide the general link for personal self-service views', () => {
+    const markup = renderToStaticMarkup(
+      <IntakeLinkTable
+        orgSlug="ella-tax"
+        generalUrlPath="/form/ella-tax"
+        generalAutoSend
+        generalLanguage="EN"
+        generalTemplateId="official-channel"
+        staffLinks={[staffRow({ name: 'Sam Staff' })]}
+        canEditStaffLinks
+        includeGeneralLink={false}
+        onEditStaff={() => undefined}
+      />
+    )
+
+    expect(markup).toContain('Sam Staff')
+    expect(markup).not.toContain('General Intake Link')
   })
 })

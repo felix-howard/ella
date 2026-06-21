@@ -9,13 +9,20 @@ import { useOrgRole } from '../../hooks/use-org-role'
 import { OrgSlugEditor } from './org-slug-editor'
 import { IntakeLinkSettingsModal } from './intake-link-settings-modal'
 import { IntakeLinkTable } from './intake-link-table'
+import { formatUploadSummary } from './intake-link-upload-summary'
 import { UploadLinkMessageSettings } from './upload-link-message-settings'
 
 export function ClientFormLinkCard() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const { canManageClients } = useOrgRole()
+  const {
+    canManageOrganizationSettings,
+    canManageOwnIntakeLink,
+    canManageAnyIntakeLink,
+    staffId,
+  } = useOrgRole()
   const [editingStaff, setEditingStaff] = useState<IntakeLinkStaffRow | null>(null)
+  const canLoadIntakeLinks = canManageAnyIntakeLink || canManageOwnIntakeLink
 
   const orgSettings = useQuery({
     queryKey: ['org-settings'],
@@ -25,7 +32,7 @@ export function ClientFormLinkCard() {
   const intakeLinks = useQuery({
     queryKey: ['org-intake-links'],
     queryFn: () => api.orgSettings.getIntakeLinks(),
-    enabled: canManageClients,
+    enabled: canLoadIntakeLinks,
   })
 
   const updateDefaults = useMutation({
@@ -40,7 +47,9 @@ export function ClientFormLinkCard() {
     },
   })
 
-  if (orgSettings.isLoading || (canManageClients && intakeLinks.isLoading)) {
+  const isLoading = orgSettings.isLoading || (canLoadIntakeLinks && intakeLinks.isLoading)
+
+  if (isLoading) {
     return (
       <Card className="p-6">
         <div className="h-48 rounded bg-muted animate-pulse" />
@@ -56,6 +65,19 @@ export function ClientFormLinkCard() {
     ? settings.defaultUploadLinkTemplateId
     : links?.organization.defaultUploadLinkTemplateId ?? null
   const isUpdatingDefaults = updateDefaults.isPending
+  const allStaffLinks = links?.staffLinks ?? []
+  const visibleStaffLinks = canManageAnyIntakeLink
+    ? allStaffLinks
+    : allStaffLinks.filter((staff) => staff.id === staffId)
+  const defaultsSummary = formatUploadSummary(t, defaultAutoSend, defaultLanguage, defaultTemplateId)
+  const intakeTitleKey = canManageAnyIntakeLink ? 'settings.intakeLinks' : 'settings.yourPersonalIntakeLink'
+  const intakeDescriptionKey = canManageAnyIntakeLink
+    ? 'settings.intakeLinksDescription'
+    : 'settings.yourPersonalIntakeLinkDescription'
+  const missingOrgSlugLabelKey = canManageAnyIntakeLink
+    ? 'settings.noSlugConfigured'
+    : 'settings.organizationUrlSlugMissingAskAdmin'
+  const showUnavailableState = !canLoadIntakeLinks || visibleStaffLinks.length === 0
 
   return (
     <section data-settings-focus="client-intake" className="space-y-4">
@@ -66,7 +88,11 @@ export function ClientFormLinkCard() {
           </div>
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-foreground">{t('settings.clientIntake')}</h2>
-            <p className="text-sm text-muted-foreground">{t('settings.clientIntakeDescription')}</p>
+            <p className="text-sm text-muted-foreground">
+              {canManageOrganizationSettings
+                ? t('settings.clientIntakeDescription')
+                : t('settings.clientIntakePersonalDescription')}
+            </p>
           </div>
         </div>
 
@@ -77,35 +103,45 @@ export function ClientFormLinkCard() {
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-medium text-foreground">{t('settings.defaultUploadMessageSettings')}</h3>
-                <p className="text-xs text-muted-foreground">{t('settings.defaultUploadMessageSettingsDescription')}</p>
+                <p className="text-xs text-muted-foreground">
+                  {canManageOrganizationSettings
+                    ? t('settings.defaultUploadMessageSettingsDescription')
+                    : t('settings.organizationDefaultsManagedByAdmins')}
+                </p>
               </div>
               {isUpdatingDefaults && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
             </div>
-            <UploadLinkMessageSettings
-              autoSend={defaultAutoSend}
-              language={defaultLanguage}
-              templateId={defaultTemplateId}
-              disabled={!canManageClients || isUpdatingDefaults}
-              name="orgDefaultUploadLinkTemplate"
-              onAutoSendChange={(enabled) => updateDefaults.mutate({ autoSendFormClientUploadLink: enabled })}
-              onLanguageChange={(language) => updateDefaults.mutate({ defaultUploadLinkLanguage: language })}
-              onTemplateChange={(templateId) => updateDefaults.mutate({ defaultUploadLinkTemplateId: templateId })}
-              allowDefaultTemplate
-            />
+            {canManageOrganizationSettings ? (
+              <UploadLinkMessageSettings
+                autoSend={defaultAutoSend}
+                language={defaultLanguage}
+                templateId={defaultTemplateId}
+                disabled={isUpdatingDefaults}
+                name="orgDefaultUploadLinkTemplate"
+                onAutoSendChange={(enabled) => updateDefaults.mutate({ autoSendFormClientUploadLink: enabled })}
+                onLanguageChange={(language) => updateDefaults.mutate({ defaultUploadLinkLanguage: language })}
+                onTemplateChange={(templateId) => updateDefaults.mutate({ defaultUploadLinkTemplateId: templateId })}
+                allowDefaultTemplate
+              />
+            ) : (
+              <div className="rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                {defaultsSummary}
+              </div>
+            )}
           </div>
 
           <div className="rounded-xl border border-border bg-card p-4">
             <div className="mb-4">
-              <h3 className="text-sm font-medium text-foreground">{t('settings.intakeLinks')}</h3>
-              <p className="text-xs text-muted-foreground">{t('settings.intakeLinksDescription')}</p>
+              <h3 className="text-sm font-medium text-foreground">{t(intakeTitleKey)}</h3>
+              <p className="text-xs text-muted-foreground">{t(intakeDescriptionKey)}</p>
             </div>
             {intakeLinks.isError ? (
               <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
                 {t('settings.intakeLinksLoadError')}
               </p>
-            ) : !canManageClients ? (
+            ) : showUnavailableState ? (
               <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                {t('settings.intakeLinksPermissionRequired')}
+                {t('settings.personalIntakeLinkUnavailable')}
               </p>
             ) : (
               <IntakeLinkTable
@@ -114,8 +150,10 @@ export function ClientFormLinkCard() {
                 generalAutoSend={defaultAutoSend}
                 generalLanguage={defaultLanguage}
                 generalTemplateId={defaultTemplateId}
-                staffLinks={links?.staffLinks ?? []}
-                canManageClients={canManageClients}
+                staffLinks={visibleStaffLinks}
+                canEditStaffLinks
+                includeGeneralLink={canManageAnyIntakeLink}
+                missingOrgSlugLabelKey={missingOrgSlugLabelKey}
                 onEditStaff={setEditingStaff}
               />
             )}

@@ -56,7 +56,7 @@ describe('GET /org-settings/intake-links', () => {
     vi.clearAllMocks()
   })
 
-  it('returns org, general, staff, and effective intake link settings for managers', async () => {
+  it('returns all active staff intake link settings for admins', async () => {
     vi.mocked(prisma.organization.findUnique).mockResolvedValue({
       id: 'org_1',
       name: 'Ella Tax',
@@ -98,7 +98,7 @@ describe('GET /org-settings/intake-links', () => {
       ],
     } as never)
 
-    const res = await createApp('MANAGER').request('/org-settings/intake-links')
+    const res = await createApp('ADMIN').request('/org-settings/intake-links')
     const body = await res.json()
 
     expect(res.status).toBe(200)
@@ -141,15 +141,64 @@ describe('GET /org-settings/intake-links', () => {
         }),
       ],
     })
+    expect(prisma.organization.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({
+        staff: expect.objectContaining({
+          where: { isActive: true },
+        }),
+      }),
+    }))
     expect(body.staffLinks[0]).not.toHaveProperty('email')
     expect(body.staffLinks[1]).not.toHaveProperty('email')
   })
 
-  it('denies non-manager staff', async () => {
-    const res = await createApp('STAFF').request('/org-settings/intake-links')
+  it.each(['MANAGER', 'STAFF'] as const)('returns only self intake link settings for %s', async (role) => {
+    const staffId = `staff_${role.toLowerCase()}`
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue({
+      id: 'org_1',
+      name: 'Ella Tax',
+      slug: 'ella-tax',
+      autoSendFormClientUploadLink: true,
+      defaultUploadLinkTemplateId: 'tax-documents',
+      defaultUploadLinkLanguage: 'VI',
+      staff: [
+        {
+          id: staffId,
+          name: `${role} User`,
+          role,
+          formSlug: `${role.toLowerCase()}-user`,
+          useOrgUploadLinkDefaults: false,
+          autoSendUploadLink: false,
+          defaultUploadLinkTemplateId: 'official-channel',
+          defaultUploadLinkLanguage: 'EN',
+        },
+      ],
+    } as never)
 
-    expect(res.status).toBe(403)
-    expect(await res.json()).toEqual({ error: 'Admin access required' })
-    expect(prisma.organization.findUnique).not.toHaveBeenCalled()
+    const res = await createApp(role).request('/org-settings/intake-links')
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.staffLinks).toHaveLength(1)
+    expect(body.staffLinks[0]).toEqual(expect.objectContaining({
+      id: staffId,
+      urlPath: `/form/ella-tax/${role.toLowerCase()}-user`,
+      effectiveAutoSendUploadLink: false,
+      effectiveDefaultUploadLinkTemplateId: 'official-channel',
+      effectiveDefaultUploadLinkLanguage: 'EN',
+    }))
+    expect(body.generalLink).toEqual({
+      urlPath: '/form/ella-tax',
+      autoSendUploadLink: true,
+      defaultUploadLinkTemplateId: 'tax-documents',
+      defaultUploadLinkLanguage: 'VI',
+    })
+    expect(prisma.organization.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({
+        staff: expect.objectContaining({
+          where: { isActive: true, id: staffId },
+        }),
+      }),
+    }))
   })
 })

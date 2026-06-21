@@ -107,7 +107,7 @@ function renderTabs({
   canEdit = true,
   isOwnProfile = false,
   canChangeRole = false,
-  canManageClients = canArchive,
+  canManageAnyIntakeLink = canArchive,
   staffOverrides,
   orgSettings,
   isOrgSettingsLoading = false,
@@ -116,7 +116,7 @@ function renderTabs({
   canEdit?: boolean
   isOwnProfile?: boolean
   canChangeRole?: boolean
-  canManageClients?: boolean
+  canManageAnyIntakeLink?: boolean
   staffOverrides?: Partial<ProfileResponse['staff']>
   orgSettings?: OrgSettings
   isOrgSettingsLoading?: boolean
@@ -132,7 +132,7 @@ function renderTabs({
       canEdit={canEdit}
       canChangeRole={canChangeRole}
       canManageTeam={canArchive}
-      canManageClients={canManageClients}
+      canManageAnyIntakeLink={canManageAnyIntakeLink}
       isOwnProfile={isOwnProfile}
       canArchive={canArchive}
       isArchived={false}
@@ -224,10 +224,10 @@ describe('StaffProfileTabs', () => {
     expect(markup).not.toContain('profile.noOrgSlug')
   })
 
-  it('shows the full personal intake link and Settings shortcut for client managers', () => {
+  it('shows the full personal intake link and Settings shortcut for the current user', () => {
     const markup = renderTabs({
       canArchive: false,
-      canManageClients: true,
+      isOwnProfile: true,
       staffOverrides: { formSlug: 'ada-admin-long-staff-slug' },
       orgSettings: { slug: 'ella-tax-services' } as OrgSettings,
     })
@@ -239,12 +239,23 @@ describe('StaffProfileTabs', () => {
     expect(markup).toContain('profile.manageInSettings')
   })
 
-  it('shows setup states without the Settings shortcut for non-managers', () => {
+  it('shows setup states without the Settings shortcut when viewing another staff as non-admin', () => {
     expect(renderTabs({ orgSettings: { slug: 'ella-tax' } as OrgSettings })).toContain('profile.noFormSlug')
 
     const missingOrgMarkup = renderTabs({ staffOverrides: { formSlug: 'ada-admin' } })
     expect(missingOrgMarkup).toContain('profile.noOrgSlug')
     expect(missingOrgMarkup).not.toContain('profile.manageInSettings')
+  })
+
+  it('shows the Settings shortcut when an admin views another staff intake link', () => {
+    const markup = renderTabs({
+      canManageAnyIntakeLink: true,
+      staffOverrides: { formSlug: 'ada-admin' },
+      orgSettings: { slug: 'ella-tax' } as OrgSettings,
+    })
+
+    expect(markup).toContain('/settings?tab=organization&amp;focus=client-intake')
+    expect(markup).toContain('profile.manageInSettings')
   })
 
   it('suppresses admin-only member controls for own profile', () => {

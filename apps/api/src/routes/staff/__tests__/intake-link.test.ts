@@ -57,7 +57,7 @@ describe('PATCH /staff/:staffId/intake-link', () => {
     vi.mocked(prisma.staff.updateMany).mockResolvedValue({ count: 1 } as never)
   })
 
-  it('lets managers update active org staff with a scoped write and audit log', async () => {
+  it('lets admins update another active org staff with a scoped write and audit log', async () => {
     vi.mocked(prisma.staff.findFirst)
       .mockResolvedValueOnce({ id: 'staff_2' } as never)
       .mockResolvedValueOnce(null)
@@ -70,7 +70,7 @@ describe('PATCH /staff/:staffId/intake-link', () => {
         defaultUploadLinkLanguage: 'VI',
       } as never)
 
-    const res = await createApp('MANAGER').request('/staff/staff_2/intake-link', {
+    const res = await createApp('ADMIN').request('/staff/staff_2/intake-link', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -101,7 +101,7 @@ describe('PATCH /staff/:staffId/intake-link', () => {
     }))
     expect(logStaffActivity).toHaveBeenCalledWith(expect.objectContaining({
       organizationId: 'org_1',
-      actorStaffId: 'staff_manager',
+      actorStaffId: 'staff_admin',
       targetId: 'staff_2',
       action: 'settings.staff_updated',
       metadata: expect.objectContaining({
@@ -116,11 +116,65 @@ describe('PATCH /staff/:staffId/intake-link', () => {
     }))
   })
 
-  it('denies non-manager staff', async () => {
-    const res = await createApp('STAFF').request('/staff/staff_2/intake-link', {
+  it.each(['MANAGER', 'STAFF'] as const)('lets %s update own active staff intake link', async (role) => {
+    const staffId = `staff_${role.toLowerCase()}`
+    vi.mocked(prisma.staff.findFirst)
+      .mockResolvedValueOnce({ id: staffId } as never)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: staffId,
+        formSlug: `${role.toLowerCase()}-self`,
+        useOrgUploadLinkDefaults: false,
+        autoSendUploadLink: true,
+        defaultUploadLinkTemplateId: 'tax-documents',
+        defaultUploadLinkLanguage: 'VI',
+      } as never)
+
+    const res = await createApp(role).request(`/staff/${staffId}/intake-link`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ formSlug: 'binh' }),
+      body: JSON.stringify({
+        formSlug: `${role.toLowerCase()}-self`,
+        useOrgUploadLinkDefaults: false,
+        autoSendUploadLink: true,
+        defaultUploadLinkTemplateId: 'tax-documents',
+        defaultUploadLinkLanguage: 'VI',
+      }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      id: staffId,
+      formSlug: `${role.toLowerCase()}-self`,
+      useOrgUploadLinkDefaults: false,
+      autoSendUploadLink: true,
+      defaultUploadLinkTemplateId: 'tax-documents',
+      defaultUploadLinkLanguage: 'VI',
+    })
+    expect(prisma.staff.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: staffId, organizationId: 'org_1', isActive: true },
+      data: expect.objectContaining({
+        formSlug: `${role.toLowerCase()}-self`,
+        useOrgUploadLinkDefaults: false,
+        autoSendUploadLink: true,
+      }),
+    }))
+    expect(logStaffActivity).toHaveBeenCalledWith(expect.objectContaining({
+      organizationId: 'org_1',
+      actorStaffId: staffId,
+      targetId: staffId,
+      action: 'settings.staff_updated',
+      metadata: expect.objectContaining({
+        editedSelf: true,
+      }),
+    }))
+  })
+
+  it.each(['MANAGER', 'STAFF'] as const)('denies %s updates to another staff member before target lookup', async (role) => {
+    const res = await createApp(role).request('/staff/staff_2/intake-link', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ formSlug: 'Invalid Slug' }),
     })
 
     expect(res.status).toBe(403)
@@ -177,19 +231,19 @@ describe('PATCH /staff/:staffId/intake-link', () => {
     expect(logStaffActivity).not.toHaveBeenCalled()
   })
 
-  it('allows managers to clear a custom upload-link template to the backend default message', async () => {
+  it('allows managers to clear their custom upload-link template to the backend default message', async () => {
     vi.mocked(prisma.staff.findFirst)
-      .mockResolvedValueOnce({ id: 'staff_2' } as never)
+      .mockResolvedValueOnce({ id: 'staff_manager' } as never)
       .mockResolvedValueOnce({
-        id: 'staff_2',
-        formSlug: 'binh',
+        id: 'staff_manager',
+        formSlug: 'manager',
         useOrgUploadLinkDefaults: false,
         autoSendUploadLink: true,
         defaultUploadLinkTemplateId: null,
         defaultUploadLinkLanguage: 'EN',
       } as never)
 
-    const res = await createApp('MANAGER').request('/staff/staff_2/intake-link', {
+    const res = await createApp('MANAGER').request('/staff/staff_manager/intake-link', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -200,7 +254,7 @@ describe('PATCH /staff/:staffId/intake-link', () => {
 
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual(expect.objectContaining({
-      id: 'staff_2',
+      id: 'staff_manager',
       defaultUploadLinkTemplateId: null,
     }))
     expect(prisma.staff.updateMany).toHaveBeenCalledWith(expect.objectContaining({
@@ -215,17 +269,49 @@ describe('PATCH /staff/:staffId/intake-link', () => {
 describe('legacy staff intake mutation routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(prisma.staff.updateMany).mockResolvedValue({ count: 1 } as never)
   })
 
-  it('denies non-manager staff updates to the legacy form slug route', async () => {
+  it('allows staff to update their own legacy form slug with an active org-scoped write', async () => {
+    vi.mocked(prisma.staff.findFirst)
+      .mockResolvedValueOnce({ id: 'staff_staff' } as never)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'staff_staff', formSlug: 'staff-self' } as never)
+
     const res = await createApp('STAFF').request('/staff/me/form-slug', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ formSlug: 'staff-self' }),
     })
 
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ id: 'staff_staff', formSlug: 'staff-self' })
+    expect(prisma.staff.updateMany).toHaveBeenCalledWith({
+      where: { id: 'staff_staff', organizationId: 'org_1', isActive: true },
+      data: { formSlug: 'staff-self' },
+    })
+    expect(prisma.staff.update).not.toHaveBeenCalled()
+    expect(logStaffActivity).toHaveBeenCalledWith(expect.objectContaining({
+      actorStaffId: 'staff_staff',
+      targetId: 'staff_staff',
+      metadata: {
+        changedFields: ['formSlug'],
+        editedSelf: true,
+      },
+    }))
+  })
+
+  it('denies manager updates to another staff legacy form slug before target lookup', async () => {
+    const res = await createApp('MANAGER').request('/staff/staff_2/form-slug', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ formSlug: 'Invalid Slug' }),
+    })
+
     expect(res.status).toBe(403)
     expect(await res.json()).toEqual({ error: 'Admin access required' })
+    expect(prisma.staff.findFirst).not.toHaveBeenCalled()
+    expect(prisma.staff.updateMany).not.toHaveBeenCalled()
     expect(prisma.staff.update).not.toHaveBeenCalled()
     expect(logStaffActivity).not.toHaveBeenCalled()
   })

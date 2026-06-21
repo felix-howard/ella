@@ -3,7 +3,7 @@
  * The org slug is used by both Registration Form and Client Intake Form links
  */
 import { useState } from 'react'
-import { AlertTriangle, Loader2, Globe } from 'lucide-react'
+import { AlertTriangle, Loader2, Globe, Lock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button, Input } from '@ella/ui'
@@ -14,7 +14,7 @@ import { useOrgRole } from '../../hooks/use-org-role'
 export function OrgSlugEditor() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const { canManageClients } = useOrgRole()
+  const { canManageOrganizationSettings } = useOrgRole()
   const [isEditing, setIsEditing] = useState(false)
   const [slugValue, setSlugValue] = useState('')
   const [slugError, setSlugError] = useState<string | null>(null)
@@ -23,15 +23,8 @@ export function OrgSlugEditor() {
     queryKey: ['org-settings'],
     queryFn: () => api.orgSettings.get(),
   })
-
-  // Sync slug value when data changes
-  const [prevSlug, setPrevSlug] = useState(data?.slug)
-  if (data?.slug !== prevSlug) {
-    setPrevSlug(data?.slug)
-    if (!isEditing && data?.slug) {
-      setSlugValue(data.slug)
-    }
-  }
+  const currentSlug = data?.slug ?? ''
+  const isReadOnly = !canManageOrganizationSettings
 
   const slugMutation = useMutation({
     mutationFn: (newSlug: string) =>
@@ -69,32 +62,44 @@ export function OrgSlugEditor() {
   }
 
   const handleSave = () => {
+    if (!canManageOrganizationSettings) return
     const trimmed = slugValue.trim().toLowerCase()
     if (!validateSlug(trimmed)) return
     slugMutation.mutate(trimmed)
   }
 
   const handleCancel = () => {
-    setSlugValue(data?.slug || '')
+    setSlugValue(currentSlug)
     setSlugError(null)
     setIsEditing(false)
   }
 
   if (isLoading) return null
+  const showEditor = !isReadOnly && isEditing
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center gap-2.5 mb-3">
-        <Globe className="w-4 h-4 text-primary" />
-        <span className="text-sm font-medium text-foreground">
-          {t('settings.organizationUrlSlug')}
-        </span>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <Globe className="w-4 h-4 text-primary" />
+          <span className="text-sm font-medium text-foreground">
+            {t('settings.organizationUrlSlug')}
+          </span>
+        </div>
+        {isReadOnly && (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+            <Lock className="h-3 w-3" />
+            {t('settings.adminOnly')}
+          </span>
+        )}
       </div>
       <p className="text-xs text-muted-foreground mb-3">
-        {t('settings.organizationUrlSlugDescription')}
+        {!isReadOnly
+          ? t('settings.organizationUrlSlugDescription')
+          : t('settings.organizationUrlSlugAdminOnly')}
       </p>
 
-      {isEditing ? (
+      {showEditor ? (
         <div className="space-y-2">
           <div className="flex gap-2">
             <Input
@@ -140,21 +145,28 @@ export function OrgSlugEditor() {
           )}
         </div>
       ) : (
-        <div className="flex items-center gap-2">
-          <code className="px-2 py-1 bg-muted rounded text-sm">
-            {data?.slug || t('settings.noSlugSet')}
-          </code>
-          {canManageClients && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setSlugValue(data?.slug || '')
-                setIsEditing(true)
-              }}
-            >
-              {data?.slug ? t('common.edit') : t('settings.setSlug')}
-            </Button>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="px-2 py-1 bg-muted rounded text-sm">
+              {currentSlug || t('settings.noSlugSet')}
+            </code>
+            {!isReadOnly && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setSlugValue(currentSlug)
+                  setIsEditing(true)
+                }}
+              >
+                {currentSlug ? t('common.edit') : t('settings.setSlug')}
+              </Button>
+            )}
+          </div>
+          {isReadOnly && !currentSlug && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+              {t('settings.organizationUrlSlugMissingAskAdmin')}
+            </p>
           )}
         </div>
       )}

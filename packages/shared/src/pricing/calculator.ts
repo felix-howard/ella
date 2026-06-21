@@ -1,5 +1,5 @@
 import { PAYROLL, TIER_BASIC, TIER_ENTERPRISE, TIER_PRO } from '../constants'
-import { ONE_TIME_LABELS } from './pricing-defaults'
+import { BUSINESS_TAX_RETURN_PREPAY_LABEL, ONE_TIME_LABELS } from './pricing-defaults'
 export { createDefaultPricingInput } from './pricing-defaults'
 
 export type Tier = 'basic' | 'pro' | 'enterprise'
@@ -66,8 +66,15 @@ export interface PricingCalculatorResult {
   tierLabel: string
   isEnterprise: boolean
   monthlyItems: PricingLineItem[]
+  /** Up-front yearly pre-pay lines, separated for display clarity. */
+  yearlyItems: PricingLineItem[]
+  /** Setup/one-time lines excluding yearly pre-pay display lines. */
+  setupDisplayItems: PricingLineItem[]
   setupItems: PricingLineItem[]
   monthlyTotal: number
+  yearlyTotal: number
+  setupDisplayTotal: number
+  /** Up-front total charged today for setup, one-time, and yearly pre-pay lines. */
   setupTotal: number
   hasAnySelection: boolean
 }
@@ -176,6 +183,10 @@ export function calculatePricing(input: PricingCalculatorInput): PricingCalculat
   }
 
   const monthlyTotal = total(monthly)
+  const yearlyItems = setup.filter(isBusinessTaxReturnPrepayLine)
+  const setupDisplayItems = setup.filter((item) => !isBusinessTaxReturnPrepayLine(item))
+  const yearlyTotal = total(yearlyItems)
+  const setupDisplayTotal = total(setupDisplayItems)
   const setupTotal = total(setup)
 
   return {
@@ -183,11 +194,22 @@ export function calculatePricing(input: PricingCalculatorInput): PricingCalculat
     tierLabel: tierDef.label,
     isEnterprise: tier === 'enterprise',
     monthlyItems: monthly,
+    yearlyItems,
+    setupDisplayItems,
     setupItems: setup,
     monthlyTotal,
+    yearlyTotal,
+    setupDisplayTotal,
     setupTotal,
     hasAnySelection: monthly.length > 1 || setup.length > 1,
   }
+}
+
+export function isBusinessTaxReturnPrepayLine(item: Pick<PricingLineItem, 'label'>): boolean {
+  return (
+    item.label === BUSINESS_TAX_RETURN_PREPAY_LABEL ||
+    item.label.startsWith(`${BUSINESS_TAX_RETURN_PREPAY_LABEL} × `)
+  )
 }
 
 export function isPricingInputSane(input: PricingCalculatorInput): boolean {

@@ -1,7 +1,7 @@
 ---
 /**
- * One-time services pricing section — shown below tier cards on pricing page.
- * Surfaces the fixed-fee items from the calculator (LLC formation, tax returns)
+ * Up-front services pricing section — shown below tier cards on pricing page.
+ * Surfaces fixed-fee and yearly pre-pay items from the calculator
  * as two grouped cards so visitors see up-front costs without touching the calculator.
  */
 import SectionHeading from "@/components/section-heading.astro";
@@ -66,13 +66,13 @@ const groups: ServiceGroup[] = [
 <section
   id="one-time-services"
   class="bg-white pb-16 sm:pb-24"
-  aria-label="One-time services pricing"
+  aria-label="One-time and yearly pre-pay services pricing"
 >
   <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
     <SectionHeading
-      eyebrow="One-time services"
-      title="Fixed-fee add-ons"
-      subtitle="Pay-as-you-go support for tax filings, compliance cleanup, and company structure - no subscription required."
+      eyebrow="Up-front services"
+      title="Fixed-fee and yearly pre-pay add-ons"
+      subtitle="Pay-as-you-go support for yearly tax filings, compliance cleanup, and company structure - no subscription required."
     />
 
     <div class="mt-12 grid gap-6 md:grid-cols-2" data-stagger>

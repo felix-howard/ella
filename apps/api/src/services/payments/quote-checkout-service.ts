@@ -28,6 +28,7 @@ import {
 import { markPaymentQuoteStatus, persistStripeCheckoutSession } from '../stripe/persistence'
 import { rebuildQuoteForCheckout, resolveQuoteCouponOptions } from '../stripe/quote-rebuild'
 import { buildQuotePayUrl } from './quote-send-service'
+import { isBusinessTaxReturnPrepayLine } from '@ella/shared/pricing'
 
 /** Route-friendly error with a stable code; handlers map codes to statuses. */
 export class QuoteCheckoutError extends Error {
@@ -70,7 +71,7 @@ interface QuoteLineView {
   /** Free-form detail (custom links only); absent on calculator lines. */
   description?: string
   amount: number
-  kind: 'monthly' | 'setup'
+  kind: 'monthly' | 'yearly' | 'setup'
 }
 
 interface QuoteDiscountView {
@@ -255,14 +256,19 @@ function isCanceledStatus(status: string): boolean {
   return (CANCELED_STATUSES as readonly string[]).includes(status)
 }
 
-/** Flatten the frozen CheckoutQuote snapshot into ordered monthly→setup lines. */
+/** Flatten the frozen CheckoutQuote snapshot into ordered monthly→yearly→setup display lines. */
 function parseResultSnapshot(snapshot: unknown): QuoteLineView[] {
   if (!snapshot || typeof snapshot !== 'object') return []
   const { monthlyItems, setupItems } = snapshot as {
     monthlyItems?: unknown
     setupItems?: unknown
   }
-  return [...toLineViews(monthlyItems, 'monthly'), ...toLineViews(setupItems, 'setup')]
+  const setupViews = toLineViews(setupItems, 'setup')
+  const yearlyViews = setupViews
+    .filter(isBusinessTaxReturnPrepayLine)
+    .map((item) => ({ ...item, kind: 'yearly' as const }))
+  const oneTimeViews = setupViews.filter((item) => !isBusinessTaxReturnPrepayLine(item))
+  return [...toLineViews(monthlyItems, 'monthly'), ...yearlyViews, ...oneTimeViews]
 }
 
 function toLineViews(items: unknown, kind: 'monthly' | 'setup'): QuoteLineView[] {

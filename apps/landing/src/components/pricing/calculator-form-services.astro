@@ -1,7 +1,7 @@
 ---
 /**
  * Calculator form — Sections B-E (add-on services).
- * Cash Plan, Audit Protection, One-time services, Sales tax monitoring.
+ * Cash Plan, Audit Protection, up-front services, Sales tax monitoring.
  * Inputs expose `data-calc-input` keys matching `CalcInput` (phase 01).
  */
 import {
@@ -23,7 +23,7 @@ import {
 } from "./calculator-form-styles";
 
 /**
- * One-time services form rows. Single-rate rows render one editable rate
+ * Up-front services form rows. Single-rate rows render one editable rate
  * input; the business tax return row is special-cased (`splitRate`) and
  * renders two inputs — Federal + State — both operator-editable.
  */
@@ -174,17 +174,17 @@ const oneTimeRows: OneTimeRow[] = [
   </label>
 </div>
 
-<!-- Section D — One-time services -->
+<!-- Section D — Up-front services -->
 <div class={sectionCls}>
   <label class={switchRowCls}>
-    <span class={headingCls}>One-time services</span>
+    <span class={headingCls}>One-time + yearly pre-pay services</span>
     <span class={switchTrackCls}>
       <input
         type="checkbox"
         name="oneTimeServicesEnabled"
         data-one-time-toggle
         class={switchInputCls}
-        aria-label="Enable one-time services"
+        aria-label="Enable one-time and yearly pre-pay services"
       />
       <span class="block h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-primary-600"></span>
       <span class="pointer-events-none absolute left-1 top-1 block h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-5"></span>

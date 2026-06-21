@@ -1,7 +1,36 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-20 ICT
+> **Last Updated:** 2026-06-21 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-06-21
+
+### Pricing Business Tax Return Yearly Display
+**Status:** Complete
+
+**Fixed:**
+- Business tax return pre-pay now renders under a separate Yearly group in workspace quote summary, landing calculator summary, print-ready quote PDF, and portal quote pay page.
+- Setup and one-time groups now exclude the business tax return display line while due-today and Stripe checkout totals remain unchanged.
+- Public quote view reclassifies existing saved business tax return snapshot lines as yearly for backward-compatible client portal display.
+- Pricing page copy now calls the section one-time + yearly pre-pay where the business tax return row appears.
+
+**Validation:**
+- `pnpm -F @ella/shared test -- calculator.test.ts` pass, 8 tests
+- `pnpm -F @ella/api test -- quote-checkout-service.test.ts` pass, 17 tests
+- `pnpm -F @ella/workspace test -- pricing-calculator.test.tsx` pass, 8 tests
+- `pnpm -F @ella/shared type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/landing type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/shared lint` pass
+- `pnpm -F @ella/api lint` pass with 1 pre-existing Fast Refresh warning
+- `pnpm -F @ella/workspace lint` pass with 10 pre-existing warnings
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/portal lint` pass with 3 pre-existing Fast Refresh warnings
+- `git diff --check` pass
 
 ---
 

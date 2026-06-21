@@ -1,6 +1,6 @@
 /**
  * Itemized quote breakdown for the portal quote pay page. Groups lines into
- * Monthly and Setup/one-time, then shows "Due today" and (when recurring)
+ * Monthly, Yearly, and Setup/one-time, then shows "Due today" and (when recurring)
  * "Then $X/mo". Port of the workspace pricing-summary-panel, portal-styled.
  */
 import { useTranslation } from 'react-i18next'
@@ -16,6 +16,7 @@ interface QuoteBreakdownProps {
 export function QuoteBreakdown({ view, language }: QuoteBreakdownProps) {
   const { t } = useTranslation()
   const monthlyItems = view.lineItems.filter((item) => item.kind === 'monthly')
+  const yearlyItems = view.lineItems.filter((item) => item.kind === 'yearly')
   const setupItems = view.lineItems.filter((item) => item.kind === 'setup')
   const fmt = (value: number) => formatQuoteAmount(value, language)
   // Custom yearly links bill once a year; everything else is monthly cadence.
@@ -41,6 +42,13 @@ export function QuoteBreakdown({ view, language }: QuoteBreakdownProps) {
           <LineGroup
             title={isYearly ? t('quote.yearlyGroup') : t('quote.monthlyGroup')}
             items={monthlyItems}
+            fmt={fmt}
+          />
+        )}
+        {yearlyItems.length > 0 && (
+          <LineGroup
+            title={t('quote.yearlyGroup')}
+            items={yearlyItems}
             fmt={fmt}
           />
         )}

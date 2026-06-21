@@ -9,12 +9,14 @@ import {
 } from '../constants'
 import type { PricingCalculatorInput } from './calculator'
 
+export const BUSINESS_TAX_RETURN_PREPAY_LABEL = 'Business tax return pre-pay (1 tax year)'
+
 export const ONE_TIME_LABELS: Record<keyof PricingCalculatorInput['oneTime'], string> = {
   startLlc: 'Start LLC',
   holdingLlcNew: 'Holding LLC (new)',
   holdingLlcModify: 'Re-structure LLC basic',
   personalTaxReturn: 'Personal tax return',
-  businessTaxReturn: 'Business tax return pre-pay (1 tax year)',
+  businessTaxReturn: BUSINESS_TAX_RETURN_PREPAY_LABEL,
 }
 
 export function createDefaultPricingInput(): PricingCalculatorInput {

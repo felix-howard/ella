@@ -29,7 +29,10 @@ export function formatBreakdown(result: CalcResult): string {
   const monthlyLines = result.monthlyItems
     .map((item) => `  - ${item.label}: ${formatUsd(item.amount)}/mo`)
     .join("\n");
-  const setupLines = result.setupItems
+  const yearlyLines = result.yearlyItems
+    .map((item) => `  - ${item.label}: ${formatUsd(item.amount)} yearly pre-pay`)
+    .join("\n");
+  const setupDisplayLines = result.setupDisplayItems
     .map((item) => `  - ${item.label}: ${formatUsd(item.amount)}`)
     .join("\n");
   return [
@@ -38,7 +41,8 @@ export function formatBreakdown(result: CalcResult): string {
     `Tier: ${result.tierLabel}`,
     `Monthly: ${formatUsd(result.monthlyTotal)}/mo`,
     monthlyLines,
-    `Setup: ${formatUsd(result.setupTotal)}`,
-    setupLines,
+    ...(result.yearlyTotal > 0 ? [`Yearly pre-pay: ${formatUsd(result.yearlyTotal)}`, yearlyLines] : []),
+    `Setup: ${formatUsd(result.setupDisplayTotal)}`,
+    setupDisplayLines,
   ].join("\n");
 }

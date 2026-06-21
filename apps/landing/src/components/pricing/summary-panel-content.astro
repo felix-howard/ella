@@ -69,6 +69,20 @@ import QuotePrintAction from "./quote-print-action.astro";
     </div>
   </section>
 
+  <!-- Yearly pre-pay section -->
+  <section data-calc-state="yearlyGroup" hidden aria-label="Yearly pre-pay cost breakdown">
+    <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
+      Yearly
+    </h4>
+    <ul data-calc-output="yearlyItems" class="mt-2 divide-y divide-gray-100"></ul>
+    <div class="mt-3 flex items-baseline justify-between border-t border-gray-200 pt-3">
+      <span class="text-sm font-medium text-gray-700">Yearly pre-pay total</span>
+      <span class="text-xl font-bold tabular-nums text-gray-900">
+        $<span data-calc-output="yearlyTotal">0</span>
+      </span>
+    </div>
+  </section>
+
   <!-- Setup section -->
   <section aria-label="One-time setup cost breakdown">
     <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">

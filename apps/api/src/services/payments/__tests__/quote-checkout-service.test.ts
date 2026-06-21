@@ -271,6 +271,34 @@ describe('getPublicQuoteView', () => {
     expect(view?.billingInterval).toBe('year')
   })
 
+  it('moves business tax return pre-pay out of setup for public quote display', async () => {
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(
+      quoteRow({
+        resultSnapshot: {
+          monthlyItems: [{ label: 'Basic tier', amount: 75, kind: 'monthly' }],
+          setupItems: [
+            { label: 'Basic bookkeeping setup', amount: 150, kind: 'setup' },
+            { label: 'Business tax return pre-pay (1 tax year)', amount: 900, kind: 'setup' },
+          ],
+          monthlyTotal: 75,
+          setupTotal: 1050,
+        },
+        monthlyTotalCents: 7500,
+        setupTotalCents: 105000,
+      }),
+    )
+
+    const view = await getPublicQuoteView('tok_abcdefghij')
+
+    expect(view?.lineItems).toEqual([
+      { label: 'Basic tier', amount: 75, kind: 'monthly' },
+      { label: 'Business tax return pre-pay (1 tax year)', amount: 900, kind: 'yearly' },
+      { label: 'Basic bookkeeping setup', amount: 150, kind: 'setup' },
+    ])
+    expect(view?.setupTotal).toBe(1050)
+    expect(view?.dueToday).toBe(1125)
+  })
+
   it('reports a null billing interval for a one-time custom quote', async () => {
     prismaMocks.paymentQuote.findUnique.mockResolvedValue(
       quoteRow({

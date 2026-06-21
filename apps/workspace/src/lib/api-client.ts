@@ -1266,6 +1266,7 @@ export const api = {
     registerPresence: () =>
       request<PresenceResponse>('/voice/presence/register', {
         method: 'POST',
+        retries: 0,
       }),
 
     // Unregister presence (called when Device.on('unregistered') fires or tab closes)

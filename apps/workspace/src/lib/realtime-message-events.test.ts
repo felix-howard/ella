@@ -26,10 +26,12 @@ function createSupabaseMock() {
 
 describe('subscribeToRealtimeMessageEvents', () => {
   afterEach(() => {
+    vi.useRealTimers()
     vi.clearAllMocks()
   })
 
   it('shares one channel per org and fans out events to every listener', () => {
+    vi.useFakeTimers()
     const { handlers, supabase } = createSupabaseMock()
     vi.mocked(getSupabaseClient).mockReturnValue(supabase as never)
 
@@ -63,6 +65,43 @@ describe('subscribeToRealtimeMessageEvents', () => {
     expect(supabase.removeChannel).not.toHaveBeenCalled()
 
     cleanupSecond()
+    vi.advanceTimersByTime(1000)
+
+    expect(supabase.removeChannel).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the shared channel alive through quick listener remounts', () => {
+    vi.useFakeTimers()
+    const { handlers, supabase } = createSupabaseMock()
+    vi.mocked(getSupabaseClient).mockReturnValue(supabase as never)
+
+    const firstListener = vi.fn()
+    const secondListener = vi.fn()
+
+    const cleanupFirst = subscribeToRealtimeMessageEvents('org_1', firstListener)
+    cleanupFirst()
+
+    const cleanupSecond = subscribeToRealtimeMessageEvents('org_1', secondListener)
+    vi.advanceTimersByTime(1000)
+
+    expect(supabase.channel).toHaveBeenCalledTimes(1)
+    expect(supabase.removeChannel).not.toHaveBeenCalled()
+
+    const event: MessageEventPayload = {
+      eventType: 'message.created',
+      messageId: 'msg_1',
+      caseId: 'case_1',
+      direction: 'INBOUND',
+      channel: 'SMS',
+      timestamp: '2026-06-20T00:00:00.000Z',
+    }
+    handlers[0]?.({ payload: event })
+
+    expect(firstListener).not.toHaveBeenCalled()
+    expect(secondListener).toHaveBeenCalledWith(event)
+
+    cleanupSecond()
+    vi.advanceTimersByTime(1000)
 
     expect(supabase.removeChannel).toHaveBeenCalledTimes(1)
   })

@@ -12,7 +12,7 @@ import { ChatboxHeader } from './chatbox-header'
 import { MessageThread } from '../messaging/message-thread'
 import { QuickActionsBar } from '../messaging/quick-actions-bar'
 import { ActiveCallModal } from '../messaging/active-call-modal'
-import { useVoiceCall } from '../../hooks/use-voice-call'
+import { useVoiceCallContext } from '../voice'
 import { formatPhone, maskPhone } from '../../lib/formatters'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { useRealtimeMessages } from '../../hooks/use-realtime-messages'
@@ -51,7 +51,7 @@ export function FloatingChatbox({
 
   // Voice call state — only meaningful for case context; keep hook mounted so
   // the call modal can render for both types without violating hook ordering.
-  const [voiceState, voiceActions] = useVoiceCall()
+  const { state: voiceState, actions: voiceActions } = useVoiceCallContext()
   const [showCallModal, setShowCallModal] = useState(false)
 
   const { messages, isLoading: isLoadingMessages } = useChatMessages(context, isOpen)

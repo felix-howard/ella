@@ -8,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useOrganization } from '@clerk/clerk-react'
 import { isSupabaseConfigured } from '../lib/supabase'
 import {
+  logMessageRealtimeDebug,
   subscribeToRealtimeMessageEvents,
   type MessageEventPayload,
   type MessageEventType,
@@ -103,17 +104,65 @@ export function useRealtimeMessages(options: UseRealtimeMessagesOptions = {}) {
   const contextId = context ? (context.type === 'case' ? context.caseId : context.leadId) : undefined
 
   useEffect(() => {
-    if (!enabled || !organization?.id || !isSupabaseConfigured()) {
+    const configured = isSupabaseConfigured()
+    if (!enabled || !organization?.id || !configured) {
+      logMessageRealtimeDebug('hook.skip', {
+        enabled,
+        hasOrganization: Boolean(organization?.id),
+        configured,
+        contextType,
+        contextId,
+        caseId,
+      })
       return
     }
 
+    logMessageRealtimeDebug('hook.subscribe', {
+      organizationId: organization.id,
+      contextType,
+      contextId,
+      caseId,
+    })
+
     return subscribeToRealtimeMessageEvents(organization.id, (data) => {
+      logMessageRealtimeDebug('hook.event.received', {
+        eventType: getMessageEventType(data),
+        eventCaseId: data.caseId,
+        eventLeadId: data.leadId,
+        contextType,
+        contextId,
+        caseId,
+      })
+
       // Apply filters: prefer new `context`; fall back to legacy `caseId`.
       if (context) {
-        if (!matchesContext(context, data)) return
+        if (!matchesContext(context, data)) {
+          logMessageRealtimeDebug('hook.event.filtered', {
+            reason: 'context-mismatch',
+            eventCaseId: data.caseId,
+            eventLeadId: data.leadId,
+            contextType,
+            contextId,
+          })
+          return
+        }
       } else if (caseId && data.caseId !== caseId) {
+        logMessageRealtimeDebug('hook.event.filtered', {
+          reason: 'case-mismatch',
+          eventCaseId: data.caseId,
+          caseId,
+        })
         return
       }
+
+      logMessageRealtimeDebug('hook.event.accepted', {
+        eventType: getMessageEventType(data),
+        eventCaseId: data.caseId,
+        eventLeadId: data.leadId,
+        contextType,
+        contextId,
+        caseId,
+      })
 
       // Invalidate shared caches for server reconciliation.
       queryClient.invalidateQueries({ queryKey: ['conversations'] })

@@ -15,6 +15,7 @@ import {
 import { cn } from '@ella/ui'
 import { useUIStore, useMobileMenu } from '../../stores/ui-store'
 import { api } from '../../lib/api-client'
+import { logMessageRealtimeDebug } from '../../lib/realtime-message-events'
 import { useVoiceCallContext } from '../voice/voice-call-provider'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { useIsMobile } from '../../hooks'
@@ -96,7 +97,11 @@ export function Sidebar() {
   const { data: unreadData } = useQuery({
     queryKey: ['unread-count'],
     queryFn: async () => {
+      logMessageRealtimeDebug('sidebar.unread.fetch.start')
       const response = await api.messages.listConversations({ limit: 1 })
+      logMessageRealtimeDebug('sidebar.unread.fetch.done', {
+        totalUnread: response.totalUnread || 0,
+      })
       return response.totalUnread || 0
     },
     refetchInterval: 60000, // 60s fallback — realtime handles instant updates

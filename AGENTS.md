@@ -45,6 +45,7 @@ When the user runs `$ck:cook @plan.md` or `/ck:cook <plan.md>`:
 - If a phase is too large for one session, split it into smaller sub-phases before coding.
 - On rerun after `/clear`, resume from plan state, not chat memory. Treat `plan.md` and phase file statuses as source of truth.
 - Each phase should include its own validation. The final phase may run full validation, but earlier phases must still run relevant type-checks or targeted tests.
+- Once the final phase is completed, explicitly state: 'There are no more phases remaining, indicating that the task is finished
 
 ## Plan-Only Handoff Rule
 

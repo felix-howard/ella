@@ -1,7 +1,28 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-21 ICT
+> **Last Updated:** 2026-06-22 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-06-22
+
+### Voice Presence Rate-Limit and Auth Storm
+**Status:** Complete
+
+**Fixed:**
+- Frontend voice presence now dedupes repeated Twilio `unregistered` events and no longer sends async `/voice/presence/unregister` during `beforeunload`, preventing unauthenticated unload requests from spamming production logs.
+- Presence register, unregister, and heartbeat now use separate rate-limit buckets, so unregister churn cannot block `/voice/presence/register` and trigger the incoming-call registration toast.
+- Incoming voice routing now treats staff presence as online only when `lastSeen` is fresh within the heartbeat window, preventing stale `isOnline=true` rows from ringing closed/offline browsers indefinitely.
+- Register presence retries once after the rate-limit window when it receives 429, avoiding a stuck unregistered UI state after a transient storm.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/middleware/__tests__/rate-limiter.test.ts src/routes/webhooks/__tests__/twilio-voice-incoming.test.ts src/routes/voice/__tests__/voice-routes.test.ts` pass, 15 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api lint` pass with 1 pre-existing Fast Refresh warning
+- `pnpm -F @ella/workspace lint` pass with 10 pre-existing warnings
+- `git diff --check` pass
 
 ---
 

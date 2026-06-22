@@ -43,7 +43,9 @@ vi.mock('../../../lib/inngest', () => ({
 }))
 
 vi.mock('../../../middleware/rate-limiter', () => ({
-  presenceRateLimit: async (_c: unknown, next: () => Promise<void>) => next(),
+  presenceHeartbeatRateLimit: async (_c: unknown, next: () => Promise<void>) => next(),
+  presenceRegisterRateLimit: async (_c: unknown, next: () => Promise<void>) => next(),
+  presenceUnregisterRateLimit: async (_c: unknown, next: () => Promise<void>) => next(),
 }))
 
 vi.mock('../../../services/activity-log', () => ({

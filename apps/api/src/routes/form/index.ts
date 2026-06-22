@@ -258,9 +258,10 @@ formRoute.post(
     const defaultUploadLinkLanguage = shouldUseOrgUploadLinkSettings
       ? org.defaultUploadLinkLanguage
       : staffDefaultUploadLinkLanguage ?? org.defaultUploadLinkLanguage
-    const defaultUploadLinkTemplateMessage = defaultUploadLinkTemplateId
-      ? resolveUploadLinkTemplateMessage(defaultUploadLinkTemplateId, defaultUploadLinkLanguage)
-      : undefined
+    const defaultUploadLinkTemplateMessage = resolveUploadLinkTemplateMessage(
+      defaultUploadLinkTemplateId,
+      defaultUploadLinkLanguage
+    )
 
     // Normalize: prefer the new `businesses[]` array, fall back to legacy flat fields.
     const businesses: BusinessInput[] = normalizeBusinesses(input)

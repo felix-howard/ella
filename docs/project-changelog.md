@@ -7,6 +7,20 @@
 
 ## 2026-06-22
 
+### Intake Upload-Link Backend Default Template
+**Status:** Complete
+
+**Fixed:**
+- Public staff intake form auto-send now resolves `Backend default: Official channel` before sending SMS, including inherited org defaults.
+- `defaultUploadLinkTemplateId: null` no longer falls through to legacy/global `MessageTemplate` lookup, preventing old Vietnamese upload-link copy from overriding English org settings.
+- Added regression coverage for staff links inheriting org upload-link language/template while the submitted client form language differs.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/form/__tests__/form-template-selection.test.ts src/routes/staff/__tests__/intake-link.test.ts src/routes/org-settings/__tests__/intake-links.test.ts` pass, 22 tests
+- `pnpm -F @ella/api type-check` pass
+
+---
+
 ### Custom Payment Link Multiline Services
 **Status:** Complete
 

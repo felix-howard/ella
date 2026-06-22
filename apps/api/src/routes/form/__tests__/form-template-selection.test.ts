@@ -99,7 +99,7 @@ beforeEach(() => {
 })
 
 describe('POST /form/:orgSlug/submit upload-link template defaults', () => {
-  it('uses the configured org language for SMS fallback when no template is configured', async () => {
+  it('uses the configured org language for the backend default upload-link template', async () => {
     organizationFindFirstMock.mockResolvedValue({
       id: 'org_1',
       autoSendFormClientUploadLink: true,
@@ -114,16 +114,11 @@ describe('POST /form/:orgSlug/submit upload-link template defaults', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(sendWelcomeMessage).toHaveBeenCalledWith(
-      'case_1',
-      'Tuyet Nguyen',
-      '+14155550101',
-      'https://portal.test/upload/token',
-      2025,
-      'VI',
-      undefined,
-      null
-    )
+    const call = vi.mocked(sendWelcomeMessage).mock.calls[0]
+    expect(call[5]).toBe('VI')
+    expect(call[6]).toContain('kênh liên lạc chính thức')
+    expect(call[6]).toContain('{{portal_link}}')
+    expect(call[7]).toBeNull()
   })
 
   it('uses the org default template for generic form auto-send', async () => {
@@ -201,7 +196,7 @@ describe('POST /form/:orgSlug/submit upload-link template defaults', () => {
     expect(call[7]).toBe('staff_1')
   })
 
-  it('uses the backend default message when custom staff template is unset', async () => {
+  it('uses the backend default official-channel message when custom staff template is unset', async () => {
     organizationFindFirstMock.mockResolvedValue({
       id: 'org_1',
       autoSendFormClientUploadLink: true,
@@ -225,7 +220,7 @@ describe('POST /form/:orgSlug/submit upload-link template defaults', () => {
     expect(res.status).toBe(200)
     const call = vi.mocked(sendWelcomeMessage).mock.calls[0]
     expect(call[5]).toBe('EN')
-    expect(call[6]).toBeUndefined()
+    expect(call[6]).toContain('official communication channel')
     expect(call[7]).toBe('staff_1')
   })
 
@@ -254,6 +249,35 @@ describe('POST /form/:orgSlug/submit upload-link template defaults', () => {
     const call = vi.mocked(sendWelcomeMessage).mock.calls[0]
     expect(call[5]).toBe('VI')
     expect(call[6]).toContain('hồ sơ thuế năm {{tax_year}}')
+    expect(call[7]).toBe('staff_1')
+  })
+
+  it('resolves inherited backend default upload-link template before sending staff intake SMS', async () => {
+    organizationFindFirstMock.mockResolvedValue({
+      id: 'org_1',
+      autoSendFormClientUploadLink: true,
+      defaultUploadLinkTemplateId: null,
+      defaultUploadLinkLanguage: 'EN',
+    })
+    staffFindFirstMock.mockResolvedValue({
+      id: 'staff_1',
+      autoSendUploadLink: false,
+      defaultUploadLinkTemplateId: 'tax-documents',
+      useOrgUploadLinkDefaults: true,
+      defaultUploadLinkLanguage: 'VI',
+    })
+
+    const res = await buildApp().request('/form/ella-tax/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validIndividualBody('staff-a'), language: 'VI' }),
+    })
+
+    expect(res.status).toBe(200)
+    const call = vi.mocked(sendWelcomeMessage).mock.calls[0]
+    expect(call[5]).toBe('EN')
+    expect(call[6]).toContain('official communication channel')
+    expect(call[6]).not.toContain('Vui lòng')
     expect(call[7]).toBe('staff_1')
   })
 })

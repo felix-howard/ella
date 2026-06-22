@@ -95,14 +95,14 @@ describe('deposit pay-link message', () => {
 })
 
 describe('deposit receipt message', () => {
-  it('builds message with client name and amount', () => {
+  it('builds message with client name and omits amount', () => {
     const message = buildDepositReceiptMessage({
       firstName: 'Bao',
       amountFormatted: '$1000.00',
     })
 
     expect(message).toContain('Bao')
-    expect(message).toContain('$1000.00')
+    expect(message).not.toContain('$1000.00')
   })
 
   it('includes initial payment language', () => {
@@ -120,7 +120,7 @@ describe('deposit receipt message', () => {
       amountFormatted: '$250.00',
     })
 
-    expect(message).toBe('Hi Test, we received your $250.00 initial payment. Thank you!')
+    expect(message).toBe('Hi Test, we received your initial payment. Thank you!')
   })
 })
 
@@ -267,14 +267,14 @@ describe('quote pay-link message', () => {
 })
 
 describe('quote receipt message', () => {
-  it('builds message with client name and amount', () => {
+  it('builds message with client name and omits amount', () => {
     const message = buildQuoteReceiptMessage({
       firstName: 'Anna',
       amountFormatted: '$500.00',
     })
 
     expect(message).toContain('Anna')
-    expect(message).toContain('$500.00')
+    expect(message).not.toContain('$500.00')
   })
 
   it('matches exact copy format', () => {
@@ -283,7 +283,7 @@ describe('quote receipt message', () => {
       amountFormatted: '$1000.00',
     })
 
-    expect(message).toBe('Hi Test, we received your $1000.00 payment. Thank you!')
+    expect(message).toBe('Hi Test, we received your payment. Thank you!')
   })
 
   it('differs from deposit receipt copy', () => {

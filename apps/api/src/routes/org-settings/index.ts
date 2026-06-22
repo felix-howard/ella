@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { ActivityRiskLevel, Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { sanitizeTextInput } from '../../lib/validation'
-import { isAdminOrManager } from '../../lib/org-scope'
+import { isOrgAdmin } from '../../lib/org-scope'
 import { clerkClient } from '../../lib/clerk-client'
 import { config } from '../../lib/config'
 import { formatPhoneToE164, isValidPhoneNumber } from '../../services/sms'
@@ -24,6 +24,18 @@ function getTwilioInboundNumber(fallbackPhone: string | null) {
   return config.twilio.phoneNumber || fallbackPhone
 }
 
+async function getDeniedRequestChangedFields(request: Request) {
+  try {
+    const body = await request.clone().json()
+    if (body && typeof body === 'object' && !Array.isArray(body)) {
+      return getChangedFieldNames(body as Record<string, unknown>)
+    }
+  } catch {
+    // Invalid JSON still follows the authorization denial path.
+  }
+  return []
+}
+
 const updateOrgSettingsSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
   registrationHeaderMode: z.enum(['DEFAULT', 'CUSTOM', 'HIDDEN']).optional(),
@@ -33,6 +45,7 @@ const updateOrgSettingsSchema = z.object({
   missedCallTextBack: z.boolean().optional(),
   autoSendFormClientUploadLink: z.boolean().optional(),
   defaultUploadLinkTemplateId: z.enum(UPLOAD_LINK_TEMPLATE_IDS).nullable().optional(),
+  defaultUploadLinkLanguage: z.enum(['VI', 'EN']).optional(),
   slug: z.string().min(2).max(50).regex(/^[a-z0-9-]+$/).optional().nullable(),
   // Firm address + governing law (NDA header)
   address: z.string().max(200).nullable().optional(),
@@ -72,6 +85,7 @@ orgSettingsRoute.get('/', async (c) => {
       missedCallTextBack: true,
       autoSendFormClientUploadLink: true,
       defaultUploadLinkTemplateId: true,
+      defaultUploadLinkLanguage: true,
       slug: true,
       address: true,
       city: true,
@@ -98,6 +112,7 @@ orgSettingsRoute.get('/', async (c) => {
     missedCallTextBack: org.missedCallTextBack,
     autoSendFormClientUploadLink: org.autoSendFormClientUploadLink,
     defaultUploadLinkTemplateId: org.defaultUploadLinkTemplateId,
+    defaultUploadLinkLanguage: org.defaultUploadLinkLanguage,
     slug: org.slug,
     address: org.address,
     city: org.city,
@@ -112,20 +127,99 @@ orgSettingsRoute.get('/', async (c) => {
   })
 })
 
+// GET /org-settings/intake-links - List org and staff intake link settings
+orgSettingsRoute.get('/intake-links', async (c) => {
+  const user = c.get('user')
+  if (!user?.organizationId) {
+    return c.json({ error: 'No organization' }, 403)
+  }
+  const isAdmin = isOrgAdmin(user)
+  const currentStaffId = user.staffId
+  const staffWhere: Prisma.StaffWhereInput = { isActive: true }
+  if (!isAdmin) {
+    if (!currentStaffId) {
+      return c.json({ error: 'Staff record not found' }, 404)
+    }
+    staffWhere.id = currentStaffId
+  }
+
+  const org = await prisma.organization.findUnique({
+    where: { id: user.organizationId },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      autoSendFormClientUploadLink: true,
+      defaultUploadLinkTemplateId: true,
+      defaultUploadLinkLanguage: true,
+      staff: {
+        where: staffWhere,
+        select: {
+          id: true,
+          name: true,
+          role: true,
+          formSlug: true,
+          useOrgUploadLinkDefaults: true,
+          autoSendUploadLink: true,
+          defaultUploadLinkTemplateId: true,
+          defaultUploadLinkLanguage: true,
+        },
+        orderBy: { name: 'asc' },
+      },
+    },
+  })
+
+  if (!org) {
+    return c.json({ error: 'Organization not found' }, 404)
+  }
+
+  const orgDefaults = {
+    autoSendUploadLink: org.autoSendFormClientUploadLink,
+    defaultUploadLinkTemplateId: org.defaultUploadLinkTemplateId,
+    defaultUploadLinkLanguage: org.defaultUploadLinkLanguage,
+  }
+
+  return c.json({
+    organization: {
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      ...orgDefaults,
+    },
+    generalLink: {
+      urlPath: org.slug ? `/form/${org.slug}` : null,
+      ...orgDefaults,
+    },
+    staffLinks: org.staff.map((staff) => {
+      const effectiveSettings = staff.useOrgUploadLinkDefaults
+        ? orgDefaults
+        : {
+            autoSendUploadLink: staff.autoSendUploadLink,
+            defaultUploadLinkTemplateId: staff.defaultUploadLinkTemplateId,
+            defaultUploadLinkLanguage: staff.defaultUploadLinkLanguage ?? org.defaultUploadLinkLanguage,
+          }
+
+      return {
+        ...staff,
+        urlPath: org.slug && staff.formSlug ? `/form/${org.slug}/${staff.formSlug}` : null,
+        effectiveAutoSendUploadLink: effectiveSettings.autoSendUploadLink,
+        effectiveDefaultUploadLinkTemplateId: effectiveSettings.defaultUploadLinkTemplateId,
+        effectiveDefaultUploadLinkLanguage: effectiveSettings.defaultUploadLinkLanguage,
+      }
+    }),
+  })
+})
+
 // PATCH /org-settings - Update org settings (admin only)
 orgSettingsRoute.patch(
   '/',
-  zValidator('json', updateOrgSettingsSchema),
-  async (c) => {
+  async (c, next) => {
     const user = c.get('user')
     if (!user?.organizationId) {
       return c.json({ error: 'No organization' }, 403)
     }
 
-    const data = c.req.valid('json')
-
-    // Only admins/managers can update org settings
-    if (!isAdminOrManager(user)) {
+    if (!isOrgAdmin(user)) {
       if (user.staffId) {
         await logStaffActivity({
           organizationId: user.organizationId,
@@ -139,13 +233,24 @@ orgSettingsRoute.patch(
           metadata: {
             result: 'denied',
             reason: 'non_admin_org_settings_update',
-            changedFields: getChangedFieldNames(data),
+            changedFields: await getDeniedRequestChangedFields(c.req.raw),
           },
           request: getAuditRequestContext(c),
         })
       }
       return c.json({ error: 'Admin access required' }, 403)
     }
+
+    await next()
+  },
+  zValidator('json', updateOrgSettingsSchema),
+  async (c) => {
+    const user = c.get('user')
+    if (!user?.organizationId) {
+      return c.json({ error: 'No organization' }, 403)
+    }
+
+    const data = c.req.valid('json')
 
     const changedFields = getChangedFieldNames(data)
     const registrationHeaderMode = data.registrationHeaderMode
@@ -221,6 +326,7 @@ orgSettingsRoute.patch(
           missedCallTextBack: true,
           autoSendFormClientUploadLink: true,
           defaultUploadLinkTemplateId: true,
+          defaultUploadLinkLanguage: true,
           slug: true,
           clerkOrgId: true,
           address: true,
@@ -285,6 +391,7 @@ orgSettingsRoute.patch(
       missedCallTextBack: updated.missedCallTextBack,
       autoSendFormClientUploadLink: updated.autoSendFormClientUploadLink,
       defaultUploadLinkTemplateId: updated.defaultUploadLinkTemplateId,
+      defaultUploadLinkLanguage: updated.defaultUploadLinkLanguage,
       slug: updated.slug,
       address: updated.address,
       city: updated.city,

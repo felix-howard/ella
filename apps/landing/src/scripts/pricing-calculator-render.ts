@@ -19,9 +19,12 @@ export interface PanelRefs {
   empty: HTMLElement[];
   result: HTMLElement[];
   enterprise: HTMLElement[];
+  yearlyGroup: HTMLElement[];
   monthlyList: HTMLElement[];
+  yearlyList: HTMLElement[];
   setupList: HTMLElement[];
   monthlyTotal: HTMLElement[];
+  yearlyTotal: HTMLElement[];
   setupTotal: HTMLElement[];
   dueToday: HTMLElement[];
   nextMonthTotal: HTMLElement[];
@@ -43,9 +46,12 @@ export function resolveRefs(panel: HTMLElement): PanelRefs | null {
     empty: qa(panel, '[data-calc-state="empty"]'),
     result: qa(panel, '[data-calc-state="result"]'),
     enterprise: qa(panel, '[data-calc-state="enterprise"]'),
+    yearlyGroup: qa(panel, '[data-calc-state="yearlyGroup"]'),
     monthlyList: qa(panel, '[data-calc-output="monthlyItems"]'),
+    yearlyList: qa(panel, '[data-calc-output="yearlyItems"]'),
     setupList: qa(panel, '[data-calc-output="setupItems"]'),
     monthlyTotal: qa(panel, '[data-calc-output="monthlyTotal"]'),
+    yearlyTotal: qa(panel, '[data-calc-output="yearlyTotal"]'),
     setupTotal: qa(panel, '[data-calc-output="setupTotal"]'),
     dueToday: qa(panel, '[data-calc-output="dueToday"]'),
     nextMonthTotal: qa(panel, '[data-calc-output="nextMonthTotal"]'),
@@ -90,6 +96,7 @@ function toggleState(refs: PanelRefs, mode: "empty" | "result" | "enterprise"): 
   setHidden(refs.empty, mode !== "empty");
   setHidden(refs.result, mode !== "result");
   setHidden(refs.enterprise, mode !== "enterprise");
+  setHidden(refs.yearlyGroup, true);
   setHidden(refs.tierBadge, mode !== "result");
 }
 
@@ -105,10 +112,13 @@ export function renderResult(refs: PanelRefs, result: CalcResult): void {
   toggleState(refs, "result");
   setText(refs.tierLabel, result.tierLabel);
   for (const list of refs.monthlyList) populateList(list, refs.template, result.monthlyItems);
-  for (const list of refs.setupList) populateList(list, refs.template, result.setupItems);
+  for (const list of refs.yearlyList) populateList(list, refs.template, result.yearlyItems);
+  for (const list of refs.setupList) populateList(list, refs.template, result.setupDisplayItems);
+  setHidden(refs.yearlyGroup, result.yearlyItems.length === 0);
   // Totals use formatNumber (no "$"): summary-panel.astro renders a literal "$" outside the span.
   setText(refs.monthlyTotal, formatNumber(result.monthlyTotal));
-  setText(refs.setupTotal, formatNumber(result.setupTotal));
+  setText(refs.yearlyTotal, formatNumber(result.yearlyTotal));
+  setText(refs.setupTotal, formatNumber(result.setupDisplayTotal));
   setText(refs.dueToday, formatNumber(result.monthlyTotal + result.setupTotal));
   setText(refs.nextMonthTotal, formatNumber(result.monthlyTotal));
 }

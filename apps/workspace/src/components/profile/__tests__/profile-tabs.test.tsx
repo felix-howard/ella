@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
+import type { ReactNode } from 'react'
+import type * as ReactI18next from 'react-i18next'
 import { describe, expect, it, vi } from 'vitest'
-import type { ProfileResponse, StaffFileListItem } from '../../../lib/api-client'
+import type { OrgSettings, ProfileResponse, StaffFileListItem } from '../../../lib/api-client'
 import { StaffInvoiceMonthList } from '../staff-invoice-month-list'
 import { StaffProfileTabs } from '../staff-profile-tabs'
 
@@ -8,11 +10,40 @@ const mocks = vi.hoisted(() => ({
   profileFormProps: null as null | Record<string, unknown>,
 }))
 
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, fallback?: string | Record<string, unknown>) =>
-      typeof fallback === 'string' ? fallback : key,
-  }),
+vi.mock('react-i18next', async (importOriginal) => {
+  const actual = await importOriginal<typeof ReactI18next>()
+
+  return {
+    ...actual,
+    useTranslation: () => ({
+      t: (key: string, fallback?: string | Record<string, unknown>) =>
+        typeof fallback === 'string' ? fallback : key,
+    }),
+  }
+})
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    children,
+    search,
+    to,
+    ...props
+  }: {
+    children?: ReactNode
+    search?: Record<string, string>
+    to?: string
+    className?: string
+  }) => {
+    const query = search ? `?${new URLSearchParams(search).toString()}` : ''
+    return <a href={`${to ?? '#'}${query}`} {...props}>{children}</a>
+  },
+}))
+
+vi.mock('../../../stores/toast-store', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
 }))
 
 vi.mock('../profile-form', () => ({
@@ -24,10 +55,6 @@ vi.mock('../profile-form', () => ({
 
 vi.mock('../assigned-clients-list', () => ({
   AssignedClientsList: () => <div>assigned-clients</div>,
-}))
-
-vi.mock('../staff-form-link-card', () => ({
-  StaffFormLinkCard: () => <div>form-link-card</div>,
 }))
 
 vi.mock('../staff-documents-tab', () => ({
@@ -65,6 +92,8 @@ function staff(overrides: Partial<ProfileResponse['staff']> = {}): ProfileRespon
     formSlug: null,
     autoSendUploadLink: false,
     defaultUploadLinkTemplateId: null,
+    useOrgUploadLinkDefaults: true,
+    defaultUploadLinkLanguage: null,
     paymentInfos: [],
     _count: { managedClients: 0 },
     isActive: true,
@@ -78,26 +107,37 @@ function renderTabs({
   canEdit = true,
   isOwnProfile = false,
   canChangeRole = false,
+  canManageAnyIntakeLink = canArchive,
+  staffOverrides,
+  orgSettings,
+  isOrgSettingsLoading = false,
 }: {
   canArchive?: boolean
   canEdit?: boolean
   isOwnProfile?: boolean
   canChangeRole?: boolean
+  canManageAnyIntakeLink?: boolean
+  staffOverrides?: Partial<ProfileResponse['staff']>
+  orgSettings?: OrgSettings
+  isOrgSettingsLoading?: boolean
 } = {}) {
   mocks.profileFormProps = null
 
   return renderToStaticMarkup(
     <StaffProfileTabs
-      staff={staff()}
+      staff={staff(staffOverrides)}
       staffId="staff-1"
       managedClients={[]}
       managedCount={0}
       canEdit={canEdit}
       canChangeRole={canChangeRole}
       canManageTeam={canArchive}
+      canManageAnyIntakeLink={canManageAnyIntakeLink}
       isOwnProfile={isOwnProfile}
       canArchive={canArchive}
       isArchived={false}
+      orgSettings={orgSettings}
+      isOrgSettingsLoading={isOrgSettingsLoading}
       onRoleChange={async () => undefined}
       isRoleChangePending={false}
       onArchive={() => undefined}
@@ -141,7 +181,8 @@ describe('StaffProfileTabs', () => {
     expect(markup).toContain('profile.tabs.overview')
     expect(markup).toContain('profile.tabs.documents')
     expect(markup).toContain('profile.tabs.invoices')
-    expect(markup).toContain('profile.tabs.formLink')
+    expect(markup).not.toContain('profile.tabs.formLink')
+    expect(markup).toContain('profile.personalIntakeLink')
     expect(markup).not.toContain('profile.tabs.admin')
     expect(markup).toContain('team.dangerZone')
     expect(markup).toContain('team.archiveMember')
@@ -172,6 +213,49 @@ describe('StaffProfileTabs', () => {
   it('renders signature setup only for the current user own profile', () => {
     expect(renderTabs({ isOwnProfile: true })).toContain('signature-card')
     expect(renderTabs({ isOwnProfile: false })).not.toContain('signature-card')
+  })
+
+  it('shows a neutral loading state while org settings are still loading', () => {
+    const markup = renderTabs({
+      isOrgSettingsLoading: true,
+    })
+
+    expect(markup).toContain('staff-form-link-loading')
+    expect(markup).not.toContain('profile.noOrgSlug')
+  })
+
+  it('shows the full personal intake link and Settings shortcut for the current user', () => {
+    const markup = renderTabs({
+      canArchive: false,
+      isOwnProfile: true,
+      staffOverrides: { formSlug: 'ada-admin-long-staff-slug' },
+      orgSettings: { slug: 'ella-tax-services' } as OrgSettings,
+    })
+
+    expect(markup).toContain('http://localhost:5173/form/ella-tax-services/ada-admin-long-staff-slug')
+    expect(markup).toContain('break-all')
+    expect(markup).not.toContain('truncate')
+    expect(markup).toContain('/settings?tab=organization&amp;focus=client-intake')
+    expect(markup).toContain('profile.manageInSettings')
+  })
+
+  it('shows setup states without the Settings shortcut when viewing another staff as non-admin', () => {
+    expect(renderTabs({ orgSettings: { slug: 'ella-tax' } as OrgSettings })).toContain('profile.noFormSlug')
+
+    const missingOrgMarkup = renderTabs({ staffOverrides: { formSlug: 'ada-admin' } })
+    expect(missingOrgMarkup).toContain('profile.noOrgSlug')
+    expect(missingOrgMarkup).not.toContain('profile.manageInSettings')
+  })
+
+  it('shows the Settings shortcut when an admin views another staff intake link', () => {
+    const markup = renderTabs({
+      canManageAnyIntakeLink: true,
+      staffOverrides: { formSlug: 'ada-admin' },
+      orgSettings: { slug: 'ella-tax' } as OrgSettings,
+    })
+
+    expect(markup).toContain('/settings?tab=organization&amp;focus=client-intake')
+    expect(markup).toContain('profile.manageInSettings')
   })
 
   it('suppresses admin-only member controls for own profile', () => {

@@ -315,6 +315,24 @@ describe('buildCheckoutSessionParams — generalized line items + coupons', () =
     expect(params.metadata).toMatchObject({ source: 'custom_link', quoteId: 'quote_custom' })
   })
 
+  it('formats multiline product names as comma-separated text for Stripe', () => {
+    const params = buildCheckoutSessionParams(
+      [
+        {
+          label: '  Bookkeeping\n\n - Audit tax \n Paperwork cleanup  ',
+          unitAmountCents: 100000,
+          quantity: 1,
+          interval: 'one_time',
+        },
+      ],
+      { quoteId: 'quote_multiline', metadataSource: 'custom_link' }
+    )
+
+    expect(params.line_items?.[0]?.price_data?.product_data?.name).toBe(
+      'Bookkeeping, Audit tax, Paperwork cleanup'
+    )
+  })
+
   it('uses payment mode when every line is one-time', () => {
     const params = buildCheckoutSessionParams(
       [{ label: 'Single fee', unitAmountCents: 9900, quantity: 1, interval: 'one_time' }],

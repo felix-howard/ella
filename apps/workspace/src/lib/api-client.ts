@@ -1525,6 +1525,8 @@ export const api = {
         formSlug: string | null
         autoSendUploadLink: boolean
         defaultUploadLinkTemplateId: UploadLinkTemplateId | null
+        useOrgUploadLinkDefaults: boolean
+        defaultUploadLinkLanguage: Language | null
       }>('/staff/me'),
 
     listAssignable: () =>
@@ -1536,25 +1538,10 @@ export const api = {
         body: JSON.stringify({ language }),
       }),
 
-    updateFormSlug: (staffId: string, formSlug: string | null) =>
-      request<{ id: string; formSlug: string | null }>(`/staff/${staffId}/form-slug`, {
+    updateIntakeLink: (staffId: string, data: StaffIntakeLinkUpdateInput) =>
+      request<StaffIntakeLinkMutationResponse>(`/staff/${staffId}/intake-link`, {
         method: 'PATCH',
-        body: JSON.stringify({ formSlug }),
-      }),
-
-    updateAutoSendUploadLink: (
-      data: boolean | {
-        autoSendUploadLink?: boolean
-        defaultUploadLinkTemplateId?: UploadLinkTemplateId | null
-      }
-    ) =>
-      request<{
-        id: string
-        autoSendUploadLink: boolean
-        defaultUploadLinkTemplateId: UploadLinkTemplateId | null
-      }>('/staff/me/auto-send-upload-link', {
-        method: 'PATCH',
-        body: JSON.stringify(typeof data === 'boolean' ? { autoSendUploadLink: data } : data),
+        body: JSON.stringify(data),
       }),
 
     getSignature: () =>
@@ -1712,6 +1699,9 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
+
+    getIntakeLinks: () =>
+      request<IntakeLinksResponse>('/org-settings/intake-links'),
   },
 
   // Upload Links - Portal upload link lifecycle per tax case
@@ -3900,6 +3890,8 @@ export interface StaffProfile {
   formSlug: string | null
   autoSendUploadLink: boolean
   defaultUploadLinkTemplateId: UploadLinkTemplateId | null
+  useOrgUploadLinkDefaults: boolean
+  defaultUploadLinkLanguage: Language | null
   paymentInfos: StaffPaymentInfoSummary[]
 }
 
@@ -3912,6 +3904,7 @@ export interface OrgSettings {
   missedCallTextBack: boolean
   autoSendFormClientUploadLink: boolean
   defaultUploadLinkTemplateId: UploadLinkTemplateId | null
+  defaultUploadLinkLanguage: Language
   slug: string | null
   address: string | null
   city: string | null
@@ -3928,6 +3921,47 @@ export interface OrgSettings {
 export type OrgSettingsUpdateInput = Partial<
   Omit<OrgSettings, 'smsLanguage' | 'twilioInboundNumber'> & { smsLanguage?: Language }
 >
+
+export interface StaffIntakeLinkUpdateInput {
+  formSlug?: string | null
+  useOrgUploadLinkDefaults?: boolean
+  autoSendUploadLink?: boolean
+  defaultUploadLinkTemplateId?: UploadLinkTemplateId | null
+  defaultUploadLinkLanguage?: Language | null
+}
+
+export interface StaffIntakeLinkMutationResponse {
+  id: string
+  formSlug: string | null
+  useOrgUploadLinkDefaults: boolean
+  autoSendUploadLink: boolean
+  defaultUploadLinkTemplateId: UploadLinkTemplateId | null
+  defaultUploadLinkLanguage: Language | null
+}
+
+export interface IntakeLinkOrganizationSettings {
+  id: string
+  name: string
+  slug: string | null
+  autoSendUploadLink: boolean
+  defaultUploadLinkTemplateId: UploadLinkTemplateId | null
+  defaultUploadLinkLanguage: Language
+}
+
+export interface IntakeLinkStaffRow extends StaffIntakeLinkMutationResponse {
+  name: string
+  role: StaffAppRole
+  urlPath: string | null
+  effectiveAutoSendUploadLink: boolean
+  effectiveDefaultUploadLinkTemplateId: UploadLinkTemplateId | null
+  effectiveDefaultUploadLinkLanguage: Language
+}
+
+export interface IntakeLinksResponse {
+  organization: IntakeLinkOrganizationSettings
+  generalLink: Omit<IntakeLinkOrganizationSettings, 'id' | 'name' | 'slug'> & { urlPath: string | null }
+  staffLinks: IntakeLinkStaffRow[]
+}
 
 export interface ProfileResponse {
   staff: StaffProfile & { _count: { managedClients: number }; isActive: boolean; deactivatedAt: string | null }

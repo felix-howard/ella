@@ -28,10 +28,7 @@ export const MAX_CUSTOM_ITEMS = 50
 export const MAX_UNIT_AMOUNT_CENTS = 1_000_000_00
 export const MAX_QUANTITY = 1000
 
-/**
- * Parse a dollar string into integer cents. Returns null when blank,
- * non-numeric, negative, or above the per-item cap.
- */
+/** Parse a dollar string into integer cents, or null when invalid/out of bounds. */
 export function dollarsToCents(value: string): number | null {
   const trimmed = value.trim()
   if (!trimmed) return null
@@ -54,7 +51,7 @@ export function parseQuantity(value: string): number | null {
 /** True when a row has a non-empty label, valid amount, and valid quantity. */
 export function isItemValid(item: CustomItemDraft): boolean {
   return (
-    item.label.trim().length > 0 &&
+    normalizeMultilineLabel(item.label).length > 0 &&
     dollarsToCents(item.amount) !== null &&
     parseQuantity(item.quantity) !== null
   )
@@ -111,7 +108,7 @@ export function computeBillingTotals(items: CustomItemDraft[]): CustomBillingTot
 export function draftToApiItem(item: CustomItemDraft): CustomLineItemInput | null {
   const unitAmountCents = dollarsToCents(item.amount)
   const quantity = parseQuantity(item.quantity)
-  const label = item.label.trim()
+  const label = normalizeMultilineLabel(item.label)
   if (unitAmountCents === null || quantity === null || !label) return null
   const description = item.description.trim()
   return {
@@ -196,4 +193,8 @@ export function createEmptyItem(): CustomItemDraft {
 function createItemId(): string {
   itemKeySeq += 1
   return `item-${itemKeySeq}`
+}
+
+function normalizeMultilineLabel(value: string): string {
+  return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).join('\n')
 }

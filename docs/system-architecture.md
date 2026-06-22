@@ -91,13 +91,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Authentication (Clerk + Multi-Tenancy):**
 - `ClerkAuthProvider` - Wraps root, sets JWT token getter
 - `useAutoOrgSelection()` - Auto-selects first org on sign-in
-- `useOrgRole()` - Returns `{ isAdmin, isManager, canManageClients, canViewPhone, canViewTeam, canManageTeam, ...role booleans }` for RBAC (Phase 4)
+- `useOrgRole()` - Returns `{ isAdmin, isManager, canManageClients, canManageOrganizationSettings, canManageOwnIntakeLink, canManageAnyIntakeLink, canManagePayments, canManageAgreements, canViewPhone, canViewTeam, canManageTeam, ...role booleans }` for RBAC and settings/intake-link/NDA UX (Phase 4+)
 - Zero-org fallback: Localized UI (org.noOrg)
 - Sidebar: Displays org name, role badge, conditional Team nav (gated by `canViewTeam`); active non-admin staff can open the Team page in self-mode, but admin-only controls remain hidden
 
 **Frontend Capability Flags (Phase 4 - MANAGER Role UI + Server Phone Masking):**
 - `useOrgRole()` hook in `apps/workspace/src/hooks/use-org-role.ts` provides semantic capability flags; components consume these, never compare role string literals for permissions.
-- **Flags:** (1) `isManager` - user has Staff.role='MANAGER'. (2) `canManageClients` - isAdmin || isManager (mirrors server admin-or-manager gate); enables leads list, pricing-calculator nav, clients CRUD UI. (3) `canViewPhone` - isAdmin only (server masks for others via `serializePhone()`). (4) `canViewTeam` - active org staff only; gates `/team` nav/page access. (5) `canManageTeam` - isAdmin only; gates invite/role-change/deactivate UI.
+- **Flags:** (1) `isManager` - user has Staff.role='MANAGER'. (2) `canManageClients` - isAdmin || isManager (mirrors server admin-or-manager gate); enables leads list, pricing-calculator nav, clients CRUD UI. (3) `canManageOrganizationSettings` - isAdmin only (firm info/NDA setup, org slug, org defaults, missed-call text-back). (4) `canManageOwnIntakeLink` - current staff can edit their own personal intake link. (5) `canManageAnyIntakeLink` - isAdmin only (general intake link + all staff intake-link rows). (6) `canManagePayments` - isAdmin only (payment links, quotes, history). (7) `canManageAgreements` - isAdmin only (agreement tabs, send/manage actions, history). (8) `canViewPhone` - isAdmin only (server masks for others via `serializePhone()`). (9) `canViewTeam` - active org staff only; gates `/team` nav/page access. (10) `canManageTeam` - isAdmin only; gates invite/role-change/deactivate UI.
 - **App-Level Roles (Phase 4):** `AppRole` union type ('ADMIN' | 'MANAGER' | 'MEMBER') used in team invite dialog + profile role select, mirrors `apps/api/src/lib/staff-role-mapping.ts APP_ROLES` for JSON payloads (TeamInvitation.staffRole, team/members/:staffId/role endpoint).
 - **Phone Masking Convention:** `formatPhone()` in `apps/workspace/src/lib/formatters.ts` passes through server-masked values containing '*' unchanged (e.g., `*** *** 1234`). Frontend never re-masks; server is authoritative source via `serializePhone()` middleware.
 - **UI Contract:** Nav items (leads, pricing-calculator, /team) gated by capability flags. `/team` visibility uses `canViewTeam`; Team invite dialog + profile role select offer ADMIN/MANAGER/MEMBER app-level roles for admin mutations. Code never checks org:admin literal; instead uses semantic capability flags.
@@ -253,11 +253,14 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /rental/:token/submit` - Submit form, create version entry
 - Staff routes authenticated, public routes token-authenticated
 
-**Public Client Intake Form (3 - Phase 02):**
-- `GET /form/:orgSlug` - Get intake form metadata (public, no auth). Returns form fields, validation rules, client language preference
-- `GET /form/:orgSlug/:staffSlug` - Get form routed to specific staff member (public). Staff-specific form via formSlug, includes manager assignment
-- `POST /form/:orgSlug/submit` - Submit completed intake form (public). Creates Client record with source=GENERIC_FORM (no staff) or STAFF_FORM (routed to staff), optional file uploads, returns confirmationUrl. autoSendFormClientUploadLink controls SMS notification after submission.
-- Public endpoints unauthenticated; orgSlug + staffSlug route to correct staff member; ClientSource distinguishes generic forms vs staff-routed forms
+**Public Client Intake Form:**
+- `GET /form/:orgSlug` - Get intake form metadata (public, no auth). The general org link is unassigned and creates clients with `source=GENERIC_FORM`.
+- `GET /form/:orgSlug/:staffSlug` - Get a staff-routed intake form. Staff-specific links use `Staff.formSlug` and assign new clients to that staff member with `source=STAFF_FORM`.
+- `POST /form/:orgSlug/submit` - Submit completed intake form (public). Creates Client records, optional related business records, optional file uploads, and returns `confirmationUrl`.
+- `Settings > Organization > Client Intake` is the source of truth for link management. Organization defaults include `autoSendFormClientUploadLink`, `defaultUploadLinkTemplateId`, and `defaultUploadLinkLanguage`; staff links can inherit those defaults through `Staff.useOrgUploadLinkDefaults` or override auto-send/template/language per staff member.
+- Workspace settings split the surface: admins edit org-wide slug/defaults/firm info, while non-admin staff/managers can edit only their own personal intake-link row through the staff route. The Profile page shows `Manage in Settings` only for self or admin viewing another staff member.
+- Upload-link SMS language is explicit `EN` or `VI`. Public form client language no longer controls the upload-link SMS template language after submit.
+- Public endpoints unauthenticated; `orgSlug` + optional `staffSlug` route to the correct organization/staff member, and `ClientSource` distinguishes generic forms from staff-routed forms.
 - Public registration header contract: `Organization.registrationHeaderMode`, `registrationTitle`, and `registrationSubtitle` control `/register/:orgSlug`. `Campaign.formHeaderMode`, `formTitle`, and `formSubtitle` control `/register/:orgSlug/:campaignSlug`. Modes are `DEFAULT`, `CUSTOM`, and `HIDDEN`; campaign `DEFAULT` inherits org behavior. Header values are sanitized plain text, public responses expose title/subtitle only for `CUSTOM`, stale non-custom copy is suppressed, and campaign `formIntroContent` remains separate rich content above the form.
 
 **Lead Management (9 - Phase 02 API Endpoints + Tag-Based Categorization Complete):**
@@ -273,9 +276,11 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `DELETE /leads/:id` - Delete lead (org-scoped, admin/manager required)
 - Rate limiter on public create (5/min), authMiddleware + requireAdminOrManager on all protected endpoints (except team management). Phone normalized to E.164 format. Tags: flexible string array (1-100 chars each), stored with GIN index for fast containment queries. SMS integration via Twilio with optional staff form routing
 
-**Team & Organization (19 - Phase 3 + Phase 02 Profile API + Phase 04 Navigation + Phase 02 Intake Form):**
-- `GET /org-settings` - Get org profile + autoSendFormClientUploadLink toggle (Phase 02 Intake Form)
-- `PATCH /org-settings` - Update org profile + autoSendFormClientUploadLink (admin/manager only, Phase 02 Intake Form)
+**Team & Organization (19 - Phase 3 + Phase 02 Profile API + Phase 04 Navigation + Client Intake):**
+- `GET /org-settings` - Get org profile, org slug, upload-link automation defaults, default upload-link SMS language, and the firm address/governing-law/contact fields used by NDA setup.
+- `PATCH /org-settings` - Update org profile, org slug, `autoSendFormClientUploadLink`, `defaultUploadLinkTemplateId`, `defaultUploadLinkLanguage`, and the NDA firm-info fields (admin only).
+- `GET /org-settings/intake-links` - Admin list of the general org intake link and all active staff personal intake links; non-admins see only their own active staff row with effective upload-link settings.
+- `PATCH /staff/:staffId/intake-link` - Self/admin staff intake-link update; non-admins may edit only their own row, admins may edit any active staff row.
 - `GET /team/members` - Admins list active/archived org staff via `includeArchived`; non-admins get only their own active staff record and must have `staffId` (`400` if missing)
 - `POST /team/invite` - Send Clerk org invitation via Backend API (admin only, webhook syncs results to DB)
 - `PATCH /team/members/:staffId/role` - Update role via Clerk Backend API (admin only, webhook syncs to DB)
@@ -292,8 +297,9 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /team/members/:staffId/files/:fileId/download-url` - Return a 900-second signed download URL after owner/admin authorization.
 - `DELETE /team/members/:staffId/files/:fileId` - Soft-delete a staff file and mark it inactive. Staff cannot delete their own paid invoices.
 - `PATCH /team/members/:staffId/files/:fileId/invoice-status` - Admin-only invoice status mutation with guarded transitions and stale-update conflict handling.
-- `GET /staff/me` - Get current staff details with avatarUrl + formSlug field (Phase 04 navigation + Phase 02 Intake Form)
+- `GET /staff/me` - Get current staff details with avatarUrl, formSlug, and personal intake upload-link preference fields.
 - `PATCH /staff/me/form-slug` - Update personal form slug (self only, Phase 02 Intake Form)
+- `PATCH /staff/:staffId/intake-link` - Admin update for any active staff record; non-admins can update only their own active staff record's `formSlug`, inheritance, auto-send toggle, default template, and explicit language.
 - `GET /client-assignments` - List staff-client mappings
 - `POST /client-assignments` - Create assignment (app-level, not Clerk-synced)
 - `POST /client-assignments/bulk` - Bulk assign (app-level, not Clerk-synced)
@@ -440,8 +446,8 @@ Organization (root entity)
 
 **Permission Model:**
 - **ADMIN:** Full org management: team (invite/role/deactivate), all clients, admin config, billing, leads, cases, campaigns, agreements, 1099-NEC, org settings, activity timeline
-- **MANAGER:** Client/operational mgmt: admin config, clients (create/assign), leads, cases, campaigns, agreements, 1099-NEC, billing checkout, org settings, activity timeline. Can open `/team` in self-mode and use own Team profile; blocked from team management. **Phone Privacy (Phase 3):** Server enforces masking on all workspace-facing responses (clients, leads, messages, engagements, cases, actions, managed-clients)—`serializePhone()` at response layer returns `*** *** {last4}` except for ADMIN. Internal SMS/lead-convert/voice logic uses raw numbers.
-- **STAFF:** View assigned clients only via `ClientManager` links; no admin functions. Can open `/team` in self-mode and use own Team profile. Receives masked phone numbers.
+- **MANAGER:** Client/operational mgmt: admin config, clients (create/assign), leads, cases, campaigns, agreements, 1099-NEC, billing checkout, activity timeline. Can read org settings, but `PATCH /org-settings` stays admin-only; self-service intake-link edits are limited to their own staff record. NDA setup uses the same `canManageOrganizationSettings` gate. Can open `/team` in self-mode and use own Team profile; blocked from team management. **Phone Privacy (Phase 3):** Server enforces masking on all workspace-facing responses (clients, leads, messages, engagements, cases, actions, managed-clients)—`serializePhone()` at response layer returns `*** *** {last4}` except for ADMIN. Internal SMS/lead-convert/voice logic uses raw numbers.
+- **STAFF:** View assigned clients only via `ClientManager` links; no admin functions. Can open `/team` in self-mode and use own Team profile. Can still edit their own personal intake-link row. Receives masked phone numbers.
 - **CPA:** Future role for CPA firm integrations
 
 **Middleware:**
@@ -453,7 +459,7 @@ Organization (root entity)
 - `apps/api/src/lib/__tests__/org-scope.test.ts` - MANAGER org-wide scope filter, STAFF/CPA assigned-only, no-staffId/no-org failsafes
 - `apps/api/src/lib/__tests__/phone-privacy.test.ts` - `canViewFullPhone` (ADMIN-only), `maskPhone` null/short/format, `serializePhone` per role
 - `apps/api/src/lib/__tests__/staff-role-mapping.test.ts` + `apps/api/src/services/auth/__tests__/auth.test.ts` - Clerk sync preserve rule: org:member + existing MANAGER stays MANAGER (no downgrade), org:admin→ADMIN, ADMIN demoted via Clerk→STAFF
-- `apps/api/src/routes/__tests__/manager-role-authorization.test.ts` - Route-level matrix through real middleware: MANAGER 200 on /clients (org-wide where clause), /admin, /leads; 403 on /team mutations; raw response-body scan proves no unmasked phone for MANAGER/STAFF, full phone for ADMIN
+- `apps/api/src/routes/__tests__/manager-role-authorization.test.ts` - Route-level matrix through real middleware: MANAGER 200 on /clients (org-wide where clause), /admin, /leads; 403 on /team mutations and org-settings PATCH; raw response-body scan proves no unmasked phone for MANAGER/STAFF, full phone for ADMIN
 
 **Audit Logging:**
 - AuditLog tracks: entity type, id, field, old/new values, changedBy, timestamp
@@ -1325,7 +1331,7 @@ Frontend Hook (useOrgRole)
     ↓
     avatarUrl: Signed download URL from R2 or null
   ↓
-  Hook returns: { orgRole, isAdmin, isLoading, staffId, avatarUrl }
+  Hook returns: { orgRole, isAdmin, isManager, capability flags, isLoading, staffId, avatarUrl }
   ↓
   Sidebar renders: avatar (img or initials) + name + org
 ```
@@ -1338,7 +1344,7 @@ Frontend Hook (useOrgRole)
      id: string                    // Staff UUID
      name: string                  // Display name
      email: string                 // Clerk email
-     role: string                  // 'ADMIN' | 'STAFF'
+     role: string                  // 'ADMIN' | 'MANAGER' | 'STAFF' | 'CPA'
      language: Language            // 'EN' | 'VI'
      orgRole: string | null        // 'org:admin' | 'org:member' | null
      avatarUrl: string | null      // NEW: R2 signed URL or null
@@ -1350,6 +1356,16 @@ Frontend Hook (useOrgRole)
    {
      orgRole: OrgRole | null
      isAdmin: boolean
+     isManager: boolean
+     canManageClients: boolean
+     canManageOrganizationSettings: boolean
+     canManageOwnIntakeLink: boolean
+     canManageAnyIntakeLink: boolean
+     canManagePayments: boolean
+     canManageAgreements: boolean
+     canViewPhone: boolean
+     canViewTeam: boolean
+     canManageTeam: boolean
      isLoading: boolean
      staffId: string | null
      avatarUrl: string | null      // NEW
@@ -1383,6 +1399,7 @@ Frontend Hook (useOrgRole)
 **Access Control:**
 - Current user (me): Always allowed via useOrgRole
 - Team page: Active non-admin staff can open the self-mode view; admin-only controls stay hidden and member-table actions remain admin-only
+- Intake-link settings shortcut: own profile shows `Manage in Settings`; admins viewing another staff profile also see it, but other staff views stay read-only
 - Query scoping: `/staff/me` returns current user only
 
 **Performance Considerations:**

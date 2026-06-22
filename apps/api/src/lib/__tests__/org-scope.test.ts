@@ -21,6 +21,7 @@ import {
   verifyClientAccess,
   verifyBusinessClient,
   isAdminOrManager,
+  isOrgAdmin,
   canSeeAllClients,
 } from '../org-scope'
 import { prisma } from '../db'
@@ -63,6 +64,21 @@ describe('isAdminOrManager / canSeeAllClients', () => {
     expect(canSeeAllClients(makeUser({ role: 'STAFF' }))).toBe(false)
     expect(isAdminOrManager(makeUser({ role: 'CPA' }))).toBe(false)
     expect(canSeeAllClients(makeUser({ role: 'CPA' }))).toBe(false)
+  })
+})
+
+describe('isOrgAdmin', () => {
+  it('true for Clerk org:admin regardless of app role', () => {
+    expect(isOrgAdmin(makeUser({ orgRole: 'org:admin', role: 'STAFF' }))).toBe(true)
+  })
+
+  it('true for app-level ADMIN even when Clerk says org:member', () => {
+    expect(isOrgAdmin(makeUser({ orgRole: 'org:member', role: 'ADMIN' }))).toBe(true)
+  })
+
+  it('false for MANAGER and STAFF', () => {
+    expect(isOrgAdmin(makeUser({ role: 'MANAGER' }))).toBe(false)
+    expect(isOrgAdmin(makeUser({ role: 'STAFF' }))).toBe(false)
   })
 })
 

@@ -198,7 +198,7 @@ describe('workspace pricing calculator', () => {
       <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
     )
 
-    expect(disabledMarkup).toContain('Enable One-time services')
+    expect(disabledMarkup).toContain('Enable one-time + yearly pre-pay services')
     expect(disabledMarkup).not.toContain('Start LLC')
     expect(disabledMarkup).not.toContain('Business tax return pre-pay (1 tax year)')
     expect(disabledMarkup).not.toContain('aria-label="Federal rate"')

@@ -136,5 +136,14 @@ export const standardRateLimit = rateLimiter({ keyPrefix: 'std', maxRequests: 60
 /** Strict rate limit for sensitive operations: 10 requests/minute */
 export const strictRateLimit = rateLimiter({ keyPrefix: 'strict', maxRequests: 10 })
 
-/** Presence endpoint rate limit: 30 requests/minute (account for heartbeats) */
+/** Legacy presence endpoint rate limit. Prefer endpoint-specific presence limiters below. */
 export const presenceRateLimit = rateLimiter({ keyPrefix: 'presence', maxRequests: 30 })
+
+/** Presence register limit: isolated so unregister storms cannot block call readiness. */
+export const presenceRegisterRateLimit = rateLimiter({ keyPrefix: 'presence:register', maxRequests: 30 })
+
+/** Presence unregister limit: isolated from register/heartbeat availability. */
+export const presenceUnregisterRateLimit = rateLimiter({ keyPrefix: 'presence:unregister', maxRequests: 30 })
+
+/** Presence heartbeat limit: isolated from lifecycle churn. */
+export const presenceHeartbeatRateLimit = rateLimiter({ keyPrefix: 'presence:heartbeat', maxRequests: 30 })

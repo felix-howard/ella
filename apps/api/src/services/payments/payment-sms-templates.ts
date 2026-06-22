@@ -45,7 +45,7 @@ export function buildDepositReceiptMessage(params: {
   firstName: string
   amountFormatted: string
 }): string {
-  return `Hi ${params.firstName}, we received your ${params.amountFormatted} initial payment. Thank you!`
+  return `Hi ${params.firstName}, we received your initial payment. Thank you!`
 }
 
 /** Admin SMS: a client signed an agreement (deposit line only when one applies). */
@@ -87,7 +87,7 @@ export function buildQuoteReceiptMessage(params: {
   firstName: string
   amountFormatted: string
 }): string {
-  return `Hi ${params.firstName}, we received your ${params.amountFormatted} payment. Thank you!`
+  return `Hi ${params.firstName}, we received your payment. Thank you!`
 }
 
 /** Admin SMS: a client paid a sent quote (first payment). */

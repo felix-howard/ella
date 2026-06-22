@@ -213,7 +213,12 @@ formRoute.post(
     // 1. Find org
     const org = await prisma.organization.findFirst({
       where: { slug: orgSlug, isActive: true },
-      select: { id: true, autoSendFormClientUploadLink: true, defaultUploadLinkTemplateId: true },
+      select: {
+        id: true,
+        autoSendFormClientUploadLink: true,
+        defaultUploadLinkTemplateId: true,
+        defaultUploadLinkLanguage: true,
+      },
     })
     if (!org) return c.json({ error: 'Organization not found' }, 404)
 
@@ -221,22 +226,40 @@ formRoute.post(
     let staffId: string | null = null
     let staffAutoSend: boolean | null = null
     let staffDefaultUploadLinkTemplateId: string | null = null
+    let staffUseOrgUploadLinkDefaults = true
+    let staffDefaultUploadLinkLanguage: 'VI' | 'EN' | null = null
     if (input.staffSlug) {
       const staff = await prisma.staff.findFirst({
         where: { organizationId: org.id, formSlug: input.staffSlug, isActive: true },
-        select: { id: true, autoSendUploadLink: true, defaultUploadLinkTemplateId: true },
+        select: {
+          id: true,
+          autoSendUploadLink: true,
+          defaultUploadLinkTemplateId: true,
+          useOrgUploadLinkDefaults: true,
+          defaultUploadLinkLanguage: true,
+        },
       })
       if (!staff) return c.json({ error: 'Staff member not found' }, 404)
       staffId = staff.id
       staffAutoSend = staff.autoSendUploadLink
       staffDefaultUploadLinkTemplateId = staff.defaultUploadLinkTemplateId
+      staffUseOrgUploadLinkDefaults = staff.useOrgUploadLinkDefaults
+      staffDefaultUploadLinkLanguage = staff.defaultUploadLinkLanguage
     }
 
     const source: ClientSource = staffId ? 'STAFF_FORM' : 'GENERIC_FORM'
-    const shouldAutoSend = staffAutoSend !== null ? staffAutoSend : org.autoSendFormClientUploadLink
-    const defaultUploadLinkTemplateId = staffDefaultUploadLinkTemplateId ?? org.defaultUploadLinkTemplateId
+    const shouldUseOrgUploadLinkSettings = staffId === null || staffUseOrgUploadLinkDefaults
+    const shouldAutoSend = shouldUseOrgUploadLinkSettings
+      ? org.autoSendFormClientUploadLink
+      : staffAutoSend ?? false
+    const defaultUploadLinkTemplateId = shouldUseOrgUploadLinkSettings
+      ? org.defaultUploadLinkTemplateId
+      : staffDefaultUploadLinkTemplateId
+    const defaultUploadLinkLanguage = shouldUseOrgUploadLinkSettings
+      ? org.defaultUploadLinkLanguage
+      : staffDefaultUploadLinkLanguage ?? org.defaultUploadLinkLanguage
     const defaultUploadLinkTemplateMessage = defaultUploadLinkTemplateId
-      ? resolveUploadLinkTemplateMessage(defaultUploadLinkTemplateId, input.language as 'VI' | 'EN')
+      ? resolveUploadLinkTemplateMessage(defaultUploadLinkTemplateId, defaultUploadLinkLanguage)
       : undefined
 
     // Normalize: prefer the new `businesses[]` array, fall back to legacy flat fields.
@@ -283,7 +306,7 @@ formRoute.post(
           fullName,
           input.phone!,
           input.taxYear,
-          input.language,
+          defaultUploadLinkLanguage,
           staffId,
           undefined,
           defaultUploadLinkTemplateMessage
@@ -378,7 +401,7 @@ formRoute.post(
         fullName,
         input.phone!,
         input.taxYear,
-        input.language,
+        defaultUploadLinkLanguage,
         staffId,
         result.group.id,
         defaultUploadLinkTemplateMessage

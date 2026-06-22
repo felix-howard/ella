@@ -9,7 +9,7 @@
 
 ## Overview
 - Priority: high
-- Status: pending
+- Status: complete
 - Description: update tests and locale keys for centralized Client Intake behavior.
 
 ## Key Insights
@@ -72,13 +72,13 @@
 7. Remove or leave unused old keys only after checking references with `rg`.
 
 ## Todo List
-- [ ] API fixtures updated
-- [ ] Form submit language tests added
-- [ ] Staff intake-link endpoint tests added
-- [ ] Profile tabs tests updated
-- [ ] Settings UI tests added or documented as not practical
-- [ ] Locale keys updated in EN and VI
-- [ ] Unused key references checked
+- [x] API fixtures updated
+- [x] Form submit language tests added
+- [x] Staff intake-link endpoint tests added
+- [x] Profile tabs tests updated
+- [x] Settings UI tests added
+- [x] Locale keys updated in EN and VI
+- [x] Unused key references checked
 
 ## Success Criteria
 - Tests fail if form upload-link SMS falls back to client form language.
@@ -86,10 +86,13 @@
 - Locale files stay valid and matching.
 
 ## Validation Methods
-- `pnpm -F @ella/api test -- src/routes/form/__tests__/form-template-selection.test.ts`
-- `pnpm -F @ella/api test -- src/routes/team/__tests__/team-routes.test.ts`
-- `pnpm -F @ella/workspace test -- src/components/profile/__tests__/profile-tabs.test.tsx`
-- Run any new focused settings tests.
+- `pnpm -F @ella/api test -- src/routes/form/__tests__/form-template-selection.test.ts src/routes/staff/__tests__/intake-link.test.ts src/routes/org-settings/__tests__/intake-links.test.ts src/routes/team/__tests__/team-routes.test.ts` - passed, 43 tests
+- `pnpm -F @ella/workspace test -- src/components/profile/__tests__/profile-tabs.test.tsx src/components/settings/__tests__/upload-link-message-settings.test.tsx src/components/settings/__tests__/client-form-link-card.test.tsx src/components/settings/__tests__/intake-link-table.test.tsx` - passed, 15 tests
+- `pnpm -F @ella/api type-check` - passed
+- `pnpm -F @ella/workspace type-check` - passed
+- `pnpm -F @ella/api lint` - passed with 1 existing warning
+- `pnpm -F @ella/workspace lint` - passed with existing warnings
+- Locale parity check - passed, EN/VI both 2968 keys
 
 ## Risk Assessment
 - Frontend tests may rely on translation keys as rendered text. Update expectations carefully.

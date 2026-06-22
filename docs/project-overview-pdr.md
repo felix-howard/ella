@@ -346,7 +346,7 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 - [x] Client management endpoints with manager relations (GET /clients with managedBy/managedByStaff, PATCH /clients/:id)
 - [x] Clerk Backend SDK integration with JWT parsing
 - [x] Org-scoped filtering via buildClientScopeFilter() for all entities
-- [x] Admin vs Staff role-based access control (RBAC)
+- [x] Admin / Manager / Staff role-based access control (RBAC), with org-settings/NDA setup admin-only and staff intake-link self-service
 - [x] Frontend multi-tenancy UI: Team page, org name sidebar, role badges
 - [x] Frontend Phase 3: Client list "Managed By" column, client overview multi-manager editor, team member managed clients
 - [x] useAutoOrgSelection hook for auto-org selection on sign-in
@@ -361,7 +361,7 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 - Team member management (list, invite, role update, deactivate)
 - Client manager assignment via ClientManager links (multiple managers per client), with managedById legacy mirror during rollout
 - Invitation lifecycle (send, revoke, accept)
-- Role-based access control (ADMIN vs STAFF)
+- Role-based access control (ADMIN vs MANAGER vs STAFF)
 - Org-scoped data isolation for all entities (Clients, Cases, Engagements, Messages, Docs, Images, Actions)
 - Audit logging for all changes
 - Permission inheritance from Clerk org roles
@@ -475,7 +475,7 @@ AI_BATCH_CONCURRENCY        // Optional - Batch processing concurrency (default:
 - **Input Validation:** All inputs validated via Zod
 - **SQL Injection Prevention:** Parameterized queries (Prisma enforces)
 - **CSRF Protection:** CSRF tokens for state-changing requests
-- **Permission Enforcement:** Role-based access control (ADMIN vs STAFF), verified per request
+- **Permission Enforcement:** Role-based access control (ADMIN vs MANAGER vs STAFF), verified per request; org-settings/NDA setup are admin-only and staff intake-link edits are scoped to the caller's own row
 
 ### Scalability
 

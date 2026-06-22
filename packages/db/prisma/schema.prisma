@@ -469,6 +469,8 @@ model Staff {
   notifyOnPaymentFailed       Boolean @default(false) // ADMIN-only: SMS when a recurring quote charge fails
   autoSendUploadLink          Boolean @default(false) // Per-staff auto-send upload link on personal form
   defaultUploadLinkTemplateId String? // Default SMS template for personal form auto-send
+  useOrgUploadLinkDefaults    Boolean @default(true) // Personal form inherits org upload-link settings
+  defaultUploadLinkLanguage   Language? // Optional SMS language override for personal form auto-send
 
   // Audit fields
   deactivatedAt DateTime?
@@ -685,6 +687,7 @@ model Organization {
   missedCallTextBack           Boolean  @default(false)
   autoSendFormClientUploadLink Boolean  @default(false)
   defaultUploadLinkTemplateId  String? // Default SMS template for generic form auto-send
+  defaultUploadLinkLanguage    Language @default(EN) // Default SMS language for upload-link automation
 
   // Firm address + governing law (for NDA header)
   address         String? // Street address

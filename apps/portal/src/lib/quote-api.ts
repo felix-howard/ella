@@ -12,7 +12,7 @@ export interface QuoteLineView {
   /** Free-form detail (custom links only); absent on calculator lines. */
   description?: string
   amount: number
-  kind: 'monthly' | 'setup'
+  kind: 'monthly' | 'yearly' | 'setup'
 }
 
 export interface QuoteDiscountView {

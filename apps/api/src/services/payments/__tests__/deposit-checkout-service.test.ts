@@ -273,7 +273,7 @@ describe('markDepositPaymentPaid', () => {
     )
     expect(signerSmsMocks.sendSignerSmsAndPersist).toHaveBeenCalledWith(
       { signerId: 'lead_1', signerKind: 'lead', organizationId: 'org_1', sentById: 'staff_1' },
-      expect.stringContaining('$300.00'),
+      'Hi Anna, we received your initial payment. Thank you!',
       'deposit_receipt',
     )
   })

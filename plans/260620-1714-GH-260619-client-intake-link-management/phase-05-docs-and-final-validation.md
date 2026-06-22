@@ -8,7 +8,7 @@
 
 ## Overview
 - Priority: medium
-- Status: pending
+- Status: complete
 - Description: document the new intake-link management model and run final compile/test checks.
 
 ## Key Insights
@@ -54,15 +54,30 @@
 9. Record validation notes in this phase file and update `plan.md` statuses.
 
 ## Todo List
-- [ ] Changelog updated
-- [ ] Architecture/codebase docs updated if needed
-- [ ] Migration status checked
-- [ ] Targeted API tests passed
-- [ ] Targeted workspace tests passed
-- [ ] Type checks passed
-- [ ] Lint run or skipped with reason
-- [ ] Code review completed
-- [ ] Plan statuses updated
+- [x] Changelog updated
+- [x] Architecture/codebase docs updated if needed
+- [x] Migration status checked
+- [x] Targeted API tests passed
+- [x] Targeted workspace tests passed
+- [x] Type checks passed
+- [x] Lint run or skipped with reason
+- [x] Code review completed
+- [x] Plan statuses updated
+
+## Validation Notes
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status --schema prisma/schema.prisma` - passed, database schema up to date. `migrate dev --name client-intake-link-settings --skip-generate` was blocked by a pre-existing modified applied migration (`20260619104924_add_consent_7216_agreement`) and requested reset; no reset performed. Pending intake-link migration was applied with `prisma migrate deploy`, then status passed.
+- `pnpm -F @ella/api test -- src/routes/form/__tests__/form-template-selection.test.ts src/routes/staff/__tests__/intake-link.test.ts src/routes/org-settings/__tests__/intake-links.test.ts src/routes/team/__tests__/team-routes.test.ts` - passed, 45 tests.
+- `pnpm -F @ella/workspace test -- src/components/profile/__tests__/profile-tabs.test.tsx src/components/settings/__tests__/upload-link-message-settings.test.tsx src/components/settings/__tests__/client-form-link-card.test.tsx src/components/settings/__tests__/intake-link-table.test.tsx` - passed, 15 tests.
+- `pnpm -F @ella/db type-check` - passed.
+- `pnpm -F @ella/api type-check` - passed.
+- `pnpm -F @ella/workspace type-check` - passed.
+- `pnpm -F @ella/portal type-check` - passed.
+- `pnpm i18n:check` - passed, workspace 2968 keys and portal 531 keys.
+- `pnpm lint` - passed with warnings only: existing Fast Refresh warnings in `@ella/ui`, `@ella/api`, `@ella/workspace`, `@ella/portal`, plus existing workspace hook dependency warnings in `form-1099-nec-tab`.
+- `git diff --check` - passed.
+- Code review pass 1 found legacy staff mutation bypass and migration replay-safety concerns; both were fixed before final validation.
+- Post-fix tester subagent confirmed migration status, focused tests, and API/workspace type-checks pass.
+- Post-fix code reviewer confirmed the legacy route authorization and migration replay-safety findings are fixed.
 
 ## Success Criteria
 - Docs match implemented behavior.

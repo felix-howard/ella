@@ -12,7 +12,7 @@
 
 ## Overview
 - Priority: high
-- Status: pending
+- Status: complete
 - Description: replace fragmented form-link settings with one `Client Intake` management section.
 
 ## Key Insights
@@ -104,14 +104,14 @@
 10. Ensure loading, empty, error, and no-org-slug states are clear.
 
 ## Todo List
-- [ ] Settings focus updated
-- [ ] Client Intake section added
-- [ ] Org slug copy relabeled
-- [ ] Default upload message controls added
-- [ ] Intake links table added
-- [ ] Staff link edit drawer/modal added
-- [ ] Copy actions added
-- [ ] Permission gating added
+- [x] Settings focus updated
+- [x] Client Intake section added
+- [x] Org slug copy relabeled
+- [x] Default upload message controls added
+- [x] Intake links table added
+- [x] Staff link edit drawer/modal added
+- [x] Copy actions added
+- [x] Permission gating added
 
 ## Success Criteria
 - A user can manage the general link and all staff links from Settings.
@@ -130,6 +130,7 @@
 
 ## Next Steps
 - Phase 03 removes Team Profile form-link tab and adds the read-only Overview card.
+- Direct Settings UI tests stay planned for Phase 04; this phase is complete after type-check and focused API/component validation.
 
 ## Unresolved Questions
 - None.

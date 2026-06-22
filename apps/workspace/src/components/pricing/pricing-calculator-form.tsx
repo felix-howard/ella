@@ -225,9 +225,9 @@ export function PricingCalculatorForm({
           )}
         </FormSection>
 
-        <FormSection icon={Store} title="One-time services">
+        <FormSection icon={Store} title="One-time + yearly pre-pay services">
           <SwitchRow
-            label="Enable One-time services"
+            label="Enable one-time + yearly pre-pay services"
             checked={oneTimeEnabled}
             onCheckedChange={handleOneTimeToggle}
           />

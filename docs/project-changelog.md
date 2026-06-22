@@ -7,6 +7,23 @@
 
 ## 2026-06-22
 
+### Custom Payment Link Multiline Services
+**Status:** Complete
+
+**Changed:**
+- `Payments > Custom link` item name now accepts multiple lines, so one bundled price can show several included services.
+- Portal quote payment page renders multiline item names as a bullet list while keeping the amount as one line total.
+- Stripe Checkout receives multiline product names as comma-separated single-line text because hosted Checkout normalizes line breaks.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/pricing/custom-link/__tests__/custom-link-money.test.ts` pass, 19 tests
+- `pnpm -F @ella/api test -- src/services/stripe/__tests__/checkout.test.ts` pass, 20 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/api type-check` pass
+
+---
+
 ### Voice Presence Rate-Limit and Auth Storm
 **Status:** Complete
 

@@ -101,7 +101,7 @@ function LineGroup({
             className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 text-[0.9375rem] leading-7"
           >
             <span className="min-w-0">
-              <span className="text-muted-foreground">{item.label}</span>
+              <LineItemLabel label={item.label} />
               {item.description && (
                 <span className="mt-0.5 block text-[0.8125rem] leading-snug text-muted-foreground/70">
                   {item.description}
@@ -113,6 +113,27 @@ function LineGroup({
         ))}
       </ul>
     </div>
+  )
+}
+
+function LineItemLabel({ label }: { label: string }) {
+  const lines = label
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (lines.length <= 1) {
+    return <span className="text-muted-foreground">{label}</span>
+  }
+
+  return (
+    <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+      {lines.map((line, index) => (
+        <li key={`${line}-${index}`} className="leading-6">
+          {line.replace(/^[-*•]\s+/, '')}
+        </li>
+      ))}
+    </ul>
   )
 }
 

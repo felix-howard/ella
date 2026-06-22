@@ -65,7 +65,7 @@ describe('notifyFirstQuotePayment', () => {
     )
     expect(signerSmsMocks.sendSignerSmsAndPersist).toHaveBeenCalledWith(
       { signerId: 'client_1', signerKind: 'client', organizationId: 'org_1', sentById: 'staff_1' },
-      'Hi Tuyet, we received your $899.00 payment. Thank you!',
+      'Hi Tuyet, we received your payment. Thank you!',
       'quote_receipt',
     )
   })
@@ -81,7 +81,7 @@ describe('notifyFirstQuotePayment', () => {
 
     expect(signerSmsMocks.sendSignerSmsAndPersist).toHaveBeenCalledWith(
       { signerId: 'client_1', signerKind: 'client', organizationId: 'org_1', sentById: 'staff_1' },
-      'Hi Tuyet, we received your $899.00 payment. Thank you!',
+      'Hi Tuyet, we received your payment. Thank you!',
       'quote_receipt',
     )
   })

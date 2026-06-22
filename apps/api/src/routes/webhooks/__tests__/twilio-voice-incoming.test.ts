@@ -421,6 +421,9 @@ describe('Twilio voice incoming webhook', () => {
     }))
     expect(prismaMocks.staffPresence.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
+        lastSeen: {
+          gte: expect.any(Date),
+        },
         staff: expect.objectContaining({
           organizationId: 'org_a',
           OR: [
@@ -431,6 +434,8 @@ describe('Twilio voice incoming webhook', () => {
         }),
       }),
     }))
+    const presenceQuery = prismaMocks.staffPresence.findMany.mock.calls[0][0]
+    expect(Date.now() - presenceQuery.where.lastSeen.gte.getTime()).toBeLessThanOrEqual(2 * 60 * 1000 + 1000)
     expect(voiceMocks.createPlaceholderConversation).toHaveBeenCalledWith(
       '+15553334444',
       'org_a',

@@ -608,6 +608,8 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
       formSlug: true,
       autoSendUploadLink: true,
       defaultUploadLinkTemplateId: true,
+      useOrgUploadLinkDefaults: true,
+      defaultUploadLinkLanguage: true,
       isActive: true,
       deactivatedAt: true,
       paymentInfos: {

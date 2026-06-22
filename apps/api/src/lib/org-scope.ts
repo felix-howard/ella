@@ -19,6 +19,14 @@ export function isAdminOrManager(user: AuthUser): boolean {
 }
 
 /**
+ * Organization administrator predicate for settings that MANAGER must not edit.
+ * Clerk org admins and app-level ADMIN staff both count as admins.
+ */
+export function isOrgAdmin(user: AuthUser): boolean {
+  return user.orgRole === 'org:admin' || user.role === 'ADMIN'
+}
+
+/**
  * Whether the user sees ALL org clients (vs. only assigned ones).
  * ADMIN and MANAGER see everything; STAFF/CPA see managed clients only.
  */

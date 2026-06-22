@@ -9,7 +9,11 @@ import { generateVoiceToken, isVoiceConfigured } from '../../services/voice'
 import { prisma } from '../../lib/db'
 import { inngest } from '../../lib/inngest'
 import type { AuthVariables } from '../../middleware/auth'
-import { presenceRateLimit } from '../../middleware/rate-limiter'
+import {
+  presenceHeartbeatRateLimit,
+  presenceRegisterRateLimit,
+  presenceUnregisterRateLimit,
+} from '../../middleware/rate-limiter'
 import { ActivityRiskLevel } from '@ella/db'
 import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
@@ -65,7 +69,7 @@ voiceRoutes.get('/status', async (c) => {
  * POST /voice/presence/register - Register staff as online for incoming calls
  * Called when Device.on('registered') fires in frontend
  */
-voiceRoutes.post('/presence/register', presenceRateLimit, async (c) => {
+voiceRoutes.post('/presence/register', presenceRegisterRateLimit, async (c) => {
   const user = c.get('user')
   if (!user?.staffId) {
     return c.json({ error: 'UNAUTHORIZED' }, 401)
@@ -102,7 +106,7 @@ voiceRoutes.post('/presence/register', presenceRateLimit, async (c) => {
  * POST /voice/presence/unregister - Mark staff as offline
  * Called when Device.on('unregistered') fires or tab closes
  */
-voiceRoutes.post('/presence/unregister', presenceRateLimit, async (c) => {
+voiceRoutes.post('/presence/unregister', presenceUnregisterRateLimit, async (c) => {
   const user = c.get('user')
   if (!user?.staffId) {
     return c.json({ error: 'UNAUTHORIZED' }, 401)
@@ -136,7 +140,7 @@ voiceRoutes.post('/presence/unregister', presenceRateLimit, async (c) => {
  * POST /voice/presence/heartbeat - Keep presence alive (called periodically by frontend)
  * Updates lastSeen timestamp to indicate staff is still online
  */
-voiceRoutes.post('/presence/heartbeat', presenceRateLimit, async (c) => {
+voiceRoutes.post('/presence/heartbeat', presenceHeartbeatRateLimit, async (c) => {
   const user = c.get('user')
   if (!user?.staffId) {
     return c.json({ error: 'UNAUTHORIZED' }, 401)

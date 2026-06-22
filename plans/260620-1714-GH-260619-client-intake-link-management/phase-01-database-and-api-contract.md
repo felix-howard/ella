@@ -12,7 +12,7 @@
 
 ## Overview
 - Priority: high
-- Status: pending
+- Status: complete
 - Description: add explicit upload-link language + staff inheritance support, then expose one API contract for Settings-managed intake links.
 
 ## Key Insights
@@ -87,15 +87,24 @@
 9. Update public form submit to compute effective upload-link SMS config before `trySendWelcomeSms`.
 10. Update workspace API client types and methods.
 
+## Validation
+- Passed: `pnpm -F @ella/db generate`
+- Passed: `pnpm -F @ella/db type-check`
+- Passed: `pnpm -F @ella/api type-check`
+- Passed: `pnpm -F @ella/workspace type-check`
+- Passed: focused API and workspace tests for intake links, activity logging, registration headers, staff slug behavior, and profile tabs.
+- Blocker: `pnpm -F @ella/db migrate --name client-intake-link-settings` stayed blocked by pre-existing modified applied migration `20260619104924_add_consent_7216_agreement`; no reset performed.
+- Note: `pnpm --dir packages/db exec dotenv -e ../../.env -- prisma migrate status --schema prisma/schema.prisma` reports `20260621144500_client_intake_link_settings` pending until migration sync is resolved.
+
 ## Todo List
-- [ ] Prisma fields added
-- [ ] Migration generated
-- [ ] Migration status verified
-- [ ] Org settings API extended
-- [ ] Intake link list API added
-- [ ] Staff intake link update API added
-- [ ] Form submit uses configured language
-- [ ] Workspace API client types updated
+- [x] Prisma fields added
+- [x] Migration generated
+- [x] Migration status verified
+- [x] Org settings API extended
+- [x] Intake link list API added
+- [x] Staff intake link update API added
+- [x] Form submit uses configured language
+- [x] Workspace API client types updated
 
 ## Success Criteria
 - API can list all active intake links for Settings.

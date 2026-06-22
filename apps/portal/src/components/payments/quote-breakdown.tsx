@@ -1,6 +1,6 @@
 /**
  * Itemized quote breakdown for the portal quote pay page. Groups lines into
- * Monthly and Setup/one-time, then shows "Due today" and (when recurring)
+ * Monthly, Yearly, and Setup/one-time, then shows "Due today" and (when recurring)
  * "Then $X/mo". Port of the workspace pricing-summary-panel, portal-styled.
  */
 import { useTranslation } from 'react-i18next'
@@ -16,6 +16,7 @@ interface QuoteBreakdownProps {
 export function QuoteBreakdown({ view, language }: QuoteBreakdownProps) {
   const { t } = useTranslation()
   const monthlyItems = view.lineItems.filter((item) => item.kind === 'monthly')
+  const yearlyItems = view.lineItems.filter((item) => item.kind === 'yearly')
   const setupItems = view.lineItems.filter((item) => item.kind === 'setup')
   const fmt = (value: number) => formatQuoteAmount(value, language)
   // Custom yearly links bill once a year; everything else is monthly cadence.
@@ -41,6 +42,13 @@ export function QuoteBreakdown({ view, language }: QuoteBreakdownProps) {
           <LineGroup
             title={isYearly ? t('quote.yearlyGroup') : t('quote.monthlyGroup')}
             items={monthlyItems}
+            fmt={fmt}
+          />
+        )}
+        {yearlyItems.length > 0 && (
+          <LineGroup
+            title={t('quote.yearlyGroup')}
+            items={yearlyItems}
             fmt={fmt}
           />
         )}
@@ -93,7 +101,7 @@ function LineGroup({
             className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 text-[0.9375rem] leading-7"
           >
             <span className="min-w-0">
-              <span className="text-muted-foreground">{item.label}</span>
+              <LineItemLabel label={item.label} />
               {item.description && (
                 <span className="mt-0.5 block text-[0.8125rem] leading-snug text-muted-foreground/70">
                   {item.description}
@@ -105,6 +113,27 @@ function LineGroup({
         ))}
       </ul>
     </div>
+  )
+}
+
+function LineItemLabel({ label }: { label: string }) {
+  const lines = label
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (lines.length <= 1) {
+    return <span className="text-muted-foreground">{label}</span>
+  }
+
+  return (
+    <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+      {lines.map((line, index) => (
+        <li key={`${line}-${index}`} className="leading-6">
+          {line.replace(/^[-*•]\s+/, '')}
+        </li>
+      ))}
+    </ul>
   )
 }
 

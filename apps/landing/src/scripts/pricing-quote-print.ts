@@ -7,7 +7,7 @@ const TERMS = [
   'This estimate is based on the information entered in the pricing calculator.',
   'Final fees may change after Ella Tax Services reviews entity structure, tax years, states, deadlines, notices, bookkeeping condition, and filing facts.',
   'State filing fees, government fees, penalties, interest, and third-party platform fees are excluded unless listed separately.',
-  'Recurring services are billed monthly. One-time setup and fixed-fee services are due before work begins unless agreed otherwise in writing.',
+  'Recurring services are billed monthly. Yearly pre-pay, one-time setup, and fixed-fee services are due before work begins unless agreed otherwise in writing.',
 ]
 
 function qs<T extends HTMLElement>(selector: string): T | null {
@@ -60,6 +60,11 @@ function renderRows(selector: string, items: LineItem[], cadence: string): void 
   }
 }
 
+function setHidden(selector: string, hidden: boolean): void {
+  const el = qs<HTMLElement>(selector)
+  if (el) el.hidden = hidden
+}
+
 function renderTerms(): void {
   const list = qs<HTMLUListElement>('[data-quote-terms]')
   if (!list) return
@@ -98,13 +103,16 @@ function init(): void {
   setText('[data-quote-date]', formatDate(payload.createdAt))
   setText('[data-quote-tier]', result.tierLabel)
   setText('[data-quote-monthly]', `${formatUsd(result.monthlyTotal)} / month`)
-  setText('[data-quote-setup]', formatUsd(result.setupTotal))
+  setText('[data-quote-yearly]', formatUsd(result.yearlyTotal))
+  setText('[data-quote-setup]', formatUsd(result.setupDisplayTotal))
   setText('[data-quote-due]', formatUsd(dueToday))
   setText('[data-quote-next-month]', `${formatUsd(result.monthlyTotal)} / month`)
   setText('[data-quote-company]', siteConfig.legalName)
   setText('[data-quote-contact]', `${siteConfig.contact.email} | ${siteConfig.contact.phone}`)
   renderRows('[data-quote-monthly-rows]', result.monthlyItems, 'Monthly')
-  renderRows('[data-quote-setup-rows]', result.setupItems, 'One-time')
+  renderRows('[data-quote-yearly-rows]', result.yearlyItems, 'Yearly pre-pay')
+  renderRows('[data-quote-setup-rows]', result.setupDisplayItems, 'One-time')
+  setHidden('[data-quote-yearly-section]', result.yearlyItems.length === 0)
   renderTerms()
   window.setTimeout(() => window.print(), 250)
 }

@@ -126,6 +126,16 @@ describe('draftToApiItem / draftsToApiItems', () => {
     )
   })
 
+  it('normalizes multiline labels for bundled services', () => {
+    expect(
+      draftToApiItem(
+        draft({
+          label: '  Bookkeeping  \n\n  Audit tax \n Paperwork cleanup  ',
+        })
+      )?.label
+    ).toBe('Bookkeeping\nAudit tax\nPaperwork cleanup')
+  })
+
   it('returns null when any row is invalid', () => {
     expect(draftsToApiItems([draft({}), draft({ amount: 'oops' })])).toBeNull()
   })

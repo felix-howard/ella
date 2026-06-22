@@ -1,14 +1,15 @@
 /**
- * Firm Info Card (org-admin only)
+ * Firm Info Card
  * Lets org admins set the firm's mailing address and governing law
  * used to auto-fill NDA headers.
  */
 import { useState } from 'react'
 import { useOrganization } from '@clerk/clerk-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Building2, Edit2, Check } from 'lucide-react'
+import { Loader2, Building2, Edit2, Check, Lock } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button, Input } from '@ella/ui'
-import { api } from '../../lib/api-client'
+import { api, type OrgSettings } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { useInvalidateNdaReadiness } from '../agreements/use-nda-readiness'
@@ -23,10 +24,50 @@ const US_STATES = [
 ]
 
 const QUERY_KEY = ['org-settings']
+const EMPTY_FORM = {
+  name: '',
+  address: '',
+  city: '',
+  state: '',
+  zip: '',
+  governingState: '',
+  governingCounty: '',
+  firmEmail: '',
+  firmWebsite: '',
+}
+
+function createFirmInfoForm(
+  settings?: Pick<
+    OrgSettings,
+    | 'name'
+    | 'address'
+    | 'city'
+    | 'state'
+    | 'zip'
+    | 'governingState'
+    | 'governingCounty'
+    | 'firmEmail'
+    | 'firmWebsite'
+  > | null
+) {
+  return {
+    name: settings?.name ?? '',
+    address: settings?.address ?? '',
+    city: settings?.city ?? '',
+    state: settings?.state ?? '',
+    zip: settings?.zip ?? '',
+    governingState: settings?.governingState ?? '',
+    governingCounty: settings?.governingCounty ?? '',
+    firmEmail: settings?.firmEmail ?? '',
+    firmWebsite: settings?.firmWebsite ?? '',
+  }
+}
 
 export function FirmInfoCard() {
-  const { canManageClients } = useOrgRole()
+  const { t } = useTranslation()
+  const { canManageOrganizationSettings } = useOrgRole()
   const { organization } = useOrganization()
+  const isReadOnly = !canManageOrganizationSettings
 
   const queryClient = useQueryClient()
   const invalidateReadiness = useInvalidateNdaReadiness()
@@ -37,31 +78,12 @@ export function FirmInfoCard() {
     queryFn: () => api.orgSettings.get(),
   })
 
-  const [form, setForm] = useState({
-    name: '',
-    address: '',
-    city: '',
-    state: '',
-    zip: '',
-    governingState: '',
-    governingCounty: '',
-    firmEmail: '',
-    firmWebsite: '',
-  })
+  const [form, setForm] = useState(EMPTY_FORM)
 
   // Sync form from query data when entering edit mode
   const startEditing = () => {
-    setForm({
-      name: data?.name ?? '',
-      address: data?.address ?? '',
-      city: data?.city ?? '',
-      state: data?.state ?? '',
-      zip: data?.zip ?? '',
-      governingState: data?.governingState ?? '',
-      governingCounty: data?.governingCounty ?? '',
-      firmEmail: data?.firmEmail ?? '',
-      firmWebsite: data?.firmWebsite ?? '',
-    })
+    if (isReadOnly) return
+    setForm(createFirmInfoForm(data))
     setIsEditing(true)
   }
 
@@ -82,23 +104,21 @@ export function FirmInfoCard() {
       queryClient.setQueryData(QUERY_KEY, updated)
       organization?.reload().catch(() => undefined)
       invalidateReadiness()
-      toast.success('Firm info updated')
+      toast.success(t('settings.firmInfoUpdated'))
       setIsEditing(false)
     },
     onError: () => {
-      toast.error('Failed to update firm info')
+      toast.error(t('settings.firmInfoUpdateFailed'))
     },
   })
-
-  // Hidden unless admin/manager (org config tier)
-  if (!canManageClients) return null
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
   const save = () => {
+    if (isReadOnly) return
     if (!form.name.trim()) {
-      toast.error('Organization name is required')
+      toast.error(t('settings.organizationNameRequired'))
       return
     }
     mutation.mutate()
@@ -114,11 +134,19 @@ export function FirmInfoCard() {
           <div>
             <h2 className="text-lg font-semibold text-foreground">Firm Information</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Used to auto-fill agreement headers. Visible to org admins only.
+              {!isReadOnly
+                ? t('settings.firmInfoDescription')
+                : t('settings.firmInfoAdminOnlyDescription')}
             </p>
           </div>
         </div>
-        {!isEditing && (
+        {isReadOnly && (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+            <Lock className="h-3 w-3" />
+            {t('settings.adminOnly')}
+          </span>
+        )}
+        {!isReadOnly && !isEditing && (
           <Button variant="outline" size="sm" onClick={startEditing} disabled={isLoading}>
             <Edit2 className="w-4 h-4 mr-2" />
             Edit
@@ -145,7 +173,7 @@ export function FirmInfoCard() {
             </div>
 
             {/* City + State + Zip */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="col-span-1">
                 <label className="block text-sm font-medium text-foreground mb-1.5">City</label>
                 <Input value={form.city} onChange={set('city')} maxLength={100} placeholder="Houston" />
@@ -169,7 +197,7 @@ export function FirmInfoCard() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Twilio Inbound Number</label>
                 <Input
@@ -191,7 +219,7 @@ export function FirmInfoCard() {
             </div>
 
             {/* Governing law */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Governing State</label>
                 <Input value={form.governingState} onChange={set('governingState')} maxLength={50} placeholder="Texas" />
@@ -214,7 +242,7 @@ export function FirmInfoCard() {
           </>
         ) : (
           /* Read-only view */
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
             <div>
               <dt className="text-muted-foreground">Organization Name</dt>
               <dd className="text-foreground mt-0.5">

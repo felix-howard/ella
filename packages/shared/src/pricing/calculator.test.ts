@@ -47,7 +47,7 @@ describe('pricing calculator', () => {
     expect(result.setupTotal).toBe(1400)
   })
 
-  it('adds one-time service totals to setup total', () => {
+  it('separates business tax return pre-pay for yearly display without changing due today', () => {
     const input = createDefaultPricingInput()
     input.oneTime = {
       startLlc: 1,
@@ -61,6 +61,14 @@ describe('pricing calculator', () => {
 
     expect(result.monthlyTotal).toBe(75)
     expect(result.setupTotal).toBe(5000)
+    expect(result.yearlyItems).toEqual([
+      { label: 'Business tax return pre-pay (1 tax year)', amount: 900, kind: 'setup' },
+    ])
+    expect(result.yearlyTotal).toBe(900)
+    expect(result.setupDisplayTotal).toBe(4100)
+    expect(result.setupDisplayItems.map((item) => item.label)).not.toContain(
+      'Business tax return pre-pay (1 tax year)'
+    )
   })
 
   it('flags checkout totals that exceed the shared line amount limit', () => {

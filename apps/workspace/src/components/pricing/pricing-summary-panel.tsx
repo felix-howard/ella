@@ -25,7 +25,7 @@ export function PricingSummaryPanel({ result }: PricingSummaryPanelProps) {
             Quote summary
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Monthly services plus setup and one-time work.
+            Monthly services plus setup, one-time work, and yearly pre-pay.
           </p>
         </div>
         <Badge variant={result.isEnterprise ? 'warning' : 'success'} className="shrink-0">
@@ -41,7 +41,14 @@ export function PricingSummaryPanel({ result }: PricingSummaryPanelProps) {
 
       <div className="mt-6 space-y-6">
         <LineGroup title="Monthly" items={result.monthlyItems} total={result.monthlyTotal} />
-        <LineGroup title="Setup and one-time" items={result.setupItems} total={result.setupTotal} />
+        {result.yearlyItems.length > 0 && (
+          <LineGroup title="Yearly" items={result.yearlyItems} total={result.yearlyTotal} />
+        )}
+        <LineGroup
+          title="Setup and one-time"
+          items={result.setupDisplayItems}
+          total={result.setupDisplayTotal}
+        />
       </div>
 
       <dl className="mt-6 divide-y divide-border rounded-lg border border-border/70">

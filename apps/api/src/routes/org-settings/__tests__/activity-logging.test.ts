@@ -57,18 +57,18 @@ import { orgSettingsRoute } from '../index'
 import { formatPhoneToE164 } from '../../../services/sms'
 import { Prisma } from '@ella/db'
 
-function createApp() {
+function createApp(role: 'ADMIN' | 'MANAGER' | 'STAFF' = 'ADMIN') {
   const app = new Hono<{ Variables: AuthVariables }>()
   app.use('*', async (c, next) => {
     c.set('user', {
-      id: 'clerk_user_1',
+      id: `clerk_user_${role.toLowerCase()}`,
       organizationId: 'org_1',
-      staffId: 'staff_1',
-      email: 'admin@example.com',
-      name: 'Admin User',
-      role: 'ADMIN',
+      staffId: `staff_${role.toLowerCase()}`,
+      email: `${role.toLowerCase()}@example.com`,
+      name: `${role} User`,
+      role,
       clerkOrgId: 'clerk_org_1',
-      orgRole: 'org:admin',
+      orgRole: role === 'ADMIN' ? 'org:admin' : 'org:member',
     })
     await next()
   })
@@ -145,7 +145,7 @@ describe('org settings activity logging', () => {
     expect(logStaffActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         organizationId: 'org_1',
-        actorStaffId: 'staff_1',
+        actorStaffId: 'staff_admin',
         action: 'settings.organization_updated',
         metadata: {
           changedFields: ['name', 'smsLanguage', 'firmEmail'],
@@ -155,6 +155,55 @@ describe('org settings activity logging', () => {
     const metadata = vi.mocked(logStaffActivity).mock.calls[0][0].metadata as Record<string, unknown>
     expect(JSON.stringify(metadata)).not.toContain('private@example.com')
     expect(JSON.stringify(metadata)).not.toContain('Firm')
+  })
+
+  it.each(['MANAGER', 'STAFF'] as const)('denies %s organization settings updates with audit log', async (role) => {
+    const res = await createApp(role).request('/org-settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Private Firm',
+        smsLanguage: 'EN',
+      }),
+    })
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ error: 'Admin access required' })
+    expect(prisma.organization.update).not.toHaveBeenCalled()
+    expect(logStaffActivity).toHaveBeenCalledWith(expect.objectContaining({
+      organizationId: 'org_1',
+      actorStaffId: `staff_${role.toLowerCase()}`,
+      action: 'settings.organization_updated',
+      riskLevel: 'HIGH',
+      metadata: {
+        result: 'denied',
+        reason: 'non_admin_org_settings_update',
+        changedFields: ['name', 'smsLanguage'],
+      },
+    }))
+  })
+
+  it('denies non-admin organization settings updates before body validation', async () => {
+    const res = await createApp('MANAGER').request('/org-settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 123,
+      }),
+    })
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ error: 'Admin access required' })
+    expect(prisma.organization.update).not.toHaveBeenCalled()
+    expect(logStaffActivity).toHaveBeenCalledWith(expect.objectContaining({
+      actorStaffId: 'staff_manager',
+      riskLevel: 'HIGH',
+      metadata: {
+        result: 'denied',
+        reason: 'non_admin_org_settings_update',
+        changedFields: ['name'],
+      },
+    }))
   })
 
   it('rejects duplicate active firm phone numbers', async () => {

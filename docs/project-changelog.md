@@ -1,7 +1,93 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-20 ICT
+> **Last Updated:** 2026-06-22 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-06-22
+
+### Custom Payment Link Multiline Services
+**Status:** Complete
+
+**Changed:**
+- `Payments > Custom link` item name now accepts multiple lines, so one bundled price can show several included services.
+- Portal quote payment page renders multiline item names as a bullet list while keeping the amount as one line total.
+- Stripe Checkout receives multiline product names as comma-separated single-line text because hosted Checkout normalizes line breaks.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/pricing/custom-link/__tests__/custom-link-money.test.ts` pass, 19 tests
+- `pnpm -F @ella/api test -- src/services/stripe/__tests__/checkout.test.ts` pass, 20 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/api type-check` pass
+
+---
+
+### Voice Presence Rate-Limit and Auth Storm
+**Status:** Complete
+
+**Fixed:**
+- Frontend voice presence now dedupes repeated Twilio `unregistered` events and no longer sends async `/voice/presence/unregister` during `beforeunload`, preventing unauthenticated unload requests from spamming production logs.
+- Presence register, unregister, and heartbeat now use separate rate-limit buckets, so unregister churn cannot block `/voice/presence/register` and trigger the incoming-call registration toast.
+- Incoming voice routing now treats staff presence as online only when `lastSeen` is fresh within the heartbeat window, preventing stale `isOnline=true` rows from ringing closed/offline browsers indefinitely.
+- Register presence retries once after the rate-limit window when it receives 429, avoiding a stuck unregistered UI state after a transient storm.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/middleware/__tests__/rate-limiter.test.ts src/routes/webhooks/__tests__/twilio-voice-incoming.test.ts src/routes/voice/__tests__/voice-routes.test.ts` pass, 15 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api lint` pass with 1 pre-existing Fast Refresh warning
+- `pnpm -F @ella/workspace lint` pass with 10 pre-existing warnings
+- `git diff --check` pass
+
+---
+
+## 2026-06-21
+
+### Client Intake Link Management Redesign
+**Status:** Complete
+
+**Changed:**
+- Settings `Organization > Client Intake` is now the canonical place to manage the org intake slug, general intake link, staff personal intake links, upload-link automation, message template, and explicit message language.
+- Team Profile no longer has a separate `Form Link` tab; Overview now shows a read-only Personal Intake Link card with copy action and a Settings shortcut for admins/managers.
+- Staff intake links can inherit org upload-link defaults or use staff-specific auto-send, template, and language settings.
+- Public intake form submission now sends upload-link SMS using configured org/staff message language, not the client's form language choice.
+
+**Validation:**
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status --schema prisma/schema.prisma` pass
+- `pnpm -F @ella/api test -- src/routes/form/__tests__/form-template-selection.test.ts src/routes/staff/__tests__/intake-link.test.ts src/routes/org-settings/__tests__/intake-links.test.ts src/routes/team/__tests__/team-routes.test.ts` pass, 45 tests
+- `pnpm -F @ella/workspace test -- src/components/profile/__tests__/profile-tabs.test.tsx src/components/settings/__tests__/upload-link-message-settings.test.tsx src/components/settings/__tests__/client-form-link-card.test.tsx src/components/settings/__tests__/intake-link-table.test.tsx` pass, 15 tests
+- `pnpm -F @ella/db type-check`, `pnpm -F @ella/api type-check`, `pnpm -F @ella/workspace type-check`, and `pnpm -F @ella/portal type-check` pass
+- `pnpm i18n:check`, `pnpm lint`, and `git diff --check` pass; lint has warnings only in existing Fast Refresh/hook categories
+- Code review findings fixed: legacy STAFF mutation bypass blocked and migration backfills made replay-safe
+
+---
+
+### Pricing Business Tax Return Yearly Display
+**Status:** Complete
+
+**Fixed:**
+- Business tax return pre-pay now renders under a separate Yearly group in workspace quote summary, landing calculator summary, print-ready quote PDF, and portal quote pay page.
+- Setup and one-time groups now exclude the business tax return display line while due-today and Stripe checkout totals remain unchanged.
+- Public quote view reclassifies existing saved business tax return snapshot lines as yearly for backward-compatible client portal display.
+- Pricing page copy now calls the section one-time + yearly pre-pay where the business tax return row appears.
+
+**Validation:**
+- `pnpm -F @ella/shared test -- calculator.test.ts` pass, 8 tests
+- `pnpm -F @ella/api test -- quote-checkout-service.test.ts` pass, 17 tests
+- `pnpm -F @ella/workspace test -- pricing-calculator.test.tsx` pass, 8 tests
+- `pnpm -F @ella/shared type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/landing type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/shared lint` pass
+- `pnpm -F @ella/api lint` pass with 1 pre-existing Fast Refresh warning
+- `pnpm -F @ella/workspace lint` pass with 10 pre-existing warnings
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/portal lint` pass with 3 pre-existing Fast Refresh warnings
+- `git diff --check` pass
 
 ---
 

@@ -6,7 +6,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { api } from '../lib/api-client'
+import { api, ApiError } from '../lib/api-client'
 import {
   loadTwilioSdk,
   type TwilioDeviceInstance,
@@ -145,6 +145,10 @@ function isTokenValid(expiryTime: number): boolean {
   return Date.now() < expiryTime - bufferMs
 }
 
+const PRESENCE_HEARTBEAT_MS = 30000
+const PRESENCE_UNREGISTER_DEDUPE_MS = 10000
+const PRESENCE_REGISTER_RETRY_MS = 65000
+
 export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   const { t } = useTranslation()
   const [isAvailable, setIsAvailable] = useState(false)
@@ -171,6 +175,10 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   const mountedRef = useRef(true) // Track component mount status for cleanup
   const autoRegisterTriggeredRef = useRef(false) // Track if auto-register has been triggered this session
   const gestureCleanupRef = useRef<(() => void) | null>(null) // Cleanup gesture listeners
+  const presenceOnlineRef = useRef(false)
+  const unregisterPresenceInFlightRef = useRef(false)
+  const lastPresenceUnregisterAtRef = useRef(0)
+  const registerPresenceRetryRef = useRef<number | null>(null)
 
   // Cleanup call event listeners
   const cleanupCallListeners = useCallback(() => {
@@ -189,6 +197,63 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
 
   // Track if voice feature is available on server
   const voiceAvailableRef = useRef(false)
+
+  const markPresenceOffline = useCallback(async () => {
+    if (!presenceOnlineRef.current || unregisterPresenceInFlightRef.current) return
+
+    const now = Date.now()
+    if (now - lastPresenceUnregisterAtRef.current < PRESENCE_UNREGISTER_DEDUPE_MS) return
+
+    presenceOnlineRef.current = false
+    unregisterPresenceInFlightRef.current = true
+    lastPresenceUnregisterAtRef.current = now
+
+    try {
+      await api.voice.unregisterPresence()
+    } catch (e) {
+      if (import.meta.env.DEV && !(e instanceof ApiError && e.status === 401)) {
+        console.warn('[Voice] Presence unregister failed:', e)
+      }
+    } finally {
+      unregisterPresenceInFlightRef.current = false
+    }
+  }, [])
+
+  const startPresenceHeartbeat = useCallback(() => {
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current)
+    }
+
+    heartbeatIntervalRef.current = window.setInterval(async () => {
+      try {
+        await api.voice.heartbeat()
+      } catch {
+        // Heartbeat failed - device might be offline
+      }
+    }, PRESENCE_HEARTBEAT_MS)
+  }, [])
+
+  const schedulePresenceRegisterRetry = useCallback(() => {
+    if (registerPresenceRetryRef.current) {
+      clearTimeout(registerPresenceRetryRef.current)
+    }
+
+    registerPresenceRetryRef.current = window.setTimeout(async () => {
+      registerPresenceRetryRef.current = null
+      if (!mountedRef.current || presenceOnlineRef.current) return
+
+      try {
+        await api.voice.registerPresence()
+        if (!mountedRef.current) return
+        presenceOnlineRef.current = true
+        setIsRegistered(true)
+        setIsRegistering(false)
+        startPresenceHeartbeat()
+      } catch {
+        // Leave the device registered with Twilio; a later visibility/register event can retry.
+      }
+    }, PRESENCE_REGISTER_RETRY_MS)
+  }, [startPresenceHeartbeat])
 
   // Check voice availability and preload SDK (but DON'T create Device - AudioContext issue)
   useEffect(() => {
@@ -239,6 +304,9 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       }
       if (heartbeatIntervalRef.current) {
         clearInterval(heartbeatIntervalRef.current)
+      }
+      if (registerPresenceRetryRef.current) {
+        clearTimeout(registerPresenceRetryRef.current)
       }
       if (deviceRef.current) {
         deviceRef.current.destroy()
@@ -353,23 +421,20 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
           await api.voice.registerPresence()
 
           // Mark as registered
+          presenceOnlineRef.current = true
           setIsRegistered(true)
           setIsRegistering(false)
 
           // Start heartbeat every 30 seconds
-          if (heartbeatIntervalRef.current) {
-            clearInterval(heartbeatIntervalRef.current)
-          }
-          heartbeatIntervalRef.current = window.setInterval(async () => {
-            try {
-              await api.voice.heartbeat()
-            } catch {
-              // Heartbeat failed - device might be offline
-            }
-          }, 30000) // 30 second heartbeat
-        } catch {
+          startPresenceHeartbeat()
+        } catch (e) {
           setIsRegistering(false)
-          toast.error(t('voiceError.cannotRegister'), 3000)
+          presenceOnlineRef.current = false
+          if (e instanceof ApiError && e.status === 429) {
+            schedulePresenceRegisterRetry()
+          } else {
+            toast.error(t('voiceError.cannotRegister'), 3000)
+          }
         }
       })
 
@@ -381,11 +446,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
         }
         // Guard: Skip API call if component unmounted
         if (!mountedRef.current) return
-        try {
-          await api.voice.unregisterPresence()
-        } catch {
-          // Fire and forget on unregister
-        }
+        await markPresenceOffline()
         // Auto re-register if device still exists (AudioContext already created, no gesture needed)
         if (mountedRef.current && deviceRef.current) {
           try {
@@ -409,7 +470,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       return false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t])
+  }, [markPresenceOffline, schedulePresenceRegisterRetry, startPresenceHeartbeat, t])
 
   // Start duration timer
   const startTimer = useCallback(() => {
@@ -769,19 +830,6 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [isRegistered, isRegistering])
-
-  // Cleanup on beforeunload (tab close)
-  useEffect(() => {
-    function handleBeforeUnload() {
-      // Fire and forget - unregister presence
-      api.voice.unregisterPresence().catch(() => {})
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-    }
-  }, [])
 
   return [
     { isAvailable, isLoading, callState, isMuted, duration, error, incomingCall, callerInfo, isRegistered, isRegistering },

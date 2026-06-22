@@ -10,6 +10,7 @@ export {
   calculatePricing,
   createDefaultPricingInput,
   detectPricingTier,
+  isBusinessTaxReturnPrepayLine,
   isPricingCheckoutAmountSane,
   isPricingInputSane,
   MAX_CHECKOUT_LINE_AMOUNT,

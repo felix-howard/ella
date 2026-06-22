@@ -1,7 +1,7 @@
 /**
  * Settings General Tab - Theme, Language, Missed Call Text-Back
  */
-import { Sun, Moon, Globe, PhoneMissed } from 'lucide-react'
+import { Sun, Moon, Globe, PhoneMissed, Lock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, cn } from '@ella/ui'
@@ -9,6 +9,7 @@ import { useTheme, type Theme } from '../../stores/ui-store'
 import { useLanguageSync } from '../../hooks/use-language-sync'
 import { api } from '../../lib/api-client'
 import type { Language } from '../../lib/api-client'
+import { useOrgRole } from '../../hooks/use-org-role'
 import { FirmInfoCard } from './firm-info-card'
 
 export function SettingsGeneralTab() {
@@ -128,6 +129,8 @@ export function LanguageCard({ currentLanguage, changeLanguage }: { currentLangu
 export function MissedCallTextBackCard() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const { canManageOrganizationSettings } = useOrgRole()
+  const isReadOnly = !canManageOrganizationSettings
 
   const { data, isLoading } = useQuery({
     queryKey: ['org-settings'],
@@ -142,6 +145,14 @@ export function MissedCallTextBackCard() {
   })
 
   const isEnabled = data?.missedCallTextBack ?? false
+  const isDisabled = isReadOnly || isLoading || mutation.isPending
+  const switchTitle = isReadOnly
+    ? t('settings.missedCallTextBackAdminOnly')
+    : t('settings.missedCallTextBack')
+  const toggleTextBack = () => {
+    if (isReadOnly) return
+    mutation.mutate(!isEnabled)
+  }
 
   return (
     <Card className="p-6">
@@ -158,21 +169,35 @@ export function MissedCallTextBackCard() {
           </div>
         </div>
 
-        <button
-          onClick={() => mutation.mutate(!isEnabled)}
-          disabled={isLoading || mutation.isPending}
-          className={cn(
-            'relative w-11 h-6 rounded-full transition-colors cursor-pointer',
-            isEnabled ? 'bg-primary' : 'bg-muted-foreground/30'
+        <div className="flex shrink-0 items-center gap-3">
+          {isReadOnly && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              <Lock className="h-3 w-3" />
+              {t('settings.adminOnly')}
+            </span>
           )}
-        >
-          <span
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isEnabled}
+            aria-label={t('settings.missedCallTextBack')}
+            title={switchTitle}
+            onClick={toggleTextBack}
+            disabled={isDisabled}
             className={cn(
-              'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform',
-              isEnabled && 'translate-x-5'
+              'relative w-11 h-6 rounded-full transition-colors',
+              isReadOnly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+              isEnabled ? 'bg-primary' : 'bg-muted-foreground/30'
             )}
-          />
-        </button>
+          >
+            <span
+              className={cn(
+                'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform',
+                isEnabled && 'translate-x-5'
+              )}
+            />
+          </button>
+        </div>
       </div>
     </Card>
   )

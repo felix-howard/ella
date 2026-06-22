@@ -67,8 +67,17 @@ import "@/styles/pricing-print.css";
           </table>
         </section>
 
+        <section data-quote-yearly-section hidden aria-label="Yearly pre-pay services">
+          <h2>Yearly Pre-Pay Services</h2>
+          <table>
+            <thead><tr><th>Service</th><th>Cadence</th><th class="amount">Amount</th></tr></thead>
+            <tbody data-quote-yearly-rows></tbody>
+          </table>
+        </section>
+
         <section class="totals-grid" aria-label="Quote totals">
           <div class="box"><span class="label">Monthly total</span><span class="value" data-quote-monthly></span></div>
+          <div class="box"><span class="label">Yearly pre-pay total</span><span class="value" data-quote-yearly></span></div>
           <div class="box"><span class="label">Setup total</span><span class="value" data-quote-setup></span></div>
           <div class="box total-due"><span class="label">Due today</span><span class="value" data-quote-due></span></div>
           <div class="box"><span class="label">Next month onward</span><span class="value" data-quote-next-month></span></div>

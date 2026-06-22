@@ -659,6 +659,7 @@ function getCallStatusMessage(status: string): string {
 
 // Default ring timeout before voicemail (seconds)
 const RING_TIMEOUT_SECONDS = 30
+const PRESENCE_STALE_AFTER_MS = 2 * 60 * 1000
 
 /**
  * POST /webhooks/twilio/voice/incoming - Handle incoming call from customer
@@ -736,6 +737,9 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
       const onlineStaff = await prisma.staffPresence.findMany({
         where: {
           isOnline: true,
+          lastSeen: {
+            gte: new Date(Date.now() - PRESENCE_STALE_AFTER_MS),
+          },
           staff: {
             organizationId: clientOrgId,
             isActive: true,

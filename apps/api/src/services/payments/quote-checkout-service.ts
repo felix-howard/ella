@@ -21,10 +21,7 @@
 import Stripe from 'stripe'
 import { config } from '../../lib/config'
 import { prisma } from '../../lib/db'
-import {
-  buildCheckoutSessionParams,
-  isUnsafeProductionReturnUrl,
-} from '../stripe/checkout'
+import { buildCheckoutSessionParams, isUnsafeProductionReturnUrl } from '../stripe/checkout'
 import { markPaymentQuoteStatus, persistStripeCheckoutSession } from '../stripe/persistence'
 import { rebuildQuoteForCheckout, resolveQuoteCouponOptions } from '../stripe/quote-rebuild'
 import { buildQuotePayUrl } from './quote-send-service'
@@ -34,7 +31,7 @@ import { isBusinessTaxReturnPrepayLine } from '@ella/shared/pricing'
 export class QuoteCheckoutError extends Error {
   constructor(
     readonly code: 'ALREADY_PAID' | 'NOT_PAYABLE' | 'STRIPE_MISSING_URL',
-    message: string,
+    message: string
   ) {
     super(message)
     this.name = 'QuoteCheckoutError'
@@ -128,7 +125,7 @@ export async function getPublicQuoteView(payToken: string): Promise<PublicQuoteV
   })
   if (!quote) return null
 
-  const snapshot = parseResultSnapshot(quote.resultSnapshot)
+  const snapshot = parseResultSnapshot(quote.resultSnapshot, quote.source)
   const monthlyTotal = quote.monthlyTotalCents / 100
   const setupTotal = quote.setupTotalCents / 100
   const dueTodayCents = quote.monthlyTotalCents + quote.setupTotalCents
@@ -164,7 +161,7 @@ export async function getPublicQuoteView(payToken: string): Promise<PublicQuoteV
  * already-paid / canceled / missing-URL cases (handlers map codes to statuses).
  */
 export async function createQuoteCheckoutSession(
-  payToken: string,
+  payToken: string
 ): Promise<{ checkoutUrl: string } | null> {
   const payUrl = buildQuotePayUrl(payToken)
   assertQuoteCheckoutConfig(payUrl)
@@ -209,7 +206,7 @@ export async function createQuoteCheckoutSession(
       // `payToken` so deposit routing is never affected.
       extraMetadata: { quotePayToken: payToken },
       ...couponOptions,
-    }),
+    })
   )
 
   if (!session.url) {
@@ -257,13 +254,15 @@ function isCanceledStatus(status: string): boolean {
 }
 
 /** Flatten the frozen CheckoutQuote snapshot into ordered monthly→yearly→setup display lines. */
-function parseResultSnapshot(snapshot: unknown): QuoteLineView[] {
+function parseResultSnapshot(snapshot: unknown, source: string): QuoteLineView[] {
   if (!snapshot || typeof snapshot !== 'object') return []
   const { monthlyItems, setupItems } = snapshot as {
     monthlyItems?: unknown
     setupItems?: unknown
   }
   const setupViews = toLineViews(setupItems, 'setup')
+  if (source === 'custom') return [...toLineViews(monthlyItems, 'monthly'), ...setupViews]
+
   const yearlyViews = setupViews
     .filter(isBusinessTaxReturnPrepayLine)
     .map((item) => ({ ...item, kind: 'yearly' as const }))
@@ -284,7 +283,12 @@ function toLineViews(items: unknown, kind: 'monthly' | 'setup'): QuoteLineView[]
     })
     .map((item) => {
       const description = typeof item.description === 'string' ? item.description : undefined
-      return { label: item.label, ...(description ? { description } : {}), amount: item.amount, kind }
+      return {
+        label: item.label,
+        ...(description ? { description } : {}),
+        amount: item.amount,
+        kind,
+      }
     })
 }
 

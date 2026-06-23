@@ -63,6 +63,7 @@ function buildPricingInput(overrides: Record<string, unknown> = {}) {
       businessTaxReturn: 0,
     },
     salesTaxShops: 0,
+    customItems: [],
     rates: {
       tiers: { basicMonthly: 50000, proMonthly: 75000, vipMonthly: 100000 },
       payroll: { baseMonthly: 15000 },
@@ -496,6 +497,26 @@ describe('createSendableQuote', () => {
 
       const payload = prismaMocks.paymentQuote.create.mock.calls[0][0].data
       expect(payload.inputSnapshot.pricingInput.nec1099Count).toBe(42)
+    })
+
+    it('freezes calculator custom items in inputSnapshot', async () => {
+      const customItems = [
+        {
+          id: 'custom_send_1',
+          label: 'Sent quote add-on',
+          amount: 90,
+          quantity: 2,
+          billingInterval: 'month' as const,
+        },
+      ]
+      const input = buildSendQuoteInput({
+        pricingInput: buildPricingInput({ customItems }),
+      })
+
+      await createSendableQuote(input, context)
+
+      const payload = prismaMocks.paymentQuote.create.mock.calls[0][0].data
+      expect(payload.inputSnapshot.pricingInput.customItems).toEqual(customItems)
     })
 
     it('persists resultSnapshot as the quote output (immutable copy)', async () => {

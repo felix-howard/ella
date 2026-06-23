@@ -3,6 +3,8 @@ import { siteConfig } from '@/config/site'
 import { formatUsd } from './pricing-calculator-format'
 import { decodePricingQuote } from './pricing-quote-codec'
 
+const PRICING_PRINT_QUOTE_MESSAGE_TYPE = 'ella:pricing-print-quote'
+
 const TERMS = [
   'This estimate is based on the information entered in the pricing calculator.',
   'Final fees may change after Ella Tax Services reviews entity structure, tax years, states, deadlines, notices, bookkeeping condition, and filing facts.',
@@ -81,18 +83,17 @@ function showInvalid(message: string): void {
   setText('[data-quote-error]', message)
 }
 
-function init(): void {
-  const raw = new URLSearchParams(window.location.search).get('q')
+function renderQuote(raw: string | null): boolean {
   const payload = decodePricingQuote(raw)
   if (!payload || !isPricingInputSane(payload.input)) {
     showInvalid('This quote link is missing, expired, or malformed. Return to pricing and print a new PDF.')
-    return
+    return false
   }
 
   const result = calculatePrice(payload.input)
   if (!result.hasAnySelection || result.isEnterprise) {
     showInvalid('This calculation needs a standard quote selection before it can be printed.')
-    return
+    return false
   }
 
   const dueToday = result.monthlyTotal + result.setupTotal
@@ -115,6 +116,68 @@ function init(): void {
   setHidden('[data-quote-yearly-section]', result.yearlyItems.length === 0)
   renderTerms()
   window.setTimeout(() => window.print(), 250)
+  return true
+}
+
+function getPostedQuote(event: MessageEvent<unknown>): string | null {
+  if (!isAllowedQuoteMessageOrigin(event.origin)) return null
+  const { data } = event
+  if (!data || typeof data !== 'object') return null
+  const message = data as { type?: unknown; quote?: unknown }
+  if (message.type !== PRICING_PRINT_QUOTE_MESSAGE_TYPE) return null
+  return typeof message.quote === 'string' ? message.quote : null
+}
+
+function isAllowedQuoteMessageOrigin(origin: string): boolean {
+  const allowedOrigins = new Set(
+    [window.location.origin, originFromUrl(document.referrer)].filter(
+      (value): value is string => Boolean(value)
+    )
+  )
+
+  if (isLocalHost(window.location.hostname)) {
+    allowedOrigins.add('http://localhost:5174')
+    allowedOrigins.add('http://127.0.0.1:5174')
+  }
+
+  return allowedOrigins.has(origin)
+}
+
+function originFromUrl(value: string): string | null {
+  if (!value) return null
+  try {
+    return new URL(value).origin
+  } catch {
+    return null
+  }
+}
+
+function isLocalHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1'
+}
+
+function init(): void {
+  const raw = new URLSearchParams(window.location.search).get('q')
+  if (raw) {
+    renderQuote(raw)
+    return
+  }
+
+  let rendered = false
+  const onMessage = (event: MessageEvent<unknown>) => {
+    if (rendered) return
+    const quote = getPostedQuote(event)
+    if (!quote) return
+    rendered = renderQuote(quote)
+    if (rendered) window.removeEventListener('message', onMessage)
+  }
+
+  window.addEventListener('message', onMessage)
+  window.setTimeout(() => {
+    if (rendered) return
+    window.removeEventListener('message', onMessage)
+    showInvalid('This quote window did not receive the print payload. Return to pricing and try again.')
+  }, 6000)
 }
 
 qs<HTMLButtonElement>('[data-print-now]')?.addEventListener('click', () => window.print())

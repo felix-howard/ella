@@ -4,6 +4,7 @@ import { Calculator, ShieldCheck, Store, WalletCards, type LucideIcon } from 'lu
 import { useState, type ReactNode } from 'react'
 import { Input, SelectField, Switch } from '@ella/ui'
 import { clampWholeNumber, formatCurrency } from './pricing-format'
+import { PricingCalculatorCustomItemsSection } from './pricing-calculator-custom-items-section'
 
 interface PricingCalculatorFormProps {
   input: PricingCalculatorInput
@@ -285,6 +286,12 @@ export function PricingCalculatorForm({
             </div>
           )}
         </FormSection>
+
+        <PricingCalculatorCustomItemsSection
+          items={input.customItems ?? []}
+          disabled={disabled}
+          onChange={(customItems) => onInputChange({ ...input, customItems })}
+        />
 
         <FormSection icon={Store} title="Sales tax monitoring">
           <NumberField

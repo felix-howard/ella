@@ -1,11 +1,50 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-22 ICT
+> **Last Updated:** 2026-06-23 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
 
+## 2026-06-23
+
+### Calculator Custom Items Complete
+**Status:** Complete
+
+**Changed:**
+- Payments Calculator now supports ad-hoc custom add-on rows with item name, amount, quantity, and one-time/monthly billing.
+- Custom add-ons flow through summary totals, print quotes, anonymous payment links, sent-to-client quotes, and portal checkout rebuilds from frozen quote snapshots.
+- Yearly recurring and custom-only charges remain in `Payments > Custom link`; Calculator custom rows reject yearly billing and block custom-only checkout.
+- Workspace Print PDF no longer puts staff-entered custom item labels in the print URL query; it opens the print page without a quote query and sends the payload in-memory to avoid server/proxy log exposure.
+
+**Validation:**
+- `pnpm -F @ella/shared test` pass, 15 tests
+- `pnpm -F @ella/workspace test -- pricing-calculator` pass, 18 tests
+- `pnpm -F @ella/api test -- billing` pass, 35 tests
+- `pnpm -F @ella/shared type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/landing type-check` pass, 0 diagnostics
+- `pnpm -F @ella/api type-check` pass
+- `pnpm type-check` pass, 8/8 packages successful
+- `git diff --check` pass
+- untracked-file whitespace check pass
+
+---
+
 ## 2026-06-22
+
+### Calculator Custom Items Phase 01
+**Status:** Complete
+
+**Changed:**
+- Shared pricing and API schema now accept calculator `customItems`, default missing values to `[]`, and only allow `billingInterval` values of `one_time` or `month`.
+- Custom item validation now enforces count, label, amount, and quantity limits; monthly custom add-ons roll into monthly lines/totals, and one-time custom add-ons roll into setup lines/totals.
+- Custom-only calculator checkout remains blocked, and public quote display keeps custom-link one-time labels out of the calculator yearly pre-pay bucket.
+
+**Validation:**
+- `pnpm -F @ella/shared test` pass, 15 tests
+- `pnpm -F @ella/api test -- billing checkout quote-rebuild quote-send-service` pass, 137 tests
+- `pnpm type-check` pass, 8/8 packages successful
+- `git diff --check` pass
 
 ### Intake Upload-Link Backend Default Template
 **Status:** Complete

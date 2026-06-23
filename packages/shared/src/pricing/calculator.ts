@@ -198,6 +198,7 @@ export function calculatePricing(input: PricingCalculatorInput): PricingCalculat
   }
 
   const hasStandardSelection = monthly.length > 1 || setup.length > 1
+  const standardSetupLineCount = setup.length
   for (const item of getValidCustomItems(input)) {
     const line = {
       label: formatCustomItemLabel(item),
@@ -211,8 +212,12 @@ export function calculatePricing(input: PricingCalculatorInput): PricingCalculat
   }
 
   const monthlyTotal = total(monthly)
-  const yearlyItems = setup.filter(isBusinessTaxReturnPrepayLine)
-  const setupDisplayItems = setup.filter((item) => !isBusinessTaxReturnPrepayLine(item))
+  const yearlyItems = setup.filter(
+    (item, index) => index < standardSetupLineCount && isBusinessTaxReturnPrepayLine(item)
+  )
+  const setupDisplayItems = setup.filter(
+    (item, index) => index >= standardSetupLineCount || !isBusinessTaxReturnPrepayLine(item)
+  )
   const yearlyTotal = total(yearlyItems)
   const setupDisplayTotal = total(setupDisplayItems)
   const setupTotal = total(setup)
@@ -305,8 +310,7 @@ function isValidPricingCalculatorCustomItem(
 
 function formatCustomItemLabel(item: PricingCalculatorCustomItem): string {
   const label = normalizeCustomLabel(item.label)
-  const displayLabel = `Custom: ${label}`
-  return item.quantity > 1 ? `${displayLabel} × ${item.quantity}` : displayLabel
+  return item.quantity > 1 ? `${label} × ${item.quantity}` : label
 }
 
 function normalizeCustomLabel(label: string): string {

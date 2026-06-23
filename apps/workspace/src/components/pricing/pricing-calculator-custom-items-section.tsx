@@ -4,6 +4,7 @@ import {
 } from '@ella/shared/pricing'
 import { Button } from '@ella/ui'
 import { Plus, ReceiptText } from 'lucide-react'
+import { useState } from 'react'
 import { PricingCalculatorCustomItemRow } from './pricing-calculator-custom-item-row'
 import { createPricingCalculatorCustomItem } from './pricing-calculator-custom-items'
 
@@ -18,17 +19,39 @@ export function PricingCalculatorCustomItemsSection({
   disabled = false,
   onChange,
 }: PricingCalculatorCustomItemsSectionProps) {
+  const [deferredValidationItemIds, setDeferredValidationItemIds] = useState<Set<string>>(
+    () => new Set()
+  )
+
+  const markItemInteracted = (id: string) => {
+    setDeferredValidationItemIds((current) => {
+      if (!current.has(id)) return current
+      const next = new Set(current)
+      next.delete(id)
+      return next
+    })
+  }
+
   const updateItem = (id: string, patch: Partial<PricingCalculatorCustomItem>) => {
+    markItemInteracted(id)
     onChange(items.map((item) => (item.id === id ? { ...item, ...patch } : item)))
   }
 
   const removeItem = (id: string) => {
+    setDeferredValidationItemIds((current) => {
+      if (!current.has(id)) return current
+      const next = new Set(current)
+      next.delete(id)
+      return next
+    })
     onChange(items.filter((item) => item.id !== id))
   }
 
   const addItem = () => {
     if (items.length >= MAX_CALCULATOR_CUSTOM_ITEMS) return
-    onChange([...items, createPricingCalculatorCustomItem()])
+    const item = createPricingCalculatorCustomItem()
+    setDeferredValidationItemIds((current) => new Set(current).add(item.id))
+    onChange([...items, item])
   }
 
   return (
@@ -57,6 +80,8 @@ export function PricingCalculatorCustomItemsSection({
               item={item}
               index={index}
               disabled={disabled}
+              showValidation={!deferredValidationItemIds.has(item.id)}
+              onInteract={() => markItemInteracted(item.id)}
               onUpdate={(patch) => updateItem(item.id, patch)}
               onRemove={() => removeItem(item.id)}
             />

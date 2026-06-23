@@ -20,6 +20,7 @@ import {
   getPricingCalculatorCustomAmountDraftError,
   toPricingCalculatorCustomDraftNumber,
 } from '../pricing-calculator-custom-items'
+import { PricingCalculatorCustomItemRow } from '../pricing-calculator-custom-item-row'
 import { getCreateDisabledReason, getPrintDisabledReason } from '../pricing-disabled-reasons'
 
 const useMutationMock = vi.hoisted(() => vi.fn())
@@ -290,6 +291,30 @@ describe('workspace pricing calculator', () => {
     expect(markup).not.toContain('Line total $125 one-time')
   })
 
+  it('does not show validation for newly added untouched custom item rows', () => {
+    const markup = renderToStaticMarkup(
+      <PricingCalculatorCustomItemRow
+        item={{
+          id: 'custom-item-new',
+          label: '',
+          amount: 0,
+          quantity: 1,
+          billingInterval: 'one_time',
+        }}
+        index={0}
+        disabled={false}
+        showValidation={false}
+        onInteract={vi.fn()}
+        onUpdate={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    )
+
+    expect(markup).not.toContain('Enter an item name.')
+    expect(markup).not.toContain('Enter an amount of at least $1.')
+    expect(markup).not.toContain('aria-invalid="true"')
+  })
+
   it('keeps invalid calculator custom item amount drafts out of pricing numbers', () => {
     expect(getPricingCalculatorCustomAmountDraftError('0')).toBe('Enter an amount of at least $1.')
     expect(getPricingCalculatorCustomAmountDraftError('-')).toBe('Enter a whole-dollar amount.')
@@ -379,8 +404,8 @@ describe('workspace pricing calculator', () => {
 
     const markup = renderToStaticMarkup(<PricingSummaryPanel result={result} />)
 
-    expect(markup).toContain('Custom: Advisory add-on × 2')
-    expect(markup).toContain('Custom: Clean-up project')
+    expect(markup).toContain('Advisory add-on × 2')
+    expect(markup).toContain('Clean-up project')
     expect(result.monthlyTotal + result.setupTotal).toBe(425)
     expect(result.monthlyTotal).toBe(155)
     expect(result.setupDisplayTotal).toBe(270)

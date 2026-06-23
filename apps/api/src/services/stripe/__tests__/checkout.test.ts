@@ -152,12 +152,8 @@ describe('Stripe checkout session params', () => {
 
     expect(checkoutQuote.monthlyTotal).toBe(sharedQuote.monthlyTotal)
     expect(checkoutQuote.setupTotal).toBe(sharedQuote.setupTotal)
-    expect(checkoutQuote.monthlyItems.map((item) => item.label)).toContain(
-      'Custom: Advisory add-on'
-    )
-    expect(checkoutQuote.setupItems.map((item) => item.label)).toContain(
-      'Custom: Clean-up project × 2'
-    )
+    expect(checkoutQuote.monthlyItems.map((item) => item.label)).toContain('Advisory add-on')
+    expect(checkoutQuote.setupItems.map((item) => item.label)).toContain('Clean-up project × 2')
   })
 
   it('keeps calculator custom labels out of aggregate Stripe lines and metadata', () => {

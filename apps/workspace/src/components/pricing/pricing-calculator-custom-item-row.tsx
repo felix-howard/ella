@@ -22,6 +22,8 @@ interface PricingCalculatorCustomItemRowProps {
   item: PricingCalculatorCustomItem
   index: number
   disabled: boolean
+  showValidation?: boolean
+  onInteract?: () => void
   onUpdate: (patch: Partial<PricingCalculatorCustomItem>) => void
   onRemove: () => void
 }
@@ -33,6 +35,8 @@ export function PricingCalculatorCustomItemRow({
   item,
   index,
   disabled,
+  showValidation = true,
+  onInteract,
   onUpdate,
   onRemove,
 }: PricingCalculatorCustomItemRowProps) {
@@ -40,7 +44,7 @@ export function PricingCalculatorCustomItemRow({
   const [quantityDraft, setQuantityDraft] = useState(() => formatDraftNumber(item.quantity))
   const draft = { amountDraft, quantityDraft }
   const validationMessages = getPricingCalculatorCustomItemValidation(item, draft)
-  const hasValidation = validationMessages.length > 0
+  const hasValidation = showValidation && validationMessages.length > 0
   const lineTotal = getPricingCalculatorCustomItemLineTotal(item, draft)
   const nameInvalid =
     hasValidation &&
@@ -65,7 +69,11 @@ export function PricingCalculatorCustomItemRow({
             id={nameId}
             value={item.label}
             disabled={disabled}
-            onChange={(event) => onUpdate({ label: event.target.value })}
+            onBlur={onInteract}
+            onChange={(event) => {
+              onInteract?.()
+              onUpdate({ label: event.target.value })
+            }}
             className="mt-1"
             placeholder="Bookkeeping cleanup"
             maxLength={MAX_CALCULATOR_CUSTOM_LABEL_LENGTH}
@@ -84,8 +92,10 @@ export function PricingCalculatorCustomItemRow({
             pattern="[0-9]*"
             value={amountDraft}
             disabled={disabled}
+            onBlur={onInteract}
             onChange={(event) => {
               const nextValue = event.target.value
+              onInteract?.()
               setAmountDraft(nextValue)
               onUpdate({
                 amount: toPricingCalculatorCustomDraftNumber(
@@ -106,11 +116,13 @@ export function PricingCalculatorCustomItemRow({
             id={billingId}
             value={item.billingInterval}
             disabled={disabled}
-            onChange={(event) =>
+            onBlur={onInteract}
+            onChange={(event) => {
+              onInteract?.()
               onUpdate({
                 billingInterval: event.target.value as PricingCalculatorCustomBillingInterval,
               })
-            }
+            }}
             className="mt-1"
             options={CALCULATOR_CUSTOM_BILLING_OPTIONS}
             aria-label={`Custom item ${index + 1} billing interval`}
@@ -126,8 +138,10 @@ export function PricingCalculatorCustomItemRow({
             pattern="[0-9]*"
             value={quantityDraft}
             disabled={disabled}
+            onBlur={onInteract}
             onChange={(event) => {
               const nextValue = event.target.value
+              onInteract?.()
               setQuantityDraft(nextValue)
               onUpdate({
                 quantity: toPricingCalculatorCustomDraftNumber(

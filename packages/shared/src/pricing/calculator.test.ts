@@ -86,7 +86,7 @@ describe('pricing calculator', () => {
     const result = calculatePricing(input)
 
     expect(result.monthlyItems).toContainEqual({
-      label: 'Custom: Advisory add-on × 2',
+      label: 'Advisory add-on × 2',
       amount: 50,
       kind: 'monthly',
     })
@@ -108,7 +108,7 @@ describe('pricing calculator', () => {
     const result = calculatePricing(input)
 
     expect(result.setupItems).toContainEqual({
-      label: 'Custom: Clean-up project × 3',
+      label: 'Clean-up project × 3',
       amount: 300,
       kind: 'setup',
     })
@@ -146,7 +146,7 @@ describe('pricing calculator', () => {
 
     expect(result.yearlyItems).toEqual([])
     expect(result.setupDisplayItems).toContainEqual({
-      label: 'Custom: Business tax return pre-pay (1 tax year)',
+      label: 'Business tax return pre-pay (1 tax year)',
       amount: 100,
       kind: 'setup',
     })

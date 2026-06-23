@@ -21,11 +21,15 @@ describe('buildCalculatorEngagementLetterHtml', () => {
 
     expect(html).toContain('<h2>Engagement Letter</h2>')
     expect(html).toContain('Prepared:</strong> June 23, 2026')
+    expect(html).toContain('<h3>1. Scope of Services</h3>')
+    expect(html).toContain('<p><strong>B. Payroll Services</strong></p>')
+    expect(html).toContain('Payroll services include processing for up to 8 employees')
     expect(html).toContain('Payroll base: $50.')
     expect(html).toContain('Payroll setup: $250.')
     expect(html).toContain('Payroll employees (8 × $7, owner-manual): $56.')
-    expect(html).toContain('<strong>Monthly recurring total:</strong> $181')
-    expect(html).toContain('<strong>Setup and fixed-fee total:</strong> $400')
+    expect(html).toContain('<strong>Total Monthly Billing:</strong> $181')
+    expect(html).toContain('<strong>Total Setup Fee:</strong> $400')
+    expect(html).toContain('<h3>23. Acceptance</h3>')
   })
 
   it('renders Cash Plan and Audit Detection scope and fees', () => {
@@ -35,8 +39,10 @@ describe('buildCalculatorEngagementLetterHtml', () => {
 
     const html = buildHtml(input)
 
-    expect(html).toContain('Cash Plan support for 7 employees and 1 owner.')
-    expect(html).toContain('Audit Detection monitoring')
+    expect(html).toContain('The Cash Plan includes coverage for 1 owner at $50 per owner per month.')
+    expect(html).toContain('Current pricing assumes 7 non-owner employees')
+    expect(html).toContain('Audit Detection Monitoring')
+    expect(html).toContain('Federal tax liens')
     expect(html).toContain('Cash Plan (7 emp × $5 + 1 owner × $50): $85.')
     expect(html).toContain('Cash Plan setup: $1,000.')
     expect(html).toContain('Audit Protection: $300.')
@@ -95,7 +101,7 @@ describe('buildCalculatorEngagementLetterHtml', () => {
     expect(html).not.toContain('Requires <approval> & "signature"')
   })
 
-  it('includes editable yearly pre-pay copy without adding yearly calculator totals', () => {
+  it('renders business tax allocation over the first six months', () => {
     const input = createDefaultPricingInput()
     input.oneTime.businessTaxReturn = 1
     const result = calculatePricing(input)
@@ -107,12 +113,12 @@ describe('buildCalculatorEngagementLetterHtml', () => {
     })
 
     expect(result.yearlyItems).toHaveLength(1)
-    expect(html).toContain('Separate yearly pre-pay services, if applicable')
-    expect(html).toContain(
-      'Business tax return preparation is billed separately through a yearly payment link',
-    )
-    expect(html).toContain('billed separately through a yearly payment link if applicable')
-    expect(html).not.toContain(result.yearlyItems[0].label)
+    expect(html).toContain('Business Tax Filing Allocation')
+    expect(html).toContain('Business tax return pre-pay (1 tax year): $900.')
+    expect(html).toContain('<strong>Total annual tax preparation fee:</strong> $900')
+    expect(html).toContain('<strong>Monthly allocation:</strong> $150')
+    expect(html).toContain('<strong>Total Monthly Billing (Months 1-6):</strong> $225')
+    expect(html).toContain('<strong>Total Monthly Billing (After Month 6):</strong> $75')
   })
 
   it('does not emit unresolved bracket placeholders', () => {

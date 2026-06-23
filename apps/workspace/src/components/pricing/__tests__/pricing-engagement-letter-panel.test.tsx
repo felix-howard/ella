@@ -116,6 +116,6 @@ describe('PricingEngagementLetterPanel', () => {
     expect(modalState.recipientHint).toBe('ACME · •••• 1234')
     expect(modalState.contentHtml).toContain('<h2>Engagement Letter</h2>')
     expect(modalState.contentHtml).toContain('Payroll employees (3 × $7, owner-manual): $21.')
-    expect(modalState.contentHtml).toContain('Separate yearly pre-pay services, if applicable')
+    expect(modalState.contentHtml).toContain('Tax Filing Allocation (Months 1-6 Only)')
   })
 })

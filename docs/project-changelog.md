@@ -7,6 +7,23 @@
 
 ## 2026-06-23
 
+### Calculator Engagement Letter CPA Template
+**Status:** Complete
+
+**Fixed:**
+- Replaced generic Calculator Engagement Letter copy with CPA-style structure closer to real firm templates.
+- Generated letter now includes detailed scope, monthly service subsections, setup services, scope limits, 4.1-4.4 fee schedule, payment terms, suspension, client responsibilities, disclaimers, liability, dispute, guaranty, governing law, and acceptance sections.
+- Calculator fees still drive the amounts; no example CPA prices are hardcoded.
+- Business tax yearly lines, if present in the pricing result, now render as a six-month tax filing allocation instead of vague separate yearly payment-link copy.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- engagement-letter-content-builder` pass, 6 tests
+- `pnpm -F @ella/workspace test -- pricing-engagement-letter-panel` pass, 4 tests
+- `pnpm -F @ella/workspace test -- pricing-calculator` pass, 19 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with 12 pre-existing warnings, 0 errors
+- `git diff --check` pass
+
 ### Calculator Engagement Letter Send Flow
 **Status:** Complete with concerns
 

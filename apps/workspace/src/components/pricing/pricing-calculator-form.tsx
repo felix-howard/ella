@@ -4,6 +4,7 @@ import { Calculator, ShieldCheck, Store, WalletCards, type LucideIcon } from 'lu
 import { useState, type ReactNode } from 'react'
 import { Input, SelectField, Switch } from '@ella/ui'
 import { clampWholeNumber, formatCurrency } from './pricing-format'
+import { PricingCalculatorCustomItemsSection } from './pricing-calculator-custom-items-section'
 
 interface PricingCalculatorFormProps {
   input: PricingCalculatorInput
@@ -13,27 +14,18 @@ interface PricingCalculatorFormProps {
 
 type TopQuantityKey = 'nec1099Count' | 'payrollEmployees' | 'salesTaxShops'
 type RateObjectGroup = 'tiers' | 'payroll' | 'cashPlan' | 'auditProtection' | 'oneTime'
-type SingleOneTimeKey = Exclude<keyof PricingCalculatorInput['oneTime'], 'businessTaxReturn'>
-type OneTimeRow =
-  | {
-      kind: 'single'
-      key: SingleOneTimeKey
-      label: string
-      hint?: string
-    }
-  | {
-      kind: 'business'
-      key: 'businessTaxReturn'
-      label: string
-      hint?: string
-    }
+type OneTimeKey = Exclude<keyof PricingCalculatorInput['oneTime'], 'businessTaxReturn'>
+type OneTimeRow = {
+  key: OneTimeKey
+  label: string
+  hint?: string
+}
 
 const oneTimeRows: OneTimeRow[] = [
-  { kind: 'single', key: 'startLlc', label: 'Start LLC', hint: 'Excludes state filing fee' },
-  { kind: 'single', key: 'holdingLlcNew', label: 'Holding LLC (new)' },
-  { kind: 'single', key: 'holdingLlcModify', label: 'Re-structure LLC basic' },
-  { kind: 'single', key: 'personalTaxReturn', label: 'Personal tax return' },
-  { kind: 'business', key: 'businessTaxReturn', label: 'Business tax return pre-pay (1 tax year)' },
+  { key: 'startLlc', label: 'Start LLC', hint: 'Excludes state filing fee' },
+  { key: 'holdingLlcNew', label: 'Holding LLC (new)' },
+  { key: 'holdingLlcModify', label: 'Re-structure LLC basic' },
+  { key: 'personalTaxReturn', label: 'Personal tax return' },
 ]
 
 const numberInputClass =
@@ -225,9 +217,9 @@ export function PricingCalculatorForm({
           )}
         </FormSection>
 
-        <FormSection icon={Store} title="One-time + yearly pre-pay services">
+        <FormSection icon={Store} title="One-time services">
           <SwitchRow
-            label="Enable one-time + yearly pre-pay services"
+            label="Enable one-time services"
             checked={oneTimeEnabled}
             onCheckedChange={handleOneTimeToggle}
           />
@@ -238,33 +230,12 @@ export function PricingCalculatorForm({
                   <div>
                     <p className="text-sm font-medium text-foreground">{row.label}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      {row.kind === 'business' ? (
-                        <>
-                          <RateField
-                            compact
-                            label="Federal"
-                            value={input.rates.oneTime.businessTaxReturnFederal}
-                            onChange={(value) =>
-                              setRate('oneTime', 'businessTaxReturnFederal', value)
-                            }
-                          />
-                          <RateField
-                            compact
-                            label="State"
-                            value={input.rates.oneTime.businessTaxReturnState}
-                            onChange={(value) =>
-                              setRate('oneTime', 'businessTaxReturnState', value)
-                            }
-                          />
-                        </>
-                      ) : (
-                        <RateField
-                          compact
-                          label="Rate"
-                          value={input.rates.oneTime[row.key]}
-                          onChange={(value) => setRate('oneTime', row.key, value)}
-                        />
-                      )}
+                      <RateField
+                        compact
+                        label="Rate"
+                        value={input.rates.oneTime[row.key]}
+                        onChange={(value) => setRate('oneTime', row.key, value)}
+                      />
                       {row.hint && <span>{row.hint}</span>}
                     </div>
                   </div>
@@ -285,6 +256,12 @@ export function PricingCalculatorForm({
             </div>
           )}
         </FormSection>
+
+        <PricingCalculatorCustomItemsSection
+          items={input.customItems ?? []}
+          disabled={disabled}
+          onChange={(customItems) => onInputChange({ ...input, customItems })}
+        />
 
         <FormSection icon={Store} title="Sales tax monitoring">
           <NumberField

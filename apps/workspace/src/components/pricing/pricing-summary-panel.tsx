@@ -25,7 +25,7 @@ export function PricingSummaryPanel({ result }: PricingSummaryPanelProps) {
             Quote summary
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Monthly services plus setup, one-time work, and yearly pre-pay.
+            Monthly services plus setup and one-time work.
           </p>
         </div>
         <Badge variant={result.isEnterprise ? 'warning' : 'success'} className="shrink-0">

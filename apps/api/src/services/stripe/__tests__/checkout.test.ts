@@ -5,7 +5,11 @@ import {
   calculateCheckoutQuote,
   CheckoutQuoteError,
 } from '../checkout'
-import { toCheckoutLineItems } from '../checkout-line-items'
+import {
+  CALCULATOR_MONTHLY_LABEL,
+  CALCULATOR_SETUP_LABEL,
+  toCheckoutLineItems,
+} from '../checkout-line-items'
 import type { CheckoutQuote } from '../quote-calculator'
 
 /** Adapt a CheckoutQuote to the generalized `(lineItems, opts)` builder signature. */
@@ -46,6 +50,7 @@ const basePricingInput: CheckoutPricingInput = {
     businessTaxReturn: 0,
   },
   salesTaxShops: 0,
+  customItems: [],
   rates: {
     tiers: { basicMonthly: 75, proMonthly: 85, vipMonthly: 85 },
     payroll: { baseMonthly: 50 },
@@ -121,6 +126,65 @@ describe('Stripe checkout session params', () => {
     )
   })
 
+  it('includes calculator custom items in checkout quote totals', () => {
+    const pricingInput = {
+      ...basePricingInput,
+      customItems: [
+        {
+          id: 'custom_monthly_1',
+          label: 'Advisory add-on',
+          amount: 40,
+          quantity: 1,
+          billingInterval: 'month' as const,
+        },
+        {
+          id: 'custom_once_1',
+          label: 'Clean-up project',
+          amount: 25,
+          quantity: 2,
+          billingInterval: 'one_time' as const,
+        },
+      ],
+    }
+
+    const checkoutQuote = calculateCheckoutQuote(pricingInput)
+    const sharedQuote = calculatePricing(pricingInput)
+
+    expect(checkoutQuote.monthlyTotal).toBe(sharedQuote.monthlyTotal)
+    expect(checkoutQuote.setupTotal).toBe(sharedQuote.setupTotal)
+    expect(checkoutQuote.monthlyItems.map((item) => item.label)).toContain('Advisory add-on')
+    expect(checkoutQuote.setupItems.map((item) => item.label)).toContain('Clean-up project × 2')
+  })
+
+  it('keeps calculator custom labels out of aggregate Stripe lines and metadata', () => {
+    const quote = calculateCheckoutQuote({
+      ...basePricingInput,
+      customItems: [
+        {
+          id: 'custom_sensitive',
+          label: 'Sensitive client cleanup',
+          amount: 40,
+          quantity: 1,
+          billingInterval: 'month',
+        },
+        {
+          id: 'custom_once',
+          label: 'Prior-year reconstruction',
+          amount: 25,
+          quantity: 1,
+          billingInterval: 'one_time',
+        },
+      ],
+    })
+
+    const params = buildParams(quote)
+    const lineNames = params.line_items?.map((item) => item.price_data?.product_data?.name)
+
+    expect(lineNames).toEqual([CALCULATOR_MONTHLY_LABEL, CALCULATOR_SETUP_LABEL])
+    expect(JSON.stringify(params.metadata)).not.toContain('Sensitive client cleanup')
+    expect(JSON.stringify(params.metadata)).not.toContain('Prior-year reconstruction')
+  })
+
   it('builds subscription params for monthly-only totals', () => {
     const quote = {
       quoteId: 'quote_monthly',
@@ -187,6 +251,24 @@ describe('Stripe checkout session params', () => {
     ).toThrow('Select at least one billable service before checkout')
   })
 
+  it('rejects custom-only calculator checkout', () => {
+    expect(() =>
+      calculateCheckoutQuote({
+        ...basePricingInput,
+        nec1099Count: 0,
+        customItems: [
+          {
+            id: 'custom_only',
+            label: 'Staff-entered add-on',
+            amount: 50,
+            quantity: 1,
+            billingInterval: 'month',
+          },
+        ],
+      })
+    ).toThrow('Select at least one billable service before checkout')
+  })
+
   it('rejects enterprise-sized payment links', () => {
     expect(() => calculateCheckoutQuote({ ...basePricingInput, nec1099Count: 21 })).toThrow(
       'Enterprise quotes require manual follow-up'
@@ -243,9 +325,7 @@ describe('Stripe checkout session params', () => {
       },
     }
 
-    expect(() => calculateCheckoutQuote(oversized)).toThrow(
-      'Quote total is too large for checkout'
-    )
+    expect(() => calculateCheckoutQuote(oversized)).toThrow('Quote total is too large for checkout')
   })
 
   it('rejects missing Stripe configuration', () => {
@@ -310,7 +390,9 @@ describe('buildCheckoutSessionParams — generalized line items + coupons', () =
     expect(params.line_items?.[0]?.quantity).toBe(2)
     expect(params.line_items?.[0]?.price_data?.unit_amount).toBe(120000)
     expect(params.line_items?.[0]?.price_data?.recurring).toEqual({ interval: 'year' })
-    expect(params.line_items?.[0]?.price_data?.product_data?.description).toBe('Yearly support plan')
+    expect(params.line_items?.[0]?.price_data?.product_data?.description).toBe(
+      'Yearly support plan'
+    )
     expect(params.line_items?.[1]?.price_data?.recurring).toBeUndefined()
     expect(params.metadata).toMatchObject({ source: 'custom_link', quoteId: 'quote_custom' })
   })
@@ -361,11 +443,14 @@ describe('buildCheckoutSessionParams — generalized line items + coupons', () =
 
   it('rejects using a coupon and promotion codes together', () => {
     expect(() =>
-      buildCheckoutSessionParams([{ label: 'Item', unitAmountCents: 1000, quantity: 1, interval: 'month' }], {
-        quoteId: 'q',
-        stripeCouponId: 'coupon_abc',
-        allowPromotionCodes: true,
-      })
+      buildCheckoutSessionParams(
+        [{ label: 'Item', unitAmountCents: 1000, quantity: 1, interval: 'month' }],
+        {
+          quoteId: 'q',
+          stripeCouponId: 'coupon_abc',
+          allowPromotionCodes: true,
+        }
+      )
     ).toThrow(CheckoutQuoteError)
   })
 

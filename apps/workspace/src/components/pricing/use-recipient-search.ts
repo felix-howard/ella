@@ -9,6 +9,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { ComboboxItem } from '@ella/ui'
+import { useAuth } from '@clerk/clerk-react'
 import { useDebouncedValue } from '../../hooks/use-debounced-value'
 import { api, type RecipientResult } from '../../lib/api-client'
 
@@ -16,29 +17,51 @@ const DEBOUNCE_MS = 250
 
 export interface UseRecipientSearchResult {
   items: ComboboxItem[]
+  recipientByItemId: ReadonlyMap<string, RecipientSearchMetadata>
   loading: boolean
 }
 
+export interface RecipientSearchMetadata {
+  id: string
+  type: 'client' | 'lead'
+  label: string
+  hint?: string
+  hasPhone: boolean
+}
+
+export const recipientSearchQueryKey = (orgId: string | null | undefined, query: string) =>
+  ['recipient-search', orgId ?? 'no-org', query] as const
+
 export function useRecipientSearch(query: string): UseRecipientSearchResult {
+  const { orgId } = useAuth()
   const [debounced, isDebouncing] = useDebouncedValue(query.trim(), DEBOUNCE_MS)
-  const enabled = debounced.length > 0
+  const enabled = Boolean(orgId) && debounced.length > 0
 
   const { data, isFetching } = useQuery({
-    queryKey: ['recipient-search', debounced],
+    queryKey: recipientSearchQueryKey(orgId, debounced),
     queryFn: () => api.recipients.search(debounced),
     enabled,
     staleTime: 30_000,
   })
 
-  const items = useMemo<ComboboxItem[]>(() => {
-    if (!data) return []
-    return [
+  const { items, recipientByItemId } = useMemo(() => {
+    if (!data) {
+      return {
+        items: [] as ComboboxItem[],
+        recipientByItemId: new Map<string, RecipientSearchMetadata>(),
+      }
+    }
+    const rows = [
       ...data.clients.map((r) => toComboboxItem(r, 'Clients')),
       ...data.leads.map((r) => toComboboxItem(r, 'Leads')),
     ]
+    return {
+      items: rows.map(({ metadata: _metadata, ...item }) => item),
+      recipientByItemId: new Map(rows.map((row) => [row.id, row.metadata])),
+    }
   }, [data])
 
-  return { items, loading: enabled && (isDebouncing || isFetching) }
+  return { items, recipientByItemId, loading: enabled && (isDebouncing || isFetching) }
 }
 
 export function encodeRecipientId(type: 'client' | 'lead', id: string): string {
@@ -54,14 +77,26 @@ export function decodeRecipientId(value: string): { type: 'client' | 'lead'; id:
   return { type, id }
 }
 
-function toComboboxItem(recipient: RecipientResult, group: string): ComboboxItem {
+function toComboboxItem(
+  recipient: RecipientResult,
+  group: string,
+): ComboboxItem & { metadata: RecipientSearchMetadata } {
   const label = displayName(recipient)
+  const id = encodeRecipientId(recipient.type, recipient.id)
+  const hint = buildHint(recipient, label)
   return {
-    id: encodeRecipientId(recipient.type, recipient.id),
+    id,
     label,
     group,
     badge: recipient.type === 'client' ? 'Client' : 'Lead',
-    hint: buildHint(recipient, label),
+    hint,
+    metadata: {
+      id: recipient.id,
+      type: recipient.type,
+      label,
+      hint,
+      hasPhone: Boolean(recipient.phoneLast4),
+    },
   }
 }
 

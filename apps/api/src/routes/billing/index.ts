@@ -10,6 +10,7 @@ import { getVerifiedAuth } from '../leads/auth-helpers'
 import {
   createCheckoutSessionSchema,
   createCustomCheckoutSchema,
+  type CheckoutPricingInput,
   sendCustomQuoteSchema,
   sendQuoteInputSchema,
 } from './schemas'
@@ -26,8 +27,10 @@ billingRoute.post(
   zValidator('json', createCheckoutSessionSchema),
   async (c) => {
     try {
+      const input = c.req.valid('json')
+      assertNoCalculatorBusinessTaxPrepay(input.pricingInput)
       const user = c.get('user')
-      const result = await createCheckoutSession(c.req.valid('json'), {
+      const result = await createCheckoutSession(input, {
         organizationId: user.organizationId,
         createdByStaffId: user.staffId,
       })
@@ -68,8 +71,10 @@ billingRoute.post(
   zValidator('json', sendQuoteInputSchema),
   async (c) => {
     try {
+      const input = c.req.valid('json')
+      assertNoCalculatorBusinessTaxPrepay(input.pricingInput)
       const { orgId, staffId } = getVerifiedAuth(c.get('user'))
-      const result = await createSendableQuote(c.req.valid('json'), {
+      const result = await createSendableQuote(input, {
         organizationId: orgId,
         staffId,
       })
@@ -118,6 +123,13 @@ function handleBillingError(c: Context, error: unknown) {
     return c.json({ error: 'STRIPE_RETURN_URLS_INVALID', message: error.message }, 503)
   }
   throw error
+}
+
+function assertNoCalculatorBusinessTaxPrepay(pricingInput: CheckoutPricingInput): void {
+  if (pricingInput.oneTime.businessTaxReturn <= 0) return
+  throw new CheckoutQuoteError(
+    'Business tax return yearly pre-pay must be created through Custom link'
+  )
 }
 
 export { billingRoute }

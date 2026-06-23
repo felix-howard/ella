@@ -14,6 +14,7 @@ export const basePricingInput: CheckoutPricingInput = {
     businessTaxReturn: 0,
   },
   salesTaxShops: 0,
+  customItems: [],
   rates: {
     tiers: { basicMonthly: 75, proMonthly: 85, vipMonthly: 85 },
     payroll: { baseMonthly: 50 },

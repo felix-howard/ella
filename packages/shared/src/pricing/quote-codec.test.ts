@@ -7,6 +7,15 @@ describe('pricing quote codec', () => {
     const input = createDefaultPricingInput()
     input.payrollEmployees = 2
     input.oneTime.startLlc = 1
+    input.customItems = [
+      {
+        id: 'custom-print',
+        label: 'Print quote add-on',
+        amount: 125,
+        quantity: 2,
+        billingInterval: 'one_time',
+      },
+    ]
 
     const encoded = encodePricingQuote(input)
     const decoded = decodePricingQuote(encoded)

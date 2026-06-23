@@ -65,6 +65,7 @@ const basePricingInput: CheckoutPricingInput = {
     businessTaxReturn: 0,
   },
   salesTaxShops: 0,
+  customItems: [],
   rates: {
     tiers: { basicMonthly: 75, proMonthly: 85, vipMonthly: 85 },
     payroll: { baseMonthly: 50 },
@@ -149,9 +150,7 @@ describe('getPublicQuoteView', () => {
   })
 
   it('previews an active pre-applied percent coupon on the public quote', async () => {
-    prismaMocks.paymentQuote.findUnique.mockResolvedValue(
-      quoteRow({ appliedCoupon: couponRow() }),
-    )
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(quoteRow({ appliedCoupon: couponRow() }))
 
     const view = await getPublicQuoteView('tok_abcdefghij')
 
@@ -177,7 +176,7 @@ describe('getPublicQuoteView', () => {
           amountOffCents: 10000,
           duration: 'forever',
         }),
-      }),
+      })
     )
 
     const view = await getPublicQuoteView('tok_abcdefghij')
@@ -195,7 +194,7 @@ describe('getPublicQuoteView', () => {
     prismaMocks.paymentQuote.findUnique.mockResolvedValue(
       quoteRow({
         appliedCoupon: couponRow({ active: false, stripeCouponId: null }),
-      }),
+      })
     )
 
     const view = await getPublicQuoteView('tok_abcdefghij')
@@ -207,7 +206,7 @@ describe('getPublicQuoteView', () => {
   it('derives paidAt from lastStripeEventAt once settled', async () => {
     const settledAt = new Date('2026-06-08T10:00:00.000Z')
     prismaMocks.paymentQuote.findUnique.mockResolvedValue(
-      quoteRow({ status: 'active', lastStripeEventAt: settledAt }),
+      quoteRow({ status: 'active', lastStripeEventAt: settledAt })
     )
 
     const view = await getPublicQuoteView('tok_abcdefghij')
@@ -218,7 +217,7 @@ describe('getPublicQuoteView', () => {
 
   it('prefers lead first name over client', async () => {
     prismaMocks.paymentQuote.findUnique.mockResolvedValue(
-      quoteRow({ lead: { firstName: 'Lead' }, client: { firstName: 'Client' } }),
+      quoteRow({ lead: { firstName: 'Lead' }, client: { firstName: 'Client' } })
     )
 
     const view = await getPublicQuoteView('tok_abcdefghij')
@@ -243,14 +242,16 @@ describe('getPublicQuoteView', () => {
         source: 'custom',
         billingInterval: 'month',
         resultSnapshot: {
-          monthlyItems: [{ label: 'Retainer', description: 'Monthly bookkeeping', amount: 300, kind: 'monthly' }],
+          monthlyItems: [
+            { label: 'Retainer', description: 'Monthly bookkeeping', amount: 300, kind: 'monthly' },
+          ],
           setupItems: [{ label: 'Onboarding', amount: 150, kind: 'setup' }],
           monthlyTotal: 300,
           setupTotal: 150,
         },
         monthlyTotalCents: 30000,
         setupTotalCents: 15000,
-      }),
+      })
     )
 
     const view = await getPublicQuoteView('tok_abcdefghij')
@@ -265,7 +266,7 @@ describe('getPublicQuoteView', () => {
 
   it('reports a yearly billing interval', async () => {
     prismaMocks.paymentQuote.findUnique.mockResolvedValue(
-      quoteRow({ source: 'custom', billingInterval: 'year' }),
+      quoteRow({ source: 'custom', billingInterval: 'year' })
     )
     const view = await getPublicQuoteView('tok_abcdefghij')
     expect(view?.billingInterval).toBe('year')
@@ -285,7 +286,7 @@ describe('getPublicQuoteView', () => {
         },
         monthlyTotalCents: 7500,
         setupTotalCents: 105000,
-      }),
+      })
     )
 
     const view = await getPublicQuoteView('tok_abcdefghij')
@@ -297,6 +298,32 @@ describe('getPublicQuoteView', () => {
     ])
     expect(view?.setupTotal).toBe(1050)
     expect(view?.dueToday).toBe(1125)
+  })
+
+  it('does not reclassify custom-link one-time labels as yearly pre-pay', async () => {
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(
+      quoteRow({
+        source: 'custom',
+        billingInterval: null,
+        resultSnapshot: {
+          monthlyItems: [],
+          setupItems: [
+            { label: 'Business tax return pre-pay (1 tax year)', amount: 500, kind: 'setup' },
+          ],
+          monthlyTotal: 0,
+          setupTotal: 500,
+        },
+        monthlyTotalCents: 0,
+        setupTotalCents: 50000,
+      })
+    )
+
+    const view = await getPublicQuoteView('tok_abcdefghij')
+
+    expect(view?.lineItems).toEqual([
+      { label: 'Business tax return pre-pay (1 tax year)', amount: 500, kind: 'setup' },
+    ])
+    expect(view?.billingInterval).toBeNull()
   })
 
   it('reports a null billing interval for a one-time custom quote', async () => {
@@ -312,7 +339,7 @@ describe('getPublicQuoteView', () => {
         },
         monthlyTotalCents: 0,
         setupTotalCents: 50000,
-      }),
+      })
     )
 
     const view = await getPublicQuoteView('tok_abcdefghij')
@@ -382,5 +409,51 @@ describe('createQuoteCheckoutSession', () => {
     expect(params.success_url).toBe('https://portal.test/quote/tok_abcdefghij?status=success')
     expect(params.cancel_url).toBe('https://portal.test/quote/tok_abcdefghij?status=canceled')
     expect(prismaMocks.$transaction).toHaveBeenCalledTimes(1)
+  })
+
+  it('rebuilds checkout line amounts from frozen calculator custom items', async () => {
+    const pricingInput = {
+      ...basePricingInput,
+      customItems: [
+        {
+          id: 'custom_checkout_monthly',
+          label: 'Portal checkout monthly add-on',
+          amount: 40,
+          quantity: 1,
+          billingInterval: 'month' as const,
+        },
+        {
+          id: 'custom_checkout_once',
+          label: 'Portal checkout one-time add-on',
+          amount: 60,
+          quantity: 1,
+          billingInterval: 'one_time' as const,
+        },
+      ],
+    }
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(
+      quoteRow({
+        inputSnapshot: { pricingInput },
+        monthlyTotalCents: 12500,
+        setupTotalCents: 21000,
+      })
+    )
+    stripeMocks.sessionsCreate.mockResolvedValue({
+      id: 'cs_custom',
+      url: 'https://stripe.test/cs_custom',
+      status: 'open',
+      customer: null,
+      subscription: null,
+      payment_intent: null,
+      expires_at: null,
+    })
+
+    await createQuoteCheckoutSession('tok_abcdefghij')
+
+    const params = stripeMocks.sessionsCreate.mock.calls[0][0]
+    expect(params.line_items?.[0]?.price_data?.unit_amount).toBe(12500)
+    expect(params.line_items?.[0]?.price_data?.recurring).toEqual({ interval: 'month' })
+    expect(params.line_items?.[1]?.price_data?.unit_amount).toBe(21000)
+    expect(params.line_items?.[1]?.price_data?.recurring).toBeUndefined()
   })
 })

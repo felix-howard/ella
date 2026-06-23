@@ -3,8 +3,6 @@ import { useMutation } from '@tanstack/react-query'
 import {
   calculatePricing,
   createDefaultPricingInput,
-  isPricingCheckoutAmountSane,
-  isPricingInputSane,
   type PricingCalculatorInput,
 } from '@ella/shared/pricing'
 import { toast } from '../../stores/toast-store'
@@ -12,11 +10,13 @@ import { api } from '../../lib/api-client'
 import { PricingCalculatorForm } from './pricing-calculator-form'
 import { PricingPaymentLinkPanel } from './pricing-payment-link-panel'
 import { PricingSendQuotePanel } from './pricing-send-quote-panel'
+import { PricingEngagementLetterPanel } from './pricing-engagement-letter-panel'
 import { PricingPrintPanel } from './pricing-print-panel'
 import { PricingSummaryPanel } from './pricing-summary-panel'
 import { CustomLinkBuilder } from './custom-link/custom-link-builder'
 import { serializePricingInput } from './pricing-format'
 import type { PricingCheckout } from './pricing-calculator-types'
+import { getCreateDisabledReason } from './pricing-disabled-reasons'
 
 type BuilderMode = 'calculator' | 'custom'
 
@@ -114,6 +114,11 @@ export function PricingCalculatorPage() {
               pricingInput={input}
               disabledReason={disabledReason}
             />
+            <PricingEngagementLetterPanel
+              pricingInput={input}
+              pricingResult={result}
+              disabledReason={disabledReason}
+            />
           </aside>
         </div>
       ) : (
@@ -153,23 +158,6 @@ function ModeSwitch({ mode, onChange }: { mode: BuilderMode; onChange: (mode: Bu
       })}
     </div>
   )
-}
-
-function getCreateDisabledReason(
-  input: PricingCalculatorInput,
-  result: ReturnType<typeof calculatePricing>
-): string | null {
-  const hasMeaningfulSelection = result.hasAnySelection || input.nec1099Count > 0
-  const payableTotal = result.monthlyTotal + result.setupTotal
-
-  if (!hasMeaningfulSelection) return 'Select at least one billable service before creating a link.'
-  if (result.isEnterprise) return 'VIP quotes require manual follow-up.'
-  if (!isPricingInputSane(input)) return 'Quantity limits exceeded. Use manual follow-up.'
-  if (!isPricingCheckoutAmountSane(result)) {
-    return 'Quote total is too large for checkout. Use manual follow-up.'
-  }
-  if (payableTotal <= 0) return 'Payable total must be greater than $0.'
-  return null
 }
 
 function makeCheckoutSignature(input: PricingCalculatorInput): string {

@@ -22,37 +22,23 @@ import {
   switchTrackCls,
 } from "./calculator-form-styles";
 
-/**
- * Up-front services form rows. Single-rate rows render one editable rate
- * input; the business tax return row is special-cased (`splitRate`) and
- * renders two inputs — Federal + State — both operator-editable.
- */
-type SingleRateRow = {
-  kind: "single";
+type OneTimeRow = {
   qtyKey: "startLlc" | "holdingLlcNew" | "holdingLlcModify" | "personalTaxReturn";
   label: string;
   rateKey: keyof typeof ONE_TIME;
   hint?: string;
 };
-type SplitRateRow = {
-  kind: "split";
-  qtyKey: "businessTaxReturn";
-  label: string;
-};
-type OneTimeRow = SingleRateRow | SplitRateRow;
 
 const oneTimeRows: OneTimeRow[] = [
   {
-    kind: "single",
     qtyKey: "startLlc",
     label: "Start LLC",
     rateKey: "startLlc",
     hint: "Excludes state filing fee (paid separately)",
   },
-  { kind: "single", qtyKey: "holdingLlcNew", label: "Holding LLC (new)", rateKey: "holdingLlcNew" },
-  { kind: "single", qtyKey: "holdingLlcModify", label: "Re-structure LLC basic", rateKey: "holdingLlcModify" },
-  { kind: "single", qtyKey: "personalTaxReturn", label: "Personal tax return", rateKey: "personalTaxReturn" },
-  { kind: "split", qtyKey: "businessTaxReturn", label: "Business tax return pre-pay (1 tax year)" },
+  { qtyKey: "holdingLlcNew", label: "Holding LLC (new)", rateKey: "holdingLlcNew" },
+  { qtyKey: "holdingLlcModify", label: "Re-structure LLC basic", rateKey: "holdingLlcModify" },
+  { qtyKey: "personalTaxReturn", label: "Personal tax return", rateKey: "personalTaxReturn" },
 ];
 ---
 
@@ -177,14 +163,14 @@ const oneTimeRows: OneTimeRow[] = [
 <!-- Section D — Up-front services -->
 <div class={sectionCls}>
   <label class={switchRowCls}>
-    <span class={headingCls}>One-time + yearly pre-pay services</span>
+    <span class={headingCls}>One-time services</span>
     <span class={switchTrackCls}>
       <input
         type="checkbox"
         name="oneTimeServicesEnabled"
         data-one-time-toggle
         class={switchInputCls}
-        aria-label="Enable one-time and yearly pre-pay services"
+        aria-label="Enable one-time services"
       />
       <span class="block h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-primary-600"></span>
       <span class="pointer-events-none absolute left-1 top-1 block h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-5"></span>
@@ -196,45 +182,20 @@ const oneTimeRows: OneTimeRow[] = [
         <div>
           <label for={`calc-onetime-${row.qtyKey}`} class="text-sm font-medium text-gray-900">
             {row.label}
-            {row.kind === "single" && (
-              <span class="ml-2 text-xs text-gray-500">
-                $<input
-                  type="text"
-                  inputmode="numeric"
-                  pattern="\d*"
-                  maxlength="6"
-                  value={ONE_TIME[row.rateKey]}
-                  data-calc-input={`rates.oneTime.${row.rateKey}`}
-                  class={rateInputCls}
-                  aria-label={`${row.label} rate`}
-                /> each
-              </span>
-            )}
-            {row.kind === "split" && (
-              <span class="ml-2 text-xs text-gray-500">
-                $<input
-                  type="text"
-                  inputmode="numeric"
-                  pattern="\d*"
-                  maxlength="6"
-                  value={ONE_TIME.businessTaxReturnFederal}
-                  data-calc-input="rates.oneTime.businessTaxReturnFederal"
-                  class={rateInputCls}
-                  aria-label="Business tax return pre-pay federal rate"
-                /> Federal + $<input
-                  type="text"
-                  inputmode="numeric"
-                  pattern="\d*"
-                  maxlength="6"
-                  value={ONE_TIME.businessTaxReturnState}
-                  data-calc-input="rates.oneTime.businessTaxReturnState"
-                  class={rateInputCls}
-                  aria-label="Business tax return pre-pay state rate"
-                /> State
-              </span>
-            )}
+            <span class="ml-2 text-xs text-gray-500">
+              $<input
+                type="text"
+                inputmode="numeric"
+                pattern="\d*"
+                maxlength="6"
+                value={ONE_TIME[row.rateKey]}
+                data-calc-input={`rates.oneTime.${row.rateKey}`}
+                class={rateInputCls}
+                aria-label={`${row.label} rate`}
+              /> each
+            </span>
           </label>
-          {row.kind === "single" && row.hint && (
+          {row.hint && (
             <p class="text-xs text-gray-500">{row.hint}</p>
           )}
         </div>

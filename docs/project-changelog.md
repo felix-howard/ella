@@ -1,11 +1,108 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-22 ICT
+> **Last Updated:** 2026-06-23 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
 
+## 2026-06-23
+
+### Calculator Engagement Letter CPA Template
+**Status:** Complete
+
+**Fixed:**
+- Replaced generic Calculator Engagement Letter copy with CPA-style structure closer to real firm templates.
+- Generated letter now includes detailed scope, monthly service subsections, setup services, scope limits, 4.1-4.4 fee schedule, payment terms, suspension, client responsibilities, disclaimers, liability, dispute, guaranty, governing law, and acceptance sections.
+- Calculator fees still drive the amounts; no example CPA prices are hardcoded.
+- Business tax yearly lines, if present in the pricing result, now render as a six-month tax filing allocation instead of vague separate yearly payment-link copy.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- engagement-letter-content-builder` pass, 6 tests
+- `pnpm -F @ella/workspace test -- pricing-engagement-letter-panel` pass, 4 tests
+- `pnpm -F @ella/workspace test -- pricing-calculator` pass, 19 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with 12 pre-existing warnings, 0 errors
+- `git diff --check` pass
+
+### Calculator Engagement Letter Send Flow
+**Status:** Complete with concerns
+
+**Changed:**
+- Added a `Prepare engagement letter` panel to the workspace calculator sidebar.
+- Recipient selection uses the existing org-scoped client/lead search, with readiness checks also scoped by Clerk org id.
+- Opening the modal snapshots calculator-derived Engagement Letter HTML into a direct edit flow, skipping the agreement type/template picker.
+- Initial payment defaults OFF and expiry defaults to 30 days; preview/send continue through the existing Agreement APIs.
+- Added disabled states for missing or invalid quote, enterprise quote, no recipient, and recipient without phone.
+- Yearly business tax pre-pay remains a Custom Link payment and manual/editable agreement paragraph for now; Calculator-generated content only auto-fills setup and monthly fees.
+
+**Validation:**
+- `pnpm -F @ella/shared test -- calculator` pass, 13 tests
+- `pnpm -F @ella/workspace test -- pricing` pass, 75 tests
+- `pnpm -F @ella/workspace test -- use-nda-readiness` pass, 1 test
+- `pnpm -F @ella/api test -- billing` pass, 41 tests
+- `pnpm -F @ella/shared type-check`, `pnpm -F @ella/workspace type-check`, `pnpm -F @ella/landing type-check`, and `pnpm -F @ella/api type-check` pass
+- `pnpm type-check` pass, 8/8 packages successful
+- `git diff --check` pass
+- Remaining concern: browser smoke not run in this agent session; local smoke requires an authenticated Clerk org and searchable recipient/client.
+
+### Calculator Business Tax Pre-Pay Cleanup
+**Status:** Complete
+
+**Changed:**
+- Removed `Business tax return pre-pay (1 tax year)` from workspace and landing calculator entry points.
+- Updated calculator copy to focus on monthly services plus setup and one-time work.
+- Added server-side rejection for new staff-created calculator checkout/send payloads with `oneTime.businessTaxReturn > 0`.
+- Preserved historical snapshot rendering and portal rebuild compatibility for saved yearly lines.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/pricing/__tests__/pricing-calculator.test.tsx` pass, 19 tests
+- `pnpm -F @ella/api test -- src/routes/billing/__tests__/billing-route-auth.test.ts` pass, 13 tests
+- `pnpm -F @ella/shared test -- src/pricing/calculator.test.ts` pass, 13 tests
+- `pnpm -F @ella/api test -- src/services/stripe/__tests__/quote-rebuild.test.ts src/services/payments/__tests__/quote-checkout-service.test.ts` pass, 27 tests
+- `pnpm -F @ella/workspace type-check`, `pnpm -F @ella/api type-check`, `pnpm -F @ella/landing type-check`, and `pnpm -F @ella/shared type-check` pass
+- `pnpm -F @ella/workspace lint`, `pnpm -F @ella/api lint`, `pnpm -F @ella/landing lint`, and `pnpm -F @ella/shared lint` pass with unrelated existing warnings only
+- `git diff --check` pass
+
+---
+
+### Calculator Custom Items Complete
+**Status:** Complete
+
+**Changed:**
+- Payments Calculator now supports ad-hoc custom add-on rows with item name, amount, quantity, and one-time/monthly billing.
+- Custom add-ons flow through summary totals, print quotes, anonymous payment links, sent-to-client quotes, and portal checkout rebuilds from frozen quote snapshots.
+- Yearly recurring and custom-only charges remain in `Payments > Custom link`; Calculator custom rows reject yearly billing and block custom-only checkout.
+- Workspace Print PDF no longer puts staff-entered custom item labels in the print URL query; it opens the print page without a quote query and sends the payload in-memory to avoid server/proxy log exposure.
+
+**Validation:**
+- `pnpm -F @ella/shared test` pass, 15 tests
+- `pnpm -F @ella/workspace test -- pricing-calculator` pass, 18 tests
+- `pnpm -F @ella/api test -- billing` pass, 35 tests
+- `pnpm -F @ella/shared type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/landing type-check` pass, 0 diagnostics
+- `pnpm -F @ella/api type-check` pass
+- `pnpm type-check` pass, 8/8 packages successful
+- `git diff --check` pass
+- untracked-file whitespace check pass
+
+---
+
 ## 2026-06-22
+
+### Calculator Custom Items Phase 01
+**Status:** Complete
+
+**Changed:**
+- Shared pricing and API schema now accept calculator `customItems`, default missing values to `[]`, and only allow `billingInterval` values of `one_time` or `month`.
+- Custom item validation now enforces count, label, amount, and quantity limits; monthly custom add-ons roll into monthly lines/totals, and one-time custom add-ons roll into setup lines/totals.
+- Custom-only calculator checkout remains blocked, and public quote display keeps custom-link one-time labels out of the calculator yearly pre-pay bucket.
+
+**Validation:**
+- `pnpm -F @ella/shared test` pass, 15 tests
+- `pnpm -F @ella/api test -- billing checkout quote-rebuild quote-send-service` pass, 137 tests
+- `pnpm type-check` pass, 8/8 packages successful
+- `git diff --check` pass
 
 ### Intake Upload-Link Backend Default Template
 **Status:** Complete

@@ -34,6 +34,7 @@ export function createDefaultPricingInput(): PricingCalculatorInput {
       businessTaxReturn: 0,
     },
     salesTaxShops: 0,
+    customItems: [],
     rates: {
       tiers: {
         basicMonthly: TIER_BASIC.monthly,

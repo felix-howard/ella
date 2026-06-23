@@ -2,15 +2,22 @@ import { Button } from '@ella/ui'
 import { FileText, Printer } from 'lucide-react'
 import {
   encodePricingQuote,
-  isPricingInputSane,
   type PricingCalculatorInput,
   type PricingCalculatorResult,
 } from '@ella/shared/pricing'
 import { toast } from '../../stores/toast-store'
+import { getPrintDisabledReason } from './pricing-disabled-reasons'
 
 interface PricingPrintPanelProps {
   input: PricingCalculatorInput
   result: PricingCalculatorResult
+}
+
+export const PRICING_PRINT_QUOTE_MESSAGE_TYPE = 'ella:pricing-print-quote'
+
+interface PricingPrintQuoteMessage {
+  type: typeof PRICING_PRINT_QUOTE_MESSAGE_TYPE
+  quote: string
 }
 
 export function PricingPrintPanel({ input, result }: PricingPrintPanelProps) {
@@ -18,11 +25,16 @@ export function PricingPrintPanel({ input, result }: PricingPrintPanelProps) {
 
   const handlePrint = () => {
     if (disabledReason) return
-    const printWindow = window.open(buildPricingPrintUrl(input), '_blank')
+    const printWindow = window.open(buildPricingPrintUrl(), '_blank')
     if (!printWindow) {
       toast.error('Popup blocked. Allow popups, then try Print PDF again.')
     } else {
-      printWindow.opener = null
+      sendPricingPrintQuote(printWindow, input)
+      try {
+        printWindow.opener = null
+      } catch {
+        // Cross-origin windows can reject opener writes in hardened browsers.
+      }
     }
   }
 
@@ -49,18 +61,35 @@ export function PricingPrintPanel({ input, result }: PricingPrintPanelProps) {
   )
 }
 
-function getPrintDisabledReason(input: PricingCalculatorInput, result: PricingCalculatorResult): string | null {
-  if (!isPricingInputSane(input)) return 'Quantity limits exceeded. Use manual follow-up.'
-  if (result.isEnterprise) return 'VIP quotes require manual follow-up.'
-  if (!result.hasAnySelection) return 'Select at least one billable service before printing a quote.'
-  return null
-}
-
-function buildPricingPrintUrl(input: PricingCalculatorInput): string {
+export function buildPricingPrintUrl(): string {
   const baseUrl = getLandingBaseUrl()
   const url = new URL('/pricing/print', baseUrl)
-  url.searchParams.set('q', encodePricingQuote(input))
   return url.toString()
+}
+
+export function buildPricingPrintMessage(input: PricingCalculatorInput): PricingPrintQuoteMessage {
+  return {
+    type: PRICING_PRINT_QUOTE_MESSAGE_TYPE,
+    quote: encodePricingQuote(input),
+  }
+}
+
+function sendPricingPrintQuote(printWindow: Window, input: PricingCalculatorInput): void {
+  const message = buildPricingPrintMessage(input)
+  const targetOrigin = new URL(getLandingBaseUrl()).origin
+  let attempts = 0
+  const maxAttempts = 20
+
+  const send = () => {
+    if (printWindow.closed) {
+      return
+    }
+    printWindow.postMessage(message, targetOrigin)
+    attempts += 1
+    if (attempts < maxAttempts) window.setTimeout(send, 250)
+  }
+
+  send()
 }
 
 function getLandingBaseUrl(): string {

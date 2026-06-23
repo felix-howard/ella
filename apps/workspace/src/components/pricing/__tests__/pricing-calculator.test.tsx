@@ -1,26 +1,50 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import type React from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { calculatePricing, createDefaultPricingInput } from '@ella/shared/pricing'
+import {
+  MAX_CALCULATOR_CUSTOM_ITEM_AMOUNT,
+  calculatePricing,
+  createDefaultPricingInput,
+  decodePricingQuote,
+} from '@ella/shared/pricing'
 import type { PricingCalculatorInput } from '@ella/shared/pricing'
 import { PricingCalculatorForm } from '../pricing-calculator-form'
 import { PricingCalculatorPage } from '../pricing-calculator-page'
+import {
+  buildPricingPrintMessage,
+  buildPricingPrintUrl,
+  PricingPrintPanel,
+} from '../pricing-print-panel'
 import { PricingSummaryPanel } from '../pricing-summary-panel'
+import {
+  getPricingCalculatorCustomAmountDraftError,
+  toPricingCalculatorCustomDraftNumber,
+} from '../pricing-calculator-custom-items'
+import { PricingCalculatorCustomItemRow } from '../pricing-calculator-custom-item-row'
+import { getCreateDisabledReason, getPrintDisabledReason } from '../pricing-disabled-reasons'
 
 const useMutationMock = vi.hoisted(() => vi.fn())
 const createCheckoutSessionMock = vi.hoisted(() => vi.fn())
+const sendQuoteMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@tanstack/react-query', () => ({
   useMutation: (options: unknown) => useMutationMock(options),
   // Send-quote panel's recipient search; no results during static render.
   useQuery: () => ({ data: undefined, isFetching: false }),
+  useQueryClient: () => ({
+    invalidateQueries: vi.fn(),
+  }),
+}))
+
+vi.mock('@clerk/clerk-react', () => ({
+  useAuth: () => ({ orgId: 'org_test' }),
 }))
 
 vi.mock('../../../lib/api-client', () => ({
   api: {
     billing: {
       createCheckoutSession: createCheckoutSessionMock,
-      sendQuote: vi.fn(),
+      sendQuote: sendQuoteMock,
     },
     recipients: {
       search: vi.fn(),
@@ -75,6 +99,20 @@ vi.mock('@ella/ui', () => ({
       </select>
     </label>
   ),
+  Select: ({
+    options,
+    ...props
+  }: React.SelectHTMLAttributes<HTMLSelectElement> & {
+    options?: Array<{ value: string; label: string }>
+  }) => (
+    <select {...props}>
+      {options?.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  ),
   Switch: ({
     checked,
     onCheckedChange: _onCheckedChange,
@@ -107,6 +145,10 @@ describe('workspace pricing calculator', () => {
     expect(markup).toContain('Print PDF')
     expect(markup).toContain('Payment link')
     expect(markup).toContain('Send to client')
+    expect(markup).toContain('Engagement letter')
+    expect(markup).toContain('Prepare engagement letter')
+    expect(markup).toContain('Custom items')
+    expect(markup).toContain('Add item')
     expect(markup).toContain('Select at least one billable service')
     expect(markup).toContain('button')
     expect(markup).toContain('disabled=""')
@@ -198,7 +240,7 @@ describe('workspace pricing calculator', () => {
       <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
     )
 
-    expect(disabledMarkup).toContain('Enable one-time + yearly pre-pay services')
+    expect(disabledMarkup).toContain('Enable one-time services')
     expect(disabledMarkup).not.toContain('Start LLC')
     expect(disabledMarkup).not.toContain('Business tax return pre-pay (1 tax year)')
     expect(disabledMarkup).not.toContain('aria-label="Federal rate"')
@@ -210,9 +252,205 @@ describe('workspace pricing calculator', () => {
     )
 
     expect(enabledMarkup).toContain('Start LLC')
-    expect(enabledMarkup).toContain('Business tax return pre-pay (1 tax year)')
-    expect(enabledMarkup).toContain('aria-label="Federal rate"')
-    expect(enabledMarkup).toContain('value="$800"')
+    expect(enabledMarkup).toContain('Personal tax return')
+    expect(enabledMarkup).not.toContain('Business tax return pre-pay (1 tax year)')
+    expect(enabledMarkup).not.toContain('aria-label="Federal rate"')
+    expect(enabledMarkup).not.toContain('value="$800"')
+  })
+
+  it('renders calculator custom item rows without yearly billing', () => {
+    const input = createDefaultPricingInput()
+    input.customItems = [
+      {
+        id: 'custom-item-a',
+        label: 'Cleanup review',
+        amount: 250,
+        quantity: 2,
+        billingInterval: 'month',
+      },
+    ]
+
+    const markup = renderToStaticMarkup(
+      <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
+    )
+
+    expect(markup).toContain('Cleanup review')
+    expect(markup).toContain('Monthly')
+    expect(markup).toContain('Line total $500/mo')
+    expect(markup).toContain('Use Custom link for yearly recurring or custom-only charges.')
+    expect(markup).not.toContain('>Yearly<')
+  })
+
+  it('shows validation for partially filled calculator custom items', () => {
+    const input = createDefaultPricingInput()
+    input.customItems = [
+      {
+        id: 'custom-item-b',
+        label: '',
+        amount: 125,
+        quantity: 1,
+        billingInterval: 'one_time',
+      },
+    ]
+
+    const markup = renderToStaticMarkup(
+      <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
+    )
+
+    expect(markup).toContain('Enter an item name.')
+    expect(markup).not.toContain('Line total $125 one-time')
+  })
+
+  it('does not show validation for newly added untouched custom item rows', () => {
+    const markup = renderToStaticMarkup(
+      <PricingCalculatorCustomItemRow
+        item={{
+          id: 'custom-item-new',
+          label: '',
+          amount: 0,
+          quantity: 1,
+          billingInterval: 'one_time',
+        }}
+        index={0}
+        disabled={false}
+        showValidation={false}
+        onInteract={vi.fn()}
+        onUpdate={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    )
+
+    expect(markup).not.toContain('Enter an item name.')
+    expect(markup).not.toContain('Enter an amount of at least $1.')
+    expect(markup).not.toContain('aria-invalid="true"')
+  })
+
+  it('keeps invalid calculator custom item amount drafts out of pricing numbers', () => {
+    expect(getPricingCalculatorCustomAmountDraftError('0')).toBe('Enter an amount of at least $1.')
+    expect(getPricingCalculatorCustomAmountDraftError('-')).toBe('Enter a whole-dollar amount.')
+    expect(getPricingCalculatorCustomAmountDraftError('1000000')).toBe(
+      'Amount must be 999,999 or less.'
+    )
+    expect(toPricingCalculatorCustomDraftNumber('-', MAX_CALCULATOR_CUSTOM_ITEM_AMOUNT)).toBe(0)
+  })
+
+  it('shows custom item fix copy instead of generic quantity copy for print quote', () => {
+    const input = createDefaultPricingInput()
+    input.nec1099Count = 1
+    input.customItems = [
+      {
+        id: 'custom-item-c',
+        label: '',
+        amount: 125,
+        quantity: 1,
+        billingInterval: 'one_time',
+      },
+    ]
+
+    const markup = renderToStaticMarkup(
+      <PricingPrintPanel input={input} result={calculatePricing(input)} />
+    )
+
+    expect(markup).toContain('Finish or remove incomplete custom item rows.')
+    expect(markup).not.toContain('Quantity limits exceeded. Use manual follow-up.')
+  })
+
+  it('shows custom item fix copy before selection copy for payment links', () => {
+    const input = createDefaultPricingInput()
+    input.customItems = [
+      {
+        id: 'custom-item-d',
+        label: '',
+        amount: 125,
+        quantity: 1,
+        billingInterval: 'one_time',
+      },
+    ]
+
+    expect(getCreateDisabledReason(input, calculatePricing(input))).toBe(
+      'Finish or remove incomplete custom item rows.'
+    )
+  })
+
+  it('points custom-only calculator quotes to Custom link', () => {
+    const input = createDefaultPricingInput()
+    input.customItems = [
+      {
+        id: 'custom-item-only',
+        label: 'Advisory cleanup',
+        amount: 300,
+        quantity: 1,
+        billingInterval: 'one_time',
+      },
+    ]
+    const result = calculatePricing(input)
+    const reason =
+      'Use Custom link for custom-only charges, or select a standard calculator service.'
+
+    expect(getCreateDisabledReason(input, result)).toBe(reason)
+    expect(getPrintDisabledReason(input, result)).toBe(reason)
+  })
+
+  it('renders custom monthly and one-time rows in quote summary totals', () => {
+    const input = createDefaultPricingInput()
+    input.nec1099Count = 1
+    input.customItems = [
+      {
+        id: 'custom-monthly',
+        label: 'Advisory add-on',
+        amount: 40,
+        quantity: 2,
+        billingInterval: 'month',
+      },
+      {
+        id: 'custom-once',
+        label: 'Clean-up project',
+        amount: 120,
+        quantity: 1,
+        billingInterval: 'one_time',
+      },
+    ]
+    const result = calculatePricing(input)
+
+    const markup = renderToStaticMarkup(<PricingSummaryPanel result={result} />)
+
+    expect(markup).toContain('Advisory add-on × 2')
+    expect(markup).toContain('Clean-up project')
+    expect(result.monthlyTotal + result.setupTotal).toBe(425)
+    expect(result.monthlyTotal).toBe(155)
+    expect(result.setupDisplayTotal).toBe(270)
+    expect(markup).toContain('$425')
+    expect(markup).toContain('$155')
+    expect(markup).toContain('$270')
+  })
+
+  it('allows Basic-only print quotes', () => {
+    const input = createDefaultPricingInput()
+    input.nec1099Count = 1
+
+    expect(getPrintDisabledReason(input, calculatePricing(input))).toBeNull()
+  })
+
+  it('keeps custom item labels out of the print quote URL', () => {
+    const input = createDefaultPricingInput()
+    input.nec1099Count = 1
+    input.customItems = [
+      {
+        id: 'custom-print-private',
+        label: 'Sensitive client cleanup',
+        amount: 125,
+        quantity: 1,
+        billingInterval: 'one_time',
+      },
+    ]
+
+    const url = buildPricingPrintUrl()
+    const message = buildPricingPrintMessage(input)
+
+    expect(url).toContain('/pricing/print')
+    expect(url).not.toContain('?q=')
+    expect(url).not.toContain('Sensitive client cleanup')
+    expect(decodePricingQuote(message.quote)?.input.customItems).toEqual(input.customItems)
   })
 
   it('renders zero-valued rate fields as empty so typing does not keep a leading zero', () => {
@@ -234,14 +472,59 @@ describe('workspace pricing calculator', () => {
       mutationFn: (payload: { pricingInput: PricingCalculatorInput }) => Promise<unknown>
     }
     const pricingInput = createDefaultPricingInput()
+    pricingInput.nec1099Count = 1
+    pricingInput.customItems = [
+      {
+        id: 'custom-checkout',
+        label: 'Checkout add-on',
+        amount: 200,
+        quantity: 1,
+        billingInterval: 'one_time',
+      },
+    ]
 
     await mutationOptions.mutationFn({ pricingInput })
 
     expect(createCheckoutSessionMock).toHaveBeenCalledWith({ pricingInput })
+    expect(createCheckoutSessionMock.mock.calls[0][0].pricingInput.customItems).toEqual(
+      pricingInput.customItems
+    )
     expect(createCheckoutSessionMock.mock.calls[0][0]).not.toHaveProperty('bearerToken')
     expect(createCheckoutSessionMock.mock.calls[0][0]).not.toHaveProperty('token')
     expect(createCheckoutSessionMock.mock.calls[0][0]).not.toHaveProperty('customerEmail')
     expect(createCheckoutSessionMock.mock.calls[0][0]).not.toHaveProperty('customerName')
     expect(createCheckoutSessionMock.mock.calls[0][0]).not.toHaveProperty('businessName')
+  })
+
+  it('keeps custom items in the send-to-client mutation payload', async () => {
+    renderToStaticMarkup(<PricingCalculatorPage />)
+    const sendMutationOptions = useMutationMock.mock.calls[1][0] as {
+      mutationFn: (payload: {
+        pricingInput: PricingCalculatorInput
+        recipient: { type: 'lead'; id: string }
+      }) => Promise<unknown>
+    }
+    const pricingInput = createDefaultPricingInput()
+    pricingInput.nec1099Count = 1
+    pricingInput.customItems = [
+      {
+        id: 'custom-send',
+        label: 'Sent quote add-on',
+        amount: 90,
+        quantity: 3,
+        billingInterval: 'month',
+      },
+    ]
+    const payload = {
+      pricingInput,
+      recipient: { type: 'lead' as const, id: 'lead_1' },
+    }
+
+    await sendMutationOptions.mutationFn(payload)
+
+    expect(sendQuoteMock).toHaveBeenCalledWith(payload)
+    expect(sendQuoteMock.mock.calls[0][0].pricingInput.customItems).toEqual(
+      pricingInput.customItems
+    )
   })
 })

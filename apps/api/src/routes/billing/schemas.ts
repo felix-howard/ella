@@ -1,7 +1,20 @@
 import { z } from 'zod'
+import {
+  MAX_CALCULATOR_CUSTOM_ITEM_AMOUNT,
+  MAX_CALCULATOR_CUSTOM_ITEM_QUANTITY,
+  MAX_CALCULATOR_CUSTOM_ITEMS,
+  MAX_CALCULATOR_CUSTOM_LABEL_LENGTH,
+} from '@ella/shared/pricing'
 
 const quantitySchema = z.number().int().min(0).max(1000)
 const rateSchema = z.number().int().min(0).max(1_000_000)
+const calculatorCustomItemSchema = z.object({
+  id: z.string().trim().min(1).max(120),
+  label: z.string().trim().min(1).max(MAX_CALCULATOR_CUSTOM_LABEL_LENGTH),
+  amount: z.number().int().min(1).max(MAX_CALCULATOR_CUSTOM_ITEM_AMOUNT),
+  quantity: z.number().int().min(1).max(MAX_CALCULATOR_CUSTOM_ITEM_QUANTITY),
+  billingInterval: z.enum(['one_time', 'month']),
+})
 
 export const checkoutPricingInputSchema = z.object({
   nec1099Count: quantitySchema,
@@ -21,6 +34,7 @@ export const checkoutPricingInputSchema = z.object({
     businessTaxReturn: quantitySchema,
   }),
   salesTaxShops: quantitySchema,
+  customItems: z.array(calculatorCustomItemSchema).max(MAX_CALCULATOR_CUSTOM_ITEMS).default([]),
   rates: z.object({
     tiers: z.object({
       basicMonthly: rateSchema,

@@ -71,6 +71,95 @@ describe('pricing calculator', () => {
     )
   })
 
+  it('adds monthly custom items to monthly lines and totals', () => {
+    const input = createDefaultPricingInput()
+    input.customItems = [
+      {
+        id: 'custom_monthly_1',
+        label: 'Advisory add-on',
+        amount: 25,
+        quantity: 2,
+        billingInterval: 'month',
+      },
+    ]
+
+    const result = calculatePricing(input)
+
+    expect(result.monthlyItems).toContainEqual({
+      label: 'Advisory add-on × 2',
+      amount: 50,
+      kind: 'monthly',
+    })
+    expect(result.monthlyTotal).toBe(125)
+  })
+
+  it('adds one-time custom items to setup lines and totals', () => {
+    const input = createDefaultPricingInput()
+    input.customItems = [
+      {
+        id: 'custom_once_1',
+        label: 'Clean-up project',
+        amount: 100,
+        quantity: 3,
+        billingInterval: 'one_time',
+      },
+    ]
+
+    const result = calculatePricing(input)
+
+    expect(result.setupItems).toContainEqual({
+      label: 'Clean-up project × 3',
+      amount: 300,
+      kind: 'setup',
+    })
+    expect(result.setupTotal).toBe(450)
+  })
+
+  it('does not treat custom-only input as a meaningful calculator selection', () => {
+    const input = createDefaultPricingInput()
+    input.customItems = [
+      {
+        id: 'custom_only',
+        label: 'Staff-entered add-on',
+        amount: 50,
+        quantity: 1,
+        billingInterval: 'month',
+      },
+    ]
+
+    expect(calculatePricing(input).hasAnySelection).toBe(false)
+  })
+
+  it('keeps custom one-time items out of yearly pre-pay grouping', () => {
+    const input = createDefaultPricingInput()
+    input.customItems = [
+      {
+        id: 'custom_once_1',
+        label: 'Business tax return pre-pay (1 tax year)',
+        amount: 100,
+        quantity: 1,
+        billingInterval: 'one_time',
+      },
+    ]
+
+    const result = calculatePricing(input)
+
+    expect(result.yearlyItems).toEqual([])
+    expect(result.setupDisplayItems).toContainEqual({
+      label: 'Business tax return pre-pay (1 tax year)',
+      amount: 100,
+      kind: 'setup',
+    })
+  })
+
+  it('keeps legacy input without customItems sane and calculable', () => {
+    const input = createDefaultPricingInput()
+    delete (input as Partial<typeof input>).customItems
+
+    expect(isPricingInputSane(input)).toBe(true)
+    expect(calculatePricing(input).monthlyTotal).toBe(75)
+  })
+
   it('flags checkout totals that exceed the shared line amount limit', () => {
     const input = createDefaultPricingInput()
     input.rates.tiers.basicMonthly = MAX_CHECKOUT_LINE_AMOUNT + 1

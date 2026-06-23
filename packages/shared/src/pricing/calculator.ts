@@ -6,6 +6,16 @@ export type Tier = 'basic' | 'pro' | 'enterprise'
 
 export type PayrollMode = 'owner-manual' | 'ella-staff'
 
+export type PricingCalculatorCustomBillingInterval = 'one_time' | 'month'
+
+export interface PricingCalculatorCustomItem {
+  id: string
+  label: string
+  amount: number
+  quantity: number
+  billingInterval: PricingCalculatorCustomBillingInterval
+}
+
 export interface PricingCalculatorInput {
   nec1099Count: number
   payrollEmployees: number
@@ -24,6 +34,7 @@ export interface PricingCalculatorInput {
     businessTaxReturn: number
   }
   salesTaxShops: number
+  customItems: PricingCalculatorCustomItem[]
   rates: {
     tiers: {
       basicMonthly: number
@@ -87,6 +98,10 @@ export interface PricingCheckoutAmountSummary {
 }
 
 export const MAX_CHECKOUT_LINE_AMOUNT = 999_999
+export const MAX_CALCULATOR_CUSTOM_ITEMS = 20
+export const MAX_CALCULATOR_CUSTOM_LABEL_LENGTH = 120
+export const MAX_CALCULATOR_CUSTOM_ITEM_AMOUNT = MAX_CHECKOUT_LINE_AMOUNT
+export const MAX_CALCULATOR_CUSTOM_ITEM_QUANTITY = 99
 
 export function detectPricingTier(nec1099Count: number): Tier {
   if (nec1099Count <= TIER_BASIC.maxNec1099) return 'basic'
@@ -182,9 +197,27 @@ export function calculatePricing(input: PricingCalculatorInput): PricingCalculat
     })
   }
 
+  const hasStandardSelection = monthly.length > 1 || setup.length > 1
+  const standardSetupLineCount = setup.length
+  for (const item of getValidCustomItems(input)) {
+    const line = {
+      label: formatCustomItemLabel(item),
+      amount: calculateCustomItemSubtotal(item),
+    }
+    if (item.billingInterval === 'month') {
+      monthly.push({ ...line, kind: 'monthly' })
+    } else {
+      setup.push({ ...line, kind: 'setup' })
+    }
+  }
+
   const monthlyTotal = total(monthly)
-  const yearlyItems = setup.filter(isBusinessTaxReturnPrepayLine)
-  const setupDisplayItems = setup.filter((item) => !isBusinessTaxReturnPrepayLine(item))
+  const yearlyItems = setup.filter(
+    (item, index) => index < standardSetupLineCount && isBusinessTaxReturnPrepayLine(item)
+  )
+  const setupDisplayItems = setup.filter(
+    (item, index) => index >= standardSetupLineCount || !isBusinessTaxReturnPrepayLine(item)
+  )
   const yearlyTotal = total(yearlyItems)
   const setupDisplayTotal = total(setupDisplayItems)
   const setupTotal = total(setup)
@@ -201,7 +234,7 @@ export function calculatePricing(input: PricingCalculatorInput): PricingCalculat
     yearlyTotal,
     setupDisplayTotal,
     setupTotal,
-    hasAnySelection: monthly.length > 1 || setup.length > 1,
+    hasAnySelection: hasStandardSelection,
   }
 }
 
@@ -219,7 +252,8 @@ export function isPricingInputSane(input: PricingCalculatorInput): boolean {
     input.cashPlan.employees <= 200 &&
     input.cashPlan.owners <= 99 &&
     input.salesTaxShops <= 200 &&
-    Object.values(input.oneTime).every((quantity) => quantity <= 99)
+    Object.values(input.oneTime).every((quantity) => quantity <= 99) &&
+    areCustomItemsSane((input as { customItems?: unknown }).customItems)
   )
 }
 
@@ -234,4 +268,55 @@ export function isPricingCheckoutAmountSane(result: PricingCheckoutAmountSummary
 
 function total(items: PricingLineItem[]): number {
   return items.reduce((sum, item) => sum + item.amount, 0)
+}
+
+function getValidCustomItems(input: PricingCalculatorInput): PricingCalculatorCustomItem[] {
+  const items = (input as { customItems?: unknown }).customItems
+  if (!Array.isArray(items)) return []
+  return items.filter(isValidPricingCalculatorCustomItem)
+}
+
+function areCustomItemsSane(items: unknown): boolean {
+  if (items === undefined) return true
+  if (!Array.isArray(items) || items.length > MAX_CALCULATOR_CUSTOM_ITEMS) return false
+  return items.every(isValidPricingCalculatorCustomItem)
+}
+
+function isValidPricingCalculatorCustomItem(
+  item: unknown
+): item is PricingCalculatorCustomItem {
+  if (!item || typeof item !== 'object') return false
+  const candidate = item as Partial<PricingCalculatorCustomItem>
+  const label = typeof candidate.label === 'string' ? normalizeCustomLabel(candidate.label) : ''
+  const amount = candidate.amount
+  const quantity = candidate.quantity
+
+  return (
+    typeof candidate.id === 'string' &&
+    candidate.id.trim().length > 0 &&
+    label.length > 0 &&
+    label.length <= MAX_CALCULATOR_CUSTOM_LABEL_LENGTH &&
+    typeof amount === 'number' &&
+    Number.isInteger(amount) &&
+    amount >= 1 &&
+    amount <= MAX_CALCULATOR_CUSTOM_ITEM_AMOUNT &&
+    typeof quantity === 'number' &&
+    Number.isInteger(quantity) &&
+    quantity >= 1 &&
+    quantity <= MAX_CALCULATOR_CUSTOM_ITEM_QUANTITY &&
+    (candidate.billingInterval === 'one_time' || candidate.billingInterval === 'month')
+  )
+}
+
+function formatCustomItemLabel(item: PricingCalculatorCustomItem): string {
+  const label = normalizeCustomLabel(item.label)
+  return item.quantity > 1 ? `${label} × ${item.quantity}` : label
+}
+
+function normalizeCustomLabel(label: string): string {
+  return label.trim().replace(/\s+/g, ' ')
+}
+
+function calculateCustomItemSubtotal(item: PricingCalculatorCustomItem): number {
+  return item.amount * item.quantity
 }

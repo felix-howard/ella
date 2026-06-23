@@ -1,8 +1,8 @@
 ---
 /**
  * Up-front services pricing section — shown below tier cards on pricing page.
- * Surfaces fixed-fee and yearly pre-pay items from the calculator
- * as two grouped cards so visitors see up-front costs without touching the calculator.
+ * Surfaces fixed-fee add-ons from the calculator so visitors see up-front costs
+ * without touching the calculator.
  */
 import SectionHeading from "@/components/section-heading.astro";
 import { checkPath } from "@/lib/icons";
@@ -22,19 +22,11 @@ interface ServiceGroup {
   items: ServiceRow[];
 }
 
-const businessTaxReturnTotal =
-  ONE_TIME.businessTaxReturnFederal + ONE_TIME.businessTaxReturnState;
-
 const groups: ServiceGroup[] = [
   {
-    eyebrow: "Tax returns",
-    title: "Filing and compliance support",
+    eyebrow: "Tax filing",
+    title: "Personal filing support",
     items: [
-      {
-        label: "Business tax return pre-pay (1 tax year)",
-        price: `${fmt(businessTaxReturnTotal)} per tax year`,
-        note: `${fmt(ONE_TIME.businessTaxReturnFederal)} Federal + ${fmt(ONE_TIME.businessTaxReturnState)} State`,
-      },
       {
         label: "Personal tax return",
         price: `${fmt(ONE_TIME.personalTaxReturn)} each`,
@@ -66,13 +58,13 @@ const groups: ServiceGroup[] = [
 <section
   id="one-time-services"
   class="bg-white pb-16 sm:pb-24"
-  aria-label="One-time and yearly pre-pay services pricing"
+  aria-label="One-time services pricing"
 >
   <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
     <SectionHeading
       eyebrow="Up-front services"
-      title="Fixed-fee and yearly pre-pay add-ons"
-      subtitle="Pay-as-you-go support for yearly tax filings, compliance cleanup, and company structure - no subscription required."
+      title="Fixed-fee add-ons"
+      subtitle="Pay-as-you-go support for personal filings, compliance cleanup, and company structure - no subscription required."
     />
 
     <div class="mt-12 grid gap-6 md:grid-cols-2" data-stagger>

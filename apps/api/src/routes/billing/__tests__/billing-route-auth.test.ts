@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Context, Next } from 'hono'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createDefaultPricingInput } from '@ella/shared/pricing'
 import { billingRoute } from '../index'
 import type { AuthVariables } from '../../../middleware/auth'
 
@@ -13,6 +14,9 @@ const authState = vi.hoisted(() => ({
 
 const checkoutMocks = vi.hoisted(() => ({
   createCheckoutSession: vi.fn(),
+  createCustomCheckoutSession: vi.fn(),
+  createSendableQuote: vi.fn(),
+  createSendableCustomQuote: vi.fn(),
 }))
 
 vi.mock('../../../middleware/auth', () => ({
@@ -54,6 +58,16 @@ vi.mock('../../../middleware/rate-limiter', () => ({
 vi.mock('../../../services/stripe', () => ({
   CheckoutQuoteError: class CheckoutQuoteError extends Error {},
   createCheckoutSession: checkoutMocks.createCheckoutSession,
+}))
+
+vi.mock('../../../services/stripe/custom-checkout', () => ({
+  createCustomCheckoutSession: checkoutMocks.createCustomCheckoutSession,
+}))
+vi.mock('../../../services/payments/quote-send-service', () => ({
+  createSendableQuote: checkoutMocks.createSendableQuote,
+}))
+vi.mock('../../../services/payments/custom-quote-send-service', () => ({
+  createSendableCustomQuote: checkoutMocks.createSendableCustomQuote,
 }))
 
 function buildApp() {
@@ -113,6 +127,127 @@ describe('billing route auth', () => {
     expect(checkoutMocks.createCheckoutSession).not.toHaveBeenCalled()
   })
 
+  it('rejects calculator checkout sessions with business tax yearly pre-pay', async () => {
+    authState.organizationId = 'org_1'
+    const body = buildCalculatorCheckoutBody()
+    body.pricingInput.oneTime.businessTaxReturn = 1
+
+    const res = await postJson('/billing/checkout-sessions', body)
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({
+      error: 'INVALID_QUOTE',
+      message: 'Business tax return yearly pre-pay must be created through Custom link',
+    })
+    expect(checkoutMocks.createCheckoutSession).not.toHaveBeenCalled()
+  })
+
+  it('allows calculator checkout sessions without business tax yearly pre-pay', async () => {
+    authState.organizationId = 'org_1'
+    const body = buildCalculatorCheckoutBody()
+    const result = {
+      quoteId: 'quote_1',
+      checkoutUrl: 'https://checkout.test/session',
+      sessionId: 'cs_test_1',
+    }
+    checkoutMocks.createCheckoutSession.mockResolvedValue(result)
+
+    const res = await postJson('/billing/checkout-sessions', body)
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual(result)
+    expect(checkoutMocks.createCheckoutSession).toHaveBeenCalledWith(body, {
+      organizationId: 'org_1',
+      createdByStaffId: 'staff_1',
+    })
+  })
+
+  it('rejects sendable calculator quotes with business tax yearly pre-pay', async () => {
+    authState.organizationId = 'org_1'
+    const body = {
+      ...buildCalculatorCheckoutBody(),
+      recipient: { type: 'client' as const, id: 'client_1' },
+    }
+    body.pricingInput.oneTime.businessTaxReturn = 1
+
+    const res = await postJson('/billing/quotes/send', body)
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({
+      error: 'INVALID_QUOTE',
+      message: 'Business tax return yearly pre-pay must be created through Custom link',
+    })
+    expect(checkoutMocks.createSendableQuote).not.toHaveBeenCalled()
+  })
+
+  it('allows sendable calculator quotes without business tax yearly pre-pay', async () => {
+    authState.organizationId = 'org_1'
+    const body = {
+      ...buildCalculatorCheckoutBody(),
+      recipient: { type: 'client' as const, id: 'client_1' },
+    }
+    const result = {
+      quoteId: 'quote_2',
+      payToken: 'tok_2',
+      payUrl: 'http://portal.test/quote/tok_2',
+      smsSent: true,
+    }
+    checkoutMocks.createSendableQuote.mockResolvedValue(result)
+
+    const res = await postJson('/billing/quotes/send', body)
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual(result)
+    expect(checkoutMocks.createSendableQuote).toHaveBeenCalledWith(body, {
+      organizationId: 'org_1',
+      staffId: 'staff_1',
+    })
+  })
+
+  it('keeps custom yearly checkout links outside the calculator business-tax guard', async () => {
+    authState.organizationId = 'org_1'
+    const body = buildCustomYearlyBody()
+    const result = {
+      quoteId: 'custom_quote_1',
+      checkoutUrl: 'https://checkout.test/custom',
+      sessionId: 'cs_custom_1',
+    }
+    checkoutMocks.createCustomCheckoutSession.mockResolvedValue(result)
+
+    const res = await postJson('/billing/checkout-sessions/custom', body)
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual(result)
+    expect(checkoutMocks.createCustomCheckoutSession).toHaveBeenCalledWith(body, {
+      organizationId: 'org_1',
+      createdByStaffId: 'staff_1',
+    })
+  })
+
+  it('keeps custom yearly send quotes outside the calculator business-tax guard', async () => {
+    authState.organizationId = 'org_1'
+    const body = {
+      ...buildCustomYearlyBody(),
+      recipient: { type: 'lead' as const, id: 'lead_1' },
+    }
+    const result = {
+      quoteId: 'custom_quote_2',
+      payToken: 'tok_custom_2',
+      payUrl: 'http://portal.test/quote/tok_custom_2',
+      smsSent: true,
+    }
+    checkoutMocks.createSendableCustomQuote.mockResolvedValue(result)
+
+    const res = await postJson('/billing/quotes/send/custom', body)
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual(result)
+    expect(checkoutMocks.createSendableCustomQuote).toHaveBeenCalledWith(body, {
+      organizationId: 'org_1',
+      staffId: 'staff_1',
+    })
+  })
+
   it('rejects payment template listing for non-admin staff', async () => {
     authState.organizationId = 'org_1'
     authState.role = 'STAFF'
@@ -140,3 +275,30 @@ describe('billing route auth', () => {
     expect(await res.json()).toEqual({ message: 'Please select an organization' })
   })
 })
+
+function buildCalculatorCheckoutBody() {
+  return {
+    pricingInput: createDefaultPricingInput(),
+  }
+}
+
+function buildCustomYearlyBody() {
+  return {
+    billingInterval: 'year',
+    items: [
+      {
+        label: 'Business tax return pre-pay (1 tax year)',
+        unitAmountCents: 90_000,
+        quantity: 1,
+      },
+    ],
+  }
+}
+
+function postJson(path: string, body: unknown) {
+  return buildApp().request(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}

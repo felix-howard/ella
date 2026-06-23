@@ -7,6 +7,47 @@
 
 ## 2026-06-23
 
+### Calculator Engagement Letter Send Flow
+**Status:** Complete with concerns
+
+**Changed:**
+- Added a `Prepare engagement letter` panel to the workspace calculator sidebar.
+- Recipient selection uses the existing org-scoped client/lead search, with readiness checks also scoped by Clerk org id.
+- Opening the modal snapshots calculator-derived Engagement Letter HTML into a direct edit flow, skipping the agreement type/template picker.
+- Initial payment defaults OFF and expiry defaults to 30 days; preview/send continue through the existing Agreement APIs.
+- Added disabled states for missing or invalid quote, enterprise quote, no recipient, and recipient without phone.
+- Yearly business tax pre-pay remains a Custom Link payment and manual/editable agreement paragraph for now; Calculator-generated content only auto-fills setup and monthly fees.
+
+**Validation:**
+- `pnpm -F @ella/shared test -- calculator` pass, 13 tests
+- `pnpm -F @ella/workspace test -- pricing` pass, 75 tests
+- `pnpm -F @ella/workspace test -- use-nda-readiness` pass, 1 test
+- `pnpm -F @ella/api test -- billing` pass, 41 tests
+- `pnpm -F @ella/shared type-check`, `pnpm -F @ella/workspace type-check`, `pnpm -F @ella/landing type-check`, and `pnpm -F @ella/api type-check` pass
+- `pnpm type-check` pass, 8/8 packages successful
+- `git diff --check` pass
+- Remaining concern: browser smoke not run in this agent session; local smoke requires an authenticated Clerk org and searchable recipient/client.
+
+### Calculator Business Tax Pre-Pay Cleanup
+**Status:** Complete
+
+**Changed:**
+- Removed `Business tax return pre-pay (1 tax year)` from workspace and landing calculator entry points.
+- Updated calculator copy to focus on monthly services plus setup and one-time work.
+- Added server-side rejection for new staff-created calculator checkout/send payloads with `oneTime.businessTaxReturn > 0`.
+- Preserved historical snapshot rendering and portal rebuild compatibility for saved yearly lines.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/pricing/__tests__/pricing-calculator.test.tsx` pass, 19 tests
+- `pnpm -F @ella/api test -- src/routes/billing/__tests__/billing-route-auth.test.ts` pass, 13 tests
+- `pnpm -F @ella/shared test -- src/pricing/calculator.test.ts` pass, 13 tests
+- `pnpm -F @ella/api test -- src/services/stripe/__tests__/quote-rebuild.test.ts src/services/payments/__tests__/quote-checkout-service.test.ts` pass, 27 tests
+- `pnpm -F @ella/workspace type-check`, `pnpm -F @ella/api type-check`, `pnpm -F @ella/landing type-check`, and `pnpm -F @ella/shared type-check` pass
+- `pnpm -F @ella/workspace lint`, `pnpm -F @ella/api lint`, `pnpm -F @ella/landing lint`, and `pnpm -F @ella/shared lint` pass with unrelated existing warnings only
+- `git diff --check` pass
+
+---
+
 ### Calculator Custom Items Complete
 **Status:** Complete
 

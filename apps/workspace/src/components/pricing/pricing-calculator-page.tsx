@@ -10,6 +10,7 @@ import { api } from '../../lib/api-client'
 import { PricingCalculatorForm } from './pricing-calculator-form'
 import { PricingPaymentLinkPanel } from './pricing-payment-link-panel'
 import { PricingSendQuotePanel } from './pricing-send-quote-panel'
+import { PricingEngagementLetterPanel } from './pricing-engagement-letter-panel'
 import { PricingPrintPanel } from './pricing-print-panel'
 import { PricingSummaryPanel } from './pricing-summary-panel'
 import { CustomLinkBuilder } from './custom-link/custom-link-builder'
@@ -111,6 +112,11 @@ export function PricingCalculatorPage() {
             />
             <PricingSendQuotePanel
               pricingInput={input}
+              disabledReason={disabledReason}
+            />
+            <PricingEngagementLetterPanel
+              pricingInput={input}
+              pricingResult={result}
               disabledReason={disabledReason}
             />
           </aside>

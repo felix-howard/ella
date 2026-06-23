@@ -31,6 +31,13 @@ vi.mock('@tanstack/react-query', () => ({
   useMutation: (options: unknown) => useMutationMock(options),
   // Send-quote panel's recipient search; no results during static render.
   useQuery: () => ({ data: undefined, isFetching: false }),
+  useQueryClient: () => ({
+    invalidateQueries: vi.fn(),
+  }),
+}))
+
+vi.mock('@clerk/clerk-react', () => ({
+  useAuth: () => ({ orgId: 'org_test' }),
 }))
 
 vi.mock('../../../lib/api-client', () => ({
@@ -138,6 +145,8 @@ describe('workspace pricing calculator', () => {
     expect(markup).toContain('Print PDF')
     expect(markup).toContain('Payment link')
     expect(markup).toContain('Send to client')
+    expect(markup).toContain('Engagement letter')
+    expect(markup).toContain('Prepare engagement letter')
     expect(markup).toContain('Custom items')
     expect(markup).toContain('Add item')
     expect(markup).toContain('Select at least one billable service')
@@ -231,7 +240,7 @@ describe('workspace pricing calculator', () => {
       <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
     )
 
-    expect(disabledMarkup).toContain('Enable one-time + yearly pre-pay services')
+    expect(disabledMarkup).toContain('Enable one-time services')
     expect(disabledMarkup).not.toContain('Start LLC')
     expect(disabledMarkup).not.toContain('Business tax return pre-pay (1 tax year)')
     expect(disabledMarkup).not.toContain('aria-label="Federal rate"')
@@ -243,9 +252,10 @@ describe('workspace pricing calculator', () => {
     )
 
     expect(enabledMarkup).toContain('Start LLC')
-    expect(enabledMarkup).toContain('Business tax return pre-pay (1 tax year)')
-    expect(enabledMarkup).toContain('aria-label="Federal rate"')
-    expect(enabledMarkup).toContain('value="$800"')
+    expect(enabledMarkup).toContain('Personal tax return')
+    expect(enabledMarkup).not.toContain('Business tax return pre-pay (1 tax year)')
+    expect(enabledMarkup).not.toContain('aria-label="Federal rate"')
+    expect(enabledMarkup).not.toContain('value="$800"')
   })
 
   it('renders calculator custom item rows without yearly billing', () => {

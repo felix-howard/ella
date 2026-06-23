@@ -3,12 +3,10 @@
  * settings mutations can invalidate the cache without importing wizard internals.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '@clerk/clerk-react'
 import { api } from '../../lib/api-client'
 
 import type { AgreementType } from '../../lib/api-client'
-
-export const ndaReadinessQueryKey = (type: 'NDA' | 'ENGAGEMENT_LETTER' = 'NDA') =>
-  ['nda-readiness', type] as const
 
 export type NdaReadinessMissing = 'signature' | 'title' | 'orgAddress' | 'orgGoverningLaw' | 'orgContact'
 
@@ -17,11 +15,17 @@ export interface NdaReadiness {
   missing: NdaReadinessMissing[]
 }
 
+export const ndaReadinessQueryKey = (
+  type: 'NDA' | 'ENGAGEMENT_LETTER' = 'NDA',
+  orgId?: string | null,
+) => ['nda-readiness', orgId ?? 'no-org', type] as const
+
 export function useNdaReadiness(type: Extract<AgreementType, 'NDA' | 'ENGAGEMENT_LETTER'> = 'NDA', enabled = true) {
+  const { orgId } = useAuth()
   return useQuery<NdaReadiness>({
-    queryKey: ndaReadinessQueryKey(type),
+    queryKey: ndaReadinessQueryKey(type, orgId),
     queryFn: () => api.staff.getNdaReadiness({ type }),
-    enabled,
+    enabled: enabled && Boolean(orgId),
     staleTime: 0,
   })
 }

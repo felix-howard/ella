@@ -19,3 +19,12 @@ export {
 // SMS Tapback reaction helpers
 export type { MessageReaction, MessageReactionType, ParsedTapbackReaction } from './message-reactions'
 export { parseTapbackReaction, isSameTapbackTarget } from './message-reactions'
+
+// Twilio SMS delivery error helpers
+export {
+  normalizeTwilioErrorCode,
+  isUnknownTwilioErrorMessage,
+  getTwilioSmsErrorDescription,
+  getTwilioSmsErrorMessage,
+  formatTwilioSmsFailureDetails,
+} from './twilio-error-details'

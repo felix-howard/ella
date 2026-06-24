@@ -4,6 +4,7 @@
  */
 import { Hono } from 'hono'
 import type { Context } from 'hono'
+import { getTwilioSmsErrorMessage } from '@ella/shared'
 import {
   processIncomingMessage,
   validateTwilioSignature,
@@ -20,6 +21,7 @@ import {
   generateVoicemailCompleteTwiml,
   findConversationByPhone,
   createPlaceholderConversation,
+  recordMissedInboundCall,
   formatVoicemailDuration,
   isValidE164Phone,
   sanitizeRecordingDuration,
@@ -353,7 +355,7 @@ twilioWebhookRoute.post('/status', async (c) => {
     // Build status string - include error details for failed/undelivered
     let statusValue = messageStatus
     if ((messageStatus === 'failed' || messageStatus === 'undelivered') && errorCode) {
-      statusValue = `${messageStatus}:${errorCode}:${errorMessage || 'Unknown error'}`
+      statusValue = `${messageStatus}:${errorCode}:${getTwilioSmsErrorMessage({ errorCode, errorMessage })}`
     }
 
     // Update Message records (case conversations)
@@ -379,7 +381,7 @@ twilioWebhookRoute.post('/status', async (c) => {
           where: { twilioSid: messageSid },
           data: {
             status: smsLogStatus,
-            error: errorCode ? `${errorCode}: ${errorMessage || 'Unknown error'}` : undefined,
+            error: errorCode ? `${errorCode}: ${getTwilioSmsErrorMessage({ errorCode, errorMessage })}` : undefined,
           },
         })
         smsLogUpdated = smsResult.count
@@ -702,7 +704,7 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
     // 1. Find caller's client and conversation
     const client = resolvedOrgId
       ? await prisma.client.findFirst({
-        where: { phone: from, organizationId: resolvedOrgId, clientType: 'INDIVIDUAL' },
+        where: { phone: { in: buildIncomingPhoneCandidates(from) }, organizationId: resolvedOrgId, clientType: 'INDIVIDUAL' },
         include: {
           taxCases: {
             orderBy: { createdAt: 'desc' },
@@ -763,6 +765,23 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
     // 3. Check if any eligible staff online
     if (staffIdentities.length === 0) {
       console.log(`[Incoming Webhook] No eligible staff online, using no-staff handling`)
+
+      const missedCall = clientOrgId
+        ? await recordMissedInboundCall({
+            callerPhone: from,
+            organizationId: clientOrgId,
+            callSid,
+            callStatus: 'no-answer',
+          })
+        : null
+
+      if (missedCall) {
+        publishMessageEventFromConversation(missedCall.conversationId, {
+          id: missedCall.id,
+          direction: 'INBOUND',
+          channel: 'CALL',
+        }).catch(() => {})
+      }
 
       // Fire-and-forget: send missed call text-back SMS
       if (clientOrgId) {
@@ -920,30 +939,49 @@ twilioWebhookRoute.post('/voice/dial-complete', async (c) => {
   // No answer, busy, or failed - send missed-call textback and hang up.
   console.log(`[Dial Complete] Call ${callSid} not answered, sending missed-call handling`)
 
-  // Update call message status
-  try {
-    await prisma.message.updateMany({
-      where: { callSid },
-      data: {
-        callStatus: dialCallStatus,
-        content: getCallStatusMessage(dialCallStatus),
-      },
-    })
-  } catch (error) {
-    console.error('[Dial Complete] Failed to update message:', error)
-  }
-
   // Fire-and-forget: send missed call text-back SMS
   // Twilio provides original caller phone in From field of the action callback
   const callerPhone = formData.From as string
+  let missedCallRecorded = false
   if (callerPhone) {
     try {
       const callbackOrgId = await resolveIncomingCallOrganizationId(getCalledNumber(c, formData))
       if (callbackOrgId) {
+        const missedCall = await recordMissedInboundCall({
+          callerPhone,
+          organizationId: callbackOrgId,
+          callSid,
+          callStatus: dialCallStatus,
+          content: getCallStatusMessage(dialCallStatus),
+        })
+
+        if (missedCall) {
+          missedCallRecorded = true
+          publishMessageEventFromConversation(missedCall.conversationId, {
+            id: missedCall.id,
+            direction: 'INBOUND',
+            channel: 'CALL',
+          }).catch(() => {})
+        }
+
         sendMissedCallTextBack(callerPhone, callbackOrgId).catch(() => {})
       }
     } catch (error) {
       console.error('[Dial Complete] Failed to resolve org for missed-call textback:', error)
+    }
+  }
+
+  if (!missedCallRecorded) {
+    try {
+      await prisma.message.updateMany({
+        where: { callSid },
+        data: {
+          callStatus: dialCallStatus,
+          content: getCallStatusMessage(dialCallStatus),
+        },
+      })
+    } catch (error) {
+      console.error('[Dial Complete] Failed to update message:', error)
     }
   }
 
@@ -1123,6 +1161,8 @@ twilioWebhookRoute.post('/voice/voicemail-recording', async (c) => {
     })
 
     if (existingMessage) {
+      const shouldIncrementUnread = !['no-answer', 'busy', 'failed', 'canceled'].includes(existingMessage.callStatus || '')
+
       // Known caller - update existing message with voicemail recording
       const result = await prisma.$transaction(async (tx) => {
         const updated = await tx.message.update({
@@ -1142,7 +1182,7 @@ twilioWebhookRoute.post('/voice/voicemail-recording', async (c) => {
             where: { id: existingMessage.conversationId },
             data: {
               lastMessageAt: new Date(),
-              unreadCount: { increment: 1 },
+              ...(shouldIncrementUnread ? { unreadCount: { increment: 1 } } : {}),
             },
           })
         }

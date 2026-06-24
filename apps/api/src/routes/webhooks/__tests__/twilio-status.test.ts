@@ -32,6 +32,7 @@ const voiceMocks = vi.hoisted(() => ({
   generateVoicemailCompleteTwiml: vi.fn(),
   findConversationByPhone: vi.fn(),
   createPlaceholderConversation: vi.fn(),
+  recordMissedInboundCall: vi.fn(),
   formatVoicemailDuration: vi.fn(),
   isValidE164Phone: vi.fn(),
   sanitizeRecordingDuration: vi.fn(),
@@ -180,6 +181,32 @@ describe('Twilio SMS status webhook', () => {
         twilioStatus: 'failed:30007:Carrier violation',
         twilioErrorCode: '30007',
       })
+    })
+  })
+
+  it('uses Twilio error-code descriptions when callback omits a useful error message', async () => {
+    const res = await postStatus({
+      MessageStatus: 'failed',
+      ErrorCode: '30008',
+    })
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({
+      received: true,
+      processed: true,
+    })
+    expect(prismaMocks.message.updateMany).toHaveBeenCalledWith({
+      where: { twilioSid: 'SM_status_1' },
+      data: {
+        twilioStatus: expect.stringContaining('failed:30008:Twilio or the carrier returned a generic delivery failure'),
+      },
+    })
+    expect(prismaMocks.smsSendLog.updateMany).toHaveBeenCalledWith({
+      where: { twilioSid: 'SM_status_1' },
+      data: {
+        status: 'UNDELIVERED',
+        error: expect.stringContaining('30008: Twilio or the carrier returned a generic delivery failure'),
+      },
     })
   })
 

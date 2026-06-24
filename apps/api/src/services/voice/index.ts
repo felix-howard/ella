@@ -32,6 +32,7 @@ export {
 export {
   findConversationByPhone,
   createPlaceholderConversation,
+  recordMissedInboundCall,
   formatVoicemailDuration,
   isValidE164Phone,
   sanitizePhone,

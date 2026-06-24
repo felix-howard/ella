@@ -1671,6 +1671,7 @@
   "messages.callStatus.completed": "Completed",
   "messages.callStatus.connecting": "Connecting",
   "messages.callStatus.failed": "Failed",
+  "messages.callStatus.missed": "Missed call",
   "messages.callStatus.noAnswer": "No answer",
   "messages.callStatus.voicemail": "Voicemail",
   "messages.channel.call": "Call",

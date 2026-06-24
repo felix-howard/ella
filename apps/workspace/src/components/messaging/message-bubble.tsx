@@ -5,6 +5,7 @@
 
 import { memo, useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatTwilioSmsFailureDetails } from '@ella/shared'
 import { cn, Tooltip } from '@ella/ui'
 import { Phone, Globe, Bot, ImageOff, PhoneCall, PhoneOff, PhoneMissed, Check, CheckCheck, Clock, AlertCircle, XCircle, Heart } from 'lucide-react'
 import { sanitizeText, linkifyText, formatShortRelativeTime, formatFullDateTime, getInitials, getAvatarColor } from '../../lib/formatters'
@@ -44,6 +45,7 @@ const CALL_STATUS_CONFIG: Record<string, { icon: React.ReactNode; labelKey: stri
 }
 
 const DEFAULT_CALL_STATUS = { icon: <PhoneCall className="w-4 h-4" />, labelKey: 'messages.channel.call', color: 'text-muted-foreground' }
+const INBOUND_MISSED_CALL_STATUSES = new Set(['no-answer', 'busy', 'failed', 'canceled'])
 
 // Format call duration as M:SS
 function formatCallDuration(seconds: number): string {
@@ -144,13 +146,16 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
   // Call messages with special styling and audio player
   if (message.channel === 'CALL') {
     const callStatusConfig = CALL_STATUS_CONFIG[message.callStatus || ''] || DEFAULT_CALL_STATUS
-    const callStatusLabel = t(callStatusConfig.labelKey)
+    const isInboundMissedCall = !isOutbound && INBOUND_MISSED_CALL_STATUSES.has(message.callStatus || '')
+    const callStatusLabel = isInboundMissedCall
+      ? t('messages.callStatus.missed')
+      : t(callStatusConfig.labelKey)
     const hasRecording = message.recordingUrl && (message.callStatus === 'completed' || message.callStatus === 'voicemail')
     // Extract recording SID from URL (format: .../Recordings/RE.../...)
     const recordingSid = message.recordingUrl?.match(/RE[0-9a-fA-F]{32}/)?.[0]
 
-    // Hide call messages that have no recording (e.g. completed calls without voicemail/recording)
-    if (!hasRecording) return null
+    // Hide answered calls with no recording, but keep missed calls visible in chat history.
+    if (!hasRecording && !isInboundMissedCall) return null
 
     return (
       <div className={cn('flex flex-col w-full gap-1', isOutbound ? 'items-end' : 'items-start')}>
@@ -400,6 +405,12 @@ function SenderMeta({ showTime, createdAt, smsStatusConfig, smsStatus, isError, 
   t: (key: string) => string
 }) {
   if (!showTime && !smsStatusConfig) return null
+  const smsErrorDetails = isError && smsStatus
+    ? formatTwilioSmsFailureDetails({
+        errorCode: smsStatus.errorCode,
+        errorMessage: smsStatus.errorMessage,
+      })
+    : null
   return (
     <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground pr-9 cursor-default flex-wrap">
       {showTime && (
@@ -413,7 +424,7 @@ function SenderMeta({ showTime, createdAt, smsStatusConfig, smsStatus, isError, 
           {isError ? (
             <>
               <span className="text-destructive">Sending failed</span>
-              {smsStatus?.errorMessage && <ErrorDetails errorMessage={smsStatus.errorMessage} />}
+              {smsErrorDetails && <ErrorDetails errorMessage={smsErrorDetails} errorCode={smsStatus?.errorCode} />}
             </>
           ) : (
             <span className="flex items-center gap-1">
@@ -429,10 +440,11 @@ function SenderMeta({ showTime, createdAt, smsStatusConfig, smsStatus, isError, 
 
 
 /** Tooltip showing error details on hover for failed messages */
-function ErrorDetails({ errorMessage }: { errorMessage: string }) {
+function ErrorDetails({ errorMessage, errorCode }: { errorMessage: string; errorCode?: string }) {
+  const label = errorCode ? `(Twilio ${errorCode})` : '(Details)'
   return (
-    <Tooltip content={errorMessage} position="top-right" className="whitespace-nowrap !bg-slate-800 !text-white !bottom-[calc(100%+4px)]" showArrow={false}>
-      <span className="text-destructive underline text-[11px] cursor-default">(Details)</span>
+    <Tooltip content={errorMessage} position="top-right" className="max-w-[320px] whitespace-normal text-left !bg-slate-800 !text-white !bottom-[calc(100%+4px)]" showArrow={false}>
+      <span className="text-destructive underline text-[11px] cursor-default">{label}</span>
     </Tooltip>
   )
 }

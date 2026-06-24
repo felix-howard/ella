@@ -8,6 +8,9 @@ import { findOrCreateEngagement } from '../engagement-helpers'
 
 // Transaction client type for type-safe transactions
 type TransactionClient = Prisma.TransactionClient
+type ConversationReference = { id: string }
+
+const MISSED_CALL_STATUSES = new Set(['no-answer', 'busy', 'failed', 'canceled'])
 
 // ============================================
 // VALIDATION HELPERS
@@ -34,6 +37,36 @@ export function sanitizePhone(phone: string): string {
   const sanitized = phone.replace(/[^\d+]/g, '')
   // Ensure only one + at the start, truncate to safe length
   return sanitized.replace(/^\++/, '+').slice(0, 16)
+}
+
+function buildPhoneLookupCandidates(e164Phone: string): string[] {
+  const digits = e164Phone.replace(/\D/g, '')
+  const candidates = new Set([e164Phone])
+
+  if (digits.length === 11 && digits.startsWith('1')) {
+    const national = digits.slice(1)
+    candidates.add(national)
+    candidates.add(digits)
+    candidates.add(`(${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6)}`)
+    candidates.add(`${national.slice(0, 3)}-${national.slice(3, 6)}-${national.slice(6)}`)
+    candidates.add(`+1 ${national.slice(0, 3)} ${national.slice(3, 6)} ${national.slice(6)}`)
+  }
+
+  return Array.from(candidates)
+}
+
+function buildClientPhoneWhere(
+  phone: string,
+  organizationId?: string | null
+): Prisma.ClientWhereInput {
+  const phoneCandidates = buildPhoneLookupCandidates(phone)
+  return {
+    phone: { in: phoneCandidates },
+    clientType: 'INDIVIDUAL',
+    ...(organizationId
+      ? { OR: [{ organizationId }, { organizationId: null }] }
+      : {}),
+  }
 }
 
 /**
@@ -81,18 +114,14 @@ export function formatVoicemailDuration(seconds: number): string {
 export async function findConversationByPhone(
   phone: string,
   organizationId?: string | null
-): Promise<{ id: string } | null> {
+): Promise<ConversationReference | null> {
   // SECURITY: Validate phone format BEFORE database query
   if (!isValidE164Phone(phone)) {
     return null // Invalid format = no match possible
   }
 
   const client = await prisma.client.findFirst({
-    where: {
-      phone,
-      clientType: 'INDIVIDUAL',
-      ...(organizationId ? { organizationId } : {}),
-    },
+    where: buildClientPhoneWhere(phone, organizationId),
     include: {
       taxCases: {
         orderBy: { createdAt: 'desc' },
@@ -121,15 +150,11 @@ export async function createPlaceholderConversation(
   phone: string,
   organizationId?: string | null,
   source?: 'INCOMING_SMS' | 'INCOMING_CALL'
-): Promise<{ id: string }> {
+): Promise<ConversationReference> {
   const result = await prisma.$transaction(async (tx: TransactionClient) => {
     // Find existing individual client by phone, or create placeholder
     let client = await tx.client.findFirst({
-      where: {
-        phone,
-        clientType: 'INDIVIDUAL',
-        ...(organizationId ? { organizationId } : {}),
-      },
+      where: buildClientPhoneWhere(phone, organizationId),
       include: {
         taxCases: {
           orderBy: { createdAt: 'desc' },
@@ -207,4 +232,88 @@ export async function createPlaceholderConversation(
   })
 
   return { id: result.id }
+}
+
+function getMissedCallContent(status: string): string {
+  const messages: Record<string, string> = {
+    'busy': 'Missed call - Busy',
+    'no-answer': 'Missed call',
+    'failed': 'Missed call - Failed',
+    'canceled': 'Missed call - Canceled',
+  }
+  return messages[status] || 'Missed call'
+}
+
+export async function recordMissedInboundCall(input: {
+  callerPhone: string
+  organizationId?: string | null
+  callSid?: string | null
+  callStatus?: string | null
+  content?: string | null
+}): Promise<{ id: string; conversationId: string } | null> {
+  if (!input.organizationId || !isValidE164Phone(input.callerPhone)) {
+    return null
+  }
+
+  const callStatus = input.callStatus || 'no-answer'
+  const content = input.content?.trim() || getMissedCallContent(callStatus)
+  let conversation = await findConversationByPhone(input.callerPhone, input.organizationId)
+
+  if (!conversation) {
+    conversation = await createPlaceholderConversation(input.callerPhone, input.organizationId, 'INCOMING_CALL')
+  }
+
+  const conversationId = conversation.id
+
+  return await prisma.$transaction(async (tx: TransactionClient) => {
+    const existingMessage = input.callSid
+      ? await tx.message.findFirst({
+          where: {
+            callSid: input.callSid,
+            conversationId,
+          },
+          select: { id: true, callStatus: true },
+        })
+      : null
+
+    if (existingMessage) {
+      const shouldIncrementUnread = !MISSED_CALL_STATUSES.has(existingMessage.callStatus || '')
+      const updated = await tx.message.update({
+        where: { id: existingMessage.id },
+        data: { callStatus, content },
+      })
+
+      await tx.conversation.update({
+        where: { id: conversationId },
+        data: {
+          lastMessageAt: new Date(),
+          ...(shouldIncrementUnread ? { unreadCount: { increment: 1 } } : {}),
+        },
+      })
+
+      return { id: updated.id, conversationId }
+    }
+
+    const message = await tx.message.create({
+      data: {
+        conversationId,
+        channel: 'CALL',
+        direction: 'INBOUND',
+        content,
+        isSystem: false,
+        ...(input.callSid ? { callSid: input.callSid } : {}),
+        callStatus,
+      },
+    })
+
+    await tx.conversation.update({
+      where: { id: conversationId },
+      data: {
+        lastMessageAt: new Date(),
+        unreadCount: { increment: 1 },
+      },
+    })
+
+    return { id: message.id, conversationId }
+  })
 }

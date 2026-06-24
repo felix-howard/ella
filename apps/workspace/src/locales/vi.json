@@ -1671,6 +1671,7 @@
   "messages.callStatus.completed": "Hoàn thành",
   "messages.callStatus.connecting": "Đang kết nối",
   "messages.callStatus.failed": "Thất bại",
+  "messages.callStatus.missed": "Cuộc gọi nhỡ",
   "messages.callStatus.noAnswer": "Không bắt máy",
   "messages.callStatus.voicemail": "Tin nhắn thoại",
   "messages.channel.call": "Cuộc gọi",

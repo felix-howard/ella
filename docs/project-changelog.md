@@ -1,7 +1,29 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-23 ICT
+> **Last Updated:** 2026-06-24 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-06-24
+
+### Missed Call Text-Back and Call History
+**Status:** Complete
+
+**Fixed:**
+- Incoming calls with no online staff now create/update a missed-call chat event before optional missed-call text-back sends.
+- Dial-complete no-answer/busy/failed callbacks now record missed-call history idempotently by `CallSid`, publish realtime updates, and avoid duplicate unread increments when voicemail later upgrades the same call row.
+- Voice caller lookup now matches common US phone formats, preventing existing clients from becoming duplicate `New Caller` records because DB phone formatting differs from Twilio E.164.
+- Message UI now renders inbound missed-call bubbles even when there is no voicemail recording.
+- Failed SMS detail now shows Twilio error code plus a useful fallback explanation when Twilio sends `Unknown error` or omits `ErrorMessage`.
+
+**Validation:**
+- `pnpm -F @ella/api test src/routes/webhooks/__tests__/twilio-voice-incoming.test.ts src/routes/webhooks/__tests__/twilio-status.test.ts` pass, 16 tests
+- `pnpm -F @ella/shared type-check`, `pnpm -F @ella/api type-check`, `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/shared lint`, `pnpm -F @ella/api lint`, `pnpm -F @ella/workspace lint` pass with existing warnings only, 0 errors
+- `pnpm -F @ella/shared test` pass, 15 tests
+- `pnpm -F @ella/api build` pass
+- `pnpm -F @ella/workspace build` pass with existing route-file and chunk-size warnings
 
 ---
 

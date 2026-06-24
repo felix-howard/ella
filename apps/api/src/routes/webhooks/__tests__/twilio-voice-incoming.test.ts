@@ -40,6 +40,7 @@ const voiceMocks = vi.hoisted(() => ({
   generateVoicemailCompleteTwiml: vi.fn(),
   findConversationByPhone: vi.fn(),
   createPlaceholderConversation: vi.fn(),
+  recordMissedInboundCall: vi.fn(),
   formatVoicemailDuration: vi.fn(),
   isValidE164Phone: vi.fn(),
   sanitizeRecordingDuration: vi.fn(),
@@ -79,6 +80,7 @@ vi.mock('../../../services/voice', () => ({
   generateVoicemailCompleteTwiml: voiceMocks.generateVoicemailCompleteTwiml,
   findConversationByPhone: voiceMocks.findConversationByPhone,
   createPlaceholderConversation: voiceMocks.createPlaceholderConversation,
+  recordMissedInboundCall: voiceMocks.recordMissedInboundCall,
   formatVoicemailDuration: voiceMocks.formatVoicemailDuration,
   isValidE164Phone: voiceMocks.isValidE164Phone,
   sanitizeRecordingDuration: voiceMocks.sanitizeRecordingDuration,
@@ -232,6 +234,7 @@ describe('Twilio voice incoming webhook', () => {
       `<Response>${staffIdentities.join(',')}</Response>`
     )
     voiceMocks.createPlaceholderConversation.mockResolvedValue({ id: 'conversation_unknown' })
+    voiceMocks.recordMissedInboundCall.mockResolvedValue({ id: 'missed_message_1', conversationId: 'conversation_unknown' })
     prismaMocks.message.findFirst.mockResolvedValue(null)
     prismaMocks.message.update.mockResolvedValue({ id: 'message_1' })
     prismaMocks.$transaction.mockImplementation(async (callback) =>
@@ -295,7 +298,11 @@ describe('Twilio voice incoming webhook', () => {
 
     expect(res.status).toBe(200)
     expect(prismaMocks.client.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: { phone: '+15551112222', organizationId: 'org_a', clientType: 'INDIVIDUAL' },
+      where: {
+        phone: { in: expect.arrayContaining(['+15551112222', '5551112222']) },
+        organizationId: 'org_a',
+        clientType: 'INDIVIDUAL',
+      },
     }))
     expect(prismaMocks.staffPresence.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
@@ -309,6 +316,18 @@ describe('Twilio voice incoming webhook', () => {
         }),
       }),
     }))
+    expect(voiceMocks.recordMissedInboundCall).toHaveBeenCalledWith({
+      callerPhone: '+15551112222',
+      organizationId: 'org_a',
+      callSid: 'CA_test',
+      callStatus: 'no-answer',
+    })
+    expect(smsMocks.sendMissedCallTextBack).toHaveBeenCalledWith('+15551112222', 'org_a')
+    expect(realtimeMocks.publishMessageEventFromConversation).toHaveBeenCalledWith('conversation_unknown', {
+      id: 'missed_message_1',
+      direction: 'INBOUND',
+      channel: 'CALL',
+    })
   })
 
   it('resolves legacy formatted firmPhone values for incoming calls', async () => {
@@ -331,7 +350,11 @@ describe('Twilio voice incoming webhook', () => {
       }),
     }))
     expect(prismaMocks.client.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: { phone: '+15551112222', organizationId: 'org_a', clientType: 'INDIVIDUAL' },
+      where: {
+        phone: { in: expect.arrayContaining(['+15551112222', '5551112222']) },
+        organizationId: 'org_a',
+        clientType: 'INDIVIDUAL',
+      },
     }))
   })
 
@@ -361,7 +384,11 @@ describe('Twilio voice incoming webhook', () => {
     expect(res.status).toBe(200)
     expect(await res.text()).toContain('staff_admin_device')
     expect(prismaMocks.client.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: { phone: '+15551112222', organizationId: 'org_a', clientType: 'INDIVIDUAL' },
+      where: {
+        phone: { in: expect.arrayContaining(['+15551112222', '5551112222']) },
+        organizationId: 'org_a',
+        clientType: 'INDIVIDUAL',
+      },
     }))
     expect(voiceMocks.createPlaceholderConversation).toHaveBeenCalledWith(
       '+15551112222',
@@ -463,6 +490,18 @@ describe('Twilio voice incoming webhook', () => {
       'valid'
     )
     expect(smsMocks.sendMissedCallTextBack).toHaveBeenCalledWith('+15551112222', 'org_a')
+    expect(voiceMocks.recordMissedInboundCall).toHaveBeenCalledWith({
+      callerPhone: '+15551112222',
+      organizationId: 'org_a',
+      callSid: 'CA_test',
+      callStatus: 'no-answer',
+      content: 'Call - No answer',
+    })
+    expect(realtimeMocks.publishMessageEventFromConversation).toHaveBeenCalledWith('conversation_unknown', {
+      id: 'missed_message_1',
+      direction: 'INBOUND',
+      channel: 'CALL',
+    })
     expect(voiceMocks.generateVoicemailTwiml).toHaveBeenCalledWith({
       voicemailCallbackUrl: expect.stringContaining('calledNumber=%2B15550000001'),
       voicemailCompleteUrl: expect.stringContaining('calledNumber=%2B15550000001'),

@@ -66,7 +66,9 @@ export function RemoveMemberAccessDialog({
       </ModalHeader>
       <ModalBody>
         <ul className="space-y-2 text-sm text-muted-foreground">
-          <li>{t('team.removeAccessWarningLosesAccess', 'They will lose Clerk organization access.')}</li>
+          <li>
+            {t('team.removeAccessWarningLosesAccess', 'They will lose Clerk organization access.')}
+          </li>
           <li>
             {t(
               seatWarningKey,
@@ -77,12 +79,17 @@ export function RemoveMemberAccessDialog({
                   : 'Their Clerk seat will be freed.'
             )}
           </li>
-          <li>{t('team.removeAccessWarningKeepsHistory', 'The Staff record and historical assignments remain.')}</li>
+          <li>
+            {t(
+              'team.removeAccessWarningKeepsHistory',
+              'The Staff record and audit history remain.'
+            )}
+          </li>
           {managedClientCount > 0 && (
             <li className="font-medium text-amber-700 dark:text-amber-300">
               {t('team.removeAccessWarningManagedClients', {
                 count: managedClientCount,
-                defaultValue: '{{count}} managed clients may need reassignment.',
+                defaultValue: '{{count}} managed clients will be unassigned from this member.',
               })}
             </li>
           )}
@@ -92,7 +99,13 @@ export function RemoveMemberAccessDialog({
         <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
           {t('common.cancel')}
         </Button>
-        <Button type="button" variant="destructive" onClick={onConfirm} disabled={isPending} className="gap-2">
+        <Button
+          type="button"
+          variant="destructive"
+          onClick={onConfirm}
+          disabled={isPending}
+          className="gap-2"
+        >
           {isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
           {t('team.removeAccessConfirm', 'Remove access')}
         </Button>

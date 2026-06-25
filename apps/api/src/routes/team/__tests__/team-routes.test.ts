@@ -22,6 +22,11 @@ vi.mock('../../../lib/db', () => {
     client: {
       count: vi.fn(),
       findMany: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    clientManager: {
+      deleteMany: vi.fn(),
+      findMany: vi.fn(),
     },
     $executeRaw: vi.fn(),
     $transaction: vi.fn((input: unknown) =>
@@ -162,7 +167,13 @@ function managerUser(): AuthVariables['user'] {
 }
 
 describe('Team Routes', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(prisma.client.findMany).mockResolvedValue([] as never)
+    vi.mocked(prisma.client.updateMany).mockResolvedValue({ count: 0 } as never)
+    vi.mocked(prisma.clientManager.deleteMany).mockResolvedValue({ count: 0 } as never)
+    vi.mocked(prisma.clientManager.findMany).mockResolvedValue([] as never)
+  })
 
   // ============================================
   // GET /team/members
@@ -516,6 +527,52 @@ describe('Team Routes', () => {
       expect(
         vi.mocked(clerkClient.organizations.deleteOrganizationMembership).mock.invocationCallOrder[0]
       ).toBeLessThan(vi.mocked(prisma.staff.update).mock.invocationCallOrder[0])
+    })
+
+    it('detaches current client manager assignments when removing access', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({
+        id: 's2', clerkId: 'c2', email: 'amber@test.com', organizationId: 'org_db_1', isActive: true, role: 'STAFF',
+      } as never)
+      vi.mocked(clerkClient.organizations.getOrganizationMembershipList).mockResolvedValueOnce({
+        data: [{ id: 'mem_1', publicUserData: { userId: 'c2' } }],
+        totalCount: 1,
+      } as never)
+      vi.mocked(clerkClient.organizations.deleteOrganizationMembership).mockResolvedValueOnce({} as never)
+      vi.mocked(prisma.client.findMany).mockResolvedValueOnce([
+        { id: 'client_primary', managedById: 's2' },
+        { id: 'client_secondary', managedById: 'staff_1' },
+      ] as never)
+      vi.mocked(prisma.clientManager.deleteMany).mockResolvedValueOnce({ count: 2 } as never)
+      vi.mocked(prisma.clientManager.findMany).mockResolvedValueOnce([
+        { clientId: 'client_primary', staffId: 'staff_3' },
+      ] as never)
+      vi.mocked(prisma.client.updateMany).mockResolvedValueOnce({ count: 1 } as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({} as never)
+
+      const app = createApp()
+      const res = await app.request('/team/members/s2', { method: 'DELETE' })
+
+      expect(res.status).toBe(200)
+      expect(vi.mocked(prisma.clientManager.deleteMany)).toHaveBeenCalledWith({
+        where: {
+          organizationId: 'org_db_1',
+          staffId: 's2',
+          clientId: { in: ['client_primary', 'client_secondary'] },
+        },
+      })
+      expect(vi.mocked(prisma.client.updateMany)).toHaveBeenCalledWith({
+        where: { id: 'client_primary', organizationId: 'org_db_1' },
+        data: { managedById: 'staff_3' },
+      })
+      expect(vi.mocked(prisma.client.updateMany)).toHaveBeenCalledTimes(1)
+      expect(logStaffActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            detachedClientManagerCount: 2,
+            updatedPrimaryClientCount: 1,
+          }),
+        })
+      )
     })
 
     it('fails closed and does not deactivate DB when Clerk removal fails', async () => {

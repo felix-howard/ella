@@ -387,7 +387,7 @@ teamRoute.delete(
       return c.json(removal.body, removal.status)
     }
 
-    const { staff, clerkRemovalResult } = removal
+    const { staff, clerkRemovalResult, detachedAssignments } = removal
 
     // Audit log (async, non-blocking)
     logTeamAction('STAFF_DEACTIVATED', staffId, user.staffId, {
@@ -403,6 +403,8 @@ teamRoute.delete(
         previousRole: staff.role,
         hadClerkMembership: Boolean(staff.clerkId),
         clerkRemovalResult,
+        detachedClientManagerCount: detachedAssignments.detachedClientManagerCount,
+        updatedPrimaryClientCount: detachedAssignments.updatedPrimaryClientCount,
       },
     })
 
@@ -457,7 +459,7 @@ teamRoute.patch(
       return c.json(removal.body, removal.status)
     }
 
-    const { clerkRemovalResult } = removal
+    const { clerkRemovalResult, detachedAssignments } = removal
 
     logTeamAction('STAFF_ARCHIVED', staffId, user.staffId, {
       oldValue: { isActive: true },
@@ -470,6 +472,8 @@ teamRoute.patch(
       metadata: {
         changedFields: ['isActive', 'deactivatedAt'],
         clerkRemovalResult,
+        detachedClientManagerCount: detachedAssignments.detachedClientManagerCount,
+        updatedPrimaryClientCount: detachedAssignments.updatedPrimaryClientCount,
       },
     })
 

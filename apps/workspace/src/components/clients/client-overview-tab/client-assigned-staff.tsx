@@ -6,12 +6,13 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Users, Loader2, ChevronDown, Check } from 'lucide-react'
+import { Users, Loader2, ChevronDown } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { api, type StaffManagerSummary } from '../../../lib/api-client'
 import { toast } from '../../../stores/toast-store'
 import { useOrgRole } from '../../../hooks/use-org-role'
-import { getInitials, getAvatarColor } from '../../../lib/formatters'
+import { ManagerList, ManagerSummary } from './client-manager-display'
+import { ClientManagerMenu } from './client-manager-menu'
 
 interface ClientManagedByProps {
   clientId: string
@@ -24,15 +25,22 @@ export function ClientAssignedStaff({ clientId, managedByStaff, managedBy }: Cli
   const queryClient = useQueryClient()
   const { canManageClients } = useOrgRole()
   const [isOpen, setIsOpen] = useState(false)
-  const [localSelection, setLocalSelection] = useState<{ clientId: string; staffIds: string[] } | null>(null)
+  const [localSelection, setLocalSelection] = useState<{
+    clientId: string
+    staffIds: string[]
+  } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const archivedLabel = t('team.archived', 'Archived')
+  const changeManagedByLabel = t('clientOverview.changeManagedBy')
 
   const assignedStaff = useMemo(
-    () => managedByStaff && managedByStaff.length > 0 ? managedByStaff : managedBy ? [managedBy] : [],
+    () =>
+      managedByStaff && managedByStaff.length > 0 ? managedByStaff : managedBy ? [managedBy] : [],
     [managedByStaff, managedBy]
   )
   const serverStaffIds = useMemo(() => assignedStaff.map((staff) => staff.id), [assignedStaff])
-  const selectedStaffIds = localSelection?.clientId === clientId ? localSelection.staffIds : serverStaffIds
+  const selectedStaffIds =
+    localSelection?.clientId === clientId ? localSelection.staffIds : serverStaffIds
 
   const { data: membersData } = useQuery({
     queryKey: ['assignable-staff'],
@@ -40,25 +48,44 @@ export function ClientAssignedStaff({ clientId, managedByStaff, managedBy }: Cli
     enabled: canManageClients,
   })
 
-  const members = membersData?.data ?? []
+  const members = useMemo(() => membersData?.data ?? [], [membersData?.data])
+  const assignableStaffIds = useMemo(() => new Set(members.map((member) => member.id)), [members])
+  const unavailableAssignedStaff = useMemo(
+    () =>
+      canManageClients && membersData
+        ? assignedStaff.filter(
+            (staff) => staff.isActive === false || !assignableStaffIds.has(staff.id)
+          )
+        : [],
+    [assignedStaff, assignableStaffIds, canManageClients, membersData]
+  )
+  const toAssignableStaffIds = (staffIds: string[]) =>
+    membersData ? staffIds.filter((staffId) => assignableStaffIds.has(staffId)) : staffIds
   const selectedStaff = selectedStaffIds
-    .map((id) => members.find((member) => member.id === id) ?? assignedStaff.find((staff) => staff.id === id))
+    .map(
+      (id) =>
+        members.find((member) => member.id === id) ?? assignedStaff.find((staff) => staff.id === id)
+    )
     .filter((staff): staff is StaffManagerSummary => Boolean(staff))
 
   const changeMutation = useMutation({
-    mutationFn: (staffIds: string[]) => api.clients.updateManagedBy(clientId, staffIds),
+    mutationFn: (staffIds: string[]) =>
+      api.clients.updateManagedBy(clientId, toAssignableStaffIds(staffIds)),
     onMutate: (nextStaffIds) => {
       const previousStaffIds = selectedStaffIds
-      setLocalSelection({ clientId, staffIds: nextStaffIds })
-      return { previousStaffIds }
+      const assignableNextStaffIds = toAssignableStaffIds(nextStaffIds)
+      setLocalSelection({ clientId, staffIds: assignableNextStaffIds })
+      return { previousStaffIds, assignableNextStaffIds }
     },
     onSuccess: async (_data, nextStaffIds, context) => {
       toast.success(t('clientOverview.managedByUpdated'))
+      const savedStaffIds = context?.assignableNextStaffIds ?? toAssignableStaffIds(nextStaffIds)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['client'] }),
         queryClient.invalidateQueries({ queryKey: ['clients'] }),
-        ...Array.from(new Set([...(context?.previousStaffIds ?? []), ...nextStaffIds]))
-          .map((staffId) => queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })),
+        ...Array.from(new Set([...(context?.previousStaffIds ?? []), ...savedStaffIds])).map(
+          (staffId) => queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
+        ),
       ])
       setLocalSelection(null)
     },
@@ -121,117 +148,46 @@ export function ClientAssignedStaff({ clientId, managedByStaff, managedBy }: Cli
           >
             <span className="flex min-w-0 flex-1 items-center gap-2">
               {selectedStaff.length > 0 ? (
-                <ManagerSummary managers={selectedStaff} />
+                <ManagerSummary managers={selectedStaff} archivedLabel={archivedLabel} />
               ) : (
-                <span className="text-sm text-muted-foreground">{t('clientOverview.changeManagedBy')}</span>
+                <span className="text-sm text-muted-foreground">{changeManagedByLabel}</span>
               )}
             </span>
             <span className="flex items-center gap-1 pt-1">
-              {changeMutation.isPending && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-              <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
+              {changeMutation.isPending && (
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+              )}
+              <ChevronDown
+                className={cn(
+                  'w-4 h-4 text-muted-foreground transition-transform',
+                  isOpen && 'rotate-180'
+                )}
+              />
             </span>
           </button>
 
           {isOpen && (
-            <div
-              id="client-manager-menu"
-              role="menu"
-              className="absolute z-[9999] w-full mt-1 py-1 rounded-lg border bg-card border-border shadow-lg max-h-60 overflow-auto"
-            >
-              <div className="px-3 py-1.5 text-xs text-muted-foreground font-medium">
-                {t('clientOverview.changeManagedBy')}
-              </div>
-              {members.map((m) => {
-                const isSelected = selectedStaffIds.includes(m.id)
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => {
-                      if (!changeMutation.isPending) handleToggle(m.id)
-                    }}
-                    disabled={changeMutation.isPending}
-                    role="menuitemcheckbox"
-                    aria-checked={isSelected}
-                    className={cn(
-                      'w-full px-3 py-2 text-left text-sm',
-                      'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary transition-colors',
-                      'flex items-center justify-between gap-2',
-                      isSelected && 'bg-primary/10',
-                      changeMutation.isPending && 'cursor-not-allowed opacity-60'
-                    )}
-                  >
-                    <span className="flex min-w-0 items-center gap-2">
-                      <StaffAvatar name={m.name} avatarUrl={m.avatarUrl ?? null} size="sm" />
-                      <span className="truncate text-foreground">{m.name}</span>
-                    </span>
-                    {isSelected && <Check className="h-4 w-4 flex-shrink-0 text-primary" />}
-                  </button>
-                )
-              })}
-            </div>
+            <ClientManagerMenu
+              members={members}
+              unavailableAssignedStaff={unavailableAssignedStaff}
+              selectedStaffIds={selectedStaffIds}
+              archivedLabel={archivedLabel}
+              changeManagedByLabel={changeManagedByLabel}
+              isPending={changeMutation.isPending}
+              onToggle={handleToggle}
+            />
           )}
         </div>
       ) : (
         // Non-admin: read-only display
         <div>
           {assignedStaff.length > 0 ? (
-            <ManagerList managers={assignedStaff} />
+            <ManagerList managers={assignedStaff} archivedLabel={archivedLabel} />
           ) : (
             <span className="text-sm text-muted-foreground">{t('clientOverview.noManagedBy')}</span>
           )}
         </div>
       )}
     </div>
-  )
-}
-
-function ManagerSummary({ managers }: { managers: StaffManagerSummary[] }) {
-  return (
-    <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-      {managers.map((manager) => (
-        <span
-          key={manager.id}
-          className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted/70 px-2 py-1 text-sm font-medium text-foreground"
-        >
-          <StaffAvatar name={manager.name} avatarUrl={manager.avatarUrl ?? null} size="sm" />
-          <span className="min-w-0 whitespace-normal break-words leading-snug">{manager.name}</span>
-        </span>
-      ))}
-    </span>
-  )
-}
-
-function ManagerList({ managers }: { managers: StaffManagerSummary[] }) {
-  return (
-    <div className="space-y-2">
-      {managers.map((manager) => (
-        <div key={manager.id} className="flex items-center gap-2">
-          <StaffAvatar name={manager.name} avatarUrl={manager.avatarUrl ?? null} size="sm" />
-          <span className="min-w-0 truncate text-sm text-foreground">{manager.name}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function StaffAvatar({ name, avatarUrl, size = 'sm' }: { name: string; avatarUrl: string | null; size?: 'sm' | 'md' }) {
-  const sizeClass = size === 'sm' ? 'w-6 h-6 text-xs' : 'w-8 h-8 text-sm'
-  const avatarColor = getAvatarColor(name)
-
-  if (avatarUrl) {
-    return (
-      <img
-        src={avatarUrl}
-        alt={name}
-        className={cn(sizeClass, 'rounded-full object-cover')}
-      />
-    )
-  }
-
-  return (
-    <span className={cn(sizeClass, 'rounded-full flex items-center justify-center font-medium', avatarColor.bg, avatarColor.text)}>
-      {getInitials(name)}
-    </span>
   )
 }

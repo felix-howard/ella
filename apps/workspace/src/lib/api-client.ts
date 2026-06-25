@@ -2708,6 +2708,7 @@ export interface StaffManagerSummary {
   id: string
   name: string
   avatarUrl?: string | null
+  isActive?: boolean
 }
 
 export interface StaffAssignableMember extends StaffManagerSummary {

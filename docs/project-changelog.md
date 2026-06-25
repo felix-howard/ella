@@ -5,6 +5,23 @@
 
 ---
 
+### Archived Staff Manager Detach
+**Status:** Complete
+
+**Fixed:**
+- Removing team member access now detaches that staff member from current client manager assignments and moves the legacy primary manager pointer to the next remaining manager when available.
+- Client manager payloads include staff active state so archived assigned managers can be identified.
+- Client Overview manager selector now marks archived assigned managers and drops archived staff IDs from update payloads, allowing old stuck assignments to be cleaned up.
+- Remove Access confirmation copy now says current managed clients will be unassigned while Staff/audit history remains.
+
+**Validation:**
+- `pnpm --filter @ella/api test -- src/routes/team/__tests__/team-routes.test.ts` pass, 42 tests
+- `pnpm --filter @ella/workspace test -- src/components/clients/client-overview-tab/client-assigned-staff.test.tsx src/components/team/__tests__/remove-member-access-dialog.test.tsx` pass, 7 tests
+- `pnpm --filter @ella/api type-check` pass
+- `pnpm --filter @ella/workspace type-check` pass
+- `pnpm --filter @ella/api lint` pass with 1 pre-existing warning outside this change
+- `pnpm --filter @ella/workspace lint` pass with 12 pre-existing warnings outside this change
+
 ### Disabled Staff Login UX Polish
 **Status:** Complete
 

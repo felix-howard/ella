@@ -1,38 +1,54 @@
 import { prisma } from '../../lib/db'
 import type { AuthVariables } from '../../middleware/auth'
 import { clerkFailureHttpStatus, describeClerkError, publicClerkError } from './team-clerk-errors'
-import { type ClerkRemovalResult, removeClerkOrganizationMembershipIfPresent } from './team-clerk-membership-access'
-import { activeAdminMutationGuard, clearAdminMutationReservation } from './team-admin-mutation-reservation'
+import {
+  type ClerkRemovalResult,
+  removeClerkOrganizationMembershipIfPresent,
+} from './team-clerk-membership-access'
+import {
+  activeAdminMutationGuard,
+  clearAdminMutationReservation,
+} from './team-admin-mutation-reservation'
+import {
+  detachStaffFromCurrentClientManagers,
+  type DetachedClientAssignments,
+} from './detach-staff-client-managers'
 
 type RemoveAccessCopy = { selfError: string; notFoundError: string }
 
 type StaffAccessRecord = {
-  id: string; clerkId: string | null; email: string; name: string; role: string; isActive: boolean
+  id: string
+  clerkId: string | null
+  email: string
+  name: string
+  role: string
+  isActive: boolean
 }
 
 type RemoveAccessResult =
   | {
-    success: true
-    staff: StaffAccessRecord
-    clerkRemovalResult: ClerkRemovalResult
-  }
+      success: true
+      staff: StaffAccessRecord
+      clerkRemovalResult: ClerkRemovalResult
+      detachedAssignments: DetachedClientAssignments
+    }
   | {
-    success: false
-    status: 400 | 404 | 429 | 500 | 502
-    body: Record<string, unknown>
-  }
+      success: false
+      status: 400 | 404 | 429 | 500 | 502
+      body: Record<string, unknown>
+    }
 
 type RemoveAccessReservation =
   | {
-    success: true
-    staff: StaffAccessRecord
-    reservedAt: Date
-  }
+      success: true
+      staff: StaffAccessRecord
+      reservedAt: Date
+    }
   | {
-    success: false
-    status: 400 | 404
-    body: Record<string, unknown>
-  }
+      success: false
+      status: 400 | 404
+      body: Record<string, unknown>
+    }
 
 export async function removeTeamMemberAccess(
   user: AuthVariables['user'],
@@ -112,9 +128,14 @@ export async function removeTeamMemberAccess(
     }
   }
 
+  let detachedAssignments: DetachedClientAssignments = {
+    detachedClientManagerCount: 0,
+    updatedPrimaryClientCount: 0,
+  }
   try {
     await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`team-member-removal:${organizationId}`}))`
+      detachedAssignments = await detachStaffFromCurrentClientManagers(tx, organizationId, staffId)
       await tx.staff.update({
         where: { id: staffId },
         data: {
@@ -135,11 +156,12 @@ export async function removeTeamMemberAccess(
       status: 500,
       body: {
         error: 'STAFF_ARCHIVE_INCOMPLETE',
-        message: 'Clerk access may already be removed, but Staff was not archived. Retry remove access and check team reconciliation before inviting new members.',
+        message:
+          'Clerk access may already be removed, but Staff was not archived. Retry remove access and check team reconciliation before inviting new members.',
         clerkRemovalResult,
       },
     }
   }
 
-  return { success: true, staff, clerkRemovalResult }
+  return { success: true, staff, clerkRemovalResult, detachedAssignments }
 }

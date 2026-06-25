@@ -339,7 +339,7 @@ describe('createSendableQuote', () => {
   describe('pricing validation', () => {
     it('propagates CheckoutQuoteError from calculateCheckoutQuote', async () => {
       quoteMocks.calculateCheckoutQuote.mockImplementation(() => {
-        throw new quoteMocks.CheckoutQuoteError('Rate overrides below current defaults are not allowed')
+        throw new quoteMocks.CheckoutQuoteError('Invalid pricing')
       })
 
       const input = buildSendQuoteInput()

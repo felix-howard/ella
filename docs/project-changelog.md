@@ -1,7 +1,24 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-24 ICT
+> **Last Updated:** 2026-06-25 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-06-25
+
+### Payment Calculator Rate Overrides
+**Status:** Complete
+
+**Fixed:**
+- Removed backend rule that rejected calculator rate overrides below current defaults.
+- Staff-customized lower monthly/setup/one-time rates now flow through send-to-client payment quotes while existing non-negative, quantity, and max-total guards remain.
+- Added regression coverage so discounted calculator rates are accepted by Stripe quote calculation.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/stripe/__tests__/checkout.test.ts src/services/payments/__tests__/quote-send-service.test.ts` pass, 47 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass with 1 pre-existing warning, 0 errors
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: "Implement Clerk-first member removal and reconciliation API"
-status: pending
+status: completed
 priority: P1
 effort: "6h"
 dependencies: [1]
@@ -19,6 +19,8 @@ dependencies: [1]
 ## Overview
 
 Make backend behavior Clerk-first and fail-closed. Add an admin-only reconciliation endpoint so the UI can show Staff vs Clerk mismatch without requiring manual dashboard checks.
+
+Completed in this phase: backend removal, legacy archive alias, auth bootstrap guard, reconciliation API, Clerk error sanitization, and focused regression coverage.
 
 ## Key Insights
 
@@ -42,7 +44,12 @@ Make backend behavior Clerk-first and fail-closed. Add an admin-only reconciliat
 
 ## Architecture
 
-Add small helpers inside Team route or extracted module if file size becomes too large:
+Added extracted helpers under `apps/api/src/routes/team/`:
+
+- `team-member-access-removal.ts`: Clerk-first remove/archive flow, admin guard reservations, and role-demotion guard.
+- `team-clerk-membership-access.ts`: membership lookup by `clerkId`, fallback lookup by email, and idempotent Clerk removal.
+- `team-clerk-errors.ts`: sanitized public Clerk errors and HTTP status mapping.
+- `team-membership-reconciliation.ts`: live Staff/Clerk comparison DTO.
 
 ```ts
 type TeamMembershipStatus =
@@ -60,11 +67,15 @@ Backend flow for remove access:
 Admin request
   -> verify not self
   -> verify Staff belongs to org
-  -> verify not last admin if active/admin
-  -> if clerkId exists:
+  -> take short org-scoped advisory lock
+  -> reserve active admin mutation if needed and verify not last admin
+  -> release DB transaction before Clerk network call
+  -> if clerkId or email exists:
+       lookup Clerk membership by clerkId, then email fallback
        call Clerk deleteOrganizationMembership
        if not_found: continue as idempotent already-removed
-       if other error: return 400/502, do not DB-deactivate
+       if other error: clear admin reservation, return 400/429/502, do not DB-deactivate
+  -> take short org-scoped advisory lock
   -> update Staff isActive=false, deactivatedAt=now
   -> activity log with status and clerkRemovalResult
 ```
@@ -85,9 +96,13 @@ if no staff, no org, or org mismatch:
 - Modify: `/Users/felix/Projects/ella/apps/api/src/middleware/auth.ts`
 - Modify: `/Users/felix/Projects/ella/apps/api/src/routes/team/index.ts`
 - Modify: `/Users/felix/Projects/ella/apps/api/src/services/auth/index.ts` if helper contract needs adjustment
-- Modify: `/Users/felix/Projects/ella/apps/api/src/routes/team/schemas.ts` if new request schemas are needed
 - Modify: `/Users/felix/Projects/ella/apps/api/src/routes/team/__tests__/team-routes.test.ts`
 - Modify: `/Users/felix/Projects/ella/apps/api/src/services/auth/__tests__/auth.test.ts`
+- Modify: `/Users/felix/Projects/ella/apps/api/src/routes/__tests__/manager-role-authorization.test.ts`
+- Create: `/Users/felix/Projects/ella/apps/api/src/routes/team/team-clerk-errors.ts`
+- Create: `/Users/felix/Projects/ella/apps/api/src/routes/team/team-clerk-membership-access.ts`
+- Create: `/Users/felix/Projects/ella/apps/api/src/routes/team/team-member-access-removal.ts`
+- Create: `/Users/felix/Projects/ella/apps/api/src/routes/team/team-membership-reconciliation.ts`
 - Read: `/Users/felix/Projects/ella/apps/api/src/services/clerk-webhook/index.ts`
 - Read: `/Users/felix/Projects/ella/apps/api/src/lib/staff-role-mapping.ts`
 
@@ -128,18 +143,25 @@ if no staff, no org, or org mismatch:
 
 ## Todo List
 
-- [ ] Patch `authMiddleware` inactive-staff behavior.
-- [ ] Patch canonical remove endpoint to be Clerk-first and fail-closed.
-- [ ] Add reconciliation endpoint and DTO.
-- [ ] Add backend tests.
-- [ ] Run API type-check and focused tests.
+- [x] Patch `authMiddleware` inactive-staff behavior.
+- [x] Patch canonical remove endpoint to be Clerk-first and fail-closed.
+- [x] Convert legacy archive endpoint to same safe removal flow.
+- [x] Add reconciliation endpoint and DTO.
+- [x] Add backend tests.
+- [x] Run API type-check and focused tests.
 
 ## Success Criteria
 
-- [ ] No endpoint can silently create Staff/Clerk mismatch on removal.
-- [ ] Archived Staff who still occupy Clerk seats are visible and removable.
-- [ ] Inactive Staff cannot regain access via auth bootstrap.
-- [ ] Backend tests cover success, failure, idempotent missing-membership, and mismatch states.
+- [x] No endpoint can silently create Staff/Clerk mismatch on removal.
+- [x] Archived Staff who still occupy Clerk seats are visible and removable.
+- [x] Inactive Staff cannot regain access via auth bootstrap.
+- [x] Backend tests cover success, failure, idempotent missing-membership, and mismatch states.
+
+## Validation
+
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test -- src/routes/team src/services/auth src/services/clerk-webhook src/routes/__tests__/manager-role-authorization.test.ts` pass, 127 tests
+- `git diff --check` pass
 
 ## Risk Assessment
 
@@ -148,7 +170,7 @@ if no staff, no org, or org mismatch:
 - Risk: Re-invited inactive staff may hit API before webhook reactivates.
   - Mitigation: Accept this as safer. UI should show invitation pending; user retries after accept/webhook.
 - Risk: Team route file grows too large.
-  - Mitigation: Extract reconciliation helpers to a small kebab-case module under `apps/api/src/routes/team/` if needed.
+  - Mitigation: Extracted Clerk errors, membership removal, access-removal flow, and reconciliation helpers under `apps/api/src/routes/team/`.
 
 ## Security Considerations
 

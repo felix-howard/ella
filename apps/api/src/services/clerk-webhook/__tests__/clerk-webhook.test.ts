@@ -256,6 +256,7 @@ describe('Clerk Webhook Service', () => {
           role: 'ADMIN',
           organizationId: 'db_org_1',
           isActive: true,
+          deactivatedAt: null,
         }),
         create: expect.objectContaining({
           clerkId: 'user_123',
@@ -283,9 +284,34 @@ describe('Clerk Webhook Service', () => {
           role: 'ADMIN',
           organizationId: 'db_org_1',
           isActive: true,
+          deactivatedAt: null,
         }),
       })
       expect(prisma.staff.upsert).not.toHaveBeenCalled()
+    })
+
+    it('restores an archived invited staff row and clears deactivatedAt', async () => {
+      vi.mocked(prisma.organization.upsert).mockResolvedValueOnce({ id: 'db_org_1' } as never)
+      vi.mocked(prisma.staff.findUnique).mockResolvedValueOnce({
+        id: 'existing_staff',
+        email: 'john@test.com',
+        organizationId: 'db_org_1',
+        isActive: false,
+        deactivatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      } as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({} as never)
+
+      await handleClerkWebhook(makeEvent('organizationMembership.created', membershipData))
+
+      expect(prisma.staff.update).toHaveBeenCalledWith({
+        where: { id: 'existing_staff' },
+        data: expect.objectContaining({
+          clerkId: 'user_123',
+          organizationId: 'db_org_1',
+          isActive: true,
+          deactivatedAt: null,
+        }),
+      })
     })
 
     it('maps org:member role to STAFF', async () => {

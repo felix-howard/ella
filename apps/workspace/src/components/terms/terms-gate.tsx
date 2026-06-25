@@ -1,6 +1,8 @@
 import { useAuth, useUser } from '@clerk/clerk-react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, AlertTriangle, RefreshCw } from 'lucide-react'
+import { isDisabledAccountError } from '../../lib/api-client'
+import { DisabledAccountScreen } from '../auth/disabled-account-screen'
 import { useTermsStatus } from './use-terms'
 import { TermsModal } from './terms-modal'
 
@@ -13,7 +15,7 @@ export function TermsGate({ children }: TermsGateProps) {
   const { isLoaded, isSignedIn } = useAuth()
   const { user } = useUser()
   const shouldCheckStatus = isLoaded && !!isSignedIn
-  const { data: status, isLoading, isError, refetch } = useTermsStatus(shouldCheckStatus)
+  const { data: status, isLoading, isError, error, refetch } = useTermsStatus(shouldCheckStatus)
 
   // Not signed in - skip gate (login page needs to render)
   if (isLoaded && !isSignedIn) {
@@ -41,6 +43,10 @@ export function TermsGate({ children }: TermsGateProps) {
         </p>
       </div>
     )
+  }
+
+  if (isDisabledAccountError(error)) {
+    return <DisabledAccountScreen />
   }
 
   // Error state - fail closed (block app, don't let through)

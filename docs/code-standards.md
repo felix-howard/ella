@@ -85,6 +85,7 @@ app.use(requireOrgAdmin) // Verify org:admin role (Clerk)
 **Backend Middleware:**
 - `requireOrg` - Verify orgId in JWT, attach to context
 - `requireOrgAdmin` - Verify org:admin role, restrict endpoint
+- Team access contract: Clerk organization membership is source of truth for login access and billable seats; `Staff` rows keep app profile/history. Request-time auth must reject inactive same-org Staff before bootstrap sync. Team removal/archive must remove or confirm absence of Clerk membership before setting `Staff.isActive=false`; unknown Clerk failures fail closed.
 
 **Frontend Auth (React):**
 - `ClerkAuthProvider` - Wraps root, sets JWT token getter, clears React Query cache on sign-out

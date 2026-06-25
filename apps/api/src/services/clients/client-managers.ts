@@ -5,6 +5,7 @@ type StaffSummary = {
   id: string
   name: string
   avatarUrl: string | null
+  isActive?: boolean
 }
 
 type ClientManagerLink = {
@@ -15,6 +16,7 @@ export type ClientManagerDto = {
   id: string
   name: string
   avatarUrl: string | null
+  isActive?: boolean
 }
 
 export function normalizeManagerIds(input: {
@@ -110,6 +112,7 @@ export async function mapClientManagerDtos(
       id: staff.id,
       name: staff.name,
       avatarUrl: await resolveAvatarUrl(staff.avatarUrl),
+      isActive: staff.isActive,
     }))
   )
 }

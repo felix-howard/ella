@@ -5,14 +5,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock prisma
-vi.mock('../../../lib/db', () => ({
-  prisma: {
+vi.mock('../../../lib/db', () => {
+  const prisma = {
     staff: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
       findUnique: vi.fn(),
       count: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     notificationSubscription: {
       deleteMany: vi.fn(),
@@ -21,10 +22,21 @@ vi.mock('../../../lib/db', () => ({
     client: {
       count: vi.fn(),
       findMany: vi.fn(),
+      updateMany: vi.fn(),
     },
-    $transaction: vi.fn((operations: unknown[]) => Promise.resolve(operations)),
-  },
-}))
+    clientManager: {
+      deleteMany: vi.fn(),
+      findMany: vi.fn(),
+    },
+    $executeRaw: vi.fn(),
+    $transaction: vi.fn((input: unknown) =>
+      typeof input === 'function'
+        ? (input as (tx: typeof prisma) => unknown)(prisma)
+        : Promise.resolve(input)
+    ),
+  }
+  return { prisma }
+})
 
 // Mock storage service
 vi.mock('../../../services/storage', () => ({
@@ -46,6 +58,7 @@ vi.mock('../../../lib/clerk-client', () => ({
     organizations: {
       createOrganizationInvitation: vi.fn(),
       updateOrganizationMembership: vi.fn(),
+      getOrganizationMembershipList: vi.fn(),
       deleteOrganizationMembership: vi.fn(),
       getOrganizationInvitationList: vi.fn(),
       revokeOrganizationInvitation: vi.fn(),
@@ -97,7 +110,6 @@ vi.mock('../../../middleware/auth', () => ({
 import { Hono } from 'hono'
 import { prisma } from '../../../lib/db'
 import { clerkClient } from '../../../lib/clerk-client'
-import { deactivateStaff } from '../../../services/auth'
 import { logTeamAction } from '../../../services/audit-logger'
 import { logStaffActivity } from '../../../services/activity-log'
 import { getSignedUploadUrl, generateAvatarKey, getSignedDownloadUrl } from '../../../services/storage'
@@ -155,7 +167,13 @@ function managerUser(): AuthVariables['user'] {
 }
 
 describe('Team Routes', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(prisma.client.findMany).mockResolvedValue([] as never)
+    vi.mocked(prisma.client.updateMany).mockResolvedValue({ count: 0 } as never)
+    vi.mocked(prisma.clientManager.deleteMany).mockResolvedValue({ count: 0 } as never)
+    vi.mocked(prisma.clientManager.findMany).mockResolvedValue([] as never)
+  })
 
   // ============================================
   // GET /team/members
@@ -331,9 +349,11 @@ describe('Team Routes', () => {
         body: JSON.stringify({ emailAddress: 'new@test.com', role: 'MEMBER' }),
       })
 
-      expect(res.status).toBe(400)
+      expect(res.status).toBe(502)
       const body = await res.json()
-      expect(body.error).toBe('Rate limited')
+      expect(body.error).toBe('CLERK_INVITE_FAILED')
+      expect(body.message).toBe('Failed to send invitation.')
+      expect(JSON.stringify(body)).not.toContain('Rate limited')
     })
   })
 
@@ -474,16 +494,265 @@ describe('Team Routes', () => {
   describe('DELETE /team/members/:staffId', () => {
     it('deactivates staff and removes from Clerk org', async () => {
       vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({
-        id: 's2', clerkId: 'c2', organizationId: 'org_db_1', isActive: true,
+        id: 's2', clerkId: 'c2', organizationId: 'org_db_1', isActive: true, role: 'STAFF',
       } as never)
-      vi.mocked(deactivateStaff).mockResolvedValueOnce({} as never)
+      vi.mocked(clerkClient.organizations.getOrganizationMembershipList).mockResolvedValueOnce({
+        data: [{ id: 'mem_1', publicUserData: { userId: 'c2' } }],
+        totalCount: 1,
+      } as never)
       vi.mocked(clerkClient.organizations.deleteOrganizationMembership).mockResolvedValueOnce({} as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({} as never)
 
       const app = createApp()
       const res = await app.request('/team/members/s2', { method: 'DELETE' })
 
       expect(res.status).toBe(200)
-      expect(vi.mocked(deactivateStaff)).toHaveBeenCalledWith('s2')
+      expect(prisma.$executeRaw).toHaveBeenCalled()
+      expect(vi.mocked(clerkClient.organizations.getOrganizationMembershipList)).toHaveBeenCalledWith({
+        organizationId: 'org_clerk_1',
+        userId: ['c2'],
+        limit: 1,
+      })
+      expect(vi.mocked(clerkClient.organizations.deleteOrganizationMembership)).toHaveBeenCalledWith({
+        organizationId: 'org_clerk_1',
+        userId: 'c2',
+      })
+      expect(vi.mocked(prisma.staff.update)).toHaveBeenCalledWith({
+        where: { id: 's2' },
+        data: {
+          isActive: false,
+          deactivatedAt: expect.any(Date),
+        },
+      })
+      expect(
+        vi.mocked(clerkClient.organizations.deleteOrganizationMembership).mock.invocationCallOrder[0]
+      ).toBeLessThan(vi.mocked(prisma.staff.update).mock.invocationCallOrder[0])
+    })
+
+    it('detaches current client manager assignments when removing access', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({
+        id: 's2', clerkId: 'c2', email: 'amber@test.com', organizationId: 'org_db_1', isActive: true, role: 'STAFF',
+      } as never)
+      vi.mocked(clerkClient.organizations.getOrganizationMembershipList).mockResolvedValueOnce({
+        data: [{ id: 'mem_1', publicUserData: { userId: 'c2' } }],
+        totalCount: 1,
+      } as never)
+      vi.mocked(clerkClient.organizations.deleteOrganizationMembership).mockResolvedValueOnce({} as never)
+      vi.mocked(prisma.client.findMany).mockResolvedValueOnce([
+        { id: 'client_primary', managedById: 's2' },
+        { id: 'client_secondary', managedById: 'staff_1' },
+      ] as never)
+      vi.mocked(prisma.clientManager.deleteMany).mockResolvedValueOnce({ count: 2 } as never)
+      vi.mocked(prisma.clientManager.findMany).mockResolvedValueOnce([
+        { clientId: 'client_primary', staffId: 'staff_3' },
+      ] as never)
+      vi.mocked(prisma.client.updateMany).mockResolvedValueOnce({ count: 1 } as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({} as never)
+
+      const app = createApp()
+      const res = await app.request('/team/members/s2', { method: 'DELETE' })
+
+      expect(res.status).toBe(200)
+      expect(vi.mocked(prisma.clientManager.deleteMany)).toHaveBeenCalledWith({
+        where: {
+          organizationId: 'org_db_1',
+          staffId: 's2',
+          clientId: { in: ['client_primary', 'client_secondary'] },
+        },
+      })
+      expect(vi.mocked(prisma.client.updateMany)).toHaveBeenCalledWith({
+        where: { id: 'client_primary', organizationId: 'org_db_1' },
+        data: { managedById: 'staff_3' },
+      })
+      expect(vi.mocked(prisma.client.updateMany)).toHaveBeenCalledTimes(1)
+      expect(logStaffActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            detachedClientManagerCount: 2,
+            updatedPrimaryClientCount: 1,
+          }),
+        })
+      )
+    })
+
+    it('fails closed and does not deactivate DB when Clerk removal fails', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({
+        id: 's2', clerkId: 'c2', organizationId: 'org_db_1', isActive: true, role: 'STAFF',
+      } as never)
+      vi.mocked(clerkClient.organizations.getOrganizationMembershipList).mockResolvedValueOnce({
+        data: [{ id: 'mem_1', publicUserData: { userId: 'c2' } }],
+        totalCount: 1,
+      } as never)
+      vi.mocked(clerkClient.organizations.deleteOrganizationMembership).mockRejectedValueOnce(
+        new Error('Clerk unavailable')
+      )
+
+      const app = createApp()
+      const res = await app.request('/team/members/s2', { method: 'DELETE' })
+
+      expect(res.status).toBe(502)
+      const body = await res.json()
+      expect(body.error).toBe('CLERK_REMOVAL_FAILED')
+      expect(JSON.stringify(body)).not.toContain('Clerk unavailable')
+      expect(vi.mocked(clerkClient.organizations.deleteOrganizationMembership)).toHaveBeenCalledWith({
+        organizationId: 'org_clerk_1',
+        userId: 'c2',
+      })
+      expect(vi.mocked(prisma.staff.update)).not.toHaveBeenCalled()
+    })
+
+    it('reports partial removal if Staff archive fails after Clerk access is removed', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({
+        id: 's2', clerkId: 'c2', organizationId: 'org_db_1', isActive: true, role: 'STAFF',
+      } as never)
+      vi.mocked(clerkClient.organizations.getOrganizationMembershipList).mockResolvedValueOnce({
+        data: [{ id: 'mem_1', publicUserData: { userId: 'c2' } }],
+        totalCount: 1,
+      } as never)
+      vi.mocked(clerkClient.organizations.deleteOrganizationMembership).mockResolvedValueOnce({} as never)
+      vi.mocked(prisma.staff.update).mockRejectedValueOnce(new Error('database unavailable'))
+
+      try {
+        const app = createApp()
+        const res = await app.request('/team/members/s2', { method: 'DELETE' })
+        const body = await res.json()
+
+        expect(res.status).toBe(500)
+        expect(body.error).toBe('STAFF_ARCHIVE_INCOMPLETE')
+        expect(body.clerkRemovalResult).toBe('removed')
+        expect(JSON.stringify(body)).not.toContain('database unavailable')
+        expect(vi.mocked(clerkClient.organizations.deleteOrganizationMembership)).toHaveBeenCalledWith({
+          organizationId: 'org_clerk_1',
+          userId: 'c2',
+        })
+        expect(logStaffActivity).not.toHaveBeenCalled()
+      } finally {
+        consoleSpy.mockRestore()
+      }
+    })
+
+    it('deactivates DB idempotently when Clerk membership is already missing', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({
+        id: 's2', clerkId: 'c2', organizationId: 'org_db_1', isActive: true, role: 'STAFF',
+      } as never)
+      vi.mocked(clerkClient.organizations.getOrganizationMembershipList).mockResolvedValueOnce({
+        data: [],
+        totalCount: 0,
+      } as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({} as never)
+
+      const app = createApp()
+      const res = await app.request('/team/members/s2', { method: 'DELETE' })
+
+      expect(res.status).toBe(200)
+      expect(vi.mocked(clerkClient.organizations.deleteOrganizationMembership)).not.toHaveBeenCalled()
+      expect(vi.mocked(prisma.staff.update)).toHaveBeenCalledWith({
+        where: { id: 's2' },
+        data: {
+          isActive: false,
+          deactivatedAt: expect.any(Date),
+        },
+      })
+      expect(logStaffActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            clerkRemovalResult: 'already_removed',
+          }),
+        })
+      )
+    })
+
+    it('removes Clerk access for an already archived Staff row', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({
+        id: 's2', clerkId: 'c2', organizationId: 'org_db_1', isActive: false, role: 'STAFF',
+      } as never)
+      vi.mocked(clerkClient.organizations.getOrganizationMembershipList).mockResolvedValueOnce({
+        data: [{ id: 'mem_1', publicUserData: { userId: 'c2' } }],
+        totalCount: 1,
+      } as never)
+      vi.mocked(clerkClient.organizations.deleteOrganizationMembership).mockResolvedValueOnce({} as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({} as never)
+
+      const app = createApp()
+      const res = await app.request('/team/members/s2', { method: 'DELETE' })
+
+      expect(res.status).toBe(200)
+      expect(vi.mocked(clerkClient.organizations.deleteOrganizationMembership)).toHaveBeenCalledWith({
+        organizationId: 'org_clerk_1',
+        userId: 'c2',
+      })
+      expect(vi.mocked(prisma.staff.update)).toHaveBeenCalledWith({
+        where: { id: 's2' },
+        data: {
+          isActive: false,
+          deactivatedAt: expect.any(Date),
+        },
+      })
+    })
+
+    it('removes Clerk access by email when archived Staff has no clerkId', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({
+        id: 's2',
+        clerkId: null,
+        email: 'archived@test.com',
+        organizationId: 'org_db_1',
+        isActive: false,
+        role: 'STAFF',
+      } as never)
+      vi.mocked(clerkClient.organizations.getOrganizationMembershipList).mockResolvedValueOnce({
+        data: [{ id: 'mem_1', publicUserData: { userId: 'clerk_from_email' } }],
+        totalCount: 1,
+      } as never)
+      vi.mocked(clerkClient.organizations.deleteOrganizationMembership).mockResolvedValueOnce({} as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({} as never)
+
+      const app = createApp()
+      const res = await app.request('/team/members/s2', { method: 'DELETE' })
+
+      expect(res.status).toBe(200)
+      expect(vi.mocked(clerkClient.organizations.getOrganizationMembershipList)).toHaveBeenCalledWith({
+        organizationId: 'org_clerk_1',
+        emailAddress: ['archived@test.com'],
+        limit: 1,
+      })
+      expect(vi.mocked(clerkClient.organizations.deleteOrganizationMembership)).toHaveBeenCalledWith({
+        organizationId: 'org_clerk_1',
+        userId: 'clerk_from_email',
+      })
+      expect(vi.mocked(prisma.staff.update)).toHaveBeenCalledWith({
+        where: { id: 's2' },
+        data: {
+          isActive: false,
+          deactivatedAt: expect.any(Date),
+        },
+      })
+    })
+
+    it('prevents deactivating the last active admin', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({
+        id: 's2', clerkId: 'c2', organizationId: 'org_db_1', isActive: true, role: 'ADMIN',
+      } as never)
+      vi.mocked(prisma.staff.count).mockResolvedValueOnce(1)
+
+      const app = createApp()
+      const res = await app.request('/team/members/s2', { method: 'DELETE' })
+
+      expect(res.status).toBe(400)
+      const body = await res.json()
+      expect(body.error).toContain('last admin')
+      expect(vi.mocked(clerkClient.organizations.getOrganizationMembershipList)).not.toHaveBeenCalled()
+      expect(vi.mocked(prisma.staff.update)).not.toHaveBeenCalled()
+    })
+
+    it('fails before reservation when selected Clerk org is missing', async () => {
+      const app = createApp({ ...defaultUser(), clerkOrgId: null })
+      const res = await app.request('/team/members/s2', { method: 'DELETE' })
+
+      expect(res.status).toBe(400)
+      expect(vi.mocked(prisma.staff.findFirst)).not.toHaveBeenCalled()
+      expect(prisma.$executeRaw).not.toHaveBeenCalled()
+      expect(vi.mocked(prisma.staff.update)).not.toHaveBeenCalled()
     })
 
     it('prevents self-deactivation', async () => {
@@ -502,7 +771,232 @@ describe('Team Routes', () => {
       const res = await app.request('/team/members/unknown', { method: 'DELETE' })
 
       expect(res.status).toBe(404)
-      expect(vi.mocked(deactivateStaff)).not.toHaveBeenCalled()
+      expect(vi.mocked(prisma.staff.update)).not.toHaveBeenCalled()
+    })
+  })
+
+  // ============================================
+  // GET /team/reconciliation
+  // ============================================
+  describe('GET /team/reconciliation', () => {
+    it('forbids non-admin users', async () => {
+      const app = createApp(memberUser())
+      const res = await app.request('/team/reconciliation')
+
+      expect(res.status).toBe(403)
+      expect(vi.mocked(prisma.staff.findMany)).not.toHaveBeenCalled()
+      expect(vi.mocked(clerkClient.organizations.getOrganizationMembershipList)).not.toHaveBeenCalled()
+    })
+
+    it('returns Staff and Clerk mismatch states with live seat count', async () => {
+      vi.mocked(prisma.staff.findMany).mockResolvedValueOnce([
+        {
+          id: 'staff_active_match',
+          clerkId: 'clerk_active',
+          email: 'active@test.com',
+          name: 'Active Match',
+          role: 'ADMIN',
+          isActive: true,
+          _count: { managedClientLinks: 2 },
+        },
+        {
+          id: 'staff_archived_still_in_clerk',
+          clerkId: 'clerk_archived',
+          email: 'archived@test.com',
+          name: 'Archived Seat',
+          role: 'STAFF',
+          isActive: false,
+          _count: { managedClientLinks: 1 },
+        },
+        {
+          id: 'staff_archived_match',
+          clerkId: 'clerk_removed',
+          email: 'removed@test.com',
+          name: 'Removed Member',
+          role: 'STAFF',
+          isActive: false,
+          _count: { managedClientLinks: 0 },
+        },
+        {
+          id: 'staff_active_missing',
+          clerkId: 'clerk_missing',
+          email: 'missing@test.com',
+          name: 'Missing Clerk',
+          role: 'MANAGER',
+          isActive: true,
+          _count: { managedClientLinks: 3 },
+        },
+      ] as never)
+      vi.mocked(clerkClient.organizations.getOrganizationMembershipList).mockResolvedValueOnce({
+        totalCount: 3,
+        data: [
+          {
+            id: 'mem_active',
+            role: 'org:admin',
+            publicUserData: {
+              userId: 'clerk_active',
+              identifier: 'active@test.com',
+              firstName: 'Active',
+              lastName: 'Match',
+            },
+          },
+          {
+            id: 'mem_archived',
+            role: 'org:member',
+            publicUserData: {
+              userId: 'clerk_archived',
+              identifier: 'archived@test.com',
+              firstName: 'Archived',
+              lastName: 'Seat',
+            },
+          },
+          {
+            id: 'mem_orphan',
+            role: 'org:member',
+            publicUserData: {
+              userId: 'clerk_orphan',
+              identifier: 'orphan@test.com',
+              firstName: 'Orphan',
+              lastName: 'Member',
+            },
+          },
+        ],
+      } as never)
+      vi.mocked(clerkClient.organizations.getOrganizationInvitationList).mockResolvedValueOnce({
+        totalCount: 1,
+        data: [
+          {
+            id: 'inv_1',
+            emailAddress: 'invited@test.com',
+            role: 'org:member',
+            status: 'pending',
+          },
+        ],
+      } as never)
+
+      const app = createApp()
+      const res = await app.request('/team/reconciliation')
+      const body = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(body.seatsUsed).toBe(3)
+      expect(body.pendingInvitationCount).toBe(1)
+      expect(body.members).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          staffId: 'staff_active_match',
+          status: 'ACTIVE_MATCH',
+          managedClientCount: 2,
+        }),
+        expect.objectContaining({
+          staffId: 'staff_archived_still_in_clerk',
+          status: 'ARCHIVED_STILL_IN_CLERK',
+        }),
+        expect.objectContaining({
+          staffId: 'staff_archived_match',
+          status: 'ARCHIVED_MATCH',
+        }),
+        expect.objectContaining({
+          staffId: 'staff_active_missing',
+          status: 'ACTIVE_MISSING_CLERK',
+        }),
+        expect.objectContaining({
+          clerkUserId: 'clerk_orphan',
+          status: 'CLERK_MISSING_STAFF',
+        }),
+        expect.objectContaining({
+          invitationId: 'inv_1',
+          status: 'PENDING_INVITATION',
+        }),
+      ]))
+      expect(clerkClient.organizations.getOrganizationMembershipList).toHaveBeenCalledWith({
+        organizationId: 'org_clerk_1',
+        limit: 100,
+        offset: 0,
+      })
+      expect(clerkClient.organizations.getOrganizationInvitationList).toHaveBeenCalledWith({
+        organizationId: 'org_clerk_1',
+        status: ['pending'],
+        limit: 100,
+        offset: 0,
+      })
+    })
+  })
+
+  // ============================================
+  // PATCH /team/members/:staffId/archive
+  // ============================================
+  describe('PATCH /team/members/:staffId/archive', () => {
+    it('archives through the Clerk-first removal flow for backward compatibility', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({
+        id: 's2',
+        clerkId: 'c2',
+        email: 'member@test.com',
+        organizationId: 'org_db_1',
+        isActive: true,
+        role: 'STAFF',
+      } as never)
+      vi.mocked(clerkClient.organizations.getOrganizationMembershipList).mockResolvedValueOnce({
+        data: [{ id: 'mem_1', publicUserData: { userId: 'c2' } }],
+        totalCount: 1,
+      } as never)
+      vi.mocked(clerkClient.organizations.deleteOrganizationMembership).mockResolvedValueOnce({} as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({} as never)
+
+      const app = createApp()
+      const res = await app.request('/team/members/s2/archive', { method: 'PATCH' })
+
+      expect(res.status).toBe(200)
+      expect(vi.mocked(clerkClient.organizations.deleteOrganizationMembership)).toHaveBeenCalledWith({
+        organizationId: 'org_clerk_1',
+        userId: 'c2',
+      })
+      expect(vi.mocked(prisma.staff.update)).toHaveBeenCalledWith({
+        where: { id: 's2' },
+        data: {
+          isActive: false,
+          deactivatedAt: expect.any(Date),
+        },
+      })
+      expect(logStaffActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'team.member_archived',
+          metadata: expect.objectContaining({
+            clerkRemovalResult: 'removed',
+          }),
+        })
+      )
+    })
+
+    it('prevents self-archive', async () => {
+      const app = createApp()
+      const res = await app.request('/team/members/staff_1/archive', { method: 'PATCH' })
+
+      expect(res.status).toBe(400)
+      expect(vi.mocked(prisma.staff.update)).not.toHaveBeenCalled()
+    })
+  })
+
+  // ============================================
+  // PATCH /team/members/:staffId/unarchive
+  // ============================================
+  describe('PATCH /team/members/:staffId/unarchive', () => {
+    it('rejects direct local restore and requires Clerk invitation flow', async () => {
+      const app = createApp()
+      const res = await app.request('/team/members/s2/unarchive', { method: 'PATCH' })
+      const body = await res.json()
+
+      expect(res.status).toBe(409)
+      expect(body.error).toBe('RESTORE_REQUIRES_INVITATION')
+      expect(vi.mocked(prisma.staff.update)).not.toHaveBeenCalled()
+      expect(logStaffActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'team.member_unarchived',
+          metadata: expect.objectContaining({
+            result: 'denied',
+            reason: 'restore_requires_clerk_invitation',
+          }),
+        })
+      )
     })
   })
 

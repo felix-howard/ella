@@ -215,6 +215,7 @@ async function handleMembershipCreated(data: unknown): Promise<void> {
         avatarUrl: image_url,
         organizationId: org.id,
         isActive: true,
+        deactivatedAt: null,
         ...formSlugData,
       },
     })
@@ -229,6 +230,7 @@ async function handleMembershipCreated(data: unknown): Promise<void> {
         avatarUrl: image_url,
         organizationId: org.id,
         isActive: true,
+        deactivatedAt: null,
         ...formSlugData,
       },
       create: {

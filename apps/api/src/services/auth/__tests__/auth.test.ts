@@ -96,6 +96,7 @@ describe('Auth service', () => {
           role: 'STAFF',
           organizationId: 'org_db_1',
           isActive: true,
+          deactivatedAt: null,
         }),
         create: expect.objectContaining({
           clerkId: 'user_1',
@@ -127,6 +128,7 @@ describe('Auth service', () => {
           role: 'ADMIN',
           organizationId: 'org_db_1',
           isActive: true,
+          deactivatedAt: null,
           formSlug: expect.stringMatching(/^\d{6}$/),
         }),
       })
@@ -160,7 +162,7 @@ describe('Auth service', () => {
 
       expect(prisma.staff.update).toHaveBeenCalledWith({
         where: { id: 'staff_mgr' },
-        data: expect.objectContaining({ role: 'MANAGER' }),
+        data: expect.objectContaining({ role: 'MANAGER', deactivatedAt: null }),
       })
     })
 
@@ -186,8 +188,30 @@ describe('Auth service', () => {
 
       expect(prisma.staff.update).toHaveBeenCalledWith({
         where: { id: 'staff_admin' },
-        data: expect.objectContaining({ role: 'STAFF' }),
+        data: expect.objectContaining({ role: 'STAFF', deactivatedAt: null }),
       })
+    })
+
+    it('refuses to reactivate inactive Staff when Clerk membership still exists', async () => {
+      vi.mocked(clerkClient.organizations.getOrganizationMembershipList).mockResolvedValueOnce({
+        data: [membership],
+      } as never)
+      vi.mocked(prisma.organization.upsert).mockResolvedValueOnce({ id: 'org_db_1' } as never)
+      vi.mocked(prisma.staff.findUnique)
+        .mockResolvedValueOnce({
+          id: 'staff_archived',
+          email: 'member@test.com',
+          clerkId: 'user_1',
+          role: 'STAFF',
+          organizationId: 'org_db_1',
+          isActive: false,
+          formSlug: '123456',
+        } as never)
+      const staff = await syncStaffFromClerkMembership('user_1', 'org_clerk_1', 'org:member')
+
+      expect(staff).toBeNull()
+      expect(prisma.staff.update).not.toHaveBeenCalled()
+      expect(prisma.staff.upsert).not.toHaveBeenCalled()
     })
 
     it('does not relink an email already owned by another Clerk user', async () => {

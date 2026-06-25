@@ -1,10 +1,10 @@
 ---
 title: "Team Clerk Membership Reconciliation"
 description: "Make Clerk organization membership the source of truth for team access and seats, while keeping Staff rows as historical app records."
-status: pending
+status: complete
 priority: P1
 effort: 2d
-branch: "feature/next-task-8"
+branch: "feature/team-clerk-membership-reconciliation"
 tags: [feature, backend, frontend, auth, team]
 blockedBy: []
 blocks: []
@@ -43,10 +43,10 @@ Current issue: UI archive hides/deactivates `Staff` locally but does not remove 
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | [Audit current Team and Clerk contracts](./phase-01-audit-current-team-and-clerk-contracts.md) | Pending |
-| 2 | [Implement Clerk-first member removal and reconciliation API](./phase-02-implement-clerk-first-member-removal-and-reconciliation-api.md) | Pending |
-| 3 | [Update Team management UX for seat control](./phase-03-update-team-management-ux-for-seat-control.md) | Pending |
-| 4 | [Add regression tests docs and production runbook](./phase-04-add-regression-tests-docs-and-production-runbook.md) | Pending |
+| 1 | [Audit current Team and Clerk contracts](./phase-01-audit-current-team-and-clerk-contracts.md) | Complete |
+| 2 | [Implement Clerk-first member removal and reconciliation API](./phase-02-implement-clerk-first-member-removal-and-reconciliation-api.md) | Complete |
+| 3 | [Update Team management UX for seat control](./phase-03-update-team-management-ux-for-seat-control.md) | Complete |
+| 4 | [Add regression tests docs and production runbook](./phase-04-add-regression-tests-docs-and-production-runbook.md) | Complete |
 
 ## Dependencies
 
@@ -62,9 +62,19 @@ Current issue: UI archive hides/deactivates `Staff` locally but does not remove 
 
 - `pnpm -F @ella/api test -- src/routes/team src/services/auth src/services/clerk-webhook`
 - `pnpm -F @ella/api type-check`
+- Phase 2 completed: `pnpm -F @ella/api test -- src/routes/team src/services/auth src/services/clerk-webhook src/routes/__tests__/manager-role-authorization.test.ts` passed, 127 tests
 - `pnpm -F @ella/workspace test -- src/components/profile src/components/team`
 - `pnpm -F @ella/workspace type-check`
 - `pnpm i18n:check`
+- Phase 3 completed: `pnpm -F @ella/workspace test -- src/components/profile src/components/team src/lib/__tests__/team-reconciliation.test.ts` passed, 29 tests
+- Phase 3 completed: `pnpm -F @ella/workspace type-check` passed
+- Phase 3 completed: `pnpm i18n:check` passed, workspace 3062 keys and portal 531 keys
+- Phase 4 completed: `pnpm -F @ella/api test -- src/routes/team src/services/auth src/services/clerk-webhook` passed, 107 tests
+- Phase 4 completed: `pnpm -F @ella/api type-check` passed
+- Phase 4 completed: `pnpm -F @ella/workspace test -- src/components/profile src/components/team` passed, 26 tests
+- Phase 4 completed: `pnpm -F @ella/workspace type-check` passed
+- Phase 4 completed: `pnpm i18n:check` passed, workspace 3062 keys and portal 531 keys
+- Phase 4 completed: `git diff --check` passed
 
 ## Cook Command
 

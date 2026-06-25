@@ -1,7 +1,8 @@
 # Ella - Codebase Summary (Quick Reference)
 
 **Current Date:** 2026-06-25
-**Current Branch:** feature/next-task-5
+**Current Branch:** feature/team-clerk-membership-reconciliation
+**Team Clerk Membership Reconciliation:** COMPLETE. Clerk organization membership is now the source of truth for app access and billable seats while `Staff` rows preserve profile/history. Team removal is Clerk-first and fail-closed, inactive Staff cannot be reactivated by auth bootstrap, admins get `GET /team/reconciliation` with live `seatsUsed` and mismatch statuses, workspace Team shows seat/status context plus remove-access/Invite-again paths, and `docs/team-clerk-membership-runbook.md` gives exact production cleanup steps for Nghi La, Team Tester, and Zairel Gabilagon.
 **Calculator Custom Items:** COMPLETE. Payments Calculator now accepts custom add-ons with `customItems: []` defaults, `one_time`/`month` billing intervals, workspace row validation, summary/print/payment-link/send-to-client support, print payload handoff without custom labels in URL queries, portal checkout rebuild from frozen snapshots, and blocked custom-only/yearly Calculator checkout.
 **Calculator Engagement Letter Send Flow:** COMPLETE WITH CONCERNS. Workspace pricing calculator now exposes a `Prepare engagement letter` panel, lets CPAs pick a client/lead through org-scoped recipient search, opens a direct Engagement Letter editor modal seeded from the calculator snapshot, keeps initial payment off by default, uses a 30-day expiry, and reuses the existing Agreement preview/send APIs. Calculator auto-fills setup/monthly fees only; yearly business tax pre-pay stays in Custom Link and is manually editable agreement copy for now. Automated tests/type-checks pass; authenticated browser smoke remains manual.
 **Agreement Draft Collaboration Phase 6:** COMPLETE. Shared manual/calculator draft editor hardening: opening the editor does not create a draft, first save is explicit, autosave starts only after that save and sends `expectedUpdatedAt`, draft sends record `sentByUserId`, public agreement responses stay SENT-only and redact raw signing tokens/URLs, and calculator resume/discard stays limited to `DRAFT` + `CALCULATOR` rows.
@@ -165,7 +166,7 @@
 - **Client**: organizationId FK, managedById FK (legacy primary manager during rollout), ClientManager join links for multi-staff ownership, firstName, lastName, phone, email, language, source (ClientSource enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED), tags String[], intakeAnswers Json, clientType (enum: INDIVIDUAL|BUSINESS). For clientType=BUSINESS: businessType (required), einEncrypted (required, encrypted), businessAddress, businessCity, businessState, businessZip (required). clientGroupId FK (optional, for grouping related clients). API returns einMasked (XX-XXX####). Relations: contractors, filingBatches, intakeTokens.
 - **ClientGroup**: organizationId FK (optional, org-scoped), name, clients array relation. Phase 01 Entity Separation: new entity enables flexible grouping of related clients (e.g., family businesses, partnerships, multi-entity tax arrangements). Indexed on organizationId.
 - **Business**: REMOVED in Phase 15. All business data now on Client(clientType=BUSINESS).
-- **Staff**: organizationId FK, clerkId (unique), userId, role (ADMIN|STAFF|CPA), isActive, isContractorAgent, title, signaturePngKey. Relations: contractorAgreementAcceptances.
+- **Staff**: organizationId FK, clerkId (unique), userId, role (ADMIN|MANAGER|STAFF|CPA), isActive, isContractorAgent, title, signaturePngKey. Relations: contractorAgreementAcceptances.
 - **StaffFile**: org-scoped staff upload record for personal documents and invoices. Fields: organizationId, staffId, uploadedByStaffId, kind (PERSONAL_DOCUMENT|INVOICE), title, category, originalFilename, mimeType, fileSize, r2Key (unique), checksumSha256, invoiceYear, invoiceMonth, invoiceStatus, replacedById, isActive, reviewedByStaffId, reviewedAt, paidAt, adminNote, deletedAt, deletedByStaffId. Contract: invoice rows require invoiceYear/invoiceMonth/invoiceStatus and invoiceMonth 1-12; personal documents must not carry invoice metadata or paidAt. Indexes: organizationId+staffId+kind, organizationId+kind+invoiceYear+invoiceMonth. Storage keys use `staff-files/{org}/{staff}/documents/{uuid}.{ext}` or `staff-files/{org}/{staff}/invoices/{yyyy-mm}/{uuid}.{ext}`.
 - **CompanyVaultCredential**: org-scoped shared credential store for internal tools. Fields: organizationId, toolName, usernameEncrypted, passwordEncrypted, noteEncrypted, createdAt, updatedAt. Index: organizationId+toolName. `toolName` stays plaintext for search/sort; sensitive values are decrypted only at the authenticated API response boundary.
 - **ContractorAgreementAcceptance**: staff-level Independent Contractor agreement acceptance for Contractor Agent staff. Fields: staffId, organizationId, version, signedAt, signedPdfR2Key, sourceTemplateR2Key, pdfSha256, signerName, signerEmail, signerIpAddress, signerUserAgent, firmSignerName, firmSignerEmail, firmSignerTitle, firmSignaturePngKey. Unique on `[staffId, version]`.
@@ -197,8 +198,11 @@
 **Organization & Team Management:**
 - `GET /team/members` - Admins list active/archived staff; non-admins see only their own active record
 - `POST /team/invite` - Send Clerk org invitation, track in DB
-- `PATCH /team/members/:staffId/role` - Update role (ADMIN|STAFF), sync with Clerk
-- `DELETE /team/members/:staffId` - Deactivate staff member
+- `PATCH /team/members/:staffId/role` - Update app role (ADMIN|MANAGER|MEMBER), sync Clerk role plus DB Staff.role
+- `DELETE /team/members/:staffId` - Remove Clerk org access first, then archive Staff locally; unknown Clerk failures fail closed
+- `PATCH /team/members/:staffId/archive` - Backward-compatible alias for Clerk-first removal
+- `PATCH /team/members/:staffId/unarchive` - Rejected; restore by Clerk invitation
+- `GET /team/reconciliation` - Admin-only Staff vs Clerk comparison with live `seatsUsed`, pending invitation count, and mismatch statuses
 - `PATCH /team/members/:staffId/contractor-agent` - Toggle `Staff.isContractorAgent` for the current org (admin only)
 - `GET /team/members/:staffId/profile` - Get member profile with assigned clients (self or admin, Phase 02)
 - `PATCH /team/members/:staffId/profile` - Update name/phone/title/preferences (self or admin, Phase 02)
@@ -365,7 +369,7 @@
 ## API Client & Endpoints (Frontend)
 
 **Team Endpoints (15+ methods):**
-- Members: list, invite, updateRole, deactivate
+- Members: list, invite, updateRole, removeAccess, reconciliation, archiveAlias
 - Invitations: list, revoke
 - Assignments: list, create, delete, bulkCreate, transfer, getStaffAssignments
 

@@ -5,25 +5,26 @@
  * Clears query cache on sign out to prevent stale refetch requests
  * Auto-selects first org for signed-in users with no active org
  */
-import { useEffect, useRef, useState } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useAuth, useClerk } from '@clerk/clerk-react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
-import { setAuthTokenGetter } from '../../lib/api-client'
+import { setAuthTokenGetter, setDisabledAccountHandler } from '../../lib/api-client'
 import { useAutoOrgSelection } from '../../hooks/use-auto-org-selection'
+import { DisabledAccountScreen } from './disabled-account-screen'
 
 interface ClerkAuthProviderProps {
   children: React.ReactNode
 }
 
 export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
-  const { t } = useTranslation()
   const { getToken, isLoaded, isSignedIn } = useAuth()
+  const { signOut } = useClerk()
   const { isLoaded: isOrgLoaded, hasOrg, orgId, isSelecting } = useAutoOrgSelection()
   const queryClient = useQueryClient()
   const wasSignedIn = useRef(false)
   const [isTokenReady, setIsTokenReady] = useState(false)
+  const [isDisabledAccount, setIsDisabledAccount] = useState(false)
 
   useEffect(() => {
     // Set the token getter for the API client
@@ -35,6 +36,18 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
       }
     })
   }, [getToken])
+
+  useEffect(() => {
+    setDisabledAccountHandler(() => setIsDisabledAccount(true))
+    return () => setDisabledAccountHandler(null)
+  }, [])
+
+  const handleDisabledAccountSignOut = useCallback(async () => {
+    queryClient.clear()
+    setIsDisabledAccount(false)
+    await signOut()
+    window.location.assign('/login')
+  }, [queryClient, signOut])
 
   // Verify token is obtainable when signed in
   // This prevents 401 errors during login transition
@@ -54,6 +67,7 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
         queryClient.clear()
       }
       wasSignedIn.current = false
+      setIsDisabledAccount(false)
       setIsTokenReady(true)
       return
     }
@@ -101,6 +115,10 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
     )
   }
 
+  if (isSignedIn && isDisabledAccount) {
+    return <DisabledAccountScreen onSignOut={handleDisabledAccountSignOut} />
+  }
+
   // Wait for org data to load and auto-selection to complete
   // This prevents flash of "No Organization" during initial load
   if (isSignedIn && (!isOrgLoaded || isSelecting || (hasOrg && !orgId))) {
@@ -111,16 +129,9 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
     )
   }
 
-  // Show message if signed-in user has no organization
+  // Internal workspace: signed-in users without the only Clerk org no longer have app access.
   if (isSignedIn && isOrgLoaded && !hasOrg) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center p-6 max-w-md">
-          <h2 className="text-lg font-semibold mb-2">{t('org.noOrg')}</h2>
-          <p className="text-muted-foreground">{t('org.noOrgDesc')}</p>
-        </div>
-      </div>
-    )
+    return <DisabledAccountScreen onSignOut={handleDisabledAccountSignOut} />
   }
 
   return <>{children}</>

@@ -5,6 +5,85 @@
 
 ---
 
+### Archived Staff Manager Detach
+**Status:** Complete
+
+**Fixed:**
+- Removing team member access now detaches that staff member from current client manager assignments and moves the legacy primary manager pointer to the next remaining manager when available.
+- Client manager payloads include staff active state so archived assigned managers can be identified.
+- Client Overview manager selector now marks archived assigned managers and drops archived staff IDs from update payloads, allowing old stuck assignments to be cleaned up.
+- Remove Access confirmation copy now says current managed clients will be unassigned while Staff/audit history remains.
+
+**Validation:**
+- `pnpm --filter @ella/api test -- src/routes/team/__tests__/team-routes.test.ts` pass, 42 tests
+- `pnpm --filter @ella/workspace test -- src/components/clients/client-overview-tab/client-assigned-staff.test.tsx src/components/team/__tests__/remove-member-access-dialog.test.tsx` pass, 7 tests
+- `pnpm --filter @ella/api type-check` pass
+- `pnpm --filter @ella/workspace type-check` pass
+- `pnpm --filter @ella/api lint` pass with 1 pre-existing warning outside this change
+- `pnpm --filter @ella/workspace lint` pass with 12 pre-existing warnings outside this change
+
+### Disabled Staff Login UX Polish
+**Status:** Complete
+
+**Changed:**
+- Added a dedicated disabled-account screen for removed staff attempting to access Workspace after Clerk org removal or inactive Staff API rejection.
+- Wired workspace auth gating and compliance gates to show the clear disabled-account message instead of generic no-org/status errors.
+
+**Validation:**
+- `pnpm -F @ella/workspace exec vitest run src/lib/api-client-auth-errors.test.ts src/components/auth/disabled-account-screen.test.tsx src/components/contractor-agreements/__tests__/contractor-agreement-gate.test.tsx` pass, 7 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass, workspace 3065 keys and portal 531 keys
+- `pnpm -F @ella/workspace lint` pass with 12 pre-existing warnings outside this change
+- `git diff --check` pass
+
+### Team Clerk Membership Reconciliation Phase 4
+**Status:** Complete
+
+**Changed:**
+- Added production cleanup runbook for freeing the three known archived Clerk seats: Nghi La, Team Tester, and Zairel Gabilagon.
+- Documented the Clerk membership vs Staff history source-of-truth contract in architecture and quick-reference docs.
+- Corrected stale Team endpoint summary copy so removal is described as Clerk-first access removal, not DB-only deactivation.
+- Added partial-removal handling when Clerk access is removed but the local Staff archive write fails.
+- Cleared stale `deactivatedAt` when Clerk membership-created sync restores an invited Staff row.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/team src/services/auth src/services/clerk-webhook` pass, 107 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace test -- src/components/profile src/components/team` pass, 26 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass, workspace 3062 keys and portal 531 keys
+
+### Team Clerk Membership Reconciliation Phase 3
+**Status:** Complete
+
+**Changed:**
+- Wired workspace Team UI to `GET /team/reconciliation` with Staff active/archived counts, Clerk seats used, pending invitation context, and no configured seat limit.
+- Added Team table Access badges for active, archived, archived-still-in-Clerk, active-missing-Clerk, and pending invite states.
+- Replaced profile DB-only archive/unarchive actions with Clerk-first `Remove access` flow and invitation-based restore path.
+- Added a destructive confirmation modal that explains org access loss, Clerk seat handling, retained Staff history, and managed-client reassignment risk.
+- Added EN/VI locale parity and focused regression coverage for summary counts, access badges, remove-access copy, and reconciliation status decisions.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/profile src/components/team src/lib/__tests__/team-reconciliation.test.ts` pass, 29 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass, workspace 3062 keys and portal 531 keys
+- Code-reviewer verification pass after fixing pending-invite repeat and active-missing-Clerk copy findings
+
+### Team Clerk Membership Reconciliation Phase 2
+**Status:** Complete
+
+**Changed:**
+- Made team member removal Clerk-first and fail-closed: Staff rows archive only after Clerk membership is removed or confirmed absent.
+- Converted the legacy archive endpoint to the same safe removal flow and blocked direct local unarchive in favor of Clerk invitation restore.
+- Added admin-only `GET /team/reconciliation` with live Clerk seat count, pending invitations, and Staff/Clerk mismatch statuses.
+- Added request-time inactive Staff guard so auth bootstrap cannot reactivate disabled same-org Staff.
+- Sanitized Clerk API error responses for team invite, role, invitation, removal, and reconciliation paths.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test -- src/routes/team src/services/auth src/services/clerk-webhook src/routes/__tests__/manager-role-authorization.test.ts` pass, 128 tests
+- `git diff --check` pass
+
 ### Audit Detection Terminology Cleanup
 **Status:** Complete
 

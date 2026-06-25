@@ -54,6 +54,7 @@ vi.mock('../../services/storage', () => ({
 
 import { getAuth } from '@hono/clerk-auth'
 import { prisma } from '../../lib/db'
+import { clerkClient } from '../../lib/clerk-client'
 import { authMiddleware } from '../../middleware/auth'
 import { clientsRoute } from '../clients'
 import { adminRoute } from '../admin'
@@ -183,6 +184,34 @@ beforeEach(() => {
 })
 
 describe('MANAGER permission matrix (route integration)', () => {
+  describe('Auth middleware inactive staff guard', () => {
+    it('rejects inactive Staff in the selected org without Clerk bootstrap sync', async () => {
+      vi.mocked(getAuth).mockReturnValue({
+        userId: 'user_archived',
+        orgId: 'org_clerk_1',
+        orgRole: 'org:member',
+      } as never)
+      vi.mocked(prisma.staff.findUnique).mockResolvedValue({
+        id: 'staff_archived',
+        clerkId: 'user_archived',
+        email: 'archived@test.com',
+        name: 'Archived User',
+        role: 'STAFF',
+        avatarUrl: null,
+        organizationId: 'org_1',
+        isActive: false,
+        organization: { id: 'org_1', clerkOrgId: 'org_clerk_1' },
+      } as never)
+
+      const res = await app.request('/team/members')
+
+      expect(res.status).toBe(403)
+      expect(clerkClient.organizations.getOrganizationMembershipList).not.toHaveBeenCalled()
+      expect(prisma.staff.update).not.toHaveBeenCalled()
+      expect(prisma.staff.upsert).not.toHaveBeenCalled()
+    })
+  })
+
   describe('MANAGER: near-admin access (200)', () => {
     beforeEach(() => loginAs('MANAGER'))
 

@@ -1,6 +1,8 @@
 import { useAuth, useUser } from '@clerk/clerk-react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
+import { isDisabledAccountError } from '../../lib/api-client'
+import { DisabledAccountScreen } from '../auth/disabled-account-screen'
 import { useContractorAgreementStatus } from './use-contractor-agreements'
 import { ContractorAgreementModal } from './contractor-agreement-modal'
 
@@ -17,6 +19,7 @@ export function ContractorAgreementGate({ children }: ContractorAgreementGatePro
     data: status,
     isLoading,
     isError,
+    error,
     refetch,
   } = useContractorAgreementStatus(shouldCheckStatus)
 
@@ -44,6 +47,10 @@ export function ContractorAgreementGate({ children }: ContractorAgreementGatePro
         </p>
       </div>
     )
+  }
+
+  if (isDisabledAccountError(error)) {
+    return <DisabledAccountScreen />
   }
 
   if (isError || !status) {

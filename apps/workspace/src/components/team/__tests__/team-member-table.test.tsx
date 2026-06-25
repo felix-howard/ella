@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
-import type { TeamMember } from '../../../lib/api-client'
+import type { TeamMember, TeamReconciliationMember } from '../../../lib/api-client'
 import { TeamMemberTable } from '../team-member-table'
 
 vi.mock('@tanstack/react-router', () => ({
@@ -55,5 +55,30 @@ describe('TeamMemberTable', () => {
     )
 
     expect(markup).not.toContain('Contractor Agent')
+  })
+
+  it('shows archived members that still occupy Clerk seats', () => {
+    const reconciliation = new Map<string, TeamReconciliationMember>([
+      ['staff-1', {
+        status: 'ARCHIVED_STILL_IN_CLERK',
+        staffId: 'staff-1',
+        clerkUserId: 'clerk-1',
+        invitationId: null,
+        email: 'agent@test.com',
+        name: 'Agent One',
+        appRole: 'STAFF',
+        clerkRole: 'org:member',
+        isActive: false,
+        managedClientCount: 0,
+      }],
+    ])
+    const markup = renderToStaticMarkup(
+      <TeamMemberTable
+        members={[member({ isActive: false })]}
+        reconciliationByStaffId={reconciliation}
+      />,
+    )
+
+    expect(markup).toContain('Seat still occupied')
   })
 })

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Archive, FileText, Loader2, Receipt, User } from 'lucide-react'
+import { FileText, Loader2, Receipt, ShieldOff, User } from 'lucide-react'
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@ella/ui'
 import type { AppRole, OrgSettings, ProfileResponse } from '../../lib/api-client'
 import { ProfileForm } from './profile-form'
@@ -24,14 +24,13 @@ interface StaffProfileTabsProps {
   canManageTeam: boolean
   canManageAnyIntakeLink: boolean
   isOwnProfile: boolean
-  canArchive: boolean
-  isArchived: boolean
+  canRemoveAccess: boolean
   orgSettings?: OrgSettings
   isOrgSettingsLoading?: boolean
   onRoleChange: (role: AppRole) => Promise<void>
   isRoleChangePending: boolean
-  onArchive: () => void
-  isArchivePending: boolean
+  onRemoveAccess: () => void
+  isRemoveAccessPending: boolean
 }
 
 export function StaffProfileTabs({
@@ -44,18 +43,17 @@ export function StaffProfileTabs({
   canManageTeam,
   canManageAnyIntakeLink,
   isOwnProfile,
-  canArchive,
-  isArchived,
+  canRemoveAccess,
   orgSettings,
   isOrgSettingsLoading = false,
   onRoleChange,
   isRoleChangePending,
-  onArchive,
-  isArchivePending,
+  onRemoveAccess,
+  isRemoveAccessPending,
 }: StaffProfileTabsProps) {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('overview')
-  const canShowDangerZone = canArchive && !isOwnProfile && !isArchived
+  const canShowDangerZone = canRemoveAccess && !isOwnProfile
   const canShowRoleControl = canChangeRole && !isOwnProfile
   const canShowContractorAgentControl = canManageTeam && !isOwnProfile
   const canAccessStaffFiles = canEdit
@@ -139,19 +137,19 @@ export function StaffProfileTabs({
         {canShowDangerZone && (
           <div className="bg-card rounded-xl shadow-sm p-6 mt-6">
             <h3 className="text-lg font-semibold text-foreground mb-2">{t('team.dangerZone')}</h3>
-            <p className="text-sm text-muted-foreground mb-4">{t('team.archiveDescription')}</p>
+            <p className="text-sm text-muted-foreground mb-4">{t('team.removeAccessDescriptionShort')}</p>
             <Button
               variant="outline"
-              onClick={onArchive}
-              disabled={isArchivePending}
+              onClick={onRemoveAccess}
+              disabled={isRemoveAccessPending}
               className="border-destructive/50 text-destructive hover:bg-destructive/10"
             >
-              {isArchivePending ? (
+              {isRemoveAccessPending ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
-                <Archive className="w-4 h-4 mr-2" />
+                <ShieldOff className="w-4 h-4 mr-2" />
               )}
-              {t('team.archiveMember')}
+              {t('team.removeAccessMember')}
             </Button>
           </div>
         )}

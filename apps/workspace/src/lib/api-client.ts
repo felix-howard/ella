@@ -83,6 +83,35 @@ export class ApiError extends Error {
   }
 }
 
+let disabledAccountHandler: (() => void) | null = null
+
+export function setDisabledAccountHandler(handler: (() => void) | null) {
+  disabledAccountHandler = handler
+}
+
+export function isDisabledAccountError(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return false
+  if (error.status !== 403) return false
+
+  const payload = error.payload as { message?: unknown; error?: unknown; code?: unknown } | undefined
+  const payloadMessage = typeof payload?.message === 'string' ? payload.message : ''
+  const payloadError = typeof payload?.error === 'string' ? payload.error : ''
+  const payloadCode = typeof payload?.code === 'string' ? payload.code : ''
+
+  return (
+    error.message === 'Account has been disabled' ||
+    payloadMessage === 'Account has been disabled' ||
+    payloadError === 'ACCOUNT_DISABLED' ||
+    payloadCode === 'ACCOUNT_DISABLED'
+  )
+}
+
+function notifyDisabledAccount(error: ApiError) {
+  if (isDisabledAccountError(error)) {
+    disabledAccountHandler?.()
+  }
+}
+
 // Generic response type for paginated lists
 export interface PaginatedResponse<T> {
   data: T[]
@@ -325,12 +354,14 @@ async function attemptRequest<T>(url: string, fetchOptions: RequestInit, timeout
 
     if (!response.ok) {
       const errorData = data as { code?: string; error?: string; message?: string }
-      throw new ApiError(
+      const apiError = new ApiError(
         response.status,
         errorData.code || errorData.error || 'UNKNOWN_ERROR',
         errorData.message || errorData.error || 'An unknown error occurred',
         errorData
       )
+      notifyDisabledAccount(apiError)
+      throw apiError
     }
 
     return data as T
@@ -1602,6 +1633,9 @@ export const api = {
         ...(opts?.includeArchived ? { params: { includeArchived: 'true' } } : {}),
       }),
 
+    getReconciliation: () =>
+      request<TeamReconciliationResponse>('/team/reconciliation'),
+
     invite: (data: { emailAddress: string; role?: AppRole }) =>
       request<{ success: boolean; invitation: { id: string; emailAddress: string; status: string } }>(
         '/team/invite', { method: 'POST', body: JSON.stringify(data) }
@@ -1619,6 +1653,9 @@ export const api = {
       ),
 
     deactivate: (staffId: string) =>
+      request<{ success: boolean }>(`/team/members/${staffId}`, { method: 'DELETE' }),
+
+    removeAccess: (staffId: string) =>
       request<{ success: boolean }>(`/team/members/${staffId}`, { method: 'DELETE' }),
 
     listInvitations: () =>
@@ -2671,6 +2708,7 @@ export interface StaffManagerSummary {
   id: string
   name: string
   avatarUrl?: string | null
+  isActive?: boolean
 }
 
 export interface StaffAssignableMember extends StaffManagerSummary {
@@ -3930,7 +3968,7 @@ export type AppRole = 'ADMIN' | 'MANAGER' | 'MEMBER'
 
 export interface TeamMember {
   id: string
-  clerkId: string
+  clerkId: string | null
   name: string
   email: string
   role: string
@@ -3950,6 +3988,34 @@ export interface TeamInvitation {
   staffRole: 'ADMIN' | 'MANAGER' | 'STAFF'
   status: string
   createdAt: number
+}
+
+export type TeamMembershipStatus =
+  | 'ACTIVE_MATCH'
+  | 'ARCHIVED_MATCH'
+  | 'ARCHIVED_STILL_IN_CLERK'
+  | 'ACTIVE_MISSING_CLERK'
+  | 'CLERK_MISSING_STAFF'
+  | 'PENDING_INVITATION'
+
+export interface TeamReconciliationMember {
+  status: TeamMembershipStatus
+  staffId: string | null
+  clerkUserId: string | null
+  invitationId: string | null
+  email: string
+  name: string | null
+  appRole: StaffAppRole | null
+  clerkRole: string | null
+  isActive: boolean | null
+  managedClientCount: number | null
+}
+
+export interface TeamReconciliationResponse {
+  seatsUsed: number
+  staffCount: number
+  pendingInvitationCount: number
+  members: TeamReconciliationMember[]
 }
 
 // Staff Profile types

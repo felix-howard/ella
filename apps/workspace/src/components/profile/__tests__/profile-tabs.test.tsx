@@ -103,16 +103,16 @@ function staff(overrides: Partial<ProfileResponse['staff']> = {}): ProfileRespon
 }
 
 function renderTabs({
-  canArchive = false,
+  canRemoveAccess = false,
   canEdit = true,
   isOwnProfile = false,
   canChangeRole = false,
-  canManageAnyIntakeLink = canArchive,
+  canManageAnyIntakeLink = canRemoveAccess,
   staffOverrides,
   orgSettings,
   isOrgSettingsLoading = false,
 }: {
-  canArchive?: boolean
+  canRemoveAccess?: boolean
   canEdit?: boolean
   isOwnProfile?: boolean
   canChangeRole?: boolean
@@ -131,17 +131,16 @@ function renderTabs({
       managedCount={0}
       canEdit={canEdit}
       canChangeRole={canChangeRole}
-      canManageTeam={canArchive}
+      canManageTeam={canRemoveAccess}
       canManageAnyIntakeLink={canManageAnyIntakeLink}
       isOwnProfile={isOwnProfile}
-      canArchive={canArchive}
-      isArchived={false}
+      canRemoveAccess={canRemoveAccess}
       orgSettings={orgSettings}
       isOrgSettingsLoading={isOrgSettingsLoading}
       onRoleChange={async () => undefined}
       isRoleChangePending={false}
-      onArchive={() => undefined}
-      isArchivePending={false}
+      onRemoveAccess={() => undefined}
+      isRemoveAccessPending={false}
     />
   )
 }
@@ -175,8 +174,8 @@ function invoice(overrides: Partial<StaffFileListItem> = {}): StaffFileListItem 
 }
 
 describe('StaffProfileTabs', () => {
-  it('renders profile tabs and overview danger zone for archive-capable admins', () => {
-    const markup = renderTabs({ canArchive: true })
+  it('renders profile tabs and overview danger zone for remove-access-capable admins', () => {
+    const markup = renderTabs({ canRemoveAccess: true })
 
     expect(markup).toContain('profile.tabs.overview')
     expect(markup).toContain('profile.tabs.documents')
@@ -185,12 +184,12 @@ describe('StaffProfileTabs', () => {
     expect(markup).toContain('profile.personalIntakeLink')
     expect(markup).not.toContain('profile.tabs.admin')
     expect(markup).toContain('team.dangerZone')
-    expect(markup).toContain('team.archiveMember')
+    expect(markup).toContain('team.removeAccessMember')
     expect(markup).toContain('payment-info-card')
   })
 
   it('renders editable staff files and payment info for non-admin self-service profiles', () => {
-    const markup = renderTabs({ canEdit: true, canArchive: false, isOwnProfile: false })
+    const markup = renderTabs({ canEdit: true, canRemoveAccess: false, isOwnProfile: false })
 
     expect(markup).toContain('profile.tabs.documents')
     expect(markup).toContain('profile.tabs.invoices')
@@ -226,7 +225,7 @@ describe('StaffProfileTabs', () => {
 
   it('shows the full personal intake link and Settings shortcut for the current user', () => {
     const markup = renderTabs({
-      canArchive: false,
+      canRemoveAccess: false,
       isOwnProfile: true,
       staffOverrides: { formSlug: 'ada-admin-long-staff-slug' },
       orgSettings: { slug: 'ella-tax-services' } as OrgSettings,
@@ -259,10 +258,10 @@ describe('StaffProfileTabs', () => {
   })
 
   it('suppresses admin-only member controls for own profile', () => {
-    const markup = renderTabs({ canArchive: true, canChangeRole: true, isOwnProfile: true })
+    const markup = renderTabs({ canRemoveAccess: true, canChangeRole: true, isOwnProfile: true })
 
     expect(markup).not.toContain('team.dangerZone')
-    expect(markup).not.toContain('team.archiveMember')
+    expect(markup).not.toContain('team.removeAccessMember')
     expect(mocks.profileFormProps).toMatchObject({
       canChangeRole: false,
       canManageContractorAgent: false,

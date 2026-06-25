@@ -283,12 +283,12 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
         },
         // Include managing staff for list view
         managedBy: {
-          select: { id: true, name: true, avatarUrl: true },
+          select: { id: true, name: true, avatarUrl: true, isActive: true },
         },
         managers: {
           orderBy: { createdAt: 'asc' },
           select: {
-            staff: { select: { id: true, name: true, avatarUrl: true } },
+            staff: { select: { id: true, name: true, avatarUrl: true, isActive: true } },
           },
         },
         createdBy: {
@@ -712,11 +712,11 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
     where: { id, ...buildClientScopeFilter(user) },
     include: {
       profile: true,
-      managedBy: { select: { id: true, name: true, avatarUrl: true } },
+      managedBy: { select: { id: true, name: true, avatarUrl: true, isActive: true } },
       managers: {
         orderBy: { createdAt: 'asc' },
         select: {
-          staff: { select: { id: true, name: true, avatarUrl: true } },
+          staff: { select: { id: true, name: true, avatarUrl: true, isActive: true } },
         },
       },
       createdBy: { select: { id: true, name: true } },
@@ -1831,11 +1831,11 @@ clientsRoute.patch(
       return tx.client.findUnique({
         where: { id },
         include: {
-          managedBy: { select: { id: true, name: true, avatarUrl: true } },
+          managedBy: { select: { id: true, name: true, avatarUrl: true, isActive: true } },
           managers: {
             orderBy: { createdAt: 'asc' },
             select: {
-              staff: { select: { id: true, name: true, avatarUrl: true } },
+              staff: { select: { id: true, name: true, avatarUrl: true, isActive: true } },
             },
           },
         },

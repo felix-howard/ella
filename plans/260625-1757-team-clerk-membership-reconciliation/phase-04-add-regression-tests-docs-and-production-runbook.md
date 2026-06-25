@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Add regression tests docs and production runbook"
-status: pending
+status: complete
 priority: P1
 effort: "4h"
 dependencies: [3]
@@ -19,6 +19,8 @@ dependencies: [3]
 ## Overview
 
 Lock in regression coverage, update docs, and provide a production cleanup runbook for the current Ella org mismatch without directly mutating production data during implementation.
+
+Completed in this phase: focused API/workspace regression validation, review-driven API hardening, architecture/summary/changelog updates, and a production cleanup runbook for the three known archived Clerk seat mismatches.
 
 ## Key Insights
 
@@ -70,7 +72,7 @@ Docs
 - Modify: `/Users/felix/Projects/ella/docs/system-architecture.md`
 - Modify: `/Users/felix/Projects/ella/docs/codebase-summary.md`
 - Modify: `/Users/felix/Projects/ella/docs/project-changelog.md`
-- Create if useful: `/Users/felix/Projects/ella/docs/team-clerk-membership-runbook.md`
+- Create: `/Users/felix/Projects/ella/docs/team-clerk-membership-runbook.md`
 
 ## Implementation Steps
 
@@ -92,27 +94,36 @@ Docs
      - `Nghi La`
      - `Team Tester`
      - `Zairel Gabilagon`
-   - Confirm Clerk seats used becomes 17, unless pending invitations exist.
-   - Invite new members only after seat count drops.
+   - Confirm Clerk seats used becomes 17.
+   - Review pending invitations and other mismatches before inviting new members if the count does not drop.
 5. Rollback notes:
    - Code rollback restores old UI, but removed Clerk memberships require re-invite.
    - Staff rows remain archived, so historical records are preserved.
 
 ## Todo List
 
-- [ ] Add/finish regression tests.
-- [ ] Run focused API validation.
-- [ ] Run focused workspace validation.
-- [ ] Run i18n parity check.
-- [ ] Update architecture, summary, changelog.
-- [ ] Add production cleanup runbook.
+- [x] Add/finish regression tests.
+- [x] Run focused API validation.
+- [x] Run focused workspace validation.
+- [x] Run i18n parity check.
+- [x] Update architecture, summary, changelog.
+- [x] Add production cleanup runbook.
 
 ## Success Criteria
 
-- [ ] Tests and type-checks pass or failures are documented with exact blockers.
-- [ ] Docs explain Clerk membership vs Staff record responsibilities.
-- [ ] User has exact safe steps to free current production seats.
-- [ ] No production data changed by the implementation session.
+- [x] Tests and type-checks pass or failures are documented with exact blockers.
+- [x] Docs explain Clerk membership vs Staff record responsibilities.
+- [x] User has exact safe steps to free current production seats.
+- [x] No production data changed by the implementation session.
+
+## Validation Results
+
+- `pnpm -F @ella/api test -- src/routes/team src/services/auth src/services/clerk-webhook` pass, 107 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace test -- src/components/profile src/components/team` pass, 26 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass, workspace 3062 keys and portal 531 keys
+- `git diff --check` pass
 
 ## Risk Assessment
 

@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Update Team management UX for seat control"
-status: pending
+status: completed
 priority: P1
 effort: "5h"
 dependencies: [2]
@@ -18,6 +18,8 @@ dependencies: [2]
 ## Overview
 
 Update Team page and staff profile UI so admins can understand seat usage and remove Clerk access from the web app. Remove ambiguous DB-only archive wording from primary flows.
+
+Completed in this phase: workspace API reconciliation typing, Team seat summary, Access status badges, profile remove-access modal, invite-again restore path, EN/VI locale parity, focused regression tests, and review fixes for pending-invite repeat prevention plus active-missing-Clerk copy.
 
 ## Key Insights
 
@@ -75,12 +77,22 @@ Profile danger zone
 - Modify: `/Users/felix/Projects/ella/apps/workspace/src/routes/team/profile/$staffId.tsx`
 - Modify: `/Users/felix/Projects/ella/apps/workspace/src/components/team/team-member-table.tsx`
 - Modify: `/Users/felix/Projects/ella/apps/workspace/src/components/profile/staff-profile-tabs.tsx`
+- Modify: `/Users/felix/Projects/ella/apps/workspace/src/components/team/invite-member-dialog.tsx`
 - Modify: `/Users/felix/Projects/ella/apps/workspace/src/locales/en.json`
 - Modify: `/Users/felix/Projects/ella/apps/workspace/src/locales/vi.json`
 - Modify: `/Users/felix/Projects/ella/apps/workspace/src/components/profile/__tests__/profile-tabs.test.tsx`
 - Modify: `/Users/felix/Projects/ella/apps/workspace/src/components/team/__tests__/team-member-table.test.tsx`
-- Create if needed: `/Users/felix/Projects/ella/apps/workspace/src/components/team/team-seat-summary.tsx`
-- Create if needed: `/Users/felix/Projects/ella/apps/workspace/src/components/team/remove-member-access-dialog.tsx`
+- Create: `/Users/felix/Projects/ella/apps/workspace/src/components/team/team-seat-summary.tsx`
+- Create: `/Users/felix/Projects/ella/apps/workspace/src/components/team/team-member-access-badge.tsx`
+- Create: `/Users/felix/Projects/ella/apps/workspace/src/components/team/remove-member-access-dialog.tsx`
+- Create: `/Users/felix/Projects/ella/apps/workspace/src/components/team/pending-invitation-row.tsx`
+- Create: `/Users/felix/Projects/ella/apps/workspace/src/components/profile/staff-access-status-banner.tsx`
+- Create: `/Users/felix/Projects/ella/apps/workspace/src/components/profile/use-staff-profile-focus.ts`
+- Create: `/Users/felix/Projects/ella/apps/workspace/src/hooks/use-team-member-reconciliation.ts`
+- Create: `/Users/felix/Projects/ella/apps/workspace/src/lib/team-reconciliation.ts`
+- Create: `/Users/felix/Projects/ella/apps/workspace/src/components/team/__tests__/team-seat-summary.test.tsx`
+- Create: `/Users/felix/Projects/ella/apps/workspace/src/components/team/__tests__/remove-member-access-dialog.test.tsx`
+- Create: `/Users/felix/Projects/ella/apps/workspace/src/lib/__tests__/team-reconciliation.test.ts`
 
 ## Implementation Steps
 
@@ -118,19 +130,27 @@ Profile danger zone
 
 ## Todo List
 
-- [ ] Add workspace API types/methods.
-- [ ] Add seat summary and status badges.
-- [ ] Replace profile archive UX with remove access UX.
-- [ ] Update locale keys in EN and VI.
-- [ ] Add focused workspace tests.
-- [ ] Run workspace type-check, tests, and i18n check.
+- [x] Add workspace API types/methods.
+- [x] Add seat summary and status badges.
+- [x] Replace profile archive UX with remove access UX.
+- [x] Update locale keys in EN and VI.
+- [x] Add focused workspace tests.
+- [x] Run workspace type-check, tests, and i18n check.
 
 ## Success Criteria
 
-- [ ] Admin can remove a member from Clerk org from the web app.
-- [ ] Admin can identify archived Staff that still use Clerk seats.
-- [ ] UI no longer suggests DB-only archive frees access.
-- [ ] Restore path does not create DB active / Clerk missing mismatch.
+- [x] Admin can remove a member from Clerk org from the web app.
+- [x] Admin can identify archived Staff that still use Clerk seats.
+- [x] UI no longer suggests DB-only archive frees access.
+- [x] Restore path does not create DB active / Clerk missing mismatch.
+
+## Validation
+
+- `pnpm -F @ella/workspace test -- src/components/profile src/components/team src/lib/__tests__/team-reconciliation.test.ts` pass, 29 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass, workspace 3062 keys and portal 531 keys
+- Tester subagent validation pass with initial coverage concerns; added focused utility/dialog tests.
+- Code-reviewer subagent findings fixed and verified: pending invitations no longer show repeat Invite again, and active-missing-Clerk removal copy no longer claims a Clerk seat will be freed.
 
 ## Risk Assessment
 

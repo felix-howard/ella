@@ -1602,6 +1602,9 @@ export const api = {
         ...(opts?.includeArchived ? { params: { includeArchived: 'true' } } : {}),
       }),
 
+    getReconciliation: () =>
+      request<TeamReconciliationResponse>('/team/reconciliation'),
+
     invite: (data: { emailAddress: string; role?: AppRole }) =>
       request<{ success: boolean; invitation: { id: string; emailAddress: string; status: string } }>(
         '/team/invite', { method: 'POST', body: JSON.stringify(data) }
@@ -1619,6 +1622,9 @@ export const api = {
       ),
 
     deactivate: (staffId: string) =>
+      request<{ success: boolean }>(`/team/members/${staffId}`, { method: 'DELETE' }),
+
+    removeAccess: (staffId: string) =>
       request<{ success: boolean }>(`/team/members/${staffId}`, { method: 'DELETE' }),
 
     listInvitations: () =>
@@ -3930,7 +3936,7 @@ export type AppRole = 'ADMIN' | 'MANAGER' | 'MEMBER'
 
 export interface TeamMember {
   id: string
-  clerkId: string
+  clerkId: string | null
   name: string
   email: string
   role: string
@@ -3950,6 +3956,34 @@ export interface TeamInvitation {
   staffRole: 'ADMIN' | 'MANAGER' | 'STAFF'
   status: string
   createdAt: number
+}
+
+export type TeamMembershipStatus =
+  | 'ACTIVE_MATCH'
+  | 'ARCHIVED_MATCH'
+  | 'ARCHIVED_STILL_IN_CLERK'
+  | 'ACTIVE_MISSING_CLERK'
+  | 'CLERK_MISSING_STAFF'
+  | 'PENDING_INVITATION'
+
+export interface TeamReconciliationMember {
+  status: TeamMembershipStatus
+  staffId: string | null
+  clerkUserId: string | null
+  invitationId: string | null
+  email: string
+  name: string | null
+  appRole: StaffAppRole | null
+  clerkRole: string | null
+  isActive: boolean | null
+  managedClientCount: number | null
+}
+
+export interface TeamReconciliationResponse {
+  seatsUsed: number
+  staffCount: number
+  pendingInvitationCount: number
+  members: TeamReconciliationMember[]
 }
 
 // Staff Profile types

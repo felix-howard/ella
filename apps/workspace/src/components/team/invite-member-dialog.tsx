@@ -13,19 +13,28 @@ import { toast } from '../../stores/toast-store'
 interface InviteMemberDialogProps {
   isOpen: boolean
   onClose: () => void
+  initialEmail?: string
+  initialRole?: AppRole
 }
 
-export function InviteMemberDialog({ isOpen, onClose }: InviteMemberDialogProps) {
+export function InviteMemberDialog({
+  isOpen,
+  onClose,
+  initialEmail = '',
+  initialRole = 'MEMBER',
+}: InviteMemberDialogProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [email, setEmail] = useState('')
-  const [role, setRole] = useState<AppRole>('MEMBER')
+  const [email, setEmail] = useState(initialEmail)
+  const [role, setRole] = useState<AppRole>(initialRole)
 
   const inviteMutation = useMutation({
     mutationFn: () => api.team.invite({ emailAddress: email, role }),
     onSuccess: () => {
       toast.success(t('team.inviteSuccess'))
       queryClient.invalidateQueries({ queryKey: ['team-invitations'] })
+      queryClient.invalidateQueries({ queryKey: ['team-reconciliation'] })
+      queryClient.invalidateQueries({ queryKey: ['team-members'] })
       handleClose()
     },
     onError: (error: Error) => {
@@ -34,8 +43,8 @@ export function InviteMemberDialog({ isOpen, onClose }: InviteMemberDialogProps)
   })
 
   const handleClose = () => {
-    setEmail('')
-    setRole('MEMBER')
+    setEmail(initialEmail)
+    setRole(initialRole)
     onClose()
   }
 

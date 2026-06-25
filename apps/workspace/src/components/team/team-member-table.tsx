@@ -7,18 +7,25 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from '@tanstack/react-router'
 import { Shield, Users, ArrowRight } from 'lucide-react'
 import { cn, Badge } from '@ella/ui'
-import type { TeamMember } from '../../lib/api-client'
+import type { TeamMember, TeamReconciliationMember } from '../../lib/api-client'
 import { getInitials, getAvatarColor } from '../../lib/formatters'
 import { TeamMemberTableSkeleton } from './team-member-table-skeleton'
+import { TeamMemberAccessBadge } from './team-member-access-badge'
 
 interface TeamMemberTableProps {
   members: TeamMember[]
   isLoading?: boolean
   isError?: boolean
   showArchived?: boolean
+  reconciliationByStaffId?: Map<string, TeamReconciliationMember>
 }
 
-export function TeamMemberTable({ members, isLoading, isError }: TeamMemberTableProps) {
+export function TeamMemberTable({
+  members,
+  isLoading,
+  isError,
+  reconciliationByStaffId,
+}: TeamMemberTableProps) {
   const { t } = useTranslation()
 
   if (isLoading) return <TeamMemberTableSkeleton />
@@ -52,6 +59,7 @@ export function TeamMemberTable({ members, isLoading, isError }: TeamMemberTable
             <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">{t('team.email')}</th>
             <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3">{t('team.role')}</th>
             <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3">{t('profile.managedClients')}</th>
+            <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3">{t('team.access', 'Access')}</th>
           </tr>
         </thead>
         <tbody>
@@ -61,6 +69,7 @@ export function TeamMemberTable({ members, isLoading, isError }: TeamMemberTable
               member={member}
               isLast={i === members.length - 1}
               isArchived={member.isActive === false}
+              reconciliation={reconciliationByStaffId?.get(member.id)}
             />
           ))}
         </tbody>
@@ -73,9 +82,15 @@ interface MemberRowProps {
   member: TeamMember
   isLast: boolean
   isArchived?: boolean
+  reconciliation?: TeamReconciliationMember
 }
 
-const MemberRow = memo(function MemberRow({ member, isLast, isArchived }: MemberRowProps) {
+const MemberRow = memo(function MemberRow({
+  member,
+  isLast,
+  isArchived,
+  reconciliation,
+}: MemberRowProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const avatarColor = getAvatarColor(member.name)
@@ -98,7 +113,7 @@ const MemberRow = memo(function MemberRow({ member, isLast, isArchived }: Member
       className={cn(
         !isLast && 'border-b border-border/40',
         'hover:bg-muted/40 transition-colors duration-150 cursor-pointer group',
-        isArchived && 'opacity-50'
+        isArchived && 'bg-muted/10'
       )}
     >
       {/* Name */}
@@ -156,6 +171,11 @@ const MemberRow = memo(function MemberRow({ member, isLast, isArchived }: Member
           <Users className="w-3.5 h-3.5" />
           {member._count.managedClients}
         </span>
+      </td>
+
+      {/* Access */}
+      <td className="px-4 py-3">
+        <TeamMemberAccessBadge status={reconciliation?.status} isActive={member.isActive} />
       </td>
     </tr>
   )

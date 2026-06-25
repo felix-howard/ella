@@ -1,20 +1,26 @@
 /**
  * Member Profile Page
  * Route: /team/profile/:staffId
- * Self = edit mode, Admin viewing others = read-only with role selector + archive
+ * Self = edit mode, Admin viewing others = read-only with role selector + access removal
  */
-import { useEffect } from 'react'
+import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Loader2, User, ArchiveRestore, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Loader2, User } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { PageContainer } from '../../../components/layout'
+import { StaffAccessStatusBanner } from '../../../components/profile/staff-access-status-banner'
 import { StaffProfileHeaderCard } from '../../../components/profile/staff-profile-header-card'
 import { StaffProfileTabs } from '../../../components/profile/staff-profile-tabs'
+import { useStaffProfileFocus } from '../../../components/profile/use-staff-profile-focus'
+import { InviteMemberDialog } from '../../../components/team/invite-member-dialog'
+import { RemoveMemberAccessDialog } from '../../../components/team/remove-member-access-dialog'
 import { api, type AppRole } from '../../../lib/api-client'
+import { canInviteAgain, staffRoleToInviteRole } from '../../../lib/team-reconciliation'
 import { toast } from '../../../stores/toast-store'
 import { useOrgRole } from '../../../hooks/use-org-role'
+import { useTeamMemberReconciliation } from '../../../hooks/use-team-member-reconciliation'
 
 const VALID_FOCUS = ['signature', 'title'] as const
 type ProfileFocus = (typeof VALID_FOCUS)[number]
@@ -35,6 +41,8 @@ function ProfilePage() {
   const { focus } = Route.useSearch()
   const { canManageAnyIntakeLink, canManageTeam, staffId: currentUserStaffId } = useOrgRole()
   const queryClient = useQueryClient()
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false)
+  const [isInviteOpen, setIsInviteOpen] = useState(false)
 
   const {
     data,
@@ -50,6 +58,12 @@ function ProfilePage() {
     queryFn: () => api.orgSettings.get(),
   })
 
+  const profileStaff = data?.staff
+  const { reconciliationData, membershipStatus } = useTeamMemberReconciliation(
+    profileStaff?.id,
+    canManageTeam
+  )
+
   // Role change mutation (app-level role: ADMIN | MANAGER | MEMBER)
   const roleMutation = useMutation({
     mutationFn: (newRole: AppRole) =>
@@ -58,56 +72,27 @@ function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
       queryClient.invalidateQueries({ queryKey: ['team-members'] })
       queryClient.invalidateQueries({ queryKey: ['assignable-staff'] })
+      queryClient.invalidateQueries({ queryKey: ['team-reconciliation'] })
     },
   })
 
-  // Archive mutation
-  const archiveMutation = useMutation({
-    mutationFn: () => api.team.archive(staffId),
+  const removeAccessMutation = useMutation({
+    mutationFn: () => api.team.removeAccess(profileStaff?.id ?? staffId),
     onSuccess: () => {
-      toast.success(t('team.archiveSuccess'))
+      toast.success(t('team.removeAccessSuccess'))
+      setIsRemoveDialogOpen(false)
       queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
       queryClient.invalidateQueries({ queryKey: ['team-members'] })
       queryClient.invalidateQueries({ queryKey: ['assignable-staff'] })
+      queryClient.invalidateQueries({ queryKey: ['team-reconciliation'] })
     },
     onError: (error: Error) => {
-      toast.error(error.message || t('team.archiveFailed'))
+      toast.error(error.message || t('team.removeAccessFailed'))
     },
   })
 
-  // Unarchive mutation
-  const unarchiveMutation = useMutation({
-    mutationFn: () => api.team.unarchive(staffId),
-    onSuccess: () => {
-      toast.success(t('team.unarchiveSuccess'))
-      queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
-      queryClient.invalidateQueries({ queryKey: ['team-members'] })
-      queryClient.invalidateQueries({ queryKey: ['assignable-staff'] })
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || t('team.unarchiveFailed'))
-    },
-  })
-
-  const profileStaff = data?.staff
   const isOwnProfile = Boolean(profileStaff && (profileStaff.id === currentUserStaffId || staffId === 'me'))
-
-  useEffect(() => {
-    if (!focus || !isOwnProfile) return
-
-    const id = window.requestAnimationFrame(() => {
-      const el = document.querySelector(`[data-settings-focus="${focus}"]`)
-      if (!el) return
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      const ringClasses = ['ring-2', 'ring-primary', 'ring-offset-2']
-      el.classList.add(...ringClasses)
-      window.setTimeout(() => {
-        el.classList.remove(...ringClasses)
-      }, 2000)
-    })
-
-    return () => window.cancelAnimationFrame(id)
-  }, [focus, isOwnProfile])
+  useStaffProfileFocus(focus, isOwnProfile)
 
   if (isLoading) {
     return (
@@ -139,9 +124,17 @@ function ProfilePage() {
 
   // Show role selector only if: admin, viewing other member, member is active
   const canChangeRole = canManageTeam && !isOwnProfile && staff.isActive
-  // Show archive/unarchive only if: admin, viewing other member
-  const canArchive = canManageTeam && !isOwnProfile
   const isArchived = !staff.isActive
+  const canRemoveAccess =
+    canManageTeam &&
+    !isOwnProfile &&
+    (staff.isActive || membershipStatus === 'ARCHIVED_STILL_IN_CLERK')
+  const canShowInviteAgain =
+    canManageTeam &&
+    !isOwnProfile &&
+    isArchived &&
+    Boolean(reconciliationData) &&
+    canInviteAgain(membershipStatus)
 
   return (
     <PageContainer>
@@ -154,35 +147,12 @@ function ProfilePage() {
         {t('profile.backToTeam')}
       </Link>
 
-      {/* Archived Banner */}
       {isArchived && (
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl p-4 mb-6 flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-              {t('team.archivedMemberBanner')}
-            </p>
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-              {t('team.archivedMemberBannerDesc')}
-            </p>
-          </div>
-          {canArchive && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => unarchiveMutation.mutate()}
-              disabled={unarchiveMutation.isPending}
-              className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/50"
-            >
-              {unarchiveMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <ArchiveRestore className="w-4 h-4 mr-1.5" />
-              )}
-              {t('team.unarchive')}
-            </Button>
-          )}
-        </div>
+        <StaffAccessStatusBanner
+          membershipStatus={membershipStatus}
+          canInviteAgain={canShowInviteAgain}
+          onInviteAgain={() => setIsInviteOpen(true)}
+        />
       )}
 
       <StaffProfileHeaderCard staff={staff} staffId={staffId} canEdit={canEdit} />
@@ -197,21 +167,35 @@ function ProfilePage() {
         canManageTeam={canManageTeam}
         canManageAnyIntakeLink={canManageAnyIntakeLink}
         isOwnProfile={isOwnProfile}
-        canArchive={canArchive}
-        isArchived={isArchived}
+        canRemoveAccess={canRemoveAccess}
         orgSettings={orgSettings}
         isOrgSettingsLoading={isOrgSettingsLoading}
         onRoleChange={async (role) => {
           await roleMutation.mutateAsync(role)
         }}
         isRoleChangePending={roleMutation.isPending}
-        onArchive={() => {
-          if (confirm(t('team.confirmArchive', { name: staff.name }))) {
-            archiveMutation.mutate()
-          }
-        }}
-        isArchivePending={archiveMutation.isPending}
+        onRemoveAccess={() => setIsRemoveDialogOpen(true)}
+        isRemoveAccessPending={removeAccessMutation.isPending}
       />
+
+      <RemoveMemberAccessDialog
+        open={isRemoveDialogOpen}
+        staffName={staff.name}
+        managedClientCount={managedCount}
+        membershipStatus={membershipStatus}
+        isPending={removeAccessMutation.isPending}
+        onClose={() => setIsRemoveDialogOpen(false)}
+        onConfirm={() => removeAccessMutation.mutate()}
+      />
+
+      {isInviteOpen && (
+        <InviteMemberDialog
+          isOpen
+          onClose={() => setIsInviteOpen(false)}
+          initialEmail={staff.email}
+          initialRole={staffRoleToInviteRole(staff.role)}
+        />
+      )}
     </PageContainer>
   )
 }

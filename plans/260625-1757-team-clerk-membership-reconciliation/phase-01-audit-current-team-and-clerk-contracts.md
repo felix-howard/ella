@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "Audit current Team and Clerk contracts"
-status: pending
+status: completed
 priority: P1
 effort: "3h"
 dependencies: []
@@ -82,19 +82,74 @@ Team UI
    - Assignment selectors already use active staff only.
 5. Record final contract in phase notes before coding Phase 2.
 
+## Phase 1 Audit Notes
+
+Current behavior confirmed in focused tests:
+
+- `syncStaffFromClerkMembership()` writes `Staff.isActive=true` for an inactive Staff row when a live Clerk membership still exists.
+- `PATCH /team/members/:staffId/archive` only archives the Staff row and does not call Clerk membership removal.
+- `DELETE /team/members/:staffId` currently catches Clerk removal failure and still deactivates Staff locally.
+
+Final mismatch status names:
+
+```ts
+type TeamMembershipStatus =
+  | 'ACTIVE_MATCH'
+  | 'ARCHIVED_MATCH'
+  | 'ARCHIVED_STILL_IN_CLERK'
+  | 'ACTIVE_MISSING_CLERK'
+  | 'CLERK_MISSING_STAFF'
+  | 'PENDING_INVITATION'
+```
+
+Phase 2 response DTO should be shaped around live comparison, not persisted snapshots:
+
+```ts
+type TeamReconciliationResponse = {
+  seatsUsed: number
+  members: Array<{
+    status: TeamMembershipStatus
+    staffId: string | null
+    clerkUserId: string | null
+    invitationId: string | null
+    email: string
+    name: string | null
+    appRole: 'ADMIN' | 'MANAGER' | 'STAFF' | 'CPA' | null
+    clerkRole: 'org:admin' | 'org:member' | string | null
+    isActive: boolean | null
+    managedClientCount: number | null
+  }>
+}
+```
+
+User-facing language:
+
+- Use "Remove access" for the Clerk-first admin action that frees the Clerk seat and archives the Staff record.
+- Use "Archived records" for inactive Staff history after access is removed.
+- Use "Still has Clerk access" for `ARCHIVED_STILL_IN_CLERK` repair prompts.
+- Show managed client warning only: "This staff member still has managed clients. Historical assignments stay on record."
+
+Role display contract:
+
+- Clerk role remains `org:admin` or `org:member`.
+- App role remains `Staff.role`; `MANAGER` displays as Manager even though Clerk role is `org:member`.
+- Do not display a fixed seat limit. Show only live Clerk `seatsUsed`.
+
+Migration decision: no Prisma migration is required for Phase 2. Live Clerk/Staff comparison is sufficient.
+
 ## Todo List
 
-- [ ] Verify existing route/auth behavior with focused test coverage.
-- [ ] Finalize mismatch status names and response DTO shape.
-- [ ] Finalize user-facing terms: "Remove access" and "Archived records".
-- [ ] Ensure response DTO exposes Clerk seats used but no fixed seat limit.
-- [ ] Confirm no DB migration is required.
+- [x] Verify existing route/auth behavior with focused test coverage.
+- [x] Finalize mismatch status names and response DTO shape.
+- [x] Finalize user-facing terms: "Remove access" and "Archived records".
+- [x] Ensure response DTO exposes Clerk seats used but no fixed seat limit.
+- [x] Confirm no DB migration is required.
 
 ## Success Criteria
 
-- [ ] Current failure mode is documented in tests or notes.
-- [ ] Phase 2 has exact DTO and behavior contract.
-- [ ] No production data or Clerk org membership changed.
+- [x] Current failure mode is documented in tests or notes.
+- [x] Phase 2 has exact DTO and behavior contract.
+- [x] No production data or Clerk org membership changed.
 
 ## Risk Assessment
 

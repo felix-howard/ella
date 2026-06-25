@@ -40,11 +40,15 @@ export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(asy
   })
 
   const clerkOrgId = auth.orgId || null
+
+  if (staff && clerkOrgId && staff.organization?.clerkOrgId === clerkOrgId && !staff.isActive) {
+    throw new HTTPException(403, { message: 'Account has been disabled' })
+  }
+
   const needsMembershipSync = clerkOrgId && (
     !staff ||
     !staff.organizationId ||
-    staff.organization?.clerkOrgId !== clerkOrgId ||
-    !staff.isActive
+    staff.organization?.clerkOrgId !== clerkOrgId
   )
 
   if (needsMembershipSync) {

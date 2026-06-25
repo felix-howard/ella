@@ -8,7 +8,6 @@ import { zValidator } from '@hono/zod-validator'
 import { ActivityRiskLevel } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { clerkClient } from '../../lib/clerk-client'
-import { deactivateStaff } from '../../services/auth'
 import { logTeamAction } from '../../services/audit-logger'
 import { requireOrgAdmin, requireOrg } from '../../middleware/auth'
 import { config } from '../../lib/config'
@@ -36,6 +35,19 @@ import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 import { staffFilesRoute } from './staff-files'
 import { decryptSSN as decryptSensitiveValue, encryptSSN as encryptSensitiveValue } from '../../services/crypto'
+import {
+  clerkFailureHttpStatus,
+  describeClerkError,
+  publicClerkError,
+} from './team-clerk-errors'
+import {
+  clearAdminMutationReservation,
+  reserveAdminRoleDemotion,
+} from './team-admin-mutation-reservation'
+import { removeTeamMemberAccess } from './team-member-access-removal'
+import {
+  buildTeamReconciliation,
+} from './team-membership-reconciliation'
 
 const teamRoute = new Hono<{ Variables: AuthVariables }>()
 const NOTIFICATION_SUBSCRIPTION_ACTIVITY_WINDOW_MS = 10 * 60 * 1000
@@ -169,7 +181,7 @@ teamRoute.post(
     const user = c.get('user')
     const { emailAddress, role } = c.req.valid('json')
 
-    if (!user.clerkOrgId) {
+    if (!user.organizationId || !user.clerkOrgId) {
       return c.json({ error: 'Organization not found' }, 400)
     }
 
@@ -213,12 +225,16 @@ teamRoute.post(
         },
       })
     } catch (error: unknown) {
-      console.error('[Team] Invite failed:', error)
-      // Extract Clerk API error details
-      const clerkErr = error as { errors?: Array<{ message?: string; longMessage?: string; code?: string }> }
-      const firstErr = clerkErr.errors?.[0]
-      const message = firstErr?.longMessage || firstErr?.message || (error instanceof Error ? error.message : 'Failed to send invitation')
-      return c.json({ error: message }, 400)
+      const clerkError = describeClerkError(error)
+      console.error('[Team] Invite failed:', {
+        status: clerkError.status,
+        code: clerkError.code,
+      })
+      return c.json({
+        error: 'CLERK_INVITE_FAILED',
+        message: 'Failed to send invitation.',
+        clerkError: publicClerkError(error),
+      }, clerkFailureHttpStatus(error))
     }
   }
 )
@@ -235,66 +251,80 @@ teamRoute.patch(
     const staffId = c.req.param('staffId')
     const { role } = c.req.valid('json')
 
-    // Find target staff, verify same org
-    const staff = await prisma.staff.findFirst({
-      where: { id: staffId, organizationId: user.organizationId, isActive: true },
-    })
-
-    if (!staff) {
-      return c.json({ error: 'Staff not found' }, 404)
+    if (!user.organizationId) {
+      return c.json({ error: 'Organization not found' }, 400)
     }
 
+    const reservation = await reserveAdminRoleDemotion({
+      organizationId: user.organizationId,
+      staffId,
+    })
+    if (!reservation.success) {
+      return c.json(reservation.body, reservation.status)
+    }
+
+    const { staff, reservedAt } = reservation
     if (!staff.clerkId || !user.clerkOrgId) {
+      if (staff.role === 'ADMIN') {
+        await clearAdminMutationReservation(user.organizationId, staffId, reservedAt)
+      }
       return c.json({ error: 'Cannot update role: missing Clerk link' }, 400)
     }
 
-    // Prevent demoting the last admin in the org
-    if (role !== 'ADMIN' && staff.role === 'ADMIN') {
-      const adminCount = await prisma.staff.count({
-        where: { organizationId: user.organizationId, role: 'ADMIN', isActive: true },
-      })
-      if (adminCount <= 1) {
-        return c.json({ error: 'Cannot demote the last admin' }, 400)
-      }
-    }
-
+    const oldRole = staff.role
     try {
-      const oldRole = staff.role
       await clerkClient.organizations.updateOrganizationMembership({
         organizationId: user.clerkOrgId,
         userId: staff.clerkId,
         role: APP_ROLE_TO_CLERK_ROLE[role],
       })
-
-      // Sync role to DB immediately (don't wait for webhook). The membership.updated
-      // webhook preserve rule never downgrades MANAGER/CPA, so this write is durable.
-      // Known tiny race (ADMIN->MANAGER): if the webhook reads the old ADMIN role before
-      // this write commits but applies its STAFF demotion after it, MANAGER could be lost.
-      // Window is ms-scale; admin can re-apply. Revisit if it ever surfaces in practice.
-      const dbRole = APP_ROLE_TO_STAFF_ROLE[role]
-      await prisma.staff.update({
-        where: { id: staffId },
-        data: { role: dbRole },
+    } catch (error: unknown) {
+      if (staff.role === 'ADMIN') {
+        await clearAdminMutationReservation(user.organizationId, staffId, reservedAt)
+      }
+      const clerkError = describeClerkError(error)
+      console.error('[Team] Role update failed:', {
+        status: clerkError.status,
+        code: clerkError.code,
       })
+      return c.json({
+        error: 'CLERK_ROLE_UPDATE_FAILED',
+        message: 'Failed to update team member role.',
+        clerkError: publicClerkError(error),
+      }, clerkFailureHttpStatus(error))
+    }
 
-      // Audit log (async, non-blocking)
-      logTeamAction('ROLE_CHANGED', staffId, user.staffId, { oldValue: oldRole, newValue: dbRole })
-      await logTeamMemberActivity(c, user, staffId, {
-        summary: 'Updated team member role',
-        action: ACTIVITY_ACTIONS.TEAM.MEMBER_UPDATED,
-        riskLevel: ActivityRiskLevel.HIGH,
-        metadata: {
-          changedFields: ['role'],
-          previousRole: oldRole,
-          newRole: dbRole,
+    // Sync role to DB immediately (don't wait for webhook). The membership.updated
+    // webhook preserve rule never downgrades MANAGER/CPA, so this write is durable.
+    // Known tiny race (ADMIN->MANAGER): if the webhook reads the old ADMIN role before
+    // this write commits but applies its STAFF demotion after it, MANAGER could be lost.
+    // Window is ms-scale; admin can re-apply. Revisit if it ever surfaces in practice.
+    const dbRole = APP_ROLE_TO_STAFF_ROLE[role]
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`team-member-removal:${user.organizationId}`}))`
+      await tx.staff.update({
+        where: { id: staffId },
+        data: {
+          role: dbRole,
+          ...(oldRole === 'ADMIN' && { deactivatedAt: null }),
         },
       })
+    })
 
-      return c.json({ success: true })
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to update role'
-      return c.json({ error: message }, 400)
-    }
+    // Audit log (async, non-blocking)
+    logTeamAction('ROLE_CHANGED', staffId, user.staffId, { oldValue: oldRole, newValue: dbRole })
+    await logTeamMemberActivity(c, user, staffId, {
+      summary: 'Updated team member role',
+      action: ACTIVITY_ACTIONS.TEAM.MEMBER_UPDATED,
+      riskLevel: ActivityRiskLevel.HIGH,
+      metadata: {
+        changedFields: ['role'],
+        previousRole: oldRole,
+        newRole: dbRole,
+      },
+    })
+
+    return c.json({ success: true })
   }
 )
 
@@ -341,9 +371,7 @@ teamRoute.patch(
   }
 )
 
-// DELETE /team/members/:staffId - Deactivate staff member (admin only)
-// Note: Clerk membership deletion triggers organizationMembership.deleted webhook
-// which deactivates Staff in DB. We also call deactivateStaff() as backup.
+// DELETE /team/members/:staffId - Remove Clerk access then archive Staff (admin only)
 teamRoute.delete(
   '/members/:staffId',
   requireOrgAdmin,
@@ -351,34 +379,15 @@ teamRoute.delete(
     const user = c.get('user')
     const staffId = c.req.param('staffId')
 
-    // Cannot deactivate self
-    if (staffId === user.staffId) {
-      return c.json({ error: 'Cannot deactivate yourself' }, 400)
-    }
-
-    // Verify staff belongs to same org
-    const staff = await prisma.staff.findFirst({
-      where: { id: staffId, organizationId: user.organizationId, isActive: true },
+    const removal = await removeTeamMemberAccess(user, staffId, {
+      selfError: 'Cannot deactivate yourself',
+      notFoundError: 'Staff not found',
     })
-
-    if (!staff) {
-      return c.json({ error: 'Staff not found' }, 404)
+    if (!removal.success) {
+      return c.json(removal.body, removal.status)
     }
 
-    // Remove from Clerk org first (if fails, DB stays consistent)
-    if (staff.clerkId && user.clerkOrgId) {
-      try {
-        await clerkClient.organizations.deleteOrganizationMembership({
-          organizationId: user.clerkOrgId,
-          userId: staff.clerkId,
-        })
-      } catch (error) {
-        console.error('[Team] Clerk membership removal failed:', error)
-        // Continue with DB deactivation even if Clerk fails
-      }
-    }
-
-    await deactivateStaff(staffId)
+    const { staff, clerkRemovalResult } = removal
 
     // Audit log (async, non-blocking)
     logTeamAction('STAFF_DEACTIVATED', staffId, user.staffId, {
@@ -391,6 +400,9 @@ teamRoute.delete(
       riskLevel: ActivityRiskLevel.HIGH,
       metadata: {
         changedFields: ['isActive', 'deactivatedAt'],
+        previousRole: staff.role,
+        hadClerkMembership: Boolean(staff.clerkId),
+        clerkRemovalResult,
       },
     })
 
@@ -398,8 +410,38 @@ teamRoute.delete(
   }
 )
 
-// PATCH /team/members/:staffId/archive - Archive staff member (admin only)
-// Sets isActive=false, deactivatedAt=now. Does NOT remove from Clerk org.
+// GET /team/reconciliation - Compare Staff rows to live Clerk org membership
+teamRoute.get(
+  '/reconciliation',
+  requireOrgAdmin,
+  async (c) => {
+    const user = c.get('user')
+
+    if (!user.organizationId || !user.clerkOrgId) {
+      return c.json({ error: 'Organization not found' }, 400)
+    }
+
+    try {
+      return c.json(await buildTeamReconciliation({
+        organizationId: user.organizationId,
+        clerkOrgId: user.clerkOrgId,
+      }))
+    } catch (error) {
+      const clerkError = describeClerkError(error)
+      console.error('[Team] Reconciliation failed:', {
+        status: clerkError.status,
+        code: clerkError.code,
+      })
+      return c.json({
+        error: 'TEAM_RECONCILIATION_FAILED',
+        message: 'Failed to fetch team reconciliation.',
+        clerkError: publicClerkError(error),
+      }, clerkFailureHttpStatus(error))
+    }
+  }
+)
+
+// PATCH /team/members/:staffId/archive - Legacy alias for Clerk-first access removal.
 teamRoute.patch(
   '/members/:staffId/archive',
   requireOrgAdmin,
@@ -407,27 +449,15 @@ teamRoute.patch(
     const user = c.get('user')
     const staffId = c.req.param('staffId')
 
-    // Cannot archive self
-    if (staffId === user.staffId) {
-      return c.json({ error: 'Cannot archive yourself' }, 400)
+    const removal = await removeTeamMemberAccess(user, staffId, {
+      selfError: 'Cannot archive yourself',
+      notFoundError: 'Staff not found',
+    })
+    if (!removal.success) {
+      return c.json(removal.body, removal.status)
     }
 
-    // Verify staff belongs to same org and is currently active
-    const staff = await prisma.staff.findFirst({
-      where: { id: staffId, organizationId: user.organizationId, isActive: true },
-    })
-
-    if (!staff) {
-      return c.json({ error: 'Staff not found or already archived' }, 404)
-    }
-
-    await prisma.staff.update({
-      where: { id: staffId },
-      data: {
-        isActive: false,
-        deactivatedAt: new Date(),
-      },
-    })
+    const { clerkRemovalResult } = removal
 
     logTeamAction('STAFF_ARCHIVED', staffId, user.staffId, {
       oldValue: { isActive: true },
@@ -439,6 +469,7 @@ teamRoute.patch(
       riskLevel: ActivityRiskLevel.HIGH,
       metadata: {
         changedFields: ['isActive', 'deactivatedAt'],
+        clerkRemovalResult,
       },
     })
 
@@ -446,8 +477,8 @@ teamRoute.patch(
   }
 )
 
-// PATCH /team/members/:staffId/unarchive - Unarchive staff member (admin only)
-// Sets isActive=true, clears deactivatedAt
+// PATCH /team/members/:staffId/unarchive - Direct local restore is no longer safe.
+// Restore access through a Clerk invitation so Staff state follows membership state.
 teamRoute.patch(
   '/members/:staffId/unarchive',
   requireOrgAdmin,
@@ -455,37 +486,22 @@ teamRoute.patch(
     const user = c.get('user')
     const staffId = c.req.param('staffId')
 
-    // Verify staff belongs to same org and is currently archived
-    const staff = await prisma.staff.findFirst({
-      where: { id: staffId, organizationId: user.organizationId, isActive: false },
-    })
-
-    if (!staff) {
-      return c.json({ error: 'Staff not found or not archived' }, 404)
+    if (user.staffId) {
+      await logTeamMemberActivity(c, user, staffId, {
+        summary: 'Denied local team member restore',
+        action: ACTIVITY_ACTIONS.TEAM.MEMBER_UNARCHIVED,
+        riskLevel: ActivityRiskLevel.MEDIUM,
+        metadata: {
+          result: 'denied',
+          reason: 'restore_requires_clerk_invitation',
+        },
+      })
     }
 
-    await prisma.staff.update({
-      where: { id: staffId },
-      data: {
-        isActive: true,
-        deactivatedAt: null,
-      },
-    })
-
-    logTeamAction('STAFF_UNARCHIVED', staffId, user.staffId, {
-      oldValue: { isActive: false },
-      newValue: { isActive: true, deactivatedAt: null },
-    })
-    await logTeamMemberActivity(c, user, staffId, {
-      summary: 'Unarchived team member',
-      action: ACTIVITY_ACTIONS.TEAM.MEMBER_UNARCHIVED,
-      riskLevel: ActivityRiskLevel.MEDIUM,
-      metadata: {
-        changedFields: ['isActive', 'deactivatedAt'],
-      },
-    })
-
-    return c.json({ success: true })
+    return c.json({
+      error: 'RESTORE_REQUIRES_INVITATION',
+      message: 'Restore access by sending a Clerk invitation.',
+    }, 409)
   }
 )
 
@@ -520,8 +536,16 @@ teamRoute.get(
 
       return c.json({ data })
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to fetch invitations'
-      return c.json({ error: message }, 400)
+      const clerkError = describeClerkError(error)
+      console.error('[Team] Invitation list failed:', {
+        status: clerkError.status,
+        code: clerkError.code,
+      })
+      return c.json({
+        error: 'CLERK_INVITATION_LIST_FAILED',
+        message: 'Failed to fetch invitations.',
+        clerkError: publicClerkError(error),
+      }, clerkFailureHttpStatus(error))
     }
   }
 )
@@ -562,8 +586,16 @@ teamRoute.delete(
 
       return c.json({ success: true })
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to revoke invitation'
-      return c.json({ error: message }, 400)
+      const clerkError = describeClerkError(error)
+      console.error('[Team] Invitation revoke failed:', {
+        status: clerkError.status,
+        code: clerkError.code,
+      })
+      return c.json({
+        error: 'CLERK_INVITATION_REVOKE_FAILED',
+        message: 'Failed to revoke invitation.',
+        clerkError: publicClerkError(error),
+      }, clerkFailureHttpStatus(error))
     }
   }
 )

@@ -109,6 +109,11 @@ export async function syncStaffFromClerkMembership(
     : await prisma.staff.findUnique({ where: { clerkId } })
   const existing = existingByEmail ?? existingByClerk
 
+  if (existing && existing.organizationId === org.id && !existing.isActive) {
+    console.warn(`[Auth] Refusing to reactivate inactive Staff via Clerk sync: ${existing.id}`)
+    return null
+  }
+
   // Preserve app-level roles (MANAGER/CPA) on re-sync; Clerk only drives ADMIN transitions.
   // Invite metadata (publicMetadata.staffRole) is only trusted on fresh joins (no record,
   // or record not yet an active member of this org) - for an active member, DB role is
@@ -127,10 +132,11 @@ export async function syncStaffFromClerkMembership(
     email,
     name,
     role,
-    avatarUrl: imageUrl,
-    organizationId: org.id,
-    isActive: true,
-  }
+	    avatarUrl: imageUrl,
+	    organizationId: org.id,
+	    isActive: true,
+	    deactivatedAt: null,
+	  }
 
   if (existingByEmail) {
     const formSlugData = await getStaffFormSlugData(prisma, org.id, existingByEmail)

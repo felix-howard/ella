@@ -30,7 +30,7 @@ export const serviceCategories: ServiceCategory[] = [
     ],
   },
   {
-    audience: "Audit protection",
+    audience: "Audit detection",
     description:
       "Return support, records, and advisor coordination before and during audit questions.",
     services: [

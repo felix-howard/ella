@@ -60,7 +60,7 @@ export const pricingTierCards = [
         amount: TIER_PRO.monthly,
       },
       { label: "+ Payroll base", amount: PAYROLL.baseMonthly },
-      { label: "+ Audit Protection", amount: AUDIT_PROTECTION.monthly },
+      { label: "+ Audit Detection", amount: AUDIT_PROTECTION.monthly },
     ],
     popular: false,
   },
@@ -80,7 +80,7 @@ export const pricingPackages = [
     featured: false,
   },
   {
-    title: "Audit Protection",
+    title: "Audit Detection",
     price: "Starting at $700",
     description:
       "Audit-ready record review and advisor coordination for individuals and businesses with complex return positions.",
@@ -119,7 +119,7 @@ export const pricingPackages = [
 
 export const complianceServices = [
   "Tax resolution",
-  "Audit protection",
+  "Audit detection",
   "Payroll coordination",
   "Sales tax filing support",
   "Franchise tax support",

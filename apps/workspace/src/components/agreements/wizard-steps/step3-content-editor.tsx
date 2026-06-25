@@ -20,10 +20,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Check, FileText, Loader2, Plus, Trash2 } from 'lucide-react'
+import { Check, Loader2, Plus, Trash2 } from 'lucide-react'
 import { RichTextEditor } from '../../leads/rich-text-editor'
 import { NdaPdfPreviewModal } from '../agreement-pdf-preview-modal'
 import { useAgreementDefaultHtml } from '../use-agreement-default-html'
+import type { AgreementDraftAutosaveState } from '../use-agreement-draft-autosave'
+import { AgreementEditorActions } from './agreement-editor-actions'
 import {
   BLANK_TEMPLATE,
   BUILTIN_ENGAGEMENT_LETTER_TEMPLATE,
@@ -89,6 +91,13 @@ interface Props {
   onDraftChange: (draft: Step3Draft) => void
   onCancel: () => void
   onSubmit: (resolved: Step3Resolved) => void
+  onSaveDraft?: (resolved: Step3Resolved) => void
+  draftSaveState?: AgreementDraftAutosaveState
+  draftMetadata?: string | null
+  isDraftSaved?: boolean
+  conflictMessage?: string | null
+  sendBlockedReason?: string | null
+  onReloadDraft?: () => void
 }
 
 const DEFAULT_DEPOSIT_AMOUNT = '500.00'
@@ -283,6 +292,13 @@ export function Step3ContentEditor({
   onDraftChange,
   onCancel,
   onSubmit,
+  onSaveDraft,
+  draftSaveState,
+  draftMetadata,
+  isDraftSaved,
+  conflictMessage,
+  sendBlockedReason,
+  onReloadDraft,
 }: Props) {
   const { t } = useTranslation()
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -419,16 +435,23 @@ export function Step3ContentEditor({
     !seedError &&
     !isSubmitting
 
-  const handleSubmit = () => {
-    if (!canSubmit) return
-    onSubmit({
+  const resolveCurrentDraft = (): Step3Resolved => ({
       title: titleTrim,
       contentHtml: effectiveHtml,
       depositEnabled: effectiveDepositEnabled,
       depositAmount: effectiveDepositAmount.trim(),
       internalNote: draft.internalNote,
       expiryDays: draft.expiryDays,
-    })
+  })
+
+  const handleSubmit = () => {
+    if (!canSubmit || sendBlockedReason) return
+    onSubmit(resolveCurrentDraft())
+  }
+
+  const handleSaveDraft = () => {
+    if (!canSubmit || !onSaveDraft) return
+    onSaveDraft(resolveCurrentDraft())
   }
 
   const patchPlaceholderValue = (placeholder: string, value: string) => {
@@ -770,29 +793,20 @@ export function Step3ContentEditor({
             </span>
           </div>
 
-          <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4">
-            <button
-              type="button"
-              onClick={() => setPreviewOpen(true)}
-              disabled={!canSubmit}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <FileText className="w-4 h-4" />
-              )}
-              {t('nda.editor.previewAndSend')}
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={isSubmitting}
-              className="min-h-10 rounded-full border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50"
-            >
-              {t('common.cancel')}
-            </button>
-          </div>
+          <AgreementEditorActions
+            canSubmit={canSubmit}
+            isSubmitting={isSubmitting}
+            isDraftSaved={isDraftSaved}
+            draftSaveState={draftSaveState}
+            draftMetadata={draftMetadata}
+            conflictMessage={conflictMessage}
+            sendBlockedReason={sendBlockedReason}
+            onOpenPreview={() => setPreviewOpen(true)}
+            onCancel={onCancel}
+            onSaveDraft={onSaveDraft ? handleSaveDraft : undefined}
+            onReloadDraft={onReloadDraft}
+            t={t}
+          />
         </div>
       </aside>
 
@@ -805,6 +819,7 @@ export function Step3ContentEditor({
         onClose={() => setPreviewOpen(false)}
         onSend={handleSubmit}
         isSending={isSubmitting}
+        sendDisabledReason={sendBlockedReason}
       />
     </div>
   )

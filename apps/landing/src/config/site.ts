@@ -5,7 +5,7 @@ export const siteConfig = {
   name: "Ella Tax Services",
   legalName: "Ella Tax Services LLC",
   description:
-    "Tax resolution, audit protection, and compliance support for individuals, families, and small businesses.",
+    "Tax resolution, audit detection, and compliance support for individuals, families, and small businesses.",
   url: "https://ella.tax",
   ogImage: "/og-default.png",
   locale: "en_US",

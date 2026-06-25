@@ -105,6 +105,24 @@ describe('Public NDA handlers', () => {
       expect(res.status).toBe(404)
     })
 
+    it.each([
+      { label: 'draft active', status: 'DRAFT', isActive: true },
+      { label: 'draft inactive', status: 'DRAFT', isActive: false },
+      { label: 'sent inactive', status: 'SENT', isActive: false },
+      { label: 'signed active', status: 'SIGNED', isActive: true },
+      { label: 'voided active', status: 'VOIDED', isActive: true },
+    ])('returns 409 for non-public token: $label', async ({ label, status, isActive }) => {
+      const token = freshToken(`view-${label}`)
+      mockFindUnique.mockResolvedValueOnce(
+        activeNda(token, { status, isActive }) as any
+      )
+
+      const res = await app.request(`/public/nda/${token}`)
+
+      expect(res.status).toBe(409)
+      await expect(res.text()).resolves.toContain('Agreement link is not active')
+    })
+
     it('still returns view with expired=true when expiry past (UI shows error)', async () => {
       const token = freshToken('view-expired')
       mockFindUnique.mockResolvedValueOnce(

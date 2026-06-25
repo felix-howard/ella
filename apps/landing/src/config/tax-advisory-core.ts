@@ -11,7 +11,7 @@ export const heroMetrics = [
 export const helpPromises = [
   "Understand which tax planning, resolution, and compliance topics fit your facts",
   "Review records before recommending implementation steps",
-  "Coordinate tax planning, audit protection, bookkeeping, payroll, and compliance needs",
+  "Coordinate tax planning, audit detection, bookkeeping, payroll, and compliance needs",
   "Prepare estimated tax conversations before deadlines",
   "Document agreed next steps for filing and follow-up",
   "Keep planning recommendations tied to eligibility and records",
@@ -60,7 +60,7 @@ export const overpaymentReasons = [
   },
   {
     title: "Audit support is reactive",
-    description: "Audit protection is weaker when records are gathered only after an agency request arrives.",
+    description: "Audit detection is weaker when records are gathered only after an agency request arrives.",
   },
   {
     title: "Weak documentation",
@@ -89,7 +89,7 @@ export const serviceDeliverables = [
     description: "Keep planning recommendations tied to documents, eligibility, and compliance notes.",
   },
   {
-    title: "Audit protection checklist",
+    title: "Audit detection checklist",
     highlights: ["Records"],
     description: "Identify records, substantiation, and follow-up needed if IRS or state questions arise.",
   },

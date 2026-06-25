@@ -29,6 +29,8 @@ interface Props {
   onSend?: () => void
   /** Outer submission state — disables Send and swaps icon for a spinner. */
   isSending?: boolean
+  /** Reason to disable Send after preview renders, e.g. draft conflict. */
+  sendDisabledReason?: string | null
 }
 
 const BTN_CLS = 'min-h-11 px-3 py-1.5 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors inline-flex items-center justify-center gap-2'
@@ -38,7 +40,17 @@ function isIOSDevice(): boolean {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) && !('MSStream' in window)
 }
 
-export function NdaPdfPreviewModal({ open, entity, contentHtml, type, title, onClose, onSend, isSending }: Props) {
+export function NdaPdfPreviewModal({
+  open,
+  entity,
+  contentHtml,
+  type,
+  title,
+  onClose,
+  onSend,
+  isSending,
+  sendDisabledReason,
+}: Props) {
   const { t } = useTranslation()
   const mutation = useAgreementPreview(entity)
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
@@ -67,7 +79,7 @@ export function NdaPdfPreviewModal({ open, entity, contentHtml, type, title, onC
     onClose()
   }
 
-  const canSend = !!onSend && !!blobUrl && !mutation.isPending && !isSending
+  const canSend = !!onSend && !!blobUrl && !mutation.isPending && !isSending && !sendDisabledReason
 
   useEffect(() => {
     if (!open) return
@@ -99,9 +111,14 @@ export function NdaPdfPreviewModal({ open, entity, contentHtml, type, title, onC
         className="fixed inset-x-0 bottom-0 top-[calc(env(safe-area-inset-top)_+_0.75rem)] z-[10011] flex w-full flex-col rounded-t-xl border border-border bg-card shadow-2xl md:inset-auto md:left-1/2 md:top-1/2 md:h-[90vh] md:max-w-5xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl"
       >
         <div className="flex min-h-[64px] items-center justify-between gap-3 border-b border-border px-4 py-3 md:px-6 md:py-4">
-          <h3 id="nda-preview-title" className="min-w-0 truncate text-base font-semibold text-foreground md:text-lg">
-            {headerTitle}
-          </h3>
+          <div className="min-w-0">
+            <h3 id="nda-preview-title" className="truncate text-base font-semibold text-foreground md:text-lg">
+              {headerTitle}
+            </h3>
+            {sendDisabledReason && (
+              <p className="mt-0.5 truncate text-xs text-amber-700">{sendDisabledReason}</p>
+            )}
+          </div>
           <div className="flex shrink-0 items-center gap-2">
             {blobUrl && (
               <a href={blobUrl} download="agreement-preview.pdf" className={BTN_CLS} aria-label={t('nda.preview.download')} title={t('nda.preview.download')}>
@@ -115,7 +132,7 @@ export function NdaPdfPreviewModal({ open, entity, contentHtml, type, title, onC
                 onClick={onSend}
                 disabled={!canSend}
                 aria-label={t('nda.send.confirmCta')}
-                title={t('nda.send.confirmCta')}
+                title={sendDisabledReason ?? t('nda.send.confirmCta')}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
               >
                 {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

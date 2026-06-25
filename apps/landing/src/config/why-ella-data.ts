@@ -24,7 +24,7 @@ export const clientProblems: IconContent[] = [
     icon: "M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155",
     title: "Audit questions come late",
     description:
-      "Audit protection gets harder when deductions, business activity, estimated taxes, or notices are not documented until deadline pressure starts.",
+      "Audit detection gets harder when deductions, business activity, estimated taxes, or notices are not documented until deadline pressure starts.",
   },
   {
     icon: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z",
@@ -66,7 +66,7 @@ export const onlineFilingHighlights: IconContent[] = [
     icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z",
     title: "Start before the deadline moves closer",
     description:
-      "Begin online, share the basics, and move into the right resolution, audit protection, compliance, filing, bookkeeping, or advisory path with fewer scheduling steps.",
+      "Begin online, share the basics, and move into the right resolution, audit detection, compliance, filing, bookkeeping, or advisory path with fewer scheduling steps.",
   },
   {
     icon: "M9 12h6m-6 4.5h6m2.25 4.5H6.75A2.25 2.25 0 014.5 18.75V5.25A2.25 2.25 0 016.75 3h5.379a2.25 2.25 0 011.59.659l3.622 3.622A2.25 2.25 0 0118 8.871v9.879A2.25 2.25 0 0115.75 21z",
@@ -109,14 +109,14 @@ export const trustItems = [
 
 export const whyEllaFaq = [
   {
-    question: "Why choose Ella Tax Services for tax resolution, audit protection, and compliance?",
+    question: "Why choose Ella Tax Services for tax resolution, audit detection, and compliance?",
     answer:
       "Ella Tax Services combines online convenience with advisor review, document follow-up, notice support, audit-ready record organization, and compliance coordination when the facts are more involved.",
   },
   {
     question: "Do I need to be in Houston to work with Ella Tax Services?",
     answer:
-      "No. Ella Tax Services is Houston-based and supports online tax resolution, audit protection, compliance, filing, and advisory service for clients who prefer remote support.",
+      "No. Ella Tax Services is Houston-based and supports online tax resolution, audit detection, compliance, filing, and advisory service for clients who prefer remote support.",
   },
   {
     question: "Can Ella help with bookkeeping and tax planning too?",

@@ -9,6 +9,7 @@
  * uniformly during the rename.
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
@@ -44,9 +45,9 @@ export function useAgreementsList(
   })
 }
 
-function useInvalidateAgreements(entity: EntityRef) {
+export function useInvalidateAgreements(entity: EntityRef) {
   const qc = useQueryClient()
-  return () => {
+  return useCallback(() => {
     // Invalidate every type-filter variant for this entity (list key has type suffix).
     qc.invalidateQueries({ queryKey: ['nda', entity.type, entity.id, 'list'] })
     qc.invalidateQueries({ queryKey: [entity.type, entity.id] })
@@ -62,7 +63,7 @@ function useInvalidateAgreements(entity: EntityRef) {
       // caseId isn't known here so widen to all messages.
       qc.invalidateQueries({ queryKey: ['messages'] })
     }
-  }
+  }, [entity.id, entity.type, qc])
 }
 
 export function useCreateAgreement(entity: EntityRef) {

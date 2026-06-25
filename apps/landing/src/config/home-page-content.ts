@@ -14,7 +14,7 @@ export const homeTrustItems = [
     description: "Get organized support for IRS and state notices, balances, and response next steps.",
   },
   {
-    label: "Audit protection and compliance",
+    label: "Audit detection and compliance",
     description: "Prepare records, deadlines, filings, and documentation before problems escalate.",
   },
 ] as const;
@@ -26,7 +26,7 @@ export const homeServiceHighlights = [
     bullets: ["Notice and account review", "Document checklist", "Resolution next steps"],
   },
   {
-    title: "Audit protection",
+    title: "Audit detection",
     description: "Help clients keep return positions, records, and communication ready if the IRS or state asks questions.",
     bullets: ["Return support review", "Record organization", "Advisor response coordination"],
   },
@@ -146,7 +146,7 @@ export const homeAdvisors = [
 export const homeFaqs = [
   {
     question: "Can I file fully online with Ella Tax Services?",
-    answer: "Yes. Ella Tax Services supports online document collection, advisor review, signatures, and follow-up for tax preparation, tax resolution, audit protection, and compliance needs.",
+    answer: "Yes. Ella Tax Services supports online document collection, advisor review, signatures, and follow-up for tax preparation, tax resolution, audit detection, and compliance needs.",
   },
   {
     question: "What documents do I need to start?",

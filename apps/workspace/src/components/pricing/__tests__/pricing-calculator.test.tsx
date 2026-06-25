@@ -147,6 +147,9 @@ describe('workspace pricing calculator', () => {
     expect(markup).toContain('Send to client')
     expect(markup).toContain('Engagement letter')
     expect(markup).toContain('Prepare engagement letter')
+    expect(markup.indexOf('engagement-letter-panel-title')).toBeLessThan(markup.indexOf('payment-link-title'))
+    expect(markup.indexOf('payment-link-title')).toBeLessThan(markup.indexOf('send-quote-title'))
+    expect(markup.indexOf('send-quote-title')).toBeLessThan(markup.indexOf('quote-pdf-title'))
     expect(markup).toContain('Custom items')
     expect(markup).toContain('Add item')
     expect(markup).toContain('Select at least one billable service')
@@ -170,17 +173,30 @@ describe('workspace pricing calculator', () => {
     expect(markup).toContain('$1,400')
   })
 
-  it('renders empty default quantity fields without browser number spinners', () => {
+  it('renders quantity fields as text inputs so browser scrolling cannot step values', () => {
     const input = createDefaultPricingInput()
+    input.cashPlan.enabled = true
     const markup = renderToStaticMarkup(
       <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
     )
+    const quantityInputIds = [
+      'pricing-nec-count',
+      'pricing-payroll-employees',
+      'pricing-cash-employees',
+      'pricing-cash-owners',
+      'pricing-sales-tax-shops',
+    ]
 
-    expect(markup).toContain('id="pricing-nec-count"')
-    expect(markup).toContain('id="pricing-payroll-employees"')
+    for (const id of quantityInputIds) {
+      const inputMarkup = markup.match(new RegExp(`<input[^>]*id="${id}"[^>]*>`))?.[0] ?? ''
+      expect(inputMarkup).toContain('type="text"')
+      expect(inputMarkup).toContain('inputMode="numeric"')
+      expect(inputMarkup).toContain('pattern="[0-9]*"')
+    }
     expect(markup).toContain('value=""')
     expect(markup).toContain('[appearance:textfield]')
     expect(markup).toContain('[&amp;::-webkit-inner-spin-button]:appearance-none')
+    expect(markup).not.toContain('type="number"')
   })
 
   it('renders editable rate fields with zero as the minimum instead of default prices', () => {

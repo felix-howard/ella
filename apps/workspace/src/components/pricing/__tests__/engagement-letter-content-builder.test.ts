@@ -45,8 +45,8 @@ describe('buildCalculatorEngagementLetterHtml', () => {
     expect(html).toContain('Federal tax liens')
     expect(html).toContain('Cash Plan (7 emp × $5 + 1 owner × $50): $85.')
     expect(html).toContain('Cash Plan setup: $1,000.')
-    expect(html).toContain('Audit Protection: $300.')
-    expect(html).toContain('Audit Protection setup: $1,000.')
+    expect(html).toContain('Audit Detection: $300.')
+    expect(html).toContain('Audit Detection setup: $1,000.')
   })
 
   it('escapes custom monthly and one-time item labels', () => {

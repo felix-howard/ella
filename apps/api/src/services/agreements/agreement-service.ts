@@ -25,9 +25,23 @@ import {
   resendNdaForEntity,
   extendAgreementForEntity,
 } from './agreement-mutation-ops'
+import {
+  createAgreementDraftForEntity,
+  updateAgreementDraftForEntity,
+  discardAgreementDraftForEntity,
+  sendAgreementDraftForEntity,
+} from './agreement-draft-ops'
 import { storeUploadedPdf } from './agreement-upload-ops'
 
 export { buildAgreementUrl, buildNdaUrl } from './agreement-shared'
+export {
+  agreementResponseInclude,
+  serializeAgreementResponse,
+  stripAgreementToken,
+  type AgreementResponse,
+  type AgreementStaffSummary,
+  type AgreementWithResponseRelations,
+} from './agreement-response-serializer'
 export {
   createAgreementForEntity,
   createNdaForEntity,
@@ -38,6 +52,10 @@ export {
   resendAgreementForEntity,
   resendNdaForEntity,
   extendAgreementForEntity,
+  createAgreementDraftForEntity,
+  updateAgreementDraftForEntity,
+  discardAgreementDraftForEntity,
+  sendAgreementDraftForEntity,
   storeUploadedPdf,
 }
 

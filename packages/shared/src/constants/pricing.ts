@@ -40,7 +40,7 @@ export const TIER_ENTERPRISE = {
   marketingMonthly: 435,
   bullets: [
     'Everything in Pro',
-    'Audit Protection included',
+    'Audit Detection included',
     'Dedicated accountant',
     'Monthly strategy consult',
   ],

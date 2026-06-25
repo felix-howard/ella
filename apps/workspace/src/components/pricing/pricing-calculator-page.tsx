@@ -101,7 +101,11 @@ export function PricingCalculatorPage() {
           />
           <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
             <PricingSummaryPanel result={result} />
-            <PricingPrintPanel input={input} result={result} />
+            <PricingEngagementLetterPanel
+              pricingInput={input}
+              pricingResult={result}
+              disabledReason={disabledReason}
+            />
             <PricingPaymentLinkPanel
               checkout={checkout}
               disabledReason={disabledReason}
@@ -114,11 +118,7 @@ export function PricingCalculatorPage() {
               pricingInput={input}
               disabledReason={disabledReason}
             />
-            <PricingEngagementLetterPanel
-              pricingInput={input}
-              pricingResult={result}
-              disabledReason={disabledReason}
-            />
+            <PricingPrintPanel input={input} result={result} />
           </aside>
         </div>
       ) : (

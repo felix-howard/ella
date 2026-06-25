@@ -8,13 +8,67 @@
  * (depositStatus is non-null). Otherwise, callers receive 409.
  */
 import { HTTPException } from 'hono/http-exception'
-import type { Prisma } from '@ella/db'
+import type { AgreementStatus, Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { generateAgreementToken, expiryDate, isExpired, clampExpiryDays } from './token-service'
-import { sendAgreementInviteSms, sendAgreementInviteSmsForClient } from './agreement-sms'
+import {
+  sendAgreementInviteSmsBestEffort,
+  sendAgreementInviteSmsForClientBestEffort,
+} from './agreement-sms'
 import { assertDepositTransition, type DepositStatus } from '../../routes/agreements/helpers'
 import { type EntityType } from './entity-loader'
 import { buildAgreementUrl, agreementScopeWhere } from './agreement-shared'
+import { assertNoActiveNdaEngagement, lockAgreementEntity } from './agreement-content-resolution'
+
+const LINK_MUTATION_STATUSES: AgreementStatus[] = ['SENT', 'EXPIRED']
+
+function assertAgreementAllowsLinkRefresh(status: AgreementStatus) {
+  if (status === 'DRAFT') {
+    throw new HTTPException(409, { message: 'Draft agreement must be sent from the draft workflow' })
+  }
+  if (status === 'SIGNED') {
+    throw new HTTPException(409, { message: 'Agreement already signed' })
+  }
+  if (status === 'VOIDED') {
+    throw new HTTPException(409, { message: 'Agreement is voided' })
+  }
+}
+
+function linkMutationWhere(input: {
+  entityType: EntityType
+  entityId: string
+  agreementId: string
+  orgId: string
+}) {
+  return {
+    id: input.agreementId,
+    ...agreementScopeWhere(input.entityType, input.entityId),
+    organizationId: input.orgId,
+    status: { in: LINK_MUTATION_STATUSES },
+  }
+}
+
+async function guardLinkRefresh(
+  tx: Prisma.TransactionClient,
+  input: { entityType: EntityType; entityId: string; agreementId: string; orgId: string },
+  agreementType: string,
+) {
+  await lockAgreementEntity(tx, {
+    entityType: input.entityType,
+    entityId: input.entityId,
+    orgId: input.orgId,
+  })
+  if (agreementType !== 'NDA') return
+  await assertNoActiveNdaEngagement(
+    {
+      entityType: input.entityType,
+      entityId: input.entityId,
+      orgId: input.orgId,
+      excludeAgreementId: input.agreementId,
+    },
+    tx,
+  )
+}
 
 export async function updateDepositForEntity(input: {
   entityType: EntityType
@@ -31,9 +85,12 @@ export async function updateDepositForEntity(input: {
       ...agreementScopeWhere(input.entityType, input.entityId),
       organizationId: input.orgId,
     },
-    select: { id: true, depositStatus: true, depositPaidAt: true },
+    select: { id: true, status: true, depositStatus: true, depositPaidAt: true },
   })
   if (!agreement) throw new HTTPException(404, { message: 'Agreement not found' })
+  if (agreement.status === 'DRAFT') {
+    throw new HTTPException(409, { message: 'Draft agreement must be sent before deposit updates' })
+  }
 
   // Deposit fields are now nullable per-send. Refuse mutations on no-deposit rows.
   if (agreement.depositStatus == null) {
@@ -90,59 +147,90 @@ export async function resendAgreementForEntity(input: {
   if (!recipientRaw.phone?.trim()) {
     throw new HTTPException(422, { message: 'Phone required' })
   }
-  if (agreement.status === 'SIGNED') {
-    throw new HTTPException(409, { message: 'Agreement already signed' })
-  }
-  if (agreement.status === 'VOIDED') {
-    throw new HTTPException(409, { message: 'Agreement is voided' })
-  }
+  assertAgreementAllowsLinkRefresh(agreement.status)
 
   const recipient = {
     id: recipientRaw.id,
     firstName: recipientRaw.firstName ?? '',
     phone: recipientRaw.phone,
   }
-  const needsRotation = !agreement.isActive || isExpired(agreement.expiresAt)
   let current = agreement
+  let rotated = false
+  const needsRotation = !agreement.isActive || isExpired(agreement.expiresAt)
   if (needsRotation) {
-    current = (await prisma.agreement.update({
-      where: { id: agreement.id },
-      data: {
-        token: generateAgreementToken(),
-        expiresAt: expiryDate(agreement.expiryDays),
-        status: 'SENT',
-        isActive: true,
-      },
-      include: {
-        lead: recipientSelect,
-        client: recipientSelect,
-        organization: { select: { name: true } },
-      },
-    })) as typeof agreement
+    const result = await prisma.$transaction(async (tx) => {
+      await guardLinkRefresh(tx, input, agreement.type)
+      const latest = await tx.agreement.findFirst({
+        where: {
+          id: agreement.id,
+          ...agreementScopeWhere(input.entityType, input.entityId),
+          organizationId: input.orgId,
+        },
+        include: {
+          lead: recipientSelect,
+          client: recipientSelect,
+          organization: { select: { name: true } },
+        },
+      })
+      if (!latest) throw new HTTPException(404, { message: 'Agreement not found' })
+      assertAgreementAllowsLinkRefresh(latest.status)
+      if (latest.isActive && !isExpired(latest.expiresAt)) {
+        return { agreement: latest, rotated: false }
+      }
+
+      const updateResult = await tx.agreement.updateMany({
+        where: linkMutationWhere(input),
+        data: {
+          token: generateAgreementToken(),
+          expiresAt: expiryDate(latest.expiryDays),
+          status: 'SENT',
+          isActive: true,
+        },
+      })
+      if (updateResult.count !== 1) {
+        throw new HTTPException(409, { message: 'Agreement is no longer available for resend' })
+      }
+      const rotated = await tx.agreement.findFirst({
+        where: {
+          id: agreement.id,
+          ...agreementScopeWhere(input.entityType, input.entityId),
+          organizationId: input.orgId,
+        },
+        include: {
+          lead: recipientSelect,
+          client: recipientSelect,
+          organization: { select: { name: true } },
+        },
+      })
+      if (!rotated) throw new HTTPException(404, { message: 'Agreement not found' })
+      return { agreement: rotated, rotated: true }
+    })
+    current = result.agreement
+    rotated = result.rotated
   }
 
   const url = buildAgreementUrl(current.token)
-  const orgName = agreement.organization.name
+  const orgName = current.organization.name
   if (input.entityType === 'lead') {
-    await sendAgreementInviteSms({
+    await sendAgreementInviteSmsBestEffort({
       lead: recipient,
       orgId: input.orgId,
       staffId: input.staffId,
       url,
-      title: agreement.title,
+      title: current.title,
       orgName,
     })
   } else {
-    await sendAgreementInviteSmsForClient({
+    await sendAgreementInviteSmsForClientBestEffort({
       client: recipient,
       orgId: input.orgId,
       staffId: input.staffId,
       url,
-      title: agreement.title,
+      title: current.title,
       orgName,
     })
   }
-  return { agreement: current, url, rotated: needsRotation }
+  return { agreement: current, url, rotated }
 }
 
 /** Legacy alias retained for transitional callers + tests. */
@@ -168,25 +256,34 @@ export async function extendAgreementForEntity(input: {
       ...agreementScopeWhere(input.entityType, input.entityId),
       organizationId: input.orgId,
     },
-    select: { id: true, status: true, expiryDays: true },
+    select: { id: true, status: true, type: true, expiryDays: true },
   })
   if (!agreement) throw new HTTPException(404, { message: 'Agreement not found' })
-  if (agreement.status === 'SIGNED') {
-    throw new HTTPException(409, { message: 'Agreement already signed' })
-  }
-  if (agreement.status === 'VOIDED') {
-    throw new HTTPException(409, { message: 'Agreement is voided' })
-  }
+  assertAgreementAllowsLinkRefresh(agreement.status)
 
   const days = clampExpiryDays(input.days ?? agreement.expiryDays)
-  const updated = await prisma.agreement.update({
-    where: { id: agreement.id },
-    data: {
-      expiresAt: expiryDate(days),
-      expiryDays: days,
-      isActive: true,
-      status: 'SENT',
-    },
+  const updated = await prisma.$transaction(async (tx) => {
+    await guardLinkRefresh(tx, input, agreement.type)
+    const updateResult = await tx.agreement.updateMany({
+      where: linkMutationWhere(input),
+      data: {
+        expiresAt: expiryDate(days),
+        expiryDays: days,
+        isActive: true,
+        status: 'SENT',
+      },
+    })
+    if (updateResult.count !== 1) {
+      throw new HTTPException(409, { message: 'Agreement is no longer available for extension' })
+    }
+    return tx.agreement.findFirst({
+      where: {
+        id: agreement.id,
+        ...agreementScopeWhere(input.entityType, input.entityId),
+        organizationId: input.orgId,
+      },
+    })
   })
+  if (!updated) throw new HTTPException(404, { message: 'Agreement not found' })
   return updated
 }

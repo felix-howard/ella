@@ -114,8 +114,17 @@ describe('PricingEngagementLetterPanel', () => {
     expect(modalState.entity).toEqual({ type: 'client', id: 'client_1' })
     expect(modalState.recipientLabel).toBe('Ada Lovelace')
     expect(modalState.recipientHint).toBe('ACME · •••• 1234')
-    expect(modalState.contentHtml).toContain('<h2>Engagement Letter</h2>')
-    expect(modalState.contentHtml).toContain('Payroll employees (3 × $7, owner-manual): $21.')
-    expect(modalState.contentHtml).toContain('Tax Filing Allocation (Months 1-6 Only)')
+    expect(modalState.draftSeed.contentHtml).toContain('<h2>Engagement Letter</h2>')
+    expect(modalState.draftSeed.contentHtml).toContain('Payroll employees (3 × $7, owner-manual): $21.')
+    expect(modalState.draftSeed.contentHtml).toContain('Tax Filing Allocation (Months 1-6 Only)')
+    expect(modalState.draftSeed.source).toBe('CALCULATOR')
+    expect(modalState.draftSeed.sourceSnapshot).toMatchObject({
+      recipient: { type: 'client', id: 'client_1' },
+      setupTotal: expect.any(Number),
+      monthlyTotal: expect.any(Number),
+      tierLabel: expect.any(String),
+    })
+    expect(modalState.draftSeed.sourceSnapshot).not.toHaveProperty('pricingInput')
+    expect(modalState.draftSeed.sourceSnapshot).not.toHaveProperty('pricingResult')
   })
 })

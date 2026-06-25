@@ -5,7 +5,105 @@
 
 ---
 
+### Agreement Draft Collaboration Phase 6
+**Status:** Complete
+
+**Changed:**
+- Manual Agreement wizard flows and pricing-calculator Engagement Letters now share the same draft-capable editor; opening it does not create a draft.
+- First save stays explicit; autosave starts only after that first successful save and sends `expectedUpdatedAt` on later updates.
+- Draft send/discard keep the `expectedUpdatedAt` freshness guard; saved draft sends also snapshot the original draft creator's firm signer, record the actual sender via `sentByUserId`, and strip raw signing tokens/URLs from route responses.
+- Calculator resume/discard is DRAFT-only: the prompt resumes only `DRAFT` + `CALCULATOR` rows, and saved draft cards expose only `Resume` and `Discard`.
+
+**Validation:**
+- Phase 6 regression suite passed across API/workspace type-checks, agreement/client/calculator tests, and i18n check.
+
+### Agreement Draft Collaboration Phase 5
+**Status:** Complete
+
+**Changed:**
+- Calculator Engagement Letters now reuse the shared `AgreementDraftEditor` with `source="CALCULATOR"` and a minimal `sourceSnapshot` containing only `preparedAt`, recipient id/type, setup total, monthly total, and tier label.
+- If a recipient already has a `DRAFT` + `CALCULATOR` engagement-letter draft, the modal offers explicit `Resume saved calculator draft` vs `Start from current quote`; manual drafts are ignored for the calculator prompt.
+- Calculator submit is draft-first: the first save creates the draft only, preview/send stays blocked until a draft exists, and final send goes through the draft-send endpoint so the original creator signer is preserved and the actual sender is recorded.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- calculator-engagement-letter` pass
+- `pnpm -F @ella/workspace test -- pricing-engagement-letter-panel` pass
+- `pnpm -F @ella/workspace test -- agreement-editor-actions` pass
+- `pnpm i18n:check` pass
+
+---
+
+### Agreement Draft Collaboration Phase 4
+**Status:** Complete
+
+**Changed:**
+- Agreement list now surfaces saved drafts as first-class cards in the workspace and sorts drafts ahead of sent/signed rows by latest edit.
+- Draft cards expose resumable draft metadata and only show `Resume` and `Discard` actions.
+- Draft discard now carries an `expectedUpdatedAt` freshness guard so stale UI state cannot delete newer draft content.
+- `Send agreement` now offers a compact continue-existing-draft vs start-new choice when drafts already exist.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api test -- agreements` pass, 22 files / 342 tests
+- `pnpm -F @ella/workspace test -- agreement` pass, 9 files / 23 tests
+- `pnpm i18n:check` pass
+
+---
+
 ## 2026-06-25
+
+### Agreement Draft Collaboration Phase 3
+**Status:** Complete
+
+**Changed:**
+- Added a shared workspace draft editor for manual Agreement wizard flows and pricing-calculator Engagement Letters.
+- First save is explicit; autosave starts only after a successful draft save and sends `expectedUpdatedAt` for conflict protection.
+- Saved draft sends finalize through the draft send endpoint, while unsaved `Preview & Send` keeps the immediate send path.
+- Conflict states block send, show a reload action, and also disable Send inside the PDF preview modal if a conflict appears while preview is open.
+- Calculator handoff now stores `source="CALCULATOR"` plus pricing source snapshot; manual wizard preserves saved draft metadata across Step 3 back/return navigation.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- agreement` pass, 9 files / 23 tests
+- `pnpm -F @ella/workspace test -- calculator-engagement-letter-modal pricing-engagement-letter-panel` pass, 2 files / 7 tests
+- `pnpm i18n:check` pass
+
+---
+
+### Agreement Draft Collaboration Phase 2
+**Status:** Complete
+
+**Changed:**
+- Added lead/client draft lifecycle API operations for create, update, send, and discard.
+- Draft send now requires `expectedUpdatedAt`, snapshots firm signer from the original draft creator, records the actual sender, rotates a fresh public token, and sends the invite only after the guarded DB update.
+- Immediate NDA create, draft send, resend, and extend use entity advisory locks/status guards to prevent active NDA races and stale link resurrection.
+- Agreement invite notifications are best-effort after commit, and copied firm signature snapshots are cleaned up best-effort when final guarded writes fail.
+- Staff list/mutation responses keep raw tokens redacted; only explicit create/send/resend responses return public URLs.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test -- agreement-service staff-handlers public-handlers agreements` pass, 22 files / 338 tests
+
+---
+
+### Agreement Draft Collaboration Phase 1
+**Status:** Complete
+
+**Changed:**
+- Added Agreement draft foundation fields (`AgreementSource`, `sourceSnapshot`, `lastEditedByUserId`, `sentByUserId`) plus staff inverse relations and status indexes.
+- Added draft save/send request schemas and workspace API types for agreement source metadata and staff summaries.
+- Agreement list responses now include staff/source metadata but redact public signing `token` and `url`; explicit send/resend/create actions remain the link-returning boundary.
+- Public agreement view rejects non-SENT or inactive rows, and resend/extend use scoped atomic status guards to avoid resurrecting draft, signed, or voided rows.
+
+**Validation:**
+- `pnpm -F @ella/api test -- agreements` pass, 22 files / 328 tests
+- `pnpm -F @ella/db type-check`, `pnpm -F @ella/api type-check`, `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/db generate` pass
+- Migration SQL reviewed as additive only
+
+---
 
 ### Payment Calculator Rate Overrides
 **Status:** Complete

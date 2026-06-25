@@ -4,6 +4,7 @@
  * `ndas` to SendAgreementButton for disabled-state logic without double fetching.
  */
 import { useTranslation } from 'react-i18next'
+import { useMemo } from 'react'
 import { FileSignature, Loader2 } from 'lucide-react'
 import { NdaCard } from './agreement-card'
 import type { Agreement } from '../../lib/api-client'
@@ -19,6 +20,23 @@ interface Props {
 
 export function NdaList({ entity, ndas, isLoading, isError }: Props) {
   const { t } = useTranslation()
+  const sortedAgreements = useMemo(
+    () => ndas
+      .map((nda, index) => ({ nda, index }))
+      .sort((left, right) => {
+        const leftIsDraft = left.nda.status === 'DRAFT'
+        const rightIsDraft = right.nda.status === 'DRAFT'
+        if (leftIsDraft && rightIsDraft) {
+          const updatedDelta =
+            new Date(right.nda.updatedAt).getTime() - new Date(left.nda.updatedAt).getTime()
+          return updatedDelta || left.index - right.index
+        }
+        if (leftIsDraft !== rightIsDraft) return leftIsDraft ? -1 : 1
+        return left.index - right.index
+      })
+      .map(({ nda }) => nda),
+    [ndas],
+  )
 
   if (isLoading) {
     return (
@@ -47,7 +65,7 @@ export function NdaList({ entity, ndas, isLoading, isError }: Props) {
 
   return (
     <div className="space-y-3">
-      {ndas.map((nda) => (
+      {sortedAgreements.map((nda) => (
         <NdaCard key={nda.id} entity={entity} nda={nda} />
       ))}
     </div>

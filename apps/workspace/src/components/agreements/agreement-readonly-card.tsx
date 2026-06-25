@@ -20,7 +20,13 @@ import {
   StickyNote,
 } from 'lucide-react'
 import { cn } from '@ella/ui'
-import { NdaStatusBadge, DepositStatusBadge, AgreementTypeBadge } from './agreement-status-badges'
+import {
+  NdaStatusBadge,
+  DepositStatusBadge,
+  AgreementTypeBadge,
+  AgreementSourceBadge,
+} from './agreement-status-badges'
+import { AgreementCardCollaborationMetadata } from './agreement-card-collaboration-metadata'
 import { toast } from '../../stores/toast-store'
 import { formatShortRelativeTime, formatFullDateTime } from '../../lib/formatters'
 import { agreementsApi } from './use-agreement-mutations'
@@ -46,6 +52,8 @@ export function NdaReadonlyCard({ nda, entity, showViewPdf = false, framed = tru
   const canViewPdf = showViewPdf && !!entity && nda.status === 'SIGNED' && !!nda.signedPdfKey
   const typeLabel = t(`agreements.type.${nda.type}`)
   const titleRepeatsType = nda.title.trim().toLowerCase() === typeLabel.trim().toLowerCase()
+  const showTypeBadge = nda.status === 'DRAFT' || !titleRepeatsType
+  const showSourceBadge = nda.status === 'DRAFT' || nda.source === 'CALCULATOR'
 
   const handleViewPdf = async () => {
     if (!entity) return
@@ -72,9 +80,10 @@ export function NdaReadonlyCard({ nda, entity, showViewPdf = false, framed = tru
           <h4 className="text-base font-semibold leading-snug text-foreground break-words">
             {nda.title}
           </h4>
-          {!titleRepeatsType && (
-            <div className="mt-1">
-              <AgreementTypeBadge type={nda.type} />
+          {(showTypeBadge || showSourceBadge) && (
+            <div className="mt-1 flex flex-wrap gap-2">
+              {showTypeBadge && <AgreementTypeBadge type={nda.type} />}
+              {showSourceBadge && <AgreementSourceBadge source={nda.source} />}
             </div>
           )}
         </div>
@@ -99,6 +108,11 @@ export function NdaReadonlyCard({ nda, entity, showViewPdf = false, framed = tru
                 {formatShortRelativeTime(nda.createdAt, i18n.language)}
               </span>
             </div>
+            <AgreementCardCollaborationMetadata
+              agreement={nda}
+              language={i18n.language}
+              t={t}
+            />
             {expiry.kind !== 'na' && (
               <div
                 className={'flex items-center gap-2 min-w-0 ' + expiryToneClass(expiry.kind)}

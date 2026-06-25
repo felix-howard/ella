@@ -15,17 +15,18 @@
  * html, title, depositEnabled, depositAmount, expiryDays }. Consent skips
  * customization and sends only its fixed built-in document.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Loader2, X } from 'lucide-react'
+import { AgreementDraftEditor } from './agreement-draft-editor'
+import type { AgreementDraftSavedState } from './use-agreement-draft-saved-state'
 import { useCreateAgreement } from './use-agreement-mutations'
 import { useNdaReadiness } from './use-nda-readiness'
 import { NdaSetupRequiredCard } from './nda-setup-required-card'
 import { Step1TypePicker } from './wizard-steps/step1-type-picker'
 import { Step2TemplatePicker } from './wizard-steps/step2-template-picker'
 import {
-  Step3ContentEditor,
   emptyStep3Draft,
   type Step3Draft,
 } from './wizard-steps/step3-content-editor'
@@ -36,8 +37,6 @@ import {
 } from './wizard-steps/step3-consent-send-confirm'
 import {
   BLANK_TEMPLATE,
-  BUILTIN_ENGAGEMENT_LETTER_TEMPLATE,
-  BUILTIN_NDA_TEMPLATE,
   UPLOAD_PDF_TEMPLATE,
 } from './wizard-steps/template-sentinels'
 import { formatPhone } from '../../lib/formatters'
@@ -68,6 +67,7 @@ export function buildConsentAgreementPayload(
 export function AgreementSendWizard({ entity, recipient, agreements, onClose }: Props) {
   const { t } = useTranslation()
   const mutation = useCreateAgreement(entity)
+  const closeGuardRef = useRef<(() => boolean) | null>(null)
 
   const [step, setStep] = useState<Step>(1)
   const [type, setType] = useState<AgreementType | null>(null)
@@ -75,10 +75,20 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
   const [templateId, setTemplateId] = useState<string | null>(null)
   // Step3 draft is owned here so Back navigation preserves user input.
   const [draft, setDraft] = useState<Step3Draft>(emptyStep3Draft)
+  const [savedDraftState, setSavedDraftState] = useState<AgreementDraftSavedState | null>(null)
 
   // "Upload PDF" path swaps Step 3 to the upload editor and creates the
   // agreement from the uploaded PDF (uploadedPdfKey) rather than HTML/template.
   const isUploadMode = templateId === UPLOAD_PDF_TEMPLATE
+
+  const registerCloseGuard = useCallback((guard: (() => boolean) | null) => {
+    closeGuardRef.current = guard
+  }, [])
+
+  const requestClose = useCallback(() => {
+    if (closeGuardRef.current && !closeGuardRef.current()) return
+    onClose()
+  }, [onClose])
 
   // Agreement setup pre-flight: block send when CPA / org missing required setup.
   // Fail closed — if the query errors (offline, 401, 500), keep the user gated.
@@ -95,14 +105,18 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
   // Esc closes the wizard unless a submit is in flight.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !mutation.isPending) onClose()
+      if (e.key === 'Escape' && !mutation.isPending) requestClose()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [mutation.isPending, onClose])
+  }, [mutation.isPending, requestClose])
 
   const handleTypeSelect = (next: AgreementType) => {
     if (mutation.isPending) return
+    if (type && next !== type) {
+      setDraft(emptyStep3Draft)
+      setSavedDraftState(null)
+    }
     if (next === 'CONSENT_7216') {
       setType(next)
       setTemplateId(null)
@@ -122,12 +136,18 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
 
   const handleTemplateSelect = (id: string | null) => {
     // null from picker means "Start Blank".
-    setTemplateId(id ?? BLANK_TEMPLATE)
+    const nextTemplateId = id ?? BLANK_TEMPLATE
+    if (templateId && nextTemplateId !== templateId) {
+      setDraft(emptyStep3Draft)
+      setSavedDraftState(null)
+    }
+    setTemplateId(nextTemplateId)
     setStep(3)
   }
 
   const handleBack = () => {
     if (step === 3) {
+      if (closeGuardRef.current && !closeGuardRef.current()) return
       // CUSTOM and CONSENT_7216 skip Step 2 — bounce back to Step 1.
       const target: Step = type === 'CUSTOM' || type === 'CONSENT_7216' ? 1 : 2
       setStep(target)
@@ -137,36 +157,6 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
       setStep(1)
       return
     }
-  }
-
-  const handleSubmit = (resolved: {
-    title: string
-    contentHtml: string
-    depositEnabled: boolean
-    depositAmount: string
-    internalNote: string
-    expiryDays: number
-  }) => {
-    if (!type) return
-    // BLANK + BUILTIN_NDA are client-only sentinels — never sent to the server.
-    // Server resolves NDA without templateId/contentHtml to the built-in default,
-    // and the editor always supplies contentHtml so the snapshot is exact.
-    const isRealTemplate =
-      !!templateId &&
-      templateId !== BLANK_TEMPLATE &&
-      templateId !== BUILTIN_NDA_TEMPLATE &&
-      templateId !== BUILTIN_ENGAGEMENT_LETTER_TEMPLATE &&
-      templateId !== UPLOAD_PDF_TEMPLATE
-    const payload: CreateAgreementPayload = {
-      type,
-      title: resolved.title.trim() || undefined,
-      contentHtml: resolved.contentHtml.trim() || undefined,
-      templateId: isRealTemplate ? templateId : undefined,
-      depositAmount: resolved.depositEnabled ? resolved.depositAmount : null,
-      internalNote: resolved.internalNote.trim() || undefined,
-      expiryDays: resolved.expiryDays,
-    }
-    mutation.mutate(payload, { onSuccess: () => onClose() })
   }
 
   const handleUploadSubmit = (resolved: UploadStep3Resolved) => {
@@ -205,7 +195,7 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
     <>
       <div
         className="fixed inset-0 bg-black/50 z-[10000]"
-        onClick={() => !mutation.isPending && onClose()}
+        onClick={() => !mutation.isPending && requestClose()}
       />
       <div
         role="dialog"
@@ -238,7 +228,7 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             disabled={mutation.isPending}
             aria-label={t('common.close')}
             className="p-1.5 rounded-md hover:bg-muted transition-colors disabled:opacity-50"
@@ -262,7 +252,7 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
               missing={readinessQuery.data?.missing ?? []}
               isRefreshing={readinessQuery.isFetching}
               hasError={readinessQuery.isError}
-              onClose={onClose}
+              onClose={requestClose}
             />
           )}
           {step === 3 && type && isUploadMode && (
@@ -270,14 +260,14 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
               entity={entity}
               type={type}
               isSubmitting={mutation.isPending}
-              onCancel={onClose}
+              onCancel={requestClose}
               onSubmit={handleUploadSubmit}
             />
           )}
           {step === 3 && type === 'CONSENT_7216' && (
             <Step3ConsentSendConfirm
               isSubmitting={mutation.isPending}
-              onCancel={onClose}
+              onCancel={requestClose}
               onSubmit={handleConsentSubmit}
             />
           )}
@@ -286,15 +276,18 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
             !isUploadMode &&
             type !== 'CONSENT_7216' &&
             !(needsReadiness && (readinessQuery.isLoading || setupMissing)) && (
-              <Step3ContentEditor
+              <AgreementDraftEditor
                 entity={entity}
                 type={type}
                 templateId={templateId}
-                isSubmitting={mutation.isPending}
+                source="MANUAL"
                 draft={draft}
                 onDraftChange={setDraft}
-                onCancel={onClose}
-                onSubmit={handleSubmit}
+                closeBaselineDraft={emptyStep3Draft}
+                savedState={savedDraftState}
+                onSavedStateChange={setSavedDraftState}
+                onClose={onClose}
+                registerCloseGuard={registerCloseGuard}
               />
             )}
         </div>

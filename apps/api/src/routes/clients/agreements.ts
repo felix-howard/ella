@@ -11,7 +11,10 @@ import { z } from 'zod'
 import { prisma } from '../../lib/db'
 import type { AuthVariables } from '../../middleware/auth'
 import { buildClientScopeFilter } from '../../lib/org-scope'
-import { buildAgreementUrl } from '../../services/agreements/agreement-service'
+import {
+  agreementResponseInclude,
+  serializeAgreementResponse,
+} from '../../services/agreements/agreement-response-serializer'
 import { agreementTypeSchema } from '../agreements/schemas'
 
 const clientsAgreementsRoute = new Hono<{ Variables: AuthVariables }>()
@@ -49,13 +52,11 @@ clientsAgreementsRoute.get(
         ...(type ? { type } : {}),
       },
       orderBy: { updatedAt: 'desc' },
+      include: agreementResponseInclude,
     })
 
-    // Mirror lead-scoped listing shape: include computed url for each agreement
-    const data = agreements.map((agreement) => ({
-      ...agreement,
-      url: buildAgreementUrl(agreement.token),
-    }))
+    // Mirror lead-scoped listing shape while suppressing public URLs for drafts.
+    const data = agreements.map(serializeAgreementResponse)
     return c.json({ success: true, data })
   },
 )

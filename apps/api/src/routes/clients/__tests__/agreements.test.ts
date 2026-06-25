@@ -28,6 +28,7 @@ vi.mock('../../../lib/org-scope', () => ({
 import { Hono } from 'hono'
 import { prisma } from '../../../lib/db'
 import type { AuthVariables } from '../../../middleware/auth'
+import { agreementResponseInclude } from '../../../services/agreements/agreement-response-serializer'
 import { clientsAgreementsRoute } from '../agreements'
 
 const mockClientFindFirst = vi.mocked(prisma.client.findFirst)
@@ -53,8 +54,8 @@ function nda(overrides: Record<string, unknown> = {}) {
     clientId: VALID_CLIENT_ID,
     organizationId: 'org-1',
     token: 'tok_aaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    status: 'SIGNED',
-    isActive: false,
+    status: 'SENT',
+    isActive: true,
     templateVersion: 'v1',
     depositAmount: '300.00',
     depositStatus: 'PAID',
@@ -88,13 +89,39 @@ describe('GET /clients/:clientId/nda', () => {
     expect(json.success).toBe(true)
     expect(json.data).toHaveLength(2)
     expect(json.data[0].id).toBe('n1')
-    expect(json.data[0].url).toMatch(/\/agreements\/tok_/)
+    expect(json.data[0].url).toBeUndefined()
+    expect(json.data[0].token).toBeUndefined()
 
     // Confirm org-scoped query parameters
     expect(mockNdaFindMany).toHaveBeenCalledWith({
       where: { clientId: VALID_CLIENT_ID, organizationId: 'org-1' },
       orderBy: { updatedAt: 'desc' },
+      include: agreementResponseInclude,
     })
+  })
+
+  it('does not return a public url or token for draft agreements', async () => {
+    mockClientFindFirst.mockResolvedValueOnce({ id: VALID_CLIENT_ID, organizationId: 'org-1' } as any)
+    mockNdaFindMany.mockResolvedValueOnce([
+      nda({ id: 'draft-active', status: 'DRAFT', isActive: true }),
+      nda({ id: 'sent-inactive', status: 'SENT', isActive: false }),
+      nda({ id: 'signed-active', status: 'SIGNED', isActive: true }),
+    ] as any)
+
+    const app = buildApp()
+    const res = await app.request(`/clients/${VALID_CLIENT_ID}/agreements`)
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.data.map((item: { id: string }) => item.id)).toEqual([
+      'draft-active',
+      'sent-inactive',
+      'signed-active',
+    ])
+    for (const item of json.data) {
+      expect(item.url).toBeUndefined()
+      expect(item.token).toBeUndefined()
+    }
   })
 
   it('returns 404 when client is outside caller scope (org or assignment)', async () => {

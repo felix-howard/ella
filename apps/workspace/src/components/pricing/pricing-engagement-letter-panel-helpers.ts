@@ -1,7 +1,10 @@
 import type { ComboboxItem } from '@ella/ui'
 import type { PricingCalculatorInput, PricingCalculatorResult } from '@ella/shared/pricing'
 import type { RecipientSearchMetadata } from './use-recipient-search'
-import { buildCalculatorEngagementLetterHtml } from './engagement-letter-content-builder'
+import {
+  buildCalculatorEngagementLetterDraftSeed,
+  type CalculatorEngagementLetterDraftSeed,
+} from './calculator-engagement-letter-modal-helpers'
 
 export interface SelectedRecipient {
   item: ComboboxItem
@@ -12,7 +15,7 @@ export interface CalculatorEngagementLetterModalState {
   entity: { type: 'client' | 'lead'; id: string }
   recipientLabel: string
   recipientHint?: string
-  contentHtml: string
+  draftSeed: CalculatorEngagementLetterDraftSeed
 }
 
 export function getEngagementLetterDisabledReason(
@@ -39,7 +42,11 @@ export function createCalculatorEngagementLetterModalState(
     },
     recipientLabel: selected.metadata.label,
     recipientHint: selected.metadata.hint,
-    contentHtml: buildCalculatorEngagementLetterHtml({
+    draftSeed: buildCalculatorEngagementLetterDraftSeed({
+      recipient: {
+        type: selected.metadata.type,
+        id: selected.metadata.id,
+      },
       pricingInput,
       pricingResult,
     }),

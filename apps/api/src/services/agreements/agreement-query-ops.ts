@@ -6,7 +6,11 @@ import { HTTPException } from 'hono/http-exception'
 import { prisma } from '../../lib/db'
 import { getSignedDownloadUrl } from '../storage'
 import { loadEntityWithOrg, type EntityType } from './entity-loader'
-import { buildAgreementUrl, agreementScopeWhere } from './agreement-shared'
+import { agreementScopeWhere } from './agreement-shared'
+import {
+  agreementResponseInclude,
+  serializeAgreementResponse,
+} from './agreement-response-serializer'
 
 const PRESIGNED_PDF_TTL_SECONDS = 900 // 15 min
 
@@ -27,8 +31,9 @@ export async function listAgreementsForEntity(input: {
       ...(input.type ? { type: input.type } : {}),
     },
     orderBy: { createdAt: 'desc' },
+    include: agreementResponseInclude,
   })
-  return items.map((agreement) => ({ ...agreement, url: buildAgreementUrl(agreement.token) }))
+  return items.map(serializeAgreementResponse)
 }
 
 export async function getPresignedPdfUrlForEntity(input: {

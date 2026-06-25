@@ -41,6 +41,24 @@ export const agreementTypeSchema = z.enum([
   'CUSTOM',
 ])
 
+export const agreementSourceSchema = z.enum(['MANUAL', 'CALCULATOR'])
+
+export const AGREEMENT_SOURCE_SNAPSHOT_MAX = 10_000
+
+function jsonByteLength(value: unknown): number {
+  try {
+    return Buffer.byteLength(JSON.stringify(value), 'utf8')
+  } catch {
+    return Number.POSITIVE_INFINITY
+  }
+}
+
+export const sourceSnapshotSchema = z
+  .record(z.unknown())
+  .refine((value) => jsonByteLength(value) <= AGREEMENT_SOURCE_SNAPSHOT_MAX, {
+    message: `sourceSnapshot must be ${AGREEMENT_SOURCE_SNAPSHOT_MAX} bytes or less`,
+  })
+
 // Decimal-as-string with optional 2-decimal places, accepting a positive value.
 // Service layer hands this directly to Prisma which coerces to Decimal.
 const depositAmountSchema = z
@@ -48,9 +66,9 @@ const depositAmountSchema = z
   .regex(/^\d+(\.\d{1,2})?$/, 'depositAmount must be a positive decimal')
   .refine((v) => Number(v) > 0, { message: 'depositAmount must be greater than 0' })
 
-export const createAgreementBodySchema = z
+const agreementEditableFieldsSchema = z
   .object({
-    type: agreementTypeSchema.default('NDA'),
+    type: agreementTypeSchema.optional(),
     title: z.string().min(1).max(200).optional(),
     contentHtml: z.string().max(AGREEMENT_CONTENT_HTML_MAX).optional(),
     templateId: z.string().min(1).optional(),
@@ -68,72 +86,106 @@ export const createAgreementBodySchema = z
     expiryDays: z.number().int().min(MIN_EXPIRY_DAYS).max(MAX_EXPIRY_DAYS).optional(),
   })
   .strict()
-  .superRefine((val, ctx) => {
-    if (val.type === 'CONSENT_7216') {
-      if (val.title) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['title'],
-          message: 'CONSENT_7216 uses the built-in consent title',
-        })
-      }
-      if (val.contentHtml || val.templateId || val.uploadedPdfKey) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['contentHtml'],
-          message: 'CONSENT_7216 uses the built-in consent document',
-        })
-      }
-      if (val.depositAmount != null) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['depositAmount'],
-          message: 'CONSENT_7216 does not support an initial payment',
-        })
-      }
-      return
+
+type AgreementEditableFields = z.infer<typeof agreementEditableFieldsSchema>
+
+function validateAgreementContentRules(val: AgreementEditableFields, ctx: z.RefinementCtx) {
+  if (val.type === 'CONSENT_7216') {
+    if (val.title) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['title'],
+        message: 'CONSENT_7216 uses the built-in consent title',
+      })
     }
-    // Uploaded-PDF path: the PDF IS the body. Reject mixing it with HTML/template
-    // sources, then short-circuit the content-required rules below.
-    if (val.uploadedPdfKey) {
-      if (val.contentHtml || val.templateId) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['uploadedPdfKey'],
-          message: 'uploadedPdfKey cannot be combined with contentHtml or templateId',
-        })
-      }
-      return
-    }
-    // CUSTOM requires content (no template fallback exists)
-    if (val.type === 'CUSTOM' && !val.contentHtml) {
+    if (val.contentHtml || val.templateId || val.uploadedPdfKey) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['contentHtml'],
-        message: 'CUSTOM agreement requires contentHtml',
+        message: 'CONSENT_7216 uses the built-in consent document',
       })
     }
-    // CUSTOM cannot reference a template (no template type is CUSTOM).
-    if (val.type === 'CUSTOM' && val.templateId) {
+    if (val.depositAmount != null) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['templateId'],
-        message: 'CUSTOM agreement cannot reference a template',
+        path: ['depositAmount'],
+        message: 'CONSENT_7216 does not support an initial payment',
       })
     }
-    // Non-NDA structured types require either a templateId snapshot or inline content
-    if (
-      (val.type === 'ENGAGEMENT_LETTER' || val.type === 'SERVICE_AGREEMENT') &&
-      !val.templateId &&
-      !val.contentHtml
-    ) {
+    return
+  }
+  // Uploaded-PDF path: the PDF IS the body. Reject mixing it with HTML/template
+  // sources, then short-circuit the content-required rules below.
+  if (val.uploadedPdfKey) {
+    if (val.contentHtml || val.templateId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['templateId'],
-        message: 'Provide either templateId or contentHtml',
+        path: ['uploadedPdfKey'],
+        message: 'uploadedPdfKey cannot be combined with contentHtml or templateId',
       })
     }
+    return
+  }
+  // CUSTOM requires content (no template fallback exists)
+  if (val.type === 'CUSTOM' && !val.contentHtml) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['contentHtml'],
+      message: 'CUSTOM agreement requires contentHtml',
+    })
+  }
+  // CUSTOM cannot reference a template (no template type is CUSTOM).
+  if (val.type === 'CUSTOM' && val.templateId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['templateId'],
+      message: 'CUSTOM agreement cannot reference a template',
+    })
+  }
+  // Non-NDA structured types require either a templateId snapshot or inline content
+  if (
+    (val.type === 'ENGAGEMENT_LETTER' || val.type === 'SERVICE_AGREEMENT') &&
+    !val.templateId &&
+    !val.contentHtml
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['templateId'],
+      message: 'Provide either templateId or contentHtml',
+    })
+  }
+}
+
+const expectedUpdatedAtSchema = z.string().datetime({ offset: true })
+
+export const createAgreementBodySchema =
+  agreementEditableFieldsSchema.superRefine(validateAgreementContentRules)
+
+const agreementDraftFieldsSchema = agreementEditableFieldsSchema.extend({
+  source: agreementSourceSchema.optional(),
+  sourceSnapshot: sourceSnapshotSchema.optional(),
+})
+
+export const saveAgreementDraftBodySchema =
+  agreementDraftFieldsSchema.superRefine(validateAgreementContentRules)
+
+export const updateAgreementDraftBodySchema = agreementDraftFieldsSchema
+  .extend({
+    expectedUpdatedAt: expectedUpdatedAtSchema,
   })
+  .superRefine(validateAgreementContentRules)
+
+export const sendAgreementDraftBodySchema = agreementEditableFieldsSchema
+  .extend({
+    expectedUpdatedAt: expectedUpdatedAtSchema,
+  })
+  .superRefine(validateAgreementContentRules)
+
+export const discardAgreementDraftBodySchema = z
+  .object({
+    expectedUpdatedAt: expectedUpdatedAtSchema,
+  })
+  .strict()
 
 /** Legacy alias retained for transitional callers (NDA-only payload shape). */
 export const createNdaBodySchema = z
@@ -223,6 +275,10 @@ export type ExtendAgreementBody = z.infer<typeof extendAgreementBodySchema>
 export type SignAgreementBody = z.infer<typeof signAgreementBodySchema>
 export type SignNdaBody = SignAgreementBody
 export type CreateAgreementBody = z.infer<typeof createAgreementBodySchema>
+export type SaveAgreementDraftBody = z.infer<typeof saveAgreementDraftBodySchema>
+export type UpdateAgreementDraftBody = z.infer<typeof updateAgreementDraftBodySchema>
+export type SendAgreementDraftBody = z.infer<typeof sendAgreementDraftBodySchema>
+export type DiscardAgreementDraftBody = z.infer<typeof discardAgreementDraftBodySchema>
 export type CreateNdaBody = z.infer<typeof createNdaBodySchema>
 export type PreviewAgreementBody = z.infer<typeof previewAgreementBodySchema>
 export type PreviewNdaBody = PreviewAgreementBody

@@ -697,6 +697,38 @@ export const api = {
           { method: 'POST', body: JSON.stringify(body) },
         ),
 
+      saveDraft: (clientId: string, body: SaveAgreementDraftPayload) =>
+        request<{ success: boolean; data: Agreement }>(
+          `/clients/${clientId}/agreements/drafts`,
+          { method: 'POST', body: JSON.stringify(body) },
+        ),
+
+      updateDraft: (
+        clientId: string,
+        agreementId: string,
+        body: UpdateAgreementDraftPayload,
+      ) =>
+        request<{ success: boolean; data: Agreement }>(
+          `/clients/${clientId}/agreements/${agreementId}/draft`,
+          { method: 'PATCH', body: JSON.stringify(body), retries: 0 },
+        ),
+
+      sendDraft: (
+        clientId: string,
+        agreementId: string,
+        body: SendAgreementDraftPayload,
+      ) =>
+        request<{ success: boolean; data: Agreement; url: string }>(
+          `/clients/${clientId}/agreements/${agreementId}/send`,
+          { method: 'POST', body: JSON.stringify(body), retries: 0 },
+        ),
+
+      discardDraft: (clientId: string, agreementId: string, body: DiscardAgreementDraftPayload) =>
+        request<{ success: boolean; data: { id: string; status: 'DISCARDED' } }>(
+          `/clients/${clientId}/agreements/${agreementId}/draft`,
+          { method: 'DELETE', body: JSON.stringify(body), retries: 0 },
+        ),
+
       resend: (clientId: string, agreementId: string) =>
         request<{ success: boolean; data: Agreement; url: string; rotated: boolean }>(
           `/clients/${clientId}/agreements/${agreementId}/resend`,
@@ -1937,8 +1969,40 @@ export const api = {
           body: JSON.stringify(body),
         }),
 
+      saveDraft: (leadId: string, body: SaveAgreementDraftPayload) =>
+        request<{ success: boolean; data: Agreement }>(`/leads/${leadId}/agreements/drafts`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }),
+
       list: (leadId: string, params?: { type?: AgreementType }) =>
         request<{ success: boolean; data: Agreement[] }>(`/leads/${leadId}/agreements`, { params }),
+
+      updateDraft: (
+        leadId: string,
+        agreementId: string,
+        body: UpdateAgreementDraftPayload,
+      ) =>
+        request<{ success: boolean; data: Agreement }>(
+          `/leads/${leadId}/agreements/${agreementId}/draft`,
+          { method: 'PATCH', body: JSON.stringify(body), retries: 0 },
+        ),
+
+      sendDraft: (
+        leadId: string,
+        agreementId: string,
+        body: SendAgreementDraftPayload,
+      ) =>
+        request<{ success: boolean; data: Agreement; url: string }>(
+          `/leads/${leadId}/agreements/${agreementId}/send`,
+          { method: 'POST', body: JSON.stringify(body), retries: 0 },
+        ),
+
+      discardDraft: (leadId: string, agreementId: string, body: DiscardAgreementDraftPayload) =>
+        request<{ success: boolean; data: { id: string; status: 'DISCARDED' } }>(
+          `/leads/${leadId}/agreements/${agreementId}/draft`,
+          { method: 'DELETE', body: JSON.stringify(body), retries: 0 },
+        ),
 
       resend: (leadId: string, agreementId: string) =>
         request<{ success: boolean; data: Agreement; url: string; rotated: boolean }>(`/leads/${leadId}/agreements/${agreementId}/resend`, { method: 'POST' }),
@@ -2183,14 +2247,23 @@ export type AgreementStatus = NdaStatus
 export type DepositStatus = NdaDepositStatus
 
 export type AgreementType = 'NDA' | 'ENGAGEMENT_LETTER' | 'SERVICE_AGREEMENT' | 'CONSENT_7216' | 'CUSTOM'
+export type AgreementSource = 'MANUAL' | 'CALCULATOR'
 /** Templates exclude built-in consent and CUSTOM (per-send unique content; rejects templateId). */
 export type AgreementTemplateType = Exclude<AgreementType, 'CONSENT_7216' | 'CUSTOM'>
+
+export interface AgreementStaffSummary {
+  id: string
+  name: string
+  email: string
+}
 
 export interface Agreement {
   id: string
   type: AgreementType
   title: string
   internalNote: string | null
+  source: AgreementSource
+  sourceSnapshot: Record<string, unknown> | null
   // Null after the originating Lead is deleted; clientId still pins the agreement to its Client.
   leadId: string | null
   clientId: string | null
@@ -2205,7 +2278,7 @@ export interface Agreement {
   depositPaidAt: string | null
   depositResolvedAt: string | null
   depositNote: string | null
-  token: string
+  token?: string
   expiresAt: string | null
   /** Validity window in days, persisted on the row so resend + extend reuse it. */
   expiryDays: number
@@ -2220,9 +2293,14 @@ export interface Agreement {
   consentBusinessName: string | null
   consentTinLastFour: string | null
   createdByUserId: string
+  lastEditedByUserId: string | null
+  sentByUserId: string | null
+  createdBy?: AgreementStaffSummary
+  lastEditedBy?: AgreementStaffSummary | null
+  sentBy?: AgreementStaffSummary | null
   createdAt: string
   updatedAt: string
-  /** Present on list + create/resend responses. Use this instead of deriving from token client-side. */
+  /** Present only on explicit link-returning actions such as create/resend. */
   url?: string
 }
 
@@ -2262,6 +2340,24 @@ export interface CreateAgreementPayload {
   internalNote?: string
   /** Link validity in days. Server clamps to [1, 90]. Default 30 when omitted. */
   expiryDays?: number
+}
+
+export interface SaveAgreementDraftPayload extends CreateAgreementPayload {
+  source?: AgreementSource
+  sourceSnapshot?: Record<string, unknown>
+  expectedUpdatedAt?: string
+}
+
+export interface UpdateAgreementDraftPayload extends SaveAgreementDraftPayload {
+  expectedUpdatedAt: string
+}
+
+export interface SendAgreementDraftPayload extends CreateAgreementPayload {
+  expectedUpdatedAt: string
+}
+
+export interface DiscardAgreementDraftPayload {
+  expectedUpdatedAt: string
 }
 
 export interface AgreementTemplate {

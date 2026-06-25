@@ -20,6 +20,11 @@ import {
   getPresignedPdfUrlForEntity,
   resendAgreementForEntity,
   extendAgreementForEntity,
+  createAgreementDraftForEntity,
+  updateAgreementDraftForEntity,
+  sendAgreementDraftForEntity,
+  discardAgreementDraftForEntity,
+  stripAgreementToken,
   getDefaultHtmlForEntity,
   renderPreviewPdf,
   storeUploadedPdf,
@@ -30,6 +35,10 @@ import {
   leadAndAgreementIdParamSchema,
   updateDepositBodySchema,
   createAgreementBodySchema,
+  saveAgreementDraftBodySchema,
+  updateAgreementDraftBodySchema,
+  sendAgreementDraftBodySchema,
+  discardAgreementDraftBodySchema,
   previewAgreementBodySchema,
   extendAgreementBodySchema,
 } from './schemas'
@@ -52,6 +61,24 @@ const listQuerySchema = z.object({ type: agreementTypeSchema.optional() }).stric
 const defaultHtmlQuerySchema = z.object({
   type: z.enum(['NDA', 'ENGAGEMENT_LETTER']).default('NDA'),
 }).strict()
+type EditableAgreementBody =
+  | z.infer<typeof createAgreementBodySchema>
+  | z.infer<typeof saveAgreementDraftBodySchema>
+  | z.infer<typeof updateAgreementDraftBodySchema>
+  | z.infer<typeof sendAgreementDraftBodySchema>
+
+function editableAgreementFields(body: EditableAgreementBody) {
+  return {
+    type: body.type,
+    title: body.title,
+    contentHtml: body.contentHtml,
+    templateId: body.templateId,
+    uploadedPdfKey: body.uploadedPdfKey,
+    depositAmount: body.depositAmount,
+    internalNote: body.internalNote,
+    expiryDays: body.expiryDays,
+  }
+}
 
 // POST /:leadId/agreements — create agreement, generate token, send SMS.
 // Body accepts type, title, contentHtml, templateId, depositAmount.
@@ -68,16 +95,31 @@ staffRoute.post(
       entityId: leadId,
       orgId,
       staffId,
-      type: body.type,
-      title: body.title,
-      contentHtml: body.contentHtml,
-      templateId: body.templateId,
-      uploadedPdfKey: body.uploadedPdfKey,
-      depositAmount: body.depositAmount ?? null,
-      internalNote: body.internalNote,
-      expiryDays: body.expiryDays,
+      ...editableAgreementFields(body),
     })
-    return c.json({ success: true, data: agreement, url }, 201)
+    return c.json({ success: true, data: stripAgreementToken(agreement), url }, 201)
+  },
+)
+
+// POST /:leadId/agreements/drafts — save an inactive draft, no public URL/SMS.
+staffRoute.post(
+  '/:leadId/agreements/drafts',
+  zValidator('param', leadIdParamSchema),
+  zValidator('json', saveAgreementDraftBodySchema),
+  async (c) => {
+    const { orgId, staffId } = getAuth(c.get('user'))
+    const { leadId } = c.req.valid('param')
+    const body = c.req.valid('json')
+    const data = await createAgreementDraftForEntity({
+      entityType: 'lead',
+      entityId: leadId,
+      orgId,
+      staffId,
+      ...editableAgreementFields(body),
+      source: body.source,
+      sourceSnapshot: body.sourceSnapshot,
+    })
+    return c.json({ success: true, data: stripAgreementToken(data) }, 201)
   },
 )
 
@@ -172,6 +214,72 @@ staffRoute.get(
   },
 )
 
+// PATCH /:leadId/agreements/:id/draft — update an inactive saved draft.
+staffRoute.patch(
+  '/:leadId/agreements/:id/draft',
+  zValidator('param', leadAndAgreementIdParamSchema),
+  zValidator('json', updateAgreementDraftBodySchema),
+  async (c) => {
+    const { orgId, staffId } = getAuth(c.get('user'))
+    const { leadId, id } = c.req.valid('param')
+    const body = c.req.valid('json')
+    const data = await updateAgreementDraftForEntity({
+      entityType: 'lead',
+      entityId: leadId,
+      agreementId: id,
+      orgId,
+      staffId,
+      ...editableAgreementFields(body),
+      source: body.source,
+      sourceSnapshot: body.sourceSnapshot,
+      expectedUpdatedAt: body.expectedUpdatedAt,
+    })
+    return c.json({ success: true, data: stripAgreementToken(data) })
+  },
+)
+
+// POST /:leadId/agreements/:id/send — finalize draft, rotate token, send SMS.
+staffRoute.post(
+  '/:leadId/agreements/:id/send',
+  zValidator('param', leadAndAgreementIdParamSchema),
+  zValidator('json', sendAgreementDraftBodySchema),
+  async (c) => {
+    const { orgId, staffId } = getAuth(c.get('user'))
+    const { leadId, id } = c.req.valid('param')
+    const body = c.req.valid('json')
+    const result = await sendAgreementDraftForEntity({
+      entityType: 'lead',
+      entityId: leadId,
+      agreementId: id,
+      orgId,
+      staffId,
+      ...editableAgreementFields(body),
+      expectedUpdatedAt: body.expectedUpdatedAt,
+    })
+    return c.json({ success: true, data: stripAgreementToken(result.agreement), url: result.url })
+  },
+)
+
+// DELETE /:leadId/agreements/:id/draft — discard draft with no legal/send history.
+staffRoute.delete(
+  '/:leadId/agreements/:id/draft',
+  zValidator('param', leadAndAgreementIdParamSchema),
+  zValidator('json', discardAgreementDraftBodySchema),
+  async (c) => {
+    const { orgId } = getAuth(c.get('user'))
+    const { leadId, id } = c.req.valid('param')
+    const body = c.req.valid('json')
+    const data = await discardAgreementDraftForEntity({
+      entityType: 'lead',
+      entityId: leadId,
+      agreementId: id,
+      orgId,
+      expectedUpdatedAt: body.expectedUpdatedAt,
+    })
+    return c.json({ success: true, data })
+  },
+)
+
 // PATCH /:leadId/agreements/:id/deposit — update deposit state + note
 staffRoute.patch(
   '/:leadId/agreements/:id/deposit',
@@ -190,7 +298,7 @@ staffRoute.patch(
       note: body.depositNote ?? null,
       paidAt: body.depositPaidAt ? new Date(body.depositPaidAt) : null,
     })
-    return c.json({ success: true, data: updated })
+    return c.json({ success: true, data: stripAgreementToken(updated) })
   },
 )
 
@@ -227,7 +335,7 @@ staffRoute.post(
     })
     return c.json({
       success: true,
-      data: result.agreement,
+      data: stripAgreementToken(result.agreement),
       url: result.url,
       rotated: result.rotated,
     })
@@ -251,7 +359,7 @@ staffRoute.post(
       orgId,
       days,
     })
-    return c.json({ success: true, data })
+    return c.json({ success: true, data: stripAgreementToken(data) })
   },
 )
 

@@ -16,18 +16,17 @@
  *  - depositAmount null → no deposit fields set; row carries no deposit lifecycle
  */
 import type { Prisma, AgreementType } from '@ella/db'
-import { customAlphabet } from 'nanoid'
 import { HTTPException } from 'hono/http-exception'
-import { prisma } from '../../lib/db'
 import { sanitizeAgreementHtml } from '../../lib/agreements/sanitize-html'
 import { findAgreementPlaceholders } from '../../lib/agreements/placeholders'
 import { renderDefaultAgreementHtml } from '../../lib/agreements/render-default-html'
 import { currentTemplate, defaultTemplateForType } from '../../lib/agreements/template-registry'
 import { generateAgreementToken, expiryDate, clampExpiryDays } from './token-service'
-import { sendAgreementInviteSms, sendAgreementInviteSmsForClient } from './agreement-sms'
+import {
+  sendAgreementInviteSmsBestEffort,
+  sendAgreementInviteSmsForClientBestEffort,
+} from './agreement-sms'
 import { generateSignedPdf } from './pdf-generator'
-import { assertValidUploadedPdfKey } from './agreement-upload-ops'
-import { copyR2Object } from '../storage'
 import {
   loadEntityWithOrg,
   loadEntityForV2Snapshot,
@@ -43,6 +42,17 @@ import {
   agreementScopeWhere,
   DEFAULT_DEPOSIT_AMOUNT,
 } from './agreement-shared'
+import {
+  assertNoActiveNdaEngagement,
+  agreementUsesFirmSnapshot,
+  cleanupFirmSignatureSnapshot,
+  lockAgreementEntity,
+  normalizeAgreementDeposit,
+  resolveAgreementContent,
+  resolveAgreementTitle,
+  snapshotFirmSide,
+} from './agreement-content-resolution'
+import { prisma } from '../../lib/db'
 
 // 1×1 transparent PNG. Used as a placeholder pngBuffer for preview renders so
 // `generateSignedPdf` doesn't blow up on Buffer access; the `mode: 'preview'`
@@ -51,8 +61,6 @@ const PREVIEW_PLACEHOLDER_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
   'base64'
 )
-
-const generateFirmSigNonce = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 10)
 
 interface CreateAgreementInput {
   entityType: EntityType
@@ -81,236 +89,18 @@ interface CreateAgreementInput {
   expiryDays?: number | null
 }
 
-const DEFAULT_TITLES: Record<AgreementType, string> = {
-  NDA: 'Non-Disclosure Agreement',
-  ENGAGEMENT_LETTER: 'Engagement Letter',
-  SERVICE_AGREEMENT: 'Service Agreement',
-  CONSENT_7216: 'Consent to Use and Disclose Tax Return Information',
-  CUSTOM: 'Agreement',
-}
-
-/**
- * Resolve the final sanitized customContentHtml + templateVersion for a new
- * Agreement row given a type, optional templateId, and optional content.
- *
- * Defense-in-depth: zod schemas at the route boundary already enforce these
- * rules, but programmatic callers (e.g. `createNdaForLead` from internal
- * services or future Inngest jobs) bypass zod, so the same rules are enforced
- * here at the service boundary too. Throws 422 on rule violations.
- *
- * Precedence: caller-supplied `contentHtml` ALWAYS wins over a `templateId`
- * snapshot — the wizard supplies both when an editor seeds from a template
- * then accepts user edits. The route schema rejects ambiguous cases earlier.
- */
-async function resolveContent(input: {
-  type: AgreementType
-  orgId: string
-  templateId?: string
-  contentHtml?: string
-}): Promise<{
-  customContentHtml: string | null
-  templateVersion: string
-  templateId: string | null
-}> {
-  const sanitized = input.contentHtml ? sanitizeAgreementHtml(input.contentHtml) : ''
-  const customContentHtml = sanitized ? sanitized : null
-
-  // Resolve org-level template snapshot, if requested.
-  let snapshottedHtml: string | null = null
-  let resolvedTemplateId: string | null = null
-  if (input.templateId) {
-    const tpl = await prisma.agreementTemplate.findFirst({
-      where: { id: input.templateId, organizationId: input.orgId, isArchived: false },
-      select: { id: true, type: true, contentHtml: true },
-    })
-    if (!tpl) {
-      throw new HTTPException(404, { message: 'Template not found' })
-    }
-    if (tpl.type !== input.type) {
-      throw new HTTPException(422, { message: 'Template type does not match agreement type' })
-    }
-    resolvedTemplateId = tpl.id
-    // Sanitize template HTML at snapshot time. Phase 03 (template-create) will
-    // sanitize on write too, but applying it here makes this code path safe
-    // independent of template-create's discipline (defense-in-depth + safe even
-    // when seed data is loaded directly via SQL).
-    snapshottedHtml = sanitizeAgreementHtml(tpl.contentHtml) || null
-  }
-
-  // Type-specific content rules.
-  const finalHtml = customContentHtml ?? snapshottedHtml
-  if (input.type === 'CONSENT_7216') {
-    if (input.templateId || finalHtml) {
-      throw new HTTPException(422, {
-        message: 'CONSENT_7216 uses the built-in consent document',
-      })
-    }
-    const builtInConsent = defaultTemplateForType(input.type)
-    return {
-      customContentHtml: null,
-      templateVersion: builtInConsent?.version ?? currentTemplate.version,
-      templateId: null,
-    }
-  }
-  if (input.type === 'ENGAGEMENT_LETTER') {
-    const placeholders = findAgreementPlaceholders(finalHtml)
-    if (placeholders.length > 0) {
-      throw new HTTPException(422, {
-        message: `Engagement Letter has unresolved placeholders: ${placeholders.join(', ')}`,
-      })
-    }
-  }
-  if (input.type === 'CUSTOM' && !finalHtml) {
-    throw new HTTPException(422, { message: 'CUSTOM agreement requires content' })
-  }
-  if ((input.type === 'ENGAGEMENT_LETTER' || input.type === 'SERVICE_AGREEMENT') && !finalHtml) {
-    throw new HTTPException(422, {
-      message: 'Agreement requires either templateId or contentHtml',
-    })
-  }
-
-  // For NDA without explicit content/template, fall back to built-in v1.
-  // templateVersion is always set: built-in version when no org template,
-  // otherwise the built-in current version is still recorded so audit re-renders
-  // through pdf-generator can resolve template structure.
-  const builtInDefault = defaultTemplateForType(input.type)
-  const templateVersion = builtInDefault?.version ?? currentTemplate.version
-
-  return {
-    customContentHtml: finalHtml,
-    templateVersion,
-    templateId: resolvedTemplateId,
-  }
-}
-
-function normalizeDeposit(depositAmount: CreateAgreementInput['depositAmount']): {
-  depositAmount: Prisma.Decimal | string | null
-  depositStatus: 'PENDING' | null
-} {
-  if (depositAmount == null) return { depositAmount: null, depositStatus: null }
-  // Pass through Prisma Decimal / string / number untouched — Prisma coerces.
-  return {
-    depositAmount: depositAmount as Prisma.Decimal | string,
-    depositStatus: 'PENDING',
-  }
-}
-
-/**
- * NDA-only active-engagement gate. Blocks a new NDA send when the same entity
- * already has either an outstanding NDA invite (SENT + isActive) or a SIGNED
- * NDA whose deposit is still in flight (PENDING/PAID). Other agreement types
- * (Engagement Letter, Service Agreement, Custom) bypass this check entirely
- * — they can be sent in parallel and don't carry the engagement-deposit
- * semantics that motivated the gate.
- */
-async function assertNoActiveNdaEngagement(input: {
-  entityType: EntityType
-  entityId: string
-  orgId: string
-}): Promise<void> {
-  const blocking = await prisma.agreement.findFirst({
-    where: {
-      ...agreementScopeWhere(input.entityType, input.entityId),
-      organizationId: input.orgId,
-      type: 'NDA',
-      OR: [
-        { status: 'SENT', isActive: true },
-        { status: 'SIGNED', depositStatus: { in: ['PENDING', 'PAID'] } },
-      ],
-    },
-    select: { id: true, status: true, depositStatus: true },
-  })
-  if (!blocking) return
-  const reason =
-    blocking.status === 'SENT'
-      ? 'An NDA invite is already outstanding'
-      : 'An active NDA engagement already exists'
-  throw new HTTPException(409, { message: reason })
-}
-
-/**
- * Snapshot the CPA's stored signature into a per-agreement R2 copy.
- * Pattern B: store a *copy*, not a reference, so future signature edits don't
- * retro-mutate already-sent NDAs. R2 key is generated up-front so callers can
- * persist it on the row before the actual server-side copy runs (we copy
- * pre-insert; if insert fails the orphan is swept by R2 lifecycle rules).
- *
- * Returns the snapshot fields ready to splat onto Agreement.create.data.
- * Throws 422 when the firm/CPA setup is incomplete — Phase 4 wires the UI
- * pre-flight; this is the server-side last line of defense.
- */
-async function snapshotFirmSide(input: {
-  staffId: string
-  type: AgreementType
-  orgGoverningOk: boolean
-  orgAddressOk: boolean
-  orgContactOk: boolean
-}): Promise<{
-  firmSignerName: string
-  firmSignerTitle: string
-  firmSignerEmail: string
-  firmSignaturePngKey: string
-  firmSignedAt: Date
-}> {
-  const staff = await prisma.staff.findUnique({
-    where: { id: input.staffId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      title: true,
-      signaturePngKey: true,
-    },
-  })
-  if (!staff) {
-    throw new HTTPException(404, { message: 'Staff record not found' })
-  }
-  const missing: string[] = []
-  if (!staff.title?.trim()) missing.push('CPA profile title')
-  if (!staff.signaturePngKey) missing.push('CPA signature')
-  if (!input.orgAddressOk) missing.push('firm address')
-  if (input.type === 'NDA' && !input.orgGoverningOk) missing.push('governing law')
-  if (input.type === 'ENGAGEMENT_LETTER' && !input.orgContactOk) missing.push('firm contact')
-  if (missing.length > 0) {
-    throw new HTTPException(422, {
-      message: `${DEFAULT_TITLES[input.type]} cannot be sent: missing ${missing.join(', ')}. Complete Settings → Profile + Settings → General first.`,
-    })
-  }
-
-  // Generate unique destination key. Done before copy so any failure leaves
-  // no DB row pointing at a half-written object.
-  const firmSigKey = `agreement-firm-sigs/${staff.id}/${generateFirmSigNonce()}.png`
-  await copyR2Object({ from: staff.signaturePngKey!, to: firmSigKey })
-
-  return {
-    firmSignerName: staff.name,
-    firmSignerTitle: staff.title!.trim(),
-    firmSignerEmail: staff.email,
-    firmSignaturePngKey: firmSigKey,
-    firmSignedAt: new Date(),
-  }
-}
-
 export async function createAgreementForEntity(input: CreateAgreementInput) {
   const type = input.type ?? 'NDA'
-  if (type === 'CONSENT_7216' && input.title?.trim()) {
-    throw new HTTPException(422, {
-      message: 'CONSENT_7216 uses the built-in consent title',
-    })
-  }
-  const title =
-    type === 'CONSENT_7216'
-      ? DEFAULT_TITLES.CONSENT_7216
-      : input.title?.trim() || DEFAULT_TITLES[type]
   if (type === 'CONSENT_7216' && input.uploadedPdfKey) {
     throw new HTTPException(422, {
       message: 'CONSENT_7216 uses the built-in consent document',
     })
   }
   const isUploadedPdf = Boolean(input.uploadedPdfKey)
+  const title = resolveAgreementTitle({ type, title: input.title })
   // Uploaded PDFs always carry a firm counter-signature on the appended page, so
   // they use the v2 snapshot loader regardless of agreement type.
-  const usesFirmSnapshot = isUploadedPdf || type === 'NDA' || type === 'ENGAGEMENT_LETTER'
+  const usesFirmSnapshot = agreementUsesFirmSnapshot({ type, uploadedPdfKey: input.uploadedPdfKey })
 
   // NDA + Engagement Letter use the v2 snapshot loader (firm + business client
   // fields). Other types use the legacy narrow loader.
@@ -328,43 +118,19 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
         requirePhone: true,
       })
 
-  // Active-engagement gate is NDA-only. Other types are parallel-sendable.
-  if (type === 'NDA') {
-    await assertNoActiveNdaEngagement({
-      entityType: input.entityType,
-      entityId: entity.id,
-      orgId: input.orgId,
-    })
-  }
-
-  // Uploaded-PDF path bypasses HTML/template content resolution entirely — the
-  // PDF is the body. templateVersion is still recorded (built-in default for the
-  // type) so any code that calls getTemplate(version) stays safe, though signing
-  // takes the merge path and never renders from it.
-  let customContentHtml: string | null
-  let templateVersion: string
-  let templateId: string | null
-  if (isUploadedPdf) {
-    assertValidUploadedPdfKey(input.uploadedPdfKey!, entity.id)
-    customContentHtml = null
-    templateId = null
-    templateVersion = defaultTemplateForType(type)?.version ?? currentTemplate.version
-  } else {
-    const resolved = await resolveContent({
-      type,
-      orgId: input.orgId,
-      templateId: input.templateId,
-      contentHtml: input.contentHtml,
-    })
-    customContentHtml = resolved.customContentHtml
-    templateVersion = resolved.templateVersion
-    templateId = resolved.templateId
-  }
+  const { customContentHtml, templateVersion, templateId } = await resolveAgreementContent({
+    type,
+    orgId: input.orgId,
+    entityId: entity.id,
+    templateId: input.templateId,
+    contentHtml: input.contentHtml,
+    uploadedPdfKey: input.uploadedPdfKey,
+  })
 
   const deposit =
     type === 'CONSENT_7216'
       ? { depositAmount: null, depositStatus: null }
-      : normalizeDeposit(input.depositAmount)
+      : normalizeAgreementDeposit(input.depositAmount)
 
   const trimmedNote = input.internalNote?.trim() || null
 
@@ -379,6 +145,7 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
     // they render on the appended signature page.
     firmSnapshot = await snapshotFirmSide({
       staffId: input.staffId,
+      orgId: input.orgId,
       type,
       orgAddressOk:
         isUploadedPdf ||
@@ -399,35 +166,58 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
 
   const token = generateAgreementToken()
   const expiryDays = clampExpiryDays(input.expiryDays)
-  const agreement = await prisma.agreement.create({
-    data: {
-      ...agreementScopeWhere(input.entityType, entity.id),
-      organizationId: input.orgId,
-      createdByUserId: input.staffId,
-      type,
-      title,
-      internalNote: trimmedNote,
-      templateId,
-      templateVersion,
-      customContentHtml,
-      uploadedPdfKey: input.uploadedPdfKey ?? null,
-      status: 'SENT',
-      token,
-      expiresAt: expiryDate(expiryDays),
-      expiryDays,
-      isActive: true,
-      depositAmount: deposit.depositAmount,
-      depositStatus: deposit.depositStatus,
-      ...(firmSnapshot ?? {}),
-    },
-  })
+  let agreement: Awaited<ReturnType<typeof prisma.agreement.create>>
+  try {
+    agreement = await prisma.$transaction(async (tx) => {
+      await lockAgreementEntity(tx, {
+        entityType: input.entityType,
+        entityId: entity.id,
+        orgId: input.orgId,
+      })
+      if (type === 'NDA') {
+        await assertNoActiveNdaEngagement(
+          {
+            entityType: input.entityType,
+            entityId: entity.id,
+            orgId: input.orgId,
+          },
+          tx,
+        )
+      }
+      return tx.agreement.create({
+        data: {
+          ...agreementScopeWhere(input.entityType, entity.id),
+          organizationId: input.orgId,
+          createdByUserId: input.staffId,
+          type,
+          title,
+          internalNote: trimmedNote,
+          templateId,
+          templateVersion,
+          customContentHtml,
+          uploadedPdfKey: input.uploadedPdfKey ?? null,
+          status: 'SENT',
+          token,
+          expiresAt: expiryDate(expiryDays),
+          expiryDays,
+          isActive: true,
+          depositAmount: deposit.depositAmount,
+          depositStatus: deposit.depositStatus,
+          ...(firmSnapshot ?? {}),
+        },
+      })
+    })
+  } catch (error) {
+    await cleanupFirmSignatureSnapshot(firmSnapshot)
+    throw error
+  }
 
   const url = buildAgreementUrl(token)
   // entity.phone is non-null here (requirePhone:true above)
   const recipient = { id: entity.id, firstName: entity.firstName ?? '', phone: entity.phone! }
   const orgName = entity.organization.name
   if (input.entityType === 'lead') {
-    await sendAgreementInviteSms({
+    await sendAgreementInviteSmsBestEffort({
       lead: recipient,
       orgId: input.orgId,
       staffId: input.staffId,
@@ -436,7 +226,7 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
       orgName,
     })
   } else {
-    await sendAgreementInviteSmsForClient({
+    await sendAgreementInviteSmsForClientBestEffort({
       client: recipient,
       orgId: input.orgId,
       staffId: input.staffId,

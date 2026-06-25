@@ -83,6 +83,35 @@ export class ApiError extends Error {
   }
 }
 
+let disabledAccountHandler: (() => void) | null = null
+
+export function setDisabledAccountHandler(handler: (() => void) | null) {
+  disabledAccountHandler = handler
+}
+
+export function isDisabledAccountError(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return false
+  if (error.status !== 403) return false
+
+  const payload = error.payload as { message?: unknown; error?: unknown; code?: unknown } | undefined
+  const payloadMessage = typeof payload?.message === 'string' ? payload.message : ''
+  const payloadError = typeof payload?.error === 'string' ? payload.error : ''
+  const payloadCode = typeof payload?.code === 'string' ? payload.code : ''
+
+  return (
+    error.message === 'Account has been disabled' ||
+    payloadMessage === 'Account has been disabled' ||
+    payloadError === 'ACCOUNT_DISABLED' ||
+    payloadCode === 'ACCOUNT_DISABLED'
+  )
+}
+
+function notifyDisabledAccount(error: ApiError) {
+  if (isDisabledAccountError(error)) {
+    disabledAccountHandler?.()
+  }
+}
+
 // Generic response type for paginated lists
 export interface PaginatedResponse<T> {
   data: T[]
@@ -325,12 +354,14 @@ async function attemptRequest<T>(url: string, fetchOptions: RequestInit, timeout
 
     if (!response.ok) {
       const errorData = data as { code?: string; error?: string; message?: string }
-      throw new ApiError(
+      const apiError = new ApiError(
         response.status,
         errorData.code || errorData.error || 'UNKNOWN_ERROR',
         errorData.message || errorData.error || 'An unknown error occurred',
         errorData
       )
+      notifyDisabledAccount(apiError)
+      throw apiError
     }
 
     return data as T

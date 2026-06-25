@@ -6,6 +6,8 @@ import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Button } from '@ella/ui'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { UI_TEXT } from '../lib/constants'
+import { isDisabledAccountError } from '../lib/api-client'
+import { DisabledAccountScreen } from './auth/disabled-account-screen'
 
 interface Props {
   children: ReactNode
@@ -39,6 +41,10 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback
+      }
+
+      if (isDisabledAccountError(this.state.error)) {
+        return <DisabledAccountScreen />
       }
 
       const { errorBoundary } = UI_TEXT

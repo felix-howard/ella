@@ -5,6 +5,20 @@
 
 ---
 
+### Disabled Staff Login UX Polish
+**Status:** Complete
+
+**Changed:**
+- Added a dedicated disabled-account screen for removed staff attempting to access Workspace after Clerk org removal or inactive Staff API rejection.
+- Wired workspace auth gating and compliance gates to show the clear disabled-account message instead of generic no-org/status errors.
+
+**Validation:**
+- `pnpm -F @ella/workspace exec vitest run src/lib/api-client-auth-errors.test.ts src/components/auth/disabled-account-screen.test.tsx src/components/contractor-agreements/__tests__/contractor-agreement-gate.test.tsx` pass, 7 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass, workspace 3065 keys and portal 531 keys
+- `pnpm -F @ella/workspace lint` pass with 12 pre-existing warnings outside this change
+- `git diff --check` pass
+
 ### Team Clerk Membership Reconciliation Phase 4
 **Status:** Complete
 

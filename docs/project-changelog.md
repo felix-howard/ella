@@ -5,6 +5,24 @@
 
 ---
 
+### Audit Detection Terminology Cleanup
+**Status:** Complete
+
+**Fixed:**
+- Replaced remaining user-facing old audit terminology with `Audit Detection` across landing pages, SEO metadata, pricing copy, calculator accessibility labels, and generated calculator Engagement Letter fee labels.
+- Kept internal `auditProtection`/`AUDIT_PROTECTION` data keys unchanged to avoid breaking quote, checkout, and calculator payload contracts.
+
+**Validation:**
+- Repository scan for old audit phrase/slug pass, no matches outside ignored dependency/git dirs
+- `pnpm -F @ella/workspace test -- src/components/pricing/__tests__/engagement-letter-content-builder.test.ts src/components/pricing/__tests__/pricing-calculator.test.ts` pass, 25 tests
+- `pnpm -F @ella/shared type-check` pass
+- `pnpm -F @ella/landing type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/landing build` pass
+- `pnpm -F @ella/landing lint`, `pnpm -F @ella/workspace lint`, `pnpm -F @ella/shared lint` pass; workspace lint has 12 existing warnings, 0 errors
+- `pnpm i18n:check` pass
+- `git diff --check` pass
+
 ### Pricing Calculator Quantity Input Stability
 **Status:** Complete
 
@@ -2756,7 +2774,7 @@
 **Status:** Complete (Phase 07 of 07 — Final)
 **Branch:** feature/more-work-on-ella
 
-**Summary:** Landing pricing page polish finalized. Mobile UX enhanced with fixed-position bottom-bar summary panel (CSS-only `<details>` toggle, no JS overhead). Panel content duplicated in mobile drawer with `renderResult()` using `querySelectorAll()` for multi-source updates. All form inputs now have `aria-describedby` attributes linking to help-text paragraphs for screen-reader clarity. Tab order verified end-to-end across tier cards, form sections, and CTA. 8 tax-focused FAQ items integrated (pricing calculation, tier differences, upgrade/downgrade, 1099 definition, audit protection details, cash plan mechanics, deposit refund policy, service geography). JSON-LD faqSchema updated for SEO. iOS safe-area inset applied to mobile bar; sticky behavior preserved on desktop panel. All files verified <200 LOC; summary-panel content extracted to partial to prevent drift.
+**Summary:** Landing pricing page polish finalized. Mobile UX enhanced with fixed-position bottom-bar summary panel (CSS-only `<details>` toggle, no JS overhead). Panel content duplicated in mobile drawer with `renderResult()` using `querySelectorAll()` for multi-source updates. All form inputs now have `aria-describedby` attributes linking to help-text paragraphs for screen-reader clarity. Tab order verified end-to-end across tier cards, form sections, and CTA. 8 tax-focused FAQ items integrated (pricing calculation, tier differences, upgrade/downgrade, 1099 definition, audit detection details, cash plan mechanics, deposit refund policy, service geography). JSON-LD faqSchema updated for SEO. iOS safe-area inset applied to mobile bar; sticky behavior preserved on desktop panel. All files verified <200 LOC; summary-panel content extracted to partial to prevent drift.
 
 **Files Changed:**
 - **UPDATED:** `apps/landing/src/components/pricing/summary-panel.astro` — mobile `<details>` bottom bar + content partial reference
@@ -2821,13 +2839,13 @@
 **Status:** Complete (Phase 03 of 07)
 **Branch:** feature/more-work-on-ella
 
-**Summary:** Static HTML calculator form renders under `#calculator` on `/pricing`. Five sections (business basics, cash plan, audit protection, one-time services, sales tax monitoring) expose a stable `data-calc-input="<key>"` DOM contract that phase 05 will hydrate. No JS logic yet — pure markup + Tailwind.
+**Summary:** Static HTML calculator form renders under `#calculator` on `/pricing`. Five sections (business basics, cash plan, audit detection, one-time services, sales tax monitoring) expose a stable `data-calc-input="<key>"` DOM contract that phase 05 will hydrate. No JS logic yet — pure markup + Tailwind.
 
 **What Changed:**
 - **NEW:** `calculator-section.astro` — 2-col grid wrapping form (left) + summary panel placeholder (right).
 - **NEW:** `calculator-form.astro` — orchestrator composing business + services sub-panels inside a single `<form id="pricing-calculator-form">` with `onsubmit="return false"` guard.
 - **NEW:** `calculator-form-business.astro` — Section A: 1099 count, W-2 payroll count, payroll-mode radio cards.
-- **NEW:** `calculator-form-services.astro` — Sections B-E: Cash Plan (collapsible), Audit Protection toggle, One-time services (collapsible list), sales-tax shops.
+- **NEW:** `calculator-form-services.astro` — Sections B-E: Cash Plan (collapsible), Audit Detection toggle, One-time services (collapsible list), sales-tax shops.
 - **NEW:** `calculator-form-styles.ts` — shared Tailwind class constants (DRY across sub-panels).
 - **UPDATED:** `pricing.astro` — imports + mounts `<CalculatorSection />` inside `#calculator-root`, replacing the coming-soon placeholder.
 
@@ -2858,7 +2876,7 @@
 - **UPDATED:** `pricing-constants.ts` — added `tagline` on BASIC/PRO/ENTERPRISE; added `marketingLabel: "VIP"` on ENTERPRISE; tweaked bullet copy for marketing parity.
 
 **Key Features:**
-- 3-tier pricing cards: Basic (≤10 workers), Pro (11-20, popular), VIP (Pro + Audit Protection bundle)
+- 3-tier pricing cards: Basic (≤10 workers), Pro (11-20, popular), VIP (Pro + Audit Detection bundle)
 - Taglines: "For small shops starting out" / "For growing salons" / "Complete peace of mind"
 - Anchors preserved: `#pricing`, `#calculator`, `#faq`
 - SEO updated: title, breadcrumb schema, faq schema

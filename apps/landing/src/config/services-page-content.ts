@@ -6,8 +6,8 @@ export const serviceDetails = [
     bullets: ["Solves notice, balance, penalty, and unfiled-year pressure", "For IRS or state tax notice recipients", "Reviews notices, account facts, prior returns, payments, and records", "Delivers a resolution action plan and response preparation support"],
   },
   {
-    audience: "Audit protection",
-    title: "Audit protection",
+    audience: "Audit detection",
+    title: "Audit detection",
     description: "Advisor-supported protection for return positions, documentation, and communication if tax agencies ask questions.",
     bullets: ["Solves audit documentation gaps", "For individuals, owners, and businesses with more complex returns", "Reviews deductions, credits, books, receipts, payroll, and source records", "Delivers audit-ready record organization and response coordination"],
   },
@@ -24,7 +24,7 @@ export const serviceDetails = [
     bullets: ["Solves annual filing complexity", "For W-2, 1099, investment, rental, Schedule C, and entity returns", "Collects income forms, deductions, credits, business records, and filing details", "Delivers reviewed return preparation and filing next steps"],
   },
   {
-    audience: "Audit protection",
+    audience: "Audit detection",
     title: "Bookkeeping and cleanup",
     description: "Cleanup and recurring bookkeeping support that helps make records tax-ready and audit-ready.",
     bullets: ["Solves messy or incomplete books", "For owners preparing for filings, notices, or audit questions", "Reviews bank activity, categories, receipts, and open questions", "Delivers cleaner books and tax-ready summaries"],
@@ -58,7 +58,7 @@ export const serviceDetails = [
 export const onlineServiceSupport = [
   {
     label: "Document collection",
-    description: "Ella gives a service-specific checklist for resolution, audit protection, compliance, or filing work.",
+    description: "Ella gives a service-specific checklist for resolution, audit detection, compliance, or filing work.",
   },
   {
     label: "Advisor review",
@@ -77,7 +77,7 @@ export const onlineServiceSupport = [
 export const servicesProcessSteps = [
   {
     title: "Intake",
-    description: "Ella confirms whether you need resolution, audit protection, compliance, filing, or advisory support.",
+    description: "Ella confirms whether you need resolution, audit detection, compliance, filing, or advisory support.",
   },
   {
     title: "Document collection",
@@ -108,7 +108,7 @@ export const servicesFaqs = [
   },
   {
     question: "Do you only prepare individual returns?",
-    answer: "No. Ella focuses on tax resolution, audit protection, and compliance, with support for individuals, families, self-employed clients, small businesses, bookkeeping cleanup, payroll records, sales tax, franchise tax, notices, and advisory questions.",
+    answer: "No. Ella focuses on tax resolution, audit detection, and compliance, with support for individuals, families, self-employed clients, small businesses, bookkeeping cleanup, payroll records, sales tax, franchise tax, notices, and advisory questions.",
   },
   {
     question: "Can Ella clean up books before tax filing?",

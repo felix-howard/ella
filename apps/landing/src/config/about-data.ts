@@ -17,7 +17,7 @@ export const serviceHighlights = [
     bullets: ["IRS and state notices", "Balance and penalty review", "Response preparation"],
   },
   {
-    title: "Audit protection",
+    title: "Audit detection",
     description:
       "Return support review, audit-ready record organization, and advisor coordination for tax agency questions.",
     audience: "Protection support",
@@ -36,7 +36,7 @@ export const howWeWorkSteps = [
   {
     title: "Start online",
     description:
-      "Begin with the path that fits your tax resolution, audit protection, compliance, or filing need.",
+      "Begin with the path that fits your tax resolution, audit detection, compliance, or filing need.",
   },
   {
     title: "Organize records",
@@ -85,12 +85,12 @@ export const aboutFaq = [
   {
     question: "Can I work with Ella Tax Services without visiting the office?",
     answer:
-      "Yes. The service is built for online tax resolution, audit protection, compliance, secure document sharing, calls, email, filing, and advisor-supported follow-up.",
+      "Yes. The service is built for online tax resolution, audit detection, compliance, secure document sharing, calls, email, filing, and advisor-supported follow-up.",
   },
   {
     question: "What services does Ella Tax Services provide?",
     answer:
-      "Ella Tax Services focuses on tax resolution, audit protection, and compliance, with support for individual tax prep, business tax prep, advisory, bookkeeping cleanup, payroll coordination, sales tax, franchise tax, notices, and business advisory.",
+      "Ella Tax Services focuses on tax resolution, audit detection, and compliance, with support for individual tax prep, business tax prep, advisory, bookkeeping cleanup, payroll coordination, sales tax, franchise tax, notices, and business advisory.",
   },
 ] as const;
 

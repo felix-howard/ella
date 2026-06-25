@@ -152,7 +152,7 @@ export function PricingEngagementLetterPanel({
           entity={modal.entity}
           recipientLabel={modal.recipientLabel}
           recipientHint={modal.recipientHint}
-          contentHtml={modal.contentHtml}
+          draftSeed={modal.draftSeed}
           onClose={() => setModal(null)}
         />
       )}

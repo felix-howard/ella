@@ -59,6 +59,10 @@ When the user asks to create a plan, generate a plan file, or prepare implementa
 - **KISS**: Keep It Simple, Stupid - prefer simple solutions
 - **DRY**: Don't Repeat Yourself - eliminate code duplication
 
+## Database & Migrations
+
+- **Never edit a migration file after it has been applied to any database.** If a schema change is needed after a migration has been applied, create a new migration instead of modifying the existing migration history.
+
 ## Documentation
 
 Keep all important docs in `./docs` folder:

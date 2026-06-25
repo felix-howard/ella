@@ -5,8 +5,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('../../../lib/db', () => ({
-  prisma: {
+vi.mock('../../../lib/db', () => {
+  const prisma: any = {
     lead: { findFirst: vi.fn() },
     staff: { findUnique: vi.fn() },
     agreement: {
@@ -14,13 +14,19 @@ vi.mock('../../../lib/db', () => ({
       findFirst: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
+      deleteMany: vi.fn(),
     },
-  },
-}))
+    $executeRaw: vi.fn(),
+    $transaction: vi.fn(async (fn: any) => fn(prisma)),
+  }
+  return { prisma }
+})
 
 vi.mock('../../../services/storage', () => ({
   getSignedDownloadUrl: vi.fn(),
   copyR2Object: vi.fn().mockResolvedValue({ key: 'copied' }),
+  deleteFile: vi.fn().mockResolvedValue(true),
 }))
 
 // Mock both new and legacy export names. agreement-create-ops imports
@@ -30,7 +36,9 @@ const { sharedSendInviteMock } = vi.hoisted(() => ({
 }))
 vi.mock('../../../services/agreements/agreement-sms', () => ({
   sendAgreementInviteSms: sharedSendInviteMock,
+  sendAgreementInviteSmsBestEffort: sharedSendInviteMock,
   sendAgreementInviteSmsForClient: vi.fn().mockResolvedValue(undefined),
+  sendAgreementInviteSmsForClientBestEffort: vi.fn().mockResolvedValue(undefined),
 }))
 
 // Bypass Clerk auth — inject a user directly
@@ -60,6 +68,12 @@ import { prisma } from '../../../lib/db'
 import { getSignedDownloadUrl } from '../../../services/storage'
 import { sendAgreementInviteSms } from '../../../services/agreements/agreement-sms'
 import { staffRoute } from '../staff-handlers'
+import {
+  discardAgreementDraftBodySchema,
+  saveAgreementDraftBodySchema,
+  sendAgreementDraftBodySchema,
+  updateAgreementDraftBodySchema,
+} from '../schemas'
 
 const mockLeadFindFirst = vi.mocked(prisma.lead.findFirst)
 const mockStaffFindUnique = vi.mocked(prisma.staff.findUnique)
@@ -67,11 +81,32 @@ const mockNdaCreate = vi.mocked(prisma.agreement.create)
 const mockNdaFindFirst = vi.mocked(prisma.agreement.findFirst)
 const mockNdaFindMany = vi.mocked(prisma.agreement.findMany)
 const mockNdaUpdate = vi.mocked(prisma.agreement.update)
+const mockNdaUpdateMany = vi.mocked(prisma.agreement.updateMany)
+const mockNdaDeleteMany = vi.mocked(prisma.agreement.deleteMany)
 const mockGetSignedUrl = vi.mocked(getSignedDownloadUrl)
 const mockSendSms = vi.mocked(sendAgreementInviteSms)
 
 const app = new Hono()
 app.route('/leads', staffRoute)
+
+describe('agreement draft body schemas', () => {
+  it('preserves omitted editable fields and requires concurrency for update/send/discard', () => {
+    const expectedUpdatedAt = '2026-06-25T10:00:00.000Z'
+
+    const saveBody = saveAgreementDraftBodySchema.parse({})
+    const updateBody = updateAgreementDraftBodySchema.parse({ expectedUpdatedAt })
+    const sendBody = sendAgreementDraftBodySchema.parse({ expectedUpdatedAt })
+    const discardBody = discardAgreementDraftBodySchema.parse({ expectedUpdatedAt })
+
+    expect(saveBody).toEqual({})
+    expect(updateBody).toEqual({ expectedUpdatedAt })
+    expect(sendBody).toEqual({ expectedUpdatedAt })
+    expect(discardBody).toEqual({ expectedUpdatedAt })
+    expect(() => updateAgreementDraftBodySchema.parse({})).toThrow()
+    expect(() => sendAgreementDraftBodySchema.parse({})).toThrow()
+    expect(() => discardAgreementDraftBodySchema.parse({})).toThrow()
+  })
+})
 
 const ORG_V2_FIELDS = {
   id: 'org-1',
@@ -101,6 +136,7 @@ function lead(overrides: Record<string, unknown> = {}) {
 function staffWithSignature(overrides: Record<string, unknown> = {}) {
   return {
     id: 'staff-1',
+    organizationId: 'org-1',
     name: 'Felix Howard',
     email: 'felix@acme.test',
     title: 'Managing Partner, CPA',
@@ -114,6 +150,7 @@ function nda(overrides: Record<string, unknown> = {}) {
     id: 'nda-1',
     leadId: 'lead-1',
     organizationId: 'org-1',
+    type: 'NDA',
     title: 'Non-Disclosure Agreement',
     token: 'tok_28chars_aaaaaaaaaaaaaaaaaa',
     status: 'SENT',
@@ -156,6 +193,7 @@ describe('Staff NDA handlers', () => {
       expect(res.status).toBe(201)
       expect(json.success).toBe(true)
       expect(json.data.id).toBe('nda-1')
+      expect(json.data.token).toBeUndefined()
       expect(json.url).toMatch(/\/agreements\/[A-Za-z0-9]{28}$/)
       expect(mockSendSms).toHaveBeenCalledTimes(1)
       // Legacy path: contentHtml absent → row stores customContentHtml: null
@@ -379,7 +417,7 @@ describe('Staff NDA handlers', () => {
   })
 
   describe('GET /leads/:leadId/nda', () => {
-    it('lists NDAs for the lead with computed url', async () => {
+    it('lists NDAs for the lead without exposing public url or token', async () => {
       mockLeadFindFirst.mockResolvedValueOnce(lead() as any)
       mockNdaFindMany.mockResolvedValueOnce([nda({ id: 'n1' }), nda({ id: 'n2' })] as any)
 
@@ -388,10 +426,34 @@ describe('Staff NDA handlers', () => {
 
       expect(res.status).toBe(200)
       expect(json.data).toHaveLength(2)
-      expect(json.data[0].url).toContain('/agreements/')
+      expect(json.data[0].url).toBeUndefined()
+      expect(json.data[0].token).toBeUndefined()
       // scoped by org
       const listCall = mockNdaFindMany.mock.calls[0][0] as any
       expect(listCall.where).toEqual({ leadId: 'lead-1', organizationId: 'org-1' })
+    })
+
+    it('does not return a public url or token for draft agreements', async () => {
+      mockLeadFindFirst.mockResolvedValueOnce(lead() as any)
+      mockNdaFindMany.mockResolvedValueOnce([
+        nda({ id: 'draft-active', status: 'DRAFT', isActive: true }),
+        nda({ id: 'sent-inactive', status: 'SENT', isActive: false }),
+        nda({ id: 'signed-active', status: 'SIGNED', isActive: true }),
+      ] as any)
+
+      const res = await app.request('/leads/lead-1/agreements')
+      const json = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(json.data.map((item: { id: string }) => item.id)).toEqual([
+        'draft-active',
+        'sent-inactive',
+        'signed-active',
+      ])
+      for (const item of json.data) {
+        expect(item.url).toBeUndefined()
+        expect(item.token).toBeUndefined()
+      }
     })
 
     it('returns 404 when lead belongs to another org (cross-org isolation)', async () => {
@@ -401,6 +463,51 @@ describe('Staff NDA handlers', () => {
       // Prove the lookup was org-scoped, not a bare ID match
       const where = (mockLeadFindFirst.mock.calls[0][0] as any).where
       expect(where).toMatchObject({ id: 'foreign', organizationId: 'org-1' })
+    })
+  })
+
+  describe('DELETE /leads/:leadId/agreements/:id/draft', () => {
+    const updatedAt = new Date('2026-06-25T10:00:00.000Z')
+
+    function discardReq(body: unknown = { expectedUpdatedAt: updatedAt.toISOString() }) {
+      return app.request('/leads/lead-1/agreements/draft-1/draft', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    }
+
+    it('passes DELETE body freshness into the guarded discard operation', async () => {
+      mockNdaFindFirst.mockResolvedValueOnce(nda({
+        id: 'draft-1',
+        status: 'DRAFT',
+        isActive: false,
+        updatedAt,
+      }) as any)
+      mockNdaDeleteMany.mockResolvedValueOnce({ count: 1 } as any)
+
+      const res = await discardReq()
+      const json = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(json.data).toEqual({ id: 'draft-1', status: 'DISCARDED' })
+      expect(mockNdaDeleteMany).toHaveBeenCalledWith({
+        where: {
+          id: 'draft-1',
+          leadId: 'lead-1',
+          organizationId: 'org-1',
+          status: 'DRAFT',
+          updatedAt,
+        },
+      })
+    })
+
+    it('rejects missing discard freshness before loading the draft', async () => {
+      const res = await discardReq({})
+
+      expect(res.status).toBe(400)
+      expect(mockNdaFindFirst).not.toHaveBeenCalled()
+      expect(mockNdaDeleteMany).not.toHaveBeenCalled()
     })
   })
 
@@ -494,17 +601,23 @@ describe('Staff NDA handlers', () => {
     })
 
     it('rotates token when expired (rotated=true, update called)', async () => {
-      mockNdaFindFirst.mockResolvedValueOnce(
-        nda({ expiresAt: new Date('2020-01-01T00:00:00Z'), lead: lead() }) as any
-      )
-      mockNdaUpdate.mockResolvedValueOnce(nda({ lead: lead() }) as any)
+      mockNdaFindFirst
+        .mockResolvedValueOnce(
+          nda({ expiresAt: new Date('2020-01-01T00:00:00Z'), lead: lead() }) as any
+        )
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(
+          nda({ expiresAt: new Date('2020-01-01T00:00:00Z'), lead: lead() }) as any
+        )
+        .mockResolvedValueOnce(nda({ lead: lead() }) as any)
+      mockNdaUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
 
       const res = await app.request('/leads/lead-1/agreements/nda-1/resend', { method: 'POST' })
       const json = await res.json()
 
       expect(res.status).toBe(200)
       expect(json.rotated).toBe(true)
-      expect(mockNdaUpdate).toHaveBeenCalledTimes(1)
+      expect(mockNdaUpdateMany).toHaveBeenCalledTimes(1)
     })
 
     it('returns 409 when NDA already SIGNED', async () => {

@@ -327,18 +327,20 @@ function NumberField({
   max: number
   disabled?: boolean
 }) {
+  const displayValue = value === 0 ? '' : String(value)
+
   return (
     <label htmlFor={id} className="block text-xs font-medium text-foreground">
       {label}
       <Input
         id={id}
-        type="number"
-        min={0}
-        max={max}
+        type="text"
         inputMode="numeric"
-        value={value === 0 ? '' : value}
+        pattern="[0-9]*"
+        maxLength={String(max).length}
+        value={displayValue}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => onChange(event.target.value.replace(/[^\d]/g, ''))}
         className={`mt-1 ${numberInputClass}`}
       />
       {hint && <span className="mt-1 block text-xs text-muted-foreground">{hint}</span>}

@@ -214,3 +214,29 @@ export async function sendAgreementInviteSmsForClient(params: {
     channel: 'SMS',
   }).catch(() => {})
 }
+
+export async function sendAgreementInviteSmsBestEffort(
+  params: Parameters<typeof sendAgreementInviteSms>[0],
+): Promise<void> {
+  try {
+    await sendAgreementInviteSms(params)
+  } catch (error) {
+    console.error(
+      `[Agreement] Lead invite notification failed after agreement commit lead=${params.lead.id} org=${params.orgId}`,
+      error,
+    )
+  }
+}
+
+export async function sendAgreementInviteSmsForClientBestEffort(
+  params: Parameters<typeof sendAgreementInviteSmsForClient>[0],
+): Promise<void> {
+  try {
+    await sendAgreementInviteSmsForClient(params)
+  } catch (error) {
+    console.error(
+      `[Agreement] Client invite notification failed after agreement commit client=${params.client.id} org=${params.orgId}`,
+      error,
+    )
+  }
+}

@@ -26,7 +26,7 @@ export const inquiryCards = [
     title: "What to include",
     items: [
       "Service you need",
-      "Tax resolution, audit protection, or compliance concern",
+      "Tax resolution, audit detection, or compliance concern",
       "Tax year or deadline",
       "Individual, family, or business context",
       "Best phone and email",
@@ -57,7 +57,7 @@ export const getStartedFaqItems = [
   {
     question: "Can I start online if I am not in Houston?",
     answer:
-      "Yes. Ella Tax Services supports online tax resolution, audit protection, compliance, and filing workflows. We confirm state-specific needs before starting work.",
+      "Yes. Ella Tax Services supports online tax resolution, audit detection, compliance, and filing workflows. We confirm state-specific needs before starting work.",
   },
   {
     question: "Should I upload tax documents through this page?",

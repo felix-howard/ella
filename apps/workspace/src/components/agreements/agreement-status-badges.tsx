@@ -6,7 +6,12 @@
  */
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
-import type { AgreementType, NdaStatus, NdaDepositStatus } from '../../lib/api-client'
+import type {
+  AgreementSource,
+  AgreementType,
+  NdaStatus,
+  NdaDepositStatus,
+} from '../../lib/api-client'
 
 const ndaStatusStyles: Record<NdaStatus, string> = {
   DRAFT: 'bg-muted text-muted-foreground border-border',
@@ -59,5 +64,20 @@ export function AgreementTypeBadge({ type }: { type: AgreementType }) {
   const { t } = useTranslation()
   return (
     <span className={cn(baseBadge, agreementTypeStyles[type])}>{t(`agreements.type.${type}`)}</span>
+  )
+}
+
+const agreementSourceStyles: Record<AgreementSource, string> = {
+  MANUAL: 'bg-muted text-muted-foreground border-border',
+  CALCULATOR:
+    'bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800',
+}
+
+export function AgreementSourceBadge({ source }: { source: AgreementSource }) {
+  const { t } = useTranslation()
+  return (
+    <span className={cn(baseBadge, agreementSourceStyles[source])}>
+      {t(`agreements.source.${source}`)}
+    </span>
   )
 }

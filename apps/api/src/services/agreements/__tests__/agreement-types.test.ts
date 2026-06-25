@@ -10,8 +10,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('../../../lib/db', () => ({
-  prisma: {
+vi.mock('../../../lib/db', () => {
+  const prisma: any = {
     lead: { findFirst: vi.fn() },
     client: { findFirst: vi.fn() },
     staff: { findUnique: vi.fn() },
@@ -22,16 +22,22 @@ vi.mock('../../../lib/db', () => ({
     agreementTemplate: {
       findFirst: vi.fn(),
     },
-  },
-}))
+    $executeRaw: vi.fn(),
+    $transaction: vi.fn(async (fn: any) => fn(prisma)),
+  }
+  return { prisma }
+})
 
 vi.mock('../agreement-sms', () => ({
   sendAgreementInviteSms: vi.fn().mockResolvedValue(undefined),
+  sendAgreementInviteSmsBestEffort: vi.fn().mockResolvedValue(undefined),
   sendAgreementInviteSmsForClient: vi.fn().mockResolvedValue(undefined),
+  sendAgreementInviteSmsForClientBestEffort: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('../../storage', () => ({
   copyR2Object: vi.fn().mockResolvedValue({ key: 'copied' }),
+  deleteFile: vi.fn().mockResolvedValue(true),
 }))
 
 import type * as TokenServiceModule from '../token-service'
@@ -82,6 +88,7 @@ function leadWithOrg(overrides: Record<string, unknown> = {}) {
 function staffWithSignature(overrides: Record<string, unknown> = {}) {
   return {
     id: 'staff-1',
+    organizationId: 'org-1',
     name: 'Felix Howard',
     email: 'felix@acme.test',
     title: 'Managing Partner, CPA',

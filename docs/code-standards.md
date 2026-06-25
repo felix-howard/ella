@@ -224,6 +224,14 @@ app.get('/clients/:clientId/contractors', async (c) => {
 - Migration: Existing agreements auto-populate `templateVersion: 'v1'`; new NDAs default to `templateVersion: 'v2'`
 - Pattern: `if (agreement.templateVersion === 'v2') { renderV2Template() } else { renderV1Template() }`
 
+**Agreement Draft and Public Link Safety:**
+- Workspace agreement list serializers must not return raw `Agreement.token` or public signing `url`; only explicit create/send/resend responses may return public links.
+- Draft rows may keep an internal required token for DB compatibility, but send flow must rotate to a fresh token before exposing it.
+- Public agreement GET/sign endpoints must require `status === 'SENT' && isActive`; signing keeps expiry checks.
+- Resend/extend/send lifecycle writes must be scoped by org/entity and use atomic status guards such as `updateMany`, never unguarded read-check-write that can resurrect SIGNED/VOIDED/DRAFT rows.
+- Saved-draft update/discard endpoints must also require an `expectedUpdatedAt` freshness check and fail closed on stale rows.
+- Calculator-seeded agreement drafts are distinct from manual drafts: only `DRAFT` rows with `source='CALCULATOR'` are eligible for calculator resume prompts, and their `sourceSnapshot` must stay minimal (`preparedAt`, recipient id/type, setupTotal, monthlyTotal, tierLabel) with no raw pricing input/result blobs.
+
 ## Storage Conventions (@ella/api)
 
 - Use `generateStaffFileKey()` for staff uploads. Personal documents must land under `staff-files/{orgId}/{staffId}/documents/{uuid}.{ext}` and invoices under `staff-files/{orgId}/{staffId}/invoices/{yyyy-mm}/{uuid}.{ext}`.

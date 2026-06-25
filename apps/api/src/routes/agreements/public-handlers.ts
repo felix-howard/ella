@@ -40,6 +40,9 @@ publicRoute.get(
     const { token } = c.req.valid('param')
     const agreement = await loadAgreementByToken(token)
     if (!agreement) throw new HTTPException(404, { message: 'Agreement link not found' })
+    if (agreement.status !== 'SENT' || !agreement.isActive) {
+      throw new HTTPException(409, { message: 'Agreement link is not active' })
+    }
     return c.json({ success: true, data: await toPublicView(agreement) })
   },
 )

@@ -27,11 +27,20 @@ import {
   getPresignedPdfUrlForEntity,
   resendAgreementForEntity,
   extendAgreementForEntity,
+  createAgreementDraftForEntity,
+  updateAgreementDraftForEntity,
+  sendAgreementDraftForEntity,
+  discardAgreementDraftForEntity,
+  stripAgreementToken,
   renderPreviewPdf,
   storeUploadedPdf,
 } from '../../services/agreements/agreement-service'
 import {
   createAgreementBodySchema,
+  saveAgreementDraftBodySchema,
+  updateAgreementDraftBodySchema,
+  sendAgreementDraftBodySchema,
+  discardAgreementDraftBodySchema,
   previewAgreementBodySchema,
   updateDepositBodySchema,
   extendAgreementBodySchema,
@@ -46,6 +55,24 @@ const clientsAgreementsStaffRoute = new Hono<{ Variables: AuthVariables }>()
 const defaultHtmlQuerySchema = z.object({
   type: z.enum(['NDA', 'ENGAGEMENT_LETTER']).default('NDA'),
 }).strict()
+type EditableAgreementBody =
+  | z.infer<typeof createAgreementBodySchema>
+  | z.infer<typeof saveAgreementDraftBodySchema>
+  | z.infer<typeof updateAgreementDraftBodySchema>
+  | z.infer<typeof sendAgreementDraftBodySchema>
+
+function editableAgreementFields(body: EditableAgreementBody) {
+  return {
+    type: body.type,
+    title: body.title,
+    contentHtml: body.contentHtml,
+    templateId: body.templateId,
+    uploadedPdfKey: body.uploadedPdfKey,
+    depositAmount: body.depositAmount,
+    internalNote: body.internalNote,
+    expiryDays: body.expiryDays,
+  }
+}
 
 function getAuth(user: AuthUser): { orgId: string; staffId: string } {
   if (!user.organizationId) {
@@ -72,16 +99,32 @@ clientsAgreementsStaffRoute.post(
       entityId: clientId,
       orgId,
       staffId,
-      type: body.type,
-      title: body.title,
-      contentHtml: body.contentHtml,
-      templateId: body.templateId,
-      uploadedPdfKey: body.uploadedPdfKey,
-      depositAmount: body.depositAmount ?? null,
-      internalNote: body.internalNote,
-      expiryDays: body.expiryDays,
+      ...editableAgreementFields(body),
     })
-    return c.json({ success: true, data: agreement, url }, 201)
+    return c.json({ success: true, data: stripAgreementToken(agreement), url }, 201)
+  },
+)
+
+// POST /:clientId/agreements/drafts — save an inactive draft, no public URL/SMS.
+clientsAgreementsStaffRoute.post(
+  '/:clientId/agreements/drafts',
+  requireAdminOrManager,
+  zValidator('param', clientIdParamSchema),
+  zValidator('json', saveAgreementDraftBodySchema),
+  async (c) => {
+    const { orgId, staffId } = getAuth(c.get('user'))
+    const { clientId } = c.req.valid('param')
+    const body = c.req.valid('json')
+    const data = await createAgreementDraftForEntity({
+      entityType: 'client',
+      entityId: clientId,
+      orgId,
+      staffId,
+      ...editableAgreementFields(body),
+      source: body.source,
+      sourceSnapshot: body.sourceSnapshot,
+    })
+    return c.json({ success: true, data: stripAgreementToken(data) }, 201)
   },
 )
 
@@ -160,6 +203,75 @@ clientsAgreementsStaffRoute.post(
   },
 )
 
+// PATCH /:clientId/agreements/:id/draft — update an inactive saved draft.
+clientsAgreementsStaffRoute.patch(
+  '/:clientId/agreements/:id/draft',
+  requireAdminOrManager,
+  zValidator('param', clientAndAgreementIdParamSchema),
+  zValidator('json', updateAgreementDraftBodySchema),
+  async (c) => {
+    const { orgId, staffId } = getAuth(c.get('user'))
+    const { clientId, id } = c.req.valid('param')
+    const body = c.req.valid('json')
+    const data = await updateAgreementDraftForEntity({
+      entityType: 'client',
+      entityId: clientId,
+      agreementId: id,
+      orgId,
+      staffId,
+      ...editableAgreementFields(body),
+      source: body.source,
+      sourceSnapshot: body.sourceSnapshot,
+      expectedUpdatedAt: body.expectedUpdatedAt,
+    })
+    return c.json({ success: true, data: stripAgreementToken(data) })
+  },
+)
+
+// POST /:clientId/agreements/:id/send — finalize draft, rotate token, send SMS.
+clientsAgreementsStaffRoute.post(
+  '/:clientId/agreements/:id/send',
+  requireAdminOrManager,
+  zValidator('param', clientAndAgreementIdParamSchema),
+  zValidator('json', sendAgreementDraftBodySchema),
+  async (c) => {
+    const { orgId, staffId } = getAuth(c.get('user'))
+    const { clientId, id } = c.req.valid('param')
+    const body = c.req.valid('json')
+    const result = await sendAgreementDraftForEntity({
+      entityType: 'client',
+      entityId: clientId,
+      agreementId: id,
+      orgId,
+      staffId,
+      ...editableAgreementFields(body),
+      expectedUpdatedAt: body.expectedUpdatedAt,
+    })
+    return c.json({ success: true, data: stripAgreementToken(result.agreement), url: result.url })
+  },
+)
+
+// DELETE /:clientId/agreements/:id/draft — discard draft with no legal/send history.
+clientsAgreementsStaffRoute.delete(
+  '/:clientId/agreements/:id/draft',
+  requireAdminOrManager,
+  zValidator('param', clientAndAgreementIdParamSchema),
+  zValidator('json', discardAgreementDraftBodySchema),
+  async (c) => {
+    const { orgId } = getAuth(c.get('user'))
+    const { clientId, id } = c.req.valid('param')
+    const body = c.req.valid('json')
+    const data = await discardAgreementDraftForEntity({
+      entityType: 'client',
+      entityId: clientId,
+      agreementId: id,
+      orgId,
+      expectedUpdatedAt: body.expectedUpdatedAt,
+    })
+    return c.json({ success: true, data })
+  },
+)
+
 // PATCH /:clientId/agreements/:id/deposit — update deposit state + note
 clientsAgreementsStaffRoute.patch(
   '/:clientId/agreements/:id/deposit',
@@ -179,7 +291,7 @@ clientsAgreementsStaffRoute.patch(
       note: body.depositNote ?? null,
       paidAt: body.depositPaidAt ? new Date(body.depositPaidAt) : null,
     })
-    return c.json({ success: true, data: updated })
+    return c.json({ success: true, data: stripAgreementToken(updated) })
   },
 )
 
@@ -218,7 +330,7 @@ clientsAgreementsStaffRoute.post(
     })
     return c.json({
       success: true,
-      data: result.agreement,
+      data: stripAgreementToken(result.agreement),
       url: result.url,
       rotated: result.rotated,
     })
@@ -243,7 +355,7 @@ clientsAgreementsStaffRoute.post(
       orgId,
       days,
     })
-    return c.json({ success: true, data })
+    return c.json({ success: true, data: stripAgreementToken(data) })
   },
 )
 

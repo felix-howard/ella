@@ -5,7 +5,138 @@
 
 ---
 
+### Audit Detection Terminology Cleanup
+**Status:** Complete
+
+**Fixed:**
+- Replaced remaining user-facing old audit terminology with `Audit Detection` across landing pages, SEO metadata, pricing copy, calculator accessibility labels, and generated calculator Engagement Letter fee labels.
+- Kept internal `auditProtection`/`AUDIT_PROTECTION` data keys unchanged to avoid breaking quote, checkout, and calculator payload contracts.
+
+**Validation:**
+- Repository scan for old audit phrase/slug pass, no matches outside ignored dependency/git dirs
+- `pnpm -F @ella/workspace test -- src/components/pricing/__tests__/engagement-letter-content-builder.test.ts src/components/pricing/__tests__/pricing-calculator.test.ts` pass, 25 tests
+- `pnpm -F @ella/shared type-check` pass
+- `pnpm -F @ella/landing type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/landing build` pass
+- `pnpm -F @ella/landing lint`, `pnpm -F @ella/workspace lint`, `pnpm -F @ella/shared lint` pass; workspace lint has 12 existing warnings, 0 errors
+- `pnpm i18n:check` pass
+- `git diff --check` pass
+
+### Pricing Calculator Quantity Input Stability
+**Status:** Complete
+
+**Fixed:**
+- Changed calculator quantity fields from browser number inputs to numeric text inputs, preventing focused fields from changing values during page scroll/trackpad wheel events.
+- Kept digit-only input, empty zero display, and max-length/clamp guards for quantities including Cash Plan owners/shareholders.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/pricing/__tests__/pricing-calculator.test.tsx` pass, 19 tests
+- `pnpm -F @ella/workspace test -- src/components/pricing` pass, 78 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with 12 existing warnings, 0 errors
+- `pnpm -F @ella/workspace build` pass with existing route-file and chunk-size warnings
+- `git diff --check` pass
+
+### Agreement Draft Collaboration Phase 6
+**Status:** Complete
+
+**Changed:**
+- Manual Agreement wizard flows and pricing-calculator Engagement Letters now share the same draft-capable editor; opening it does not create a draft.
+- First save stays explicit; autosave starts only after that first successful save and sends `expectedUpdatedAt` on later updates.
+- Draft send/discard keep the `expectedUpdatedAt` freshness guard; saved draft sends also snapshot the original draft creator's firm signer, record the actual sender via `sentByUserId`, and strip raw signing tokens/URLs from route responses.
+- Calculator resume/discard is DRAFT-only: the prompt resumes only `DRAFT` + `CALCULATOR` rows, and saved draft cards expose only `Resume` and `Discard`.
+
+**Validation:**
+- Phase 6 regression suite passed across API/workspace type-checks, agreement/client/calculator tests, and i18n check.
+
+### Agreement Draft Collaboration Phase 5
+**Status:** Complete
+
+**Changed:**
+- Calculator Engagement Letters now reuse the shared `AgreementDraftEditor` with `source="CALCULATOR"` and a minimal `sourceSnapshot` containing only `preparedAt`, recipient id/type, setup total, monthly total, and tier label.
+- If a recipient already has a `DRAFT` + `CALCULATOR` engagement-letter draft, the modal offers explicit `Resume saved calculator draft` vs `Start from current quote`; manual drafts are ignored for the calculator prompt.
+- Calculator submit is draft-first: the first save creates the draft only, preview/send stays blocked until a draft exists, and final send goes through the draft-send endpoint so the original creator signer is preserved and the actual sender is recorded.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- calculator-engagement-letter` pass
+- `pnpm -F @ella/workspace test -- pricing-engagement-letter-panel` pass
+- `pnpm -F @ella/workspace test -- agreement-editor-actions` pass
+- `pnpm i18n:check` pass
+
+---
+
+### Agreement Draft Collaboration Phase 4
+**Status:** Complete
+
+**Changed:**
+- Agreement list now surfaces saved drafts as first-class cards in the workspace and sorts drafts ahead of sent/signed rows by latest edit.
+- Draft cards expose resumable draft metadata and only show `Resume` and `Discard` actions.
+- Draft discard now carries an `expectedUpdatedAt` freshness guard so stale UI state cannot delete newer draft content.
+- `Send agreement` now offers a compact continue-existing-draft vs start-new choice when drafts already exist.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api test -- agreements` pass, 22 files / 342 tests
+- `pnpm -F @ella/workspace test -- agreement` pass, 9 files / 23 tests
+- `pnpm i18n:check` pass
+
+---
+
 ## 2026-06-25
+
+### Agreement Draft Collaboration Phase 3
+**Status:** Complete
+
+**Changed:**
+- Added a shared workspace draft editor for manual Agreement wizard flows and pricing-calculator Engagement Letters.
+- First save is explicit; autosave starts only after a successful draft save and sends `expectedUpdatedAt` for conflict protection.
+- Saved draft sends finalize through the draft send endpoint, while unsaved `Preview & Send` keeps the immediate send path.
+- Conflict states block send, show a reload action, and also disable Send inside the PDF preview modal if a conflict appears while preview is open.
+- Calculator handoff now stores `source="CALCULATOR"` plus pricing source snapshot; manual wizard preserves saved draft metadata across Step 3 back/return navigation.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- agreement` pass, 9 files / 23 tests
+- `pnpm -F @ella/workspace test -- calculator-engagement-letter-modal pricing-engagement-letter-panel` pass, 2 files / 7 tests
+- `pnpm i18n:check` pass
+
+---
+
+### Agreement Draft Collaboration Phase 2
+**Status:** Complete
+
+**Changed:**
+- Added lead/client draft lifecycle API operations for create, update, send, and discard.
+- Draft send now requires `expectedUpdatedAt`, snapshots firm signer from the original draft creator, records the actual sender, rotates a fresh public token, and sends the invite only after the guarded DB update.
+- Immediate NDA create, draft send, resend, and extend use entity advisory locks/status guards to prevent active NDA races and stale link resurrection.
+- Agreement invite notifications are best-effort after commit, and copied firm signature snapshots are cleaned up best-effort when final guarded writes fail.
+- Staff list/mutation responses keep raw tokens redacted; only explicit create/send/resend responses return public URLs.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test -- agreement-service staff-handlers public-handlers agreements` pass, 22 files / 338 tests
+
+---
+
+### Agreement Draft Collaboration Phase 1
+**Status:** Complete
+
+**Changed:**
+- Added Agreement draft foundation fields (`AgreementSource`, `sourceSnapshot`, `lastEditedByUserId`, `sentByUserId`) plus staff inverse relations and status indexes.
+- Added draft save/send request schemas and workspace API types for agreement source metadata and staff summaries.
+- Agreement list responses now include staff/source metadata but redact public signing `token` and `url`; explicit send/resend/create actions remain the link-returning boundary.
+- Public agreement view rejects non-SENT or inactive rows, and resend/extend use scoped atomic status guards to avoid resurrecting draft, signed, or voided rows.
+
+**Validation:**
+- `pnpm -F @ella/api test -- agreements` pass, 22 files / 328 tests
+- `pnpm -F @ella/db type-check`, `pnpm -F @ella/api type-check`, `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/db generate` pass
+- Migration SQL reviewed as additive only
+
+---
 
 ### Payment Calculator Rate Overrides
 **Status:** Complete
@@ -2643,7 +2774,7 @@
 **Status:** Complete (Phase 07 of 07 — Final)
 **Branch:** feature/more-work-on-ella
 
-**Summary:** Landing pricing page polish finalized. Mobile UX enhanced with fixed-position bottom-bar summary panel (CSS-only `<details>` toggle, no JS overhead). Panel content duplicated in mobile drawer with `renderResult()` using `querySelectorAll()` for multi-source updates. All form inputs now have `aria-describedby` attributes linking to help-text paragraphs for screen-reader clarity. Tab order verified end-to-end across tier cards, form sections, and CTA. 8 tax-focused FAQ items integrated (pricing calculation, tier differences, upgrade/downgrade, 1099 definition, audit protection details, cash plan mechanics, deposit refund policy, service geography). JSON-LD faqSchema updated for SEO. iOS safe-area inset applied to mobile bar; sticky behavior preserved on desktop panel. All files verified <200 LOC; summary-panel content extracted to partial to prevent drift.
+**Summary:** Landing pricing page polish finalized. Mobile UX enhanced with fixed-position bottom-bar summary panel (CSS-only `<details>` toggle, no JS overhead). Panel content duplicated in mobile drawer with `renderResult()` using `querySelectorAll()` for multi-source updates. All form inputs now have `aria-describedby` attributes linking to help-text paragraphs for screen-reader clarity. Tab order verified end-to-end across tier cards, form sections, and CTA. 8 tax-focused FAQ items integrated (pricing calculation, tier differences, upgrade/downgrade, 1099 definition, audit detection details, cash plan mechanics, deposit refund policy, service geography). JSON-LD faqSchema updated for SEO. iOS safe-area inset applied to mobile bar; sticky behavior preserved on desktop panel. All files verified <200 LOC; summary-panel content extracted to partial to prevent drift.
 
 **Files Changed:**
 - **UPDATED:** `apps/landing/src/components/pricing/summary-panel.astro` — mobile `<details>` bottom bar + content partial reference
@@ -2708,13 +2839,13 @@
 **Status:** Complete (Phase 03 of 07)
 **Branch:** feature/more-work-on-ella
 
-**Summary:** Static HTML calculator form renders under `#calculator` on `/pricing`. Five sections (business basics, cash plan, audit protection, one-time services, sales tax monitoring) expose a stable `data-calc-input="<key>"` DOM contract that phase 05 will hydrate. No JS logic yet — pure markup + Tailwind.
+**Summary:** Static HTML calculator form renders under `#calculator` on `/pricing`. Five sections (business basics, cash plan, audit detection, one-time services, sales tax monitoring) expose a stable `data-calc-input="<key>"` DOM contract that phase 05 will hydrate. No JS logic yet — pure markup + Tailwind.
 
 **What Changed:**
 - **NEW:** `calculator-section.astro` — 2-col grid wrapping form (left) + summary panel placeholder (right).
 - **NEW:** `calculator-form.astro` — orchestrator composing business + services sub-panels inside a single `<form id="pricing-calculator-form">` with `onsubmit="return false"` guard.
 - **NEW:** `calculator-form-business.astro` — Section A: 1099 count, W-2 payroll count, payroll-mode radio cards.
-- **NEW:** `calculator-form-services.astro` — Sections B-E: Cash Plan (collapsible), Audit Protection toggle, One-time services (collapsible list), sales-tax shops.
+- **NEW:** `calculator-form-services.astro` — Sections B-E: Cash Plan (collapsible), Audit Detection toggle, One-time services (collapsible list), sales-tax shops.
 - **NEW:** `calculator-form-styles.ts` — shared Tailwind class constants (DRY across sub-panels).
 - **UPDATED:** `pricing.astro` — imports + mounts `<CalculatorSection />` inside `#calculator-root`, replacing the coming-soon placeholder.
 
@@ -2745,7 +2876,7 @@
 - **UPDATED:** `pricing-constants.ts` — added `tagline` on BASIC/PRO/ENTERPRISE; added `marketingLabel: "VIP"` on ENTERPRISE; tweaked bullet copy for marketing parity.
 
 **Key Features:**
-- 3-tier pricing cards: Basic (≤10 workers), Pro (11-20, popular), VIP (Pro + Audit Protection bundle)
+- 3-tier pricing cards: Basic (≤10 workers), Pro (11-20, popular), VIP (Pro + Audit Detection bundle)
 - Taglines: "For small shops starting out" / "For growing salons" / "Complete peace of mind"
 - Anchors preserved: `#pricing`, `#calculator`, `#faq`
 - SEO updated: title, breadcrumb schema, faq schema

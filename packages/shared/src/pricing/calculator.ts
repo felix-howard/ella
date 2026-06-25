@@ -160,12 +160,12 @@ export function calculatePricing(input: PricingCalculatorInput): PricingCalculat
 
   if (input.auditProtection) {
     monthly.push({
-      label: 'Audit Protection',
+      label: 'Audit Detection',
       amount: input.rates.auditProtection.monthly,
       kind: 'monthly',
     })
     setup.push({
-      label: 'Audit Protection setup',
+      label: 'Audit Detection setup',
       amount: input.rates.auditProtection.setup,
       kind: 'setup',
     })

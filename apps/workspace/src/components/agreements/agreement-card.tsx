@@ -10,6 +10,7 @@ import { Copy, RefreshCw, FileText, Loader2, Pencil, Clock } from 'lucide-react'
 import { useResendAgreement, agreementsApi } from './use-agreement-mutations'
 import { UpdateDepositPanel } from './update-deposit-panel'
 import { NdaReadonlyCard } from './agreement-readonly-card'
+import { AgreementDraftCard } from './agreement-draft-card'
 import { ResendPaymentLinkButton } from './resend-payment-link-button'
 import { AgreementExtendModal } from './agreement-extend-modal'
 import { getExpiryStatus } from './agreement-expiry'
@@ -30,6 +31,10 @@ export function NdaCard({ entity, nda }: Props) {
   const [extendOpen, setExtendOpen] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const resendMutation = useResendAgreement(entity, nda.type)
+
+  if (nda.status === 'DRAFT') {
+    return <AgreementDraftCard entity={entity} draft={nda} />
+  }
 
   const handleCopyLink = () => {
     if (!nda.url) {
@@ -56,6 +61,7 @@ export function NdaCard({ entity, nda }: Props) {
   }
 
   const canCopyOrResend = nda.status === 'SENT' && nda.isActive
+  const canCopyLink = canCopyOrResend && Boolean(nda.url)
   const canViewPdf = nda.status === 'SIGNED' && !!nda.signedPdfKey
   // Extend is only meaningful while the link is still the source of truth.
   // Allow it both when active and when expired (lets staff resurrect a link
@@ -76,7 +82,7 @@ export function NdaCard({ entity, nda }: Props) {
   // View PDF rendered here (not via shared card) so it lines up with the
   // other entity-page actions on a single flex row.
   const hasActions =
-    canCopyOrResend || canExtend || canViewPdf || canEditDeposit || canResendPaymentLink
+    canCopyLink || canCopyOrResend || canExtend || canViewPdf || canEditDeposit || canResendPaymentLink
 
   return (
     <div className="rounded-xl border border-border/60 bg-card p-4 shadow-sm transition-colors hover:border-border">
@@ -84,30 +90,30 @@ export function NdaCard({ entity, nda }: Props) {
 
       {hasActions && (
         <div className="mt-4 flex flex-wrap gap-2 border-t border-border/60 pt-3">
+          {canCopyLink && (
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted/70"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              {t('nda.card.copyLink')}
+            </button>
+          )}
           {canCopyOrResend && (
-            <>
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted/70"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                {t('nda.card.copyLink')}
-              </button>
-              <button
-                type="button"
-                onClick={handleResend}
-                disabled={resendMutation.isPending}
-                className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted/70 disabled:opacity-50"
-              >
-                {resendMutation.isPending ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-3.5 h-3.5" />
-                )}
-                {t('nda.card.resend')}
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resendMutation.isPending}
+              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted/70 disabled:opacity-50"
+            >
+              {resendMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" />
+              )}
+              {t('nda.card.resend')}
+            </button>
           )}
           {canExtend && (
             <button

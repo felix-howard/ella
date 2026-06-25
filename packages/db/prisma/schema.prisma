@@ -514,6 +514,8 @@ model Staff {
   sentSmsLogs                    SmsSendLog[]                    @relation("SentSmsLogs")
   createdCampaigns               Campaign[]                      @relation("CreatedCampaigns")
   agreementsCreated              Agreement[]                     @relation("AgreementCreatedBy")
+  agreementsLastEdited           Agreement[]                     @relation("AgreementLastEditedBy")
+  agreementsSent                 Agreement[]                     @relation("AgreementSentBy")
   agreementTemplatesCreated      AgreementTemplate[]             @relation("AgreementTemplateCreatedBy")
   createdPaymentQuotes           PaymentQuote[]                  @relation("PaymentQuoteCreatedBy")
   sentQuotes                     PaymentQuote[]                  @relation("QuoteSentBy")
@@ -1454,6 +1456,11 @@ enum AgreementStatus {
   VOIDED
 }
 
+enum AgreementSource {
+  MANUAL
+  CALCULATOR
+}
+
 enum DepositStatus {
   PENDING
   PAID
@@ -1974,9 +1981,11 @@ model Agreement {
   id String @id @default(cuid())
 
   // Type + display
-  type         AgreementType @default(NDA)
-  title        String        @db.VarChar(200)
-  internalNote String?       @db.Text
+  type           AgreementType   @default(NDA)
+  title          String          @db.VarChar(200)
+  internalNote   String?         @db.Text
+  source         AgreementSource @default(MANUAL)
+  sourceSnapshot Json?
 
   // Tenancy
   // leadId is nullable + SetNull so agreements are preserved (linked to clientId) when a converted Lead is deleted.
@@ -2043,8 +2052,12 @@ model Agreement {
   consentTinLastFour  String? @db.VarChar(4)
 
   // Audit
-  createdByUserId String
-  createdBy       Staff  @relation("AgreementCreatedBy", fields: [createdByUserId], references: [id])
+  createdByUserId    String
+  createdBy          Staff   @relation("AgreementCreatedBy", fields: [createdByUserId], references: [id])
+  lastEditedByUserId String?
+  lastEditedBy       Staff?  @relation("AgreementLastEditedBy", fields: [lastEditedByUserId], references: [id], onDelete: SetNull)
+  sentByUserId       String?
+  sentBy             Staff?  @relation("AgreementSentBy", fields: [sentByUserId], references: [id], onDelete: SetNull)
 
   payments Payment[]
 
@@ -2057,6 +2070,8 @@ model Agreement {
   @@index([token])
   @@index([status])
   @@index([leadId, status])
+  @@index([clientId, status])
+  @@index([organizationId, status])
   @@index([organizationId, type])
   @@index([templateId])
 }

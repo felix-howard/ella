@@ -5,6 +5,21 @@
 
 ---
 
+### Pricing Calculator Quantity Input Stability
+**Status:** Complete
+
+**Fixed:**
+- Changed calculator quantity fields from browser number inputs to numeric text inputs, preventing focused fields from changing values during page scroll/trackpad wheel events.
+- Kept digit-only input, empty zero display, and max-length/clamp guards for quantities including Cash Plan owners/shareholders.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/pricing/__tests__/pricing-calculator.test.tsx` pass, 19 tests
+- `pnpm -F @ella/workspace test -- src/components/pricing` pass, 78 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with 12 existing warnings, 0 errors
+- `pnpm -F @ella/workspace build` pass with existing route-file and chunk-size warnings
+- `git diff --check` pass
+
 ### Agreement Draft Collaboration Phase 6
 **Status:** Complete
 

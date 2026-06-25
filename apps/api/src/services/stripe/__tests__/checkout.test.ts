@@ -230,7 +230,7 @@ describe('Stripe checkout session params', () => {
     expect(() => buildParams(quote)).toThrow(CheckoutQuoteError)
   })
 
-  it('rejects discounted rate overrides below defaults', () => {
+  it('allows discounted rate overrides below defaults', () => {
     const discounted = {
       ...basePricingInput,
       rates: {
@@ -239,7 +239,12 @@ describe('Stripe checkout session params', () => {
       },
     }
 
-    expect(() => calculateCheckoutQuote(discounted)).toThrow(CheckoutQuoteError)
+    const quote = calculateCheckoutQuote(discounted)
+
+    expect(quote.monthlyTotal).toBe(50)
+    expect(quote.monthlyItems).toEqual([
+      { label: 'Pro tier', amount: 50, kind: 'monthly' },
+    ])
   })
 
   it('rejects checkout without a billable selection', () => {

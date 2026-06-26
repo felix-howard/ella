@@ -27,6 +27,14 @@ const companyVaultUpdateSchema = companyVaultCreateSchema.partial().refine(
   (value) => Object.keys(value).length > 0,
   { message: 'At least one field is required' }
 )
+const companyVaultReorderSchema = z.object({
+  credentialIds: z.array(z.string().min(1)).min(1).max(500).refine(
+    (ids) => new Set(ids).size === ids.length,
+    { message: 'Credential ids must be unique' }
+  ),
+})
+const SORT_ORDER_STEP = 10
+
 function getOrganizationId(user: AuthVariables['user']): string {
   if (!user.organizationId) {
     throw new Error('Organization context missing after requireOrg')
@@ -52,6 +60,13 @@ function encryptOptional(value: string | null | undefined): string | null | unde
 function decryptOptional(value: string | null): string | null {
   return value ? decryptSensitiveValue(value) : null
 }
+async function getNextSortOrder(organizationId: string): Promise<number> {
+  const result = await prisma.companyVaultCredential.aggregate({
+    where: { organizationId },
+    _max: { sortOrder: true },
+  })
+  return (result._max.sortOrder ?? 0) + SORT_ORDER_STEP
+}
 function serializeCredential(credential: CompanyVaultCredential) {
   return {
     id: credential.id,
@@ -59,6 +74,7 @@ function serializeCredential(credential: CompanyVaultCredential) {
     username: decryptOptional(credential.usernameEncrypted),
     password: decryptOptional(credential.passwordEncrypted),
     note: decryptOptional(credential.noteEncrypted),
+    sortOrder: credential.sortOrder,
     createdAt: credential.createdAt.toISOString(),
     updatedAt: credential.updatedAt.toISOString(),
   }
@@ -98,7 +114,7 @@ companyVaultRoute.get('/', async (c) => {
 
   const credentials = await prisma.companyVaultCredential.findMany({
     where: { organizationId },
-    orderBy: [{ toolName: 'asc' }, { createdAt: 'asc' }],
+    orderBy: [{ sortOrder: 'asc' }, { toolName: 'asc' }, { createdAt: 'asc' }],
   })
   const serialized = credentials.map(serializeCredential)
   const data = search
@@ -114,6 +130,7 @@ companyVaultRoute.post('/', zValidator('json', companyVaultCreateSchema), async 
   const organizationId = getOrganizationId(user)
   const staffId = getStaffId(user)
   const data = c.req.valid('json')
+  const sortOrder = await getNextSortOrder(organizationId)
   const credential = await prisma.companyVaultCredential.create({
     data: {
       organizationId,
@@ -121,6 +138,7 @@ companyVaultRoute.post('/', zValidator('json', companyVaultCreateSchema), async 
       usernameEncrypted: encryptOptional(data.username),
       passwordEncrypted: encryptOptional(data.password),
       noteEncrypted: encryptOptional(data.note),
+      sortOrder,
     },
   })
   await logVaultActivity({
@@ -133,6 +151,49 @@ companyVaultRoute.post('/', zValidator('json', companyVaultCreateSchema), async 
   }, c)
 
   return c.json({ credential: serializeCredential(credential) }, 201)
+})
+companyVaultRoute.post('/reorder', zValidator('json', companyVaultReorderSchema), async (c) => {
+  const user = c.get('user')
+  const organizationId = getOrganizationId(user)
+  const staffId = getStaffId(user)
+  const { credentialIds } = c.req.valid('json')
+  const credentials = await prisma.companyVaultCredential.findMany({
+    where: { organizationId },
+    select: { id: true },
+    orderBy: [{ sortOrder: 'asc' }, { toolName: 'asc' }, { createdAt: 'asc' }],
+  })
+  const existingIds = new Set(credentials.map((credential) => credential.id))
+  const includesEveryCredential =
+    credentialIds.length === credentials.length &&
+    credentialIds.every((credentialId) => existingIds.has(credentialId))
+
+  if (!includesEveryCredential) {
+    return c.json({ error: 'Reorder requires all current credentials' }, 400)
+  }
+
+  await prisma.$transaction(
+    credentialIds.map((credentialId, index) =>
+      prisma.companyVaultCredential.updateMany({
+        where: { id: credentialId, organizationId },
+        data: { sortOrder: (index + 1) * SORT_ORDER_STEP },
+      })
+    )
+  )
+  await logStaffActivity({
+    organizationId,
+    actorStaffId: staffId,
+    category: ACTIVITY_CATEGORIES.COMPANY_VAULT,
+    targetType: ACTIVITY_TARGET_TYPES.ORGANIZATION,
+    targetId: organizationId,
+    targetLabel: 'Company Vault',
+    summary: 'Reordered company vault credentials',
+    action: ACTIVITY_ACTIONS.COMPANY_VAULT.REORDERED,
+    riskLevel: ActivityRiskLevel.LOW,
+    metadata: { credentialCount: credentialIds.length },
+    request: getAuditRequestContext(c),
+  })
+
+  return c.json({ success: true })
 })
 companyVaultRoute.patch('/:id', zValidator('json', companyVaultUpdateSchema), async (c) => {
   const user = c.get('user')

@@ -8,7 +8,12 @@ import { CompanyVaultDeleteDialog } from '../components/company-vault/company-va
 import { CompanyVaultFormModal } from '../components/company-vault/company-vault-form-modal'
 import { CompanyVaultTable } from '../components/company-vault/company-vault-table'
 import { useDebouncedValue } from '../hooks'
-import { api, type CompanyVaultCredential, type CompanyVaultInput } from '../lib/api-client'
+import {
+  api,
+  type CompanyVaultCredential,
+  type CompanyVaultInput,
+  type CompanyVaultListResponse,
+} from '../lib/api-client'
 import { toast } from '../stores/toast-store'
 
 export const Route = createFileRoute('/company-vault')({
@@ -88,6 +93,40 @@ function CompanyVaultPage() {
     },
   })
 
+  const reorderMutation = useMutation({
+    mutationFn: (credentialIds: string[]) => api.companyVault.reorder(credentialIds),
+    onMutate: async (credentialIds) => {
+      const queryKey = ['company-vault', { search: searchParam }]
+      await queryClient.cancelQueries({ queryKey: ['company-vault'] })
+      const previous = queryClient.getQueryData<CompanyVaultListResponse>(queryKey)
+      if (!previous) return { queryKey, previous }
+
+      const orderById = new Map(credentialIds.map((id, index) => [id, index]))
+      queryClient.setQueryData<CompanyVaultListResponse>(queryKey, {
+        ...previous,
+        credentials: [...previous.credentials]
+          .sort((a, b) => (orderById.get(a.id) ?? 0) - (orderById.get(b.id) ?? 0))
+          .map((credential, index) => ({
+            ...credential,
+            sortOrder: (index + 1) * 10,
+          })),
+      })
+      return { queryKey, previous }
+    },
+    onSuccess: () => {
+      toast.success(t('companyVault.reorderSuccess'))
+    },
+    onError: (err, _credentialIds, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(context.queryKey, context.previous)
+      }
+      toast.error(err instanceof Error ? err.message : t('companyVault.reorderError'))
+    },
+    onSettled: async () => {
+      await invalidateVault()
+    },
+  })
+
   const handleSubmitCredential = (input: CompanyVaultInput) => {
     if (!formCredential) {
       createMutation.mutate(input)
@@ -107,7 +146,17 @@ function CompanyVaultPage() {
     deleteMutation.mutate(deleteCredential.id)
   }
 
+  const handleReorderCredentials = (credentialIds: string[]) => {
+    if (searchParam || reorderMutation.isPending) return
+    reorderMutation.mutate(credentialIds)
+  }
+
   const isSavingCredential = createMutation.isPending || updateMutation.isPending
+  const reorderDisabledReason = searchParam
+    ? t('companyVault.clearSearchToReorder')
+    : reorderMutation.isPending
+      ? t('companyVault.reorderSaving')
+      : undefined
 
   return (
     <PageContainer>
@@ -149,6 +198,11 @@ function CompanyVaultPage() {
           />
         </label>
         <div className="flex items-center justify-between gap-3 sm:justify-end">
+          {searchParam && credentials.length > 1 && (
+            <span className="text-sm font-medium text-amber-600">
+              {t('companyVault.clearSearchToReorder')}
+            </span>
+          )}
           <span className="whitespace-nowrap text-sm text-muted-foreground">{toolCountLabel}</span>
         </div>
       </div>
@@ -197,6 +251,9 @@ function CompanyVaultPage() {
           credentials={credentials}
           onEdit={setFormCredential}
           onDelete={setDeleteCredential}
+          onReorder={handleReorderCredentials}
+          reorderDisabled={Boolean(searchParam) || reorderMutation.isPending}
+          reorderDisabledReason={reorderDisabledReason}
         />
       )}
 

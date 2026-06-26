@@ -53,6 +53,7 @@ function credential(overrides: Partial<CompanyVaultCredential> = {}): CompanyVau
     username: 'staff@example.com',
     password: 'secret-password',
     note: 'Office login',
+    sortOrder: 10,
     createdAt: '2026-06-18T10:00:00.000Z',
     updatedAt: '2026-06-18T10:00:00.000Z',
     ...overrides,

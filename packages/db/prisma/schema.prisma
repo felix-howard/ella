@@ -734,10 +734,12 @@ model CompanyVaultCredential {
   usernameEncrypted String?      @db.Text
   passwordEncrypted String?      @db.Text
   noteEncrypted     String?      @db.Text
+  sortOrder         Int          @default(0)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
   @@index([organizationId, toolName])
+  @@index([organizationId, sortOrder])
 }
 
 model ClientGroup {

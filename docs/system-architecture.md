@@ -66,6 +66,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations
 - `/actions` - Action queue with priority filtering
+- `/company-vault` - Org-scoped shared credentials list with encrypted username/password/note fields and persisted drag reorder
 - `/pricing-calculator` - Admin-only pricing calculator with quote summary, Stripe payment-link creation, send-to-client quotes, and direct Engagement Letter preparation through existing Agreement APIs
 - `/team` - Team profile access for all active staff; admin-only team management controls (Phase 3)
 - `/accept-invitation` - Clerk org invite acceptance (Phase 6)

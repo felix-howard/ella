@@ -5,6 +5,26 @@
 
 ---
 
+### Company Vault Drag Reorder
+**Status:** Complete
+
+**Changed:**
+- Added persisted Company Vault ordering with `sortOrder`, additive Prisma migration, and org-scoped reorder endpoint.
+- Added drag handle reorder in Workspace using `@dnd-kit`; reorder disabled while search is active to avoid saving filtered subsets.
+- Changed note cells to wrap full note text instead of truncating with ellipsis.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/company-vault/__tests__/company-vault-routes.test.ts` pass, 12 tests
+- `pnpm -F @ella/workspace test -- src/components/company-vault` pass, 6 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma validate` pass
+- `pnpm i18n:check` pass, workspace 3074 keys and portal 531 keys
+- `pnpm -F @ella/workspace lint` pass with 12 pre-existing warnings outside this change
+- `pnpm -F @ella/api lint` pass with 1 pre-existing warning outside this change
+- `git diff --check` pass
+
 ### Agreement Draft Discard Modal
 **Status:** Complete
 

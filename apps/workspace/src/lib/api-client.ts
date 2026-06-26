@@ -180,6 +180,7 @@ export interface CompanyVaultCredential {
   username: string | null
   password: string | null
   note: string | null
+  sortOrder: number
   createdAt: string
   updatedAt: string
 }
@@ -571,6 +572,12 @@ export const api = {
       )
       return response.credential
     },
+    reorder: (credentialIds: string[]) =>
+      request<{ success: boolean }>('/company-vault/reorder', {
+        method: 'POST',
+        body: JSON.stringify({ credentialIds }),
+        retries: 0,
+      }),
     delete: (id: string) =>
       request<{ success: boolean }>(`/company-vault/${id}`, {
         method: 'DELETE',

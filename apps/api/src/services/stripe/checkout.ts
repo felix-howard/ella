@@ -169,22 +169,25 @@ function toStripeLineItem(item: CheckoutLineItem): Stripe.Checkout.SessionCreate
       currency: config.stripe.currency,
       unit_amount: item.unitAmountCents,
       product_data: {
-        // Hosted Stripe Checkout normalizes line breaks, so make bundled services readable there.
-        name: formatStripeProductName(item.label),
+        name: formatStripeProductText(item.label, ' '),
         metadata: { kind: isRecurring ? 'monthly' : 'setup' },
-        ...(item.description ? { description: item.description } : {}),
+        // Hosted Stripe Checkout does not support rich bullet styling here, so
+        // multiline descriptions are flattened into readable comma-separated text.
+        ...(item.description
+          ? { description: formatStripeProductText(item.description, ', ') }
+          : {}),
       },
       ...(item.interval !== 'one_time' ? { recurring: { interval: item.interval } } : {}),
     },
   }
 }
 
-function formatStripeProductName(value: string): string {
+function formatStripeProductText(value: string, separator: ' ' | ', '): string {
   return value
     .split(/\r?\n/)
-    .map((line) => line.trim().replace(/^[-*]\s+/, '').replace(/\s+/g, ' '))
+    .map((line) => line.trim().replace(/^[-*•]\s+/, '').replace(/\s+/g, ' '))
     .filter(Boolean)
-    .join(', ')
+    .join(separator)
 }
 
 function compactMetadata(metadata: Record<string, string | undefined>): Record<string, string> {

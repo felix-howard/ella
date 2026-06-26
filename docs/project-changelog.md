@@ -5,6 +5,23 @@
 
 ---
 
+### Custom Payment Description Multiline Fix
+**Status:** Complete
+
+**Fixed:**
+- Changed Workspace Custom Link item names back to a single-line input.
+- Changed Custom Link descriptions to a multiline textarea and normalized pasted description lines for saved templates, sent quotes, and direct custom checkout links.
+- Moved portal bullet-list rendering from item name to multiline description.
+- Flattened multiline Stripe product descriptions into comma-separated text, since hosted Stripe Checkout product descriptions do not support custom bullet styling.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/stripe/__tests__/checkout.test.ts src/services/stripe/__tests__/custom-quote-builder.test.ts src/services/payments/__tests__/payment-template-service.test.ts src/services/payments/__tests__/quote-checkout-service.test.ts` pass, 62 tests
+- `pnpm -F @ella/workspace test -- src/components/pricing/custom-link/__tests__/custom-link-money.test.ts` pass, 19 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `git diff --check` pass
+
 ### Company Vault Drag Reorder
 **Status:** Complete
 

@@ -402,11 +402,12 @@ describe('buildCheckoutSessionParams — generalized line items + coupons', () =
     expect(params.metadata).toMatchObject({ source: 'custom_link', quoteId: 'quote_custom' })
   })
 
-  it('formats multiline product names as comma-separated text for Stripe', () => {
+  it('keeps product names single-line and formats multiline descriptions for Stripe', () => {
     const params = buildCheckoutSessionParams(
       [
         {
-          label: '  Bookkeeping\n\n - Audit tax \n Paperwork cleanup  ',
+          label: '  Service package\n2026  ',
+          description: '  Tax Analysis\n\n - Bookkeeping \n • Paperwork cleanup  ',
           unitAmountCents: 100000,
           quantity: 1,
           interval: 'one_time',
@@ -415,8 +416,9 @@ describe('buildCheckoutSessionParams — generalized line items + coupons', () =
       { quoteId: 'quote_multiline', metadataSource: 'custom_link' }
     )
 
-    expect(params.line_items?.[0]?.price_data?.product_data?.name).toBe(
-      'Bookkeeping, Audit tax, Paperwork cleanup'
+    expect(params.line_items?.[0]?.price_data?.product_data?.name).toBe('Service package 2026')
+    expect(params.line_items?.[0]?.price_data?.product_data?.description).toBe(
+      'Tax Analysis, Bookkeeping, Paperwork cleanup'
     )
   })
 

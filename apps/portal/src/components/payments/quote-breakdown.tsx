@@ -101,11 +101,9 @@ function LineGroup({
             className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 text-[0.9375rem] leading-7"
           >
             <span className="min-w-0">
-              <LineItemLabel label={item.label} />
+              <span className="text-muted-foreground">{singleLineText(item.label)}</span>
               {item.description && (
-                <span className="mt-0.5 block text-[0.8125rem] leading-snug text-muted-foreground/70">
-                  {item.description}
-                </span>
+                <LineItemDescription description={item.description} />
               )}
             </span>
             <span className="font-medium tabular-nums text-foreground">{fmt(item.amount)}</span>
@@ -116,25 +114,33 @@ function LineGroup({
   )
 }
 
-function LineItemLabel({ label }: { label: string }) {
-  const lines = label
+function LineItemDescription({ description }: { description: string }) {
+  const lines = description
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
 
   if (lines.length <= 1) {
-    return <span className="text-muted-foreground">{label}</span>
+    return (
+      <span className="mt-0.5 block text-[0.8125rem] leading-snug text-muted-foreground/70">
+        {description}
+      </span>
+    )
   }
 
   return (
-    <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+    <ul className="mt-1 list-disc space-y-1 pl-5 text-[0.8125rem] text-muted-foreground/70">
       {lines.map((line, index) => (
-        <li key={`${line}-${index}`} className="leading-6">
+        <li key={`${line}-${index}`} className="leading-snug">
           {line.replace(/^[-*•]\s+/, '')}
         </li>
       ))}
     </ul>
   )
+}
+
+function singleLineText(value: string): string {
+  return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).join(' ')
 }
 
 function TotalRow({

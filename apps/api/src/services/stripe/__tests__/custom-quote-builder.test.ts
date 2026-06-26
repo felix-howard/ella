@@ -57,6 +57,27 @@ describe('buildCustomQuote', () => {
     expect(lineItems[0].interval).toBe('year')
   })
 
+  it('normalizes item names as single-line and preserves description lines', () => {
+    const { quote, lineItems } = buildCustomQuote({
+      billingInterval: 'one_time',
+      items: [
+        item({
+          label: ' Tax work \n bundle ',
+          description: ' Tax Analysis \n\n Bookkeeping ',
+        }),
+      ],
+    })
+
+    expect(quote.setupItems[0]).toMatchObject({
+      label: 'Tax work bundle',
+      description: 'Tax Analysis\nBookkeeping',
+    })
+    expect(lineItems[0]).toMatchObject({
+      label: 'Tax work bundle',
+      description: 'Tax Analysis\nBookkeeping',
+    })
+  })
+
   it('preserves fractional dollar amounts without float drift', () => {
     const { quote } = buildCustomQuote({
       billingInterval: 'one_time',

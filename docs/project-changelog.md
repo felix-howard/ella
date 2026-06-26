@@ -1,9 +1,23 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-25 ICT
+> **Last Updated:** 2026-06-26 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### Agreement Draft Discard Modal
+**Status:** Complete
+
+**Changed:**
+- Replaced the browser confirm prompt on saved agreement draft discard with a dedicated Ella modal.
+- Added EN/VI modal copy, destructive action styling, pending spinner, and close blocking while discard is running.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- src/components/agreements` pass, 18 tests
+- `pnpm i18n:check` pass, workspace 3067 keys and portal 531 keys
+- `pnpm -F @ella/workspace lint` pass with 12 pre-existing warnings outside this change
+- `git diff --check` pass
 
 ### Archived Staff Manager Detach
 **Status:** Complete

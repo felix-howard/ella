@@ -12,6 +12,7 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { EllaLogoDark, EllaLogoLight } from '@ella/ui'
 import { useTheme } from '../stores/ui-store'
 import { useTranslation } from 'react-i18next'
+import { getCompletedInvitationRedirectTarget } from '../lib/accept-invitation-status'
 
 export const Route = createFileRoute('/accept-invitation')({
   component: AcceptInvitationPage,
@@ -49,6 +50,15 @@ function AcceptInvitationPage() {
   const searchParams = new URLSearchParams(window.location.search)
   const ticket = searchParams.get('__clerk_ticket')
   const accountStatus = searchParams.get('__clerk_status')
+  const completedInvitationRedirectTarget = getCompletedInvitationRedirectTarget({
+    ticket,
+    accountStatus,
+  })
+
+  useEffect(() => {
+    if (!completedInvitationRedirectTarget) return
+    window.location.href = completedInvitationRedirectTarget
+  }, [completedInvitationRedirectTarget])
 
   // Auto sign-in for existing users
   useEffect(() => {

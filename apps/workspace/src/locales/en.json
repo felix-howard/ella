@@ -153,7 +153,6 @@
   "agreements.draft.resume": "Resume",
   "agreements.draft.resumeDescription": "Edit the saved draft, keep saving changes, or send it when ready.",
   "agreements.draft.saveCta": "Save draft",
-  "agreements.draft.saveBeforeSend": "Save the draft before previewing and sending.",
   "agreements.draft.savingSendBlocked": "Wait for autosave to finish before sending.",
   "agreements.draft.state.conflict": "Save conflict",
   "agreements.draft.state.failed": "Save failed",

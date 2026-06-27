@@ -3,7 +3,7 @@ import { BUSINESS_TAX_RETURN_PREPAY_LABEL, ONE_TIME_LABELS } from './pricing-def
 export { createDefaultPricingInput } from './pricing-defaults'
 
 export type Tier = 'basic' | 'pro' | 'vip'
-export const BOOKKEEPING_SERVICE_LABEL = 'Monthly bookkeeping and compliance service'
+export const BOOKKEEPING_SERVICE_LABEL = 'Monthly bookkeeping service'
 export const BOOKKEEPING_SETUP_LABEL = 'Bookkeeping onboarding setup'
 
 export type PayrollMode = 'owner-manual' | 'ella-staff'

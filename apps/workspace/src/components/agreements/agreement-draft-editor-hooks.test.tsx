@@ -111,7 +111,7 @@ describe('agreement draft editor hooks', () => {
     })
   })
 
-  it('uses save-draft first, blocks unsaved calculator send, then sends through draft endpoint', () => {
+  it('keeps save-draft available while unsaved submit sends immediately', () => {
     const captureHandlers =
       vi.fn<(handlers: ReturnType<typeof useAgreementDraftSubmitHandlers>) => void>()
     const createMutation = {
@@ -154,7 +154,6 @@ describe('agreement draft editor hooks', () => {
         setConflictMessage,
         onClose,
         conflictMessage: 'Draft conflict',
-        requireSavedDraftBeforeSend: true,
       })
       captureHandlers(handlers)
       return null
@@ -176,7 +175,10 @@ describe('agreement draft editor hooks', () => {
     }))
 
     unsavedHandlers.handleSubmit(resolved)
-    expect(createMutation.mutate).not.toHaveBeenCalled()
+    expect(createMutation.mutate).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Engagement Letter',
+      contentHtml: '<p>Prepared scope</p>',
+    }), expect.objectContaining({ onSuccess: onClose }))
     expect(sendDraftMutation.mutate).not.toHaveBeenCalled()
 
     renderToStaticMarkup(<Probe saved />)

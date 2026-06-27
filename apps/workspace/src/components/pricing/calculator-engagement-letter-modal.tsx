@@ -169,7 +169,6 @@ export function CalculatorEngagementLetterModal({
                 initialDraft={draftChoice.selectedDraft ? undefined : draftSeed.draft}
                 closeBaselineDraft={draftChoice.selectedDraft ? undefined : draftSeed.draft}
                 existingDraft={draftChoice.selectedDraft ?? undefined}
-                requireSavedDraftBeforeSend
                 onClose={onClose}
                 registerCloseGuard={registerCloseGuard}
               />

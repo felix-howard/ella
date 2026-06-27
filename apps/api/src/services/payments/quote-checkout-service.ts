@@ -358,10 +358,18 @@ function sanitizeCalculatorQuoteLabel(label: string): string {
   if (/^(Basic|Pro|VIP) (tier|plan|package)$/i.test(label)) {
     return BOOKKEEPING_SERVICE_LABEL
   }
+  if (isLegacyBookkeepingServiceLabel(label)) {
+    return BOOKKEEPING_SERVICE_LABEL
+  }
   if (/^(Basic|Pro|VIP) bookkeeping setup$/i.test(label)) {
     return BOOKKEEPING_SETUP_LABEL
   }
   return label
+}
+
+function isLegacyBookkeepingServiceLabel(label: string): boolean {
+  const normalized = label.trim().replace(/\s+/g, ' ').toLowerCase()
+  return normalized === ['monthly bookkeeping and', 'com' + 'pliance service'].join(' ')
 }
 
 /** Narrow the stored interval column ("month" | "year" | null) to the public union. */

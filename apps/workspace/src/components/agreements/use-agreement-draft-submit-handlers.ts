@@ -44,7 +44,6 @@ interface UseAgreementDraftSubmitHandlersInput {
   setConflictMessage: (message: string | null) => void
   onClose: () => void
   conflictMessage: string
-  requireSavedDraftBeforeSend?: boolean
 }
 
 export function useAgreementDraftSubmitHandlers({
@@ -62,7 +61,6 @@ export function useAgreementDraftSubmitHandlers({
   setConflictMessage,
   onClose,
   conflictMessage,
-  requireSavedDraftBeforeSend = false,
 }: UseAgreementDraftSubmitHandlersInput): {
   handleSaveDraft: (resolved: Step3Resolved) => void
   handleSubmit: (resolved: Step3Resolved) => void
@@ -79,7 +77,6 @@ export function useAgreementDraftSubmitHandlers({
 
   const handleSubmit = useCallback((resolved: Step3Resolved) => {
     if (!savedAgreement) {
-      if (requireSavedDraftBeforeSend) return
       createMutation.mutate(buildCreateAgreementPayload({ type, templateId, resolved }), { onSuccess: onClose })
       return
     }
@@ -106,7 +103,6 @@ export function useAgreementDraftSubmitHandlers({
     createMutation,
     effectiveTemplateId,
     onClose,
-    requireSavedDraftBeforeSend,
     savedAgreement,
     sendDraftMutation,
     setConflictMessage,

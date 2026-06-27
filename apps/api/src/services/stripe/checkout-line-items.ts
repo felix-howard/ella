@@ -1,4 +1,5 @@
 import type { CheckoutQuote } from './quote-calculator'
+import { BOOKKEEPING_SERVICE_LABEL } from '@ella/shared/pricing'
 
 /**
  * Normalized line-item abstraction shared by both quote sources.
@@ -27,7 +28,7 @@ export interface CustomLineItemInput {
 }
 
 /** Labels for the calculator's 2 aggregate Stripe lines (canonical source). */
-export const CALCULATOR_MONTHLY_LABEL = 'Ella monthly service'
+export const CALCULATOR_MONTHLY_LABEL = BOOKKEEPING_SERVICE_LABEL
 export const CALCULATOR_SETUP_LABEL = 'Ella setup and one-time services'
 
 /**

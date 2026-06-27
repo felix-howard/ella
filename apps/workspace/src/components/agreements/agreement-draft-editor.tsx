@@ -30,7 +30,6 @@ interface AgreementDraftEditorProps {
   existingDraft?: Agreement
   savedState?: AgreementDraftSavedState | null
   onSavedStateChange?: (state: AgreementDraftSavedState | null) => void
-  requireSavedDraftBeforeSend?: boolean
   onClose: () => void
   registerCloseGuard?: (guard: (() => boolean) | null) => void
 }
@@ -48,7 +47,6 @@ export function AgreementDraftEditor({
   existingDraft,
   savedState,
   onSavedStateChange,
-  requireSavedDraftBeforeSend = false,
   onClose,
   registerCloseGuard,
 }: AgreementDraftEditorProps) {
@@ -144,7 +142,6 @@ export function AgreementDraftEditor({
     setConflictMessage,
     onClose,
     conflictMessage: t('agreements.draft.conflict.message'),
-    requireSavedDraftBeforeSend,
   })
 
   const sendBlockedReason = useMemo(() => {
@@ -154,11 +151,8 @@ export function AgreementDraftEditor({
     if (autosave.state === 'saving') {
       return t('agreements.draft.savingSendBlocked')
     }
-    if (requireSavedDraftBeforeSend && !savedAgreement) {
-      return t('agreements.draft.saveBeforeSend')
-    }
     return null
-  }, [autosave.state, conflictMessage, requireSavedDraftBeforeSend, savedAgreement, t])
+  }, [autosave.state, conflictMessage, t])
 
   const draftSaveState = saveDraftMutation.isPending ? 'saving' : autosave.state
 

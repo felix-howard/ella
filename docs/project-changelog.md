@@ -24,7 +24,7 @@
 
 **Changed:**
 - Removed client-facing `Basic`, `Pro`, and `VIP` package/tier wording from Workspace calculator quote summaries, calculator rate labels, generated engagement letter text, landing pricing calculator copy, and print/consultation estimate copy.
-- Replaced calculator-generated quote line items with professional service labels: `Monthly bookkeeping and compliance service` and `Bookkeeping onboarding setup`.
+- Replaced calculator-generated quote line items with professional service labels: `Monthly bookkeeping service` and `Bookkeeping onboarding setup`.
 - Added public quote label sanitization so older calculator quote snapshots render clean labels in the Payment Portal while custom staff-entered link labels remain unchanged.
 - Kept internal pricing ids (`basic`, `pro`, `vip`) unchanged to avoid unnecessary migrations or quote contract churn.
 

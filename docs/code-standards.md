@@ -519,6 +519,12 @@ describe('Feature', () => {
 - `PORTAL_URL` - Client portal base URL
 - `R2_*` - Cloudflare R2 credentials
 
+**Web Push Notifications (Phase 1):**
+- `WEB_PUSH_VAPID_PUBLIC_KEY` - Public VAPID key exposed to Workspace for push subscription setup
+- `WEB_PUSH_VAPID_PRIVATE_KEY` - Secret VAPID key used only by the API for push delivery
+- `WEB_PUSH_VAPID_SUBJECT` - VAPID contact URI; defaults to `mailto:support@ellatax.com`
+- `config.webPush.isConfigured` is true only when the public/private key pair is present
+
 **TaxBandits Integration (Phase 3.5):**
 - `TAXBANDITS_CLIENT_ID` - TaxBandits OAuth client ID
 - `TAXBANDITS_CLIENT_SECRET` - TaxBandits OAuth client secret

@@ -196,6 +196,71 @@ export interface CompanyVaultInput {
   note?: string | null
 }
 
+export interface WebPushVapidPublicKeyResponse {
+  configured: boolean
+  publicKey: string | null
+}
+
+export interface WebPushSubscriptionSummary {
+  id: string
+  deviceLabel: string | null
+  userAgent: string | null
+  createdAt: string
+  lastSeenAt: string
+  lastSentAt: string | null
+}
+
+export interface WebPushSubscriptionListResponse {
+  data: WebPushSubscriptionSummary[]
+}
+
+export interface WebPushCurrentSubscriptionResponse {
+  current: boolean
+  data: WebPushSubscriptionSummary | null
+}
+
+export interface WebPushSubscribeInput {
+  endpoint: string
+  expirationTime?: number | null
+  keys: {
+    p256dh: string
+    auth: string
+  }
+  deviceLabel?: string
+}
+
+export interface WebPushSubscribeResponse {
+  data: WebPushSubscriptionSummary
+}
+
+export interface WebPushUnsubscribeResponse {
+  success: boolean
+  disabled: boolean
+}
+
+export interface WebPushDeliveryResult {
+  configured: boolean
+  attempted: number
+  sent: number
+  failed: number
+  disabled: number
+  skippedReason?:
+    | 'not_configured'
+    | 'configuration_error'
+    | 'query_failed'
+    | 'no_staff'
+    | 'no_subscriptions'
+  failures: Array<{
+    subscriptionId: string
+    statusCode?: number
+  }>
+}
+
+export interface WebPushTestResponse {
+  success: boolean
+  result: WebPushDeliveryResult
+}
+
 // --- Custom (free-form) payment links --------------------------------------
 // Staff type arbitrary line items instead of driving the pricing calculator.
 // Shapes mirror the API `createCustomCheckoutSchema` / `sendCustomQuoteSchema`.
@@ -545,6 +610,41 @@ export const api = {
   recipients: {
     search: (q: string) =>
       request<RecipientSearchResponse>('/recipients/search', { params: { q } }),
+  },
+
+  push: {
+    getVapidPublicKey: () =>
+      request<WebPushVapidPublicKeyResponse>('/push/vapid-public-key', { retries: 0 }),
+
+    listSubscriptions: () =>
+      request<WebPushSubscriptionListResponse>('/push/subscriptions'),
+
+    getCurrentSubscription: (endpoint: string) =>
+      request<WebPushCurrentSubscriptionResponse>('/push/current', {
+        method: 'POST',
+        body: JSON.stringify({ endpoint }),
+        retries: 0,
+      }),
+
+    subscribe: (data: WebPushSubscribeInput) =>
+      request<WebPushSubscribeResponse>('/push/subscribe', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+
+    unsubscribe: (endpoint: string) =>
+      request<WebPushUnsubscribeResponse>('/push/unsubscribe', {
+        method: 'POST',
+        body: JSON.stringify({ endpoint }),
+        retries: 0,
+      }),
+
+    sendTest: () =>
+      request<WebPushTestResponse>('/push/test', {
+        method: 'POST',
+        retries: 0,
+      }),
   },
 
   companyVault: {

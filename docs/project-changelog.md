@@ -5,6 +5,29 @@
 
 ---
 
+### PWA Web Push Notifications for Client Messages
+**Status:** Complete with rollout device QA pending
+
+**Changed:**
+- Added Workspace PWA Web Push for inbound client SMS case messages with generic notification copy only: `Ella` + `New client message`.
+- Added `WebPushSubscription`, VAPID configuration, protected `/push` subscription/test APIs, best-effort delivery via `web-push`, and automatic disabling for expired provider endpoints.
+- Wired inbound case-message fanout to active staff who can see the client: `ADMIN`/`MANAGER` org-wide, assigned `STAFF`/`CPA` through `ClientManager`.
+- Added Workspace service worker registration and Settings Notifications enable/disable/test controls with iOS Home Screen PWA guidance.
+- Documented VAPID env vars, privacy contract, recipient rule, and rollout checklist.
+
+**Validation:**
+- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/api test -- push web-push webhook-handler messages` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api build` pass
+- `pnpm -F @ella/workspace test -- web-push` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace build` pass with non-blocking route-file/chunk-size warnings
+- `pnpm type-check` pass
+- `pnpm i18n:check` pass
+- Migration SQL reviewed: additive table/index/FK creation only, no destructive statements.
+- Physical iPhone Lock Screen smoke requires deployed HTTPS Workspace/API and must be run during rollout.
+
 ### Payment Ledger Receipt Capture and Stripe Customer Checkout Polish
 **Status:** Complete
 

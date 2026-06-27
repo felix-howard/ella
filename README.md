@@ -126,6 +126,9 @@ PORTAL_URL=http://localhost:5173
 TWILIO_ACCOUNT_SID=ACxxx
 TWILIO_AUTH_TOKEN=xxxxxx
 TWILIO_PHONE_NUMBER=+1xxxxxxxxxx
+WEB_PUSH_VAPID_PUBLIC_KEY=...
+WEB_PUSH_VAPID_PRIVATE_KEY=...
+WEB_PUSH_VAPID_SUBJECT=mailto:support@example.com
 R2_ACCESS_KEY_ID=xxx
 R2_SECRET_ACCESS_KEY=xxx
 MAGIC_LINK_EXPIRY_DAYS=60
@@ -133,6 +136,8 @@ IDENTITY_DOC_RETENTION_DAYS=90
 TRUST_PROXY_HEADERS=false
 VITE_LANDING_URL=http://localhost:4321
 ```
+Workspace PWA push notifications require the Web Push VAPID variables above on the API. Generate keys with `pnpm -F @ella/api exec web-push generate-vapid-keys --json`, deploy API and Workspace over HTTPS, then staff must add Workspace to the iPhone Home Screen before enabling notifications.
+
 
 **Required for payment links:**
 ```
@@ -172,7 +177,8 @@ ella/
 3. **Database** (Prisma) → Multi-tenant data isolation
 4. **AI Services** (Gemini) → Document processing
 5. **External** (Twilio, R2) → Communication & storage
-6. **ActivityLog** → Server-confirmed action timeline for dashboard/client overview
+6. **Web Push** → Generic Workspace PWA notifications for inbound client SMS messages
+7. **ActivityLog** → Server-confirmed action timeline for dashboard/client overview
 
 ## Project Phases
 
@@ -221,6 +227,7 @@ REST API with 85+ endpoints organized by feature:
 - **Tax Forms** - 1099-NEC validation, import, PDF retrieval
 - **Messages** - Conversations, SMS, voice calls
 - **Voice** - Token generation, presence, recordings
+- **Push** - Workspace PWA Web Push subscriptions and test notifications
 - **Webhooks** - Twilio callbacks (calls, SMS)
 
 See OpenAPI docs at `/api/docs` when running backend.

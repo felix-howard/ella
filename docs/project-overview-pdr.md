@@ -1,8 +1,8 @@
 # Ella - Project Overview & Product Development Requirements
 
-**Current Phase:** Multi-Staff Client Management - Complete | Stripe Checkout Validation Phase 05 - Complete | Landing Pricing Restore - Complete | Landing Reposition Phase 06 - Complete | Multi-Tenancy & Permission System - Complete | Voice Calls - Complete | Schedule C Phase 4 - Complete | Calculator Custom Items - Complete (4 of 4) | Agreement Draft Collaboration Phase 5 - Complete
-**Last Updated:** 2026-06-25
-**Branch:** feature/next-task-8
+**Current Phase:** PWA Web Push Notifications - Complete | Multi-Staff Client Management - Complete | Stripe Checkout Validation Phase 05 - Complete | Landing Pricing Restore - Complete | Landing Reposition Phase 06 - Complete | Multi-Tenancy & Permission System - Complete | Voice Calls - Complete | Schedule C Phase 4 - Complete | Calculator Custom Items - Complete (4 of 4) | Agreement Draft Collaboration Phase 5 - Complete
+**Last Updated:** 2026-06-27
+**Branch:** feature/260625-next-work
 
 ## Project Vision
 
@@ -10,7 +10,7 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 
 **Public-facing Positioning:** The marketing site now presents Ella Tax Services LLC as an online tax services firm with shared service-page primitives, green brand tokens, service-led home/services/about/why pages, the canonical `/get-started` inquiry flow, password-gated `/pricing` calculator, and resilient contact paths with legacy redirects that preserve route continuity. The internal app remains the tax document management SaaS platform.
 
-**Rollout Status:** Stripe Checkout payment-link code is implemented through webhook status sync, stale/same-second event guards, enterprise quote blocking, green automated validation, and local test-mode Stripe CLI E2E. Landing Reposition is fully closed out. Multi-staff client management is complete: `ClientManager` is canonical, while legacy `Client.managedById` stays in place for staged rollout compatibility. Calculator Custom Items is complete: Payments Calculator supports `one_time`/`month` add-ons through summary, print, payment-link, sent quote, and portal checkout flows while yearly recurring/custom-only charges stay in Custom link. Workspace Print PDF avoids URL-query transport for custom labels.
+**Rollout Status:** Stripe Checkout payment-link code is implemented through webhook status sync, stale/same-second event guards, enterprise quote blocking, green automated validation, and local test-mode Stripe CLI E2E. PWA Web Push is complete for inbound client SMS case messages with generic `Ella` + `New client message` copy, active-staff recipient filtering, VAPID config, and iPhone Home Screen rollout guidance; physical device smoke remains pending. Landing Reposition is fully closed out. Multi-staff client management is complete: `ClientManager` is canonical, while legacy `Client.managedById` stays in place for staged rollout compatibility. Calculator Custom Items is complete: Payments Calculator supports `one_time`/`month` add-ons through summary, print, payment-link, sent quote, and portal checkout flows while yearly recurring/custom-only charges stay in Custom link. Workspace Print PDF avoids URL-query transport for custom labels.
 
 Calculator Engagement Letters now reuse the shared Agreement draft editor with minimal calculator snapshots, explicit resume/start-current choice for saved CALCULATOR drafts, and draft-first send flow.
 

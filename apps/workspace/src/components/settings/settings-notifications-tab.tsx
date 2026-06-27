@@ -12,6 +12,7 @@ import { NotificationSubscriptions } from '../profile/notification-subscriptions
 import { ChatMonitorSubscriptions } from '../profile/chat-monitor-subscriptions'
 import { api } from '../../lib/api-client'
 import { useNotifyPrefMutation, type NotifyPrefField } from './use-notify-pref-mutation'
+import { WebPushNotificationsCard } from './web-push-notifications-card'
 
 function NotifyToggleRow({
   field,
@@ -78,6 +79,8 @@ export function SettingsNotificationsTab() {
 
   return (
     <div className="space-y-4">
+      <WebPushNotificationsCard />
+
       <Card className="overflow-hidden">
         <div className="px-6 py-4 bg-muted/50 border-b border-border">
           <h2 className="text-lg font-semibold text-foreground">

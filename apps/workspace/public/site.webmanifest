@@ -1,6 +1,10 @@
 {
   "name": "Ella Workspace",
   "short_name": "Ella",
+  "description": "Ella staff workspace for tax document management and client messages.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",

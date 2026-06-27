@@ -26,7 +26,11 @@ import { markPaymentQuoteStatus, persistStripeCheckoutSession } from '../stripe/
 import { rebuildQuoteForCheckout, resolveQuoteCouponOptions } from '../stripe/quote-rebuild'
 import { ensureStripeCustomerForClient } from '../stripe/stripe-customer-link-service'
 import { buildQuotePayUrl } from './quote-send-service'
-import { isBusinessTaxReturnPrepayLine } from '@ella/shared/pricing'
+import {
+  BOOKKEEPING_SERVICE_LABEL,
+  BOOKKEEPING_SETUP_LABEL,
+  isBusinessTaxReturnPrepayLine,
+} from '@ella/shared/pricing'
 
 /** Route-friendly error with a stable code; handlers map codes to statuses. */
 export class QuoteCheckoutError extends Error {
@@ -309,9 +313,14 @@ function parseResultSnapshot(snapshot: unknown, source: string): QuoteLineView[]
     monthlyItems?: unknown
     setupItems?: unknown
   }
-  const setupViews = toLineViews(setupItems, 'setup')
-  if (source === 'custom') return [...toLineViews(monthlyItems, 'monthly'), ...setupViews]
+  if (source === 'custom') {
+    return [
+      ...toLineViews(monthlyItems, 'monthly', false),
+      ...toLineViews(setupItems, 'setup', false),
+    ]
+  }
 
+  const setupViews = toLineViews(setupItems, 'setup')
   const yearlyViews = setupViews
     .filter(isBusinessTaxReturnPrepayLine)
     .map((item) => ({ ...item, kind: 'yearly' as const }))
@@ -319,7 +328,11 @@ function parseResultSnapshot(snapshot: unknown, source: string): QuoteLineView[]
   return [...toLineViews(monthlyItems, 'monthly'), ...yearlyViews, ...oneTimeViews]
 }
 
-function toLineViews(items: unknown, kind: 'monthly' | 'setup'): QuoteLineView[] {
+function toLineViews(
+  items: unknown,
+  kind: 'monthly' | 'setup',
+  sanitizeCalculatorLabels = true
+): QuoteLineView[] {
   if (!Array.isArray(items)) return []
   return items
     .filter((item): item is { label: string; description?: unknown; amount: number } => {
@@ -333,12 +346,22 @@ function toLineViews(items: unknown, kind: 'monthly' | 'setup'): QuoteLineView[]
     .map((item) => {
       const description = typeof item.description === 'string' ? item.description : undefined
       return {
-        label: item.label,
+        label: sanitizeCalculatorLabels ? sanitizeCalculatorQuoteLabel(item.label) : item.label,
         ...(description ? { description } : {}),
         amount: item.amount,
         kind,
       }
     })
+}
+
+function sanitizeCalculatorQuoteLabel(label: string): string {
+  if (/^(Basic|Pro|VIP) (tier|plan|package)$/i.test(label)) {
+    return BOOKKEEPING_SERVICE_LABEL
+  }
+  if (/^(Basic|Pro|VIP) bookkeeping setup$/i.test(label)) {
+    return BOOKKEEPING_SETUP_LABEL
+  }
+  return label
 }
 
 /** Narrow the stored interval column ("month" | "year" | null) to the public union. */

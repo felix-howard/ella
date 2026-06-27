@@ -70,9 +70,9 @@ describe('PricingEngagementLetterPanel', () => {
       },
     }
 
-    expect(getEngagementLetterDisabledReason('VIP quotes require manual follow-up.', selected)).toBe(
-      'VIP quotes require manual follow-up.',
-    )
+    expect(
+      getEngagementLetterDisabledReason('Payable total must be greater than $0.', selected),
+    ).toBe('Payable total must be greater than $0.')
   })
 
   it('blocks selected recipients that cannot receive the agreement SMS', () => {

@@ -5,6 +5,25 @@
 
 ---
 
+### Payment Calculator Professional Service Labels
+**Status:** Complete
+
+**Changed:**
+- Removed client-facing `Basic`, `Pro`, and `VIP` package/tier wording from Workspace calculator quote summaries, calculator rate labels, generated engagement letter text, landing pricing calculator copy, and print/consultation estimate copy.
+- Replaced calculator-generated quote line items with professional service labels: `Monthly bookkeeping and compliance service` and `Bookkeeping onboarding setup`.
+- Added public quote label sanitization so older calculator quote snapshots render clean labels in the Payment Portal while custom staff-entered link labels remain unchanged.
+- Kept internal pricing ids (`basic`, `pro`, `vip`) unchanged to avoid unnecessary migrations or quote contract churn.
+
+**Validation:**
+- `pnpm -F @ella/shared test src/pricing/calculator.test.ts` pass
+- `pnpm -F @ella/api test src/services/stripe/__tests__/checkout.test.ts src/services/stripe/__tests__/custom-quote-builder.test.ts src/services/payments/__tests__/quote-checkout-service.test.ts` pass
+- `pnpm -F @ella/workspace test src/components/pricing/__tests__/pricing-calculator.test.tsx src/components/pricing/__tests__/engagement-letter-content-builder.test.ts` pass
+- `pnpm -F @ella/shared type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/landing type-check` pass
+- Package lint passes with only pre-existing warnings in API/workspace unrelated files.
+
 ### PWA Web Push Notifications for Client Messages
 **Status:** Complete with rollout device QA pending
 

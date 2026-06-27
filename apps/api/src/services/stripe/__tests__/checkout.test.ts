@@ -19,7 +19,12 @@ function buildParams(quote: CheckoutQuote) {
     customerEmail: 'client@example.com',
   })
 }
-import { calculatePricing, MAX_CHECKOUT_LINE_AMOUNT } from '@ella/shared/pricing'
+import {
+  BOOKKEEPING_SERVICE_LABEL,
+  BOOKKEEPING_SETUP_LABEL,
+  calculatePricing,
+  MAX_CHECKOUT_LINE_AMOUNT,
+} from '@ella/shared/pricing'
 import type { CheckoutPricingInput } from '../../../routes/billing/schemas'
 import { config } from '../../../lib/config'
 
@@ -243,7 +248,7 @@ describe('Stripe checkout session params', () => {
 
     expect(quote.monthlyTotal).toBe(50)
     expect(quote.monthlyItems).toEqual([
-      { label: 'Pro tier', amount: 50, kind: 'monthly' },
+      { label: BOOKKEEPING_SERVICE_LABEL, amount: 50, kind: 'monthly' },
     ])
   })
 
@@ -274,10 +279,27 @@ describe('Stripe checkout session params', () => {
     ).toThrow('Select at least one billable service before checkout')
   })
 
-  it('rejects enterprise-sized payment links', () => {
-    expect(() => calculateCheckoutQuote({ ...basePricingInput, nec1099Count: 21 })).toThrow(
-      'Enterprise quotes require manual follow-up'
-    )
+  it('allows 21+ worker payment links', () => {
+    const quote = calculateCheckoutQuote({
+      ...basePricingInput,
+      nec1099Count: 25,
+      rates: {
+        ...basePricingInput.rates,
+        tiers: {
+          ...basePricingInput.rates.tiers,
+          vipMonthly: 65,
+        },
+      },
+    })
+
+    expect(quote.monthlyTotal).toBe(65)
+    expect(quote.setupTotal).toBe(150)
+    expect(quote.monthlyItems).toEqual([
+      { label: BOOKKEEPING_SERVICE_LABEL, amount: 65, kind: 'monthly' },
+    ])
+    expect(quote.setupItems).toEqual([
+      { label: BOOKKEEPING_SETUP_LABEL, amount: 150, kind: 'setup' },
+    ])
   })
 
   it('rejects unsafe direct checkout counts above workspace limits', () => {

@@ -24,10 +24,11 @@ export function getCreateDisabledReason(
     if (hasCompletePricingCalculatorCustomItems(input)) return CUSTOM_ONLY_CALCULATOR_REASON
     return 'Select at least one billable service before creating a link.'
   }
-  if (result.isEnterprise) return 'VIP quotes require manual follow-up.'
-  if (!isPricingInputSane(input)) return 'Quantity limits exceeded. Use manual follow-up.'
+  if (!isPricingInputSane(input)) {
+    return 'Quantity limits exceeded. Reduce quantities before checkout.'
+  }
   if (!isPricingCheckoutAmountSane(result)) {
-    return 'Quote total is too large for checkout. Use manual follow-up.'
+    return 'Quote total is too large for checkout.'
   }
   if (payableTotal <= 0) return 'Payable total must be greater than $0.'
   return null
@@ -40,8 +41,9 @@ export function getPrintDisabledReason(
   const customItemsError = getCalculatorCustomItemsError(input)
 
   if (customItemsError) return customItemsError
-  if (!isPricingInputSane(input)) return 'Quantity limits exceeded. Use manual follow-up.'
-  if (result.isEnterprise) return 'VIP quotes require manual follow-up.'
+  if (!isPricingInputSane(input)) {
+    return 'Quantity limits exceeded. Reduce quantities before checkout.'
+  }
   if (!hasMeaningfulSelection(input, result)) {
     if (hasCompletePricingCalculatorCustomItems(input)) return CUSTOM_ONLY_CALCULATOR_REASON
     return 'Select at least one billable service before printing a quote.'

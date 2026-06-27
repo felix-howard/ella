@@ -33,11 +33,11 @@ vi.mock('@ella/ui', () => ({
 }))
 
 describe('PricingPaymentLinkPanel', () => {
-  it('keeps enterprise quotes disabled for payment-link creation', () => {
+  it('renders a disabled state when the calculator input is not payable', () => {
     const markup = renderToStaticMarkup(
       <PricingPaymentLinkPanel
         checkout={null}
-        disabledReason="VIP quotes require manual follow-up."
+        disabledReason="Select at least one billable service before creating a link."
         errorMessage={null}
         isCreating={false}
         quoteChanged={false}
@@ -45,7 +45,7 @@ describe('PricingPaymentLinkPanel', () => {
       />
     )
 
-    expect(markup).toContain('VIP quotes require manual follow-up.')
+    expect(markup).toContain('Select at least one billable service before creating a link.')
     expect(markup).toContain('disabled=""')
   })
 

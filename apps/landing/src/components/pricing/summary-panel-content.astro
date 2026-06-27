@@ -6,7 +6,7 @@
  * phase 07 extracts it here. `pricing-calculator-render.ts` updates every
  * `[data-calc-*]` node via `querySelectorAll`, so rendering works for N copies.
  *
- * Tier badge, empty / result / enterprise states.
+ * Worker-range badge, empty / result / enterprise states.
  * Money formatting stays in `pricing-calculator-render.ts` via `textContent`
  * (XSS-safe by construction).
  */
@@ -14,7 +14,7 @@ import { siteConfig } from "@/config/site";
 import QuotePrintAction from "./quote-print-action.astro";
 ---
 
-<!-- Tier badge — wrapper drives visibility (phase 05 unhides), span holds text -->
+<!-- Worker-range badge — wrapper drives visibility, span holds text -->
 <div class="mb-4 flex items-center justify-between">
   <span class="text-sm font-semibold uppercase tracking-wide text-gray-500">
     Your estimate

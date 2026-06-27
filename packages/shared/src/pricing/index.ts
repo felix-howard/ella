@@ -9,6 +9,8 @@ export type {
   Tier,
 } from './calculator'
 export {
+  BOOKKEEPING_SERVICE_LABEL,
+  BOOKKEEPING_SETUP_LABEL,
   calculatePricing,
   createDefaultPricingInput,
   detectPricingTier,

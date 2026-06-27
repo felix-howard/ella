@@ -24,7 +24,7 @@ type OneTimeRow = {
 const oneTimeRows: OneTimeRow[] = [
   { key: 'startLlc', label: 'Start LLC', hint: 'Excludes state filing fee' },
   { key: 'holdingLlcNew', label: 'Holding LLC (new)' },
-  { key: 'holdingLlcModify', label: 'Re-structure LLC basic' },
+  { key: 'holdingLlcModify', label: 'LLC restructure' },
   { key: 'personalTaxReturn', label: 'Personal tax return' },
 ]
 
@@ -83,7 +83,7 @@ export function PricingCalculatorForm({
               id="pricing-nec-count"
               label="1099 NEC workers"
               value={input.nec1099Count}
-              hint="0-10 Basic, 11-20 Pro, 21+ VIP"
+              hint="Monthly rate is selected by 1099 worker count"
               max={200}
               onChange={(value) => setQuantity('nec1099Count', value, 200)}
             />
@@ -116,17 +116,17 @@ export function PricingCalculatorForm({
           />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <RateField
-              label="Basic / mo"
+              label="0-10 workers / mo"
               value={input.rates.tiers.basicMonthly}
               onChange={(value) => setRate('tiers', 'basicMonthly', value)}
             />
             <RateField
-              label="Pro / mo"
+              label="11-20 workers / mo"
               value={input.rates.tiers.proMonthly}
               onChange={(value) => setRate('tiers', 'proMonthly', value)}
             />
             <RateField
-              label="VIP / mo"
+              label="21+ workers / mo"
               value={input.rates.tiers.vipMonthly}
               onChange={(value) => setRate('tiers', 'vipMonthly', value)}
             />

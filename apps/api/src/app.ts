@@ -51,6 +51,7 @@ import { billingRoute } from './routes/billing'
 import { couponsRoute } from './routes/coupons'
 import { recipientsRoute } from './routes/recipients'
 import { companyVaultRoute } from './routes/company-vault'
+import { pushRoute } from './routes/push'
 
 const app = new OpenAPIHono()
 
@@ -124,6 +125,7 @@ app.use('/client-groups/*', authMiddleware)
 app.use('/agreement-templates/*', authMiddleware)
 app.use('/activity/*', authMiddleware)
 app.use('/company-vault/*', authMiddleware)
+app.use('/push/*', authMiddleware)
 
 // Routes (with deprecation headers for clientId-based queries)
 app.use('/clients/*', deprecationHeadersMiddleware)
@@ -156,6 +158,7 @@ app.route('/client-groups', clientGroupsRoute)
 app.route('/agreement-templates', agreementTemplatesRoute)
 app.route('/activity', activityRoute)
 app.route('/company-vault', companyVaultRoute)
+app.route('/push', pushRoute)
 
 // OpenAPI documentation
 app.doc('/doc', {

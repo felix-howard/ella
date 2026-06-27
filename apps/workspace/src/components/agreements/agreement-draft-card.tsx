@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FilePenLine, Loader2, Trash2 } from 'lucide-react'
+import { AlertTriangle, FilePenLine, Loader2, Trash2 } from 'lucide-react'
+import { Button, Modal, ModalDescription, ModalFooter, ModalHeader, ModalTitle } from '@ella/ui'
 import { NdaReadonlyCard } from './agreement-readonly-card'
 import { AgreementDraftResumeModal } from './agreement-draft-resume-modal'
 import { useDiscardAgreementDraft } from './use-agreement-draft-mutations'
@@ -15,14 +16,24 @@ interface AgreementDraftCardProps {
 export function AgreementDraftCard({ entity, draft }: AgreementDraftCardProps) {
   const { t } = useTranslation()
   const [resumeOpen, setResumeOpen] = useState(false)
+  const [discardOpen, setDiscardOpen] = useState(false)
   const discardMutation = useDiscardAgreementDraft(entity)
 
-  const handleDiscard = () => {
-    if (!window.confirm(t('agreements.draft.discardConfirm', { title: draft.title }))) return
-    discardMutation.mutate({
-      agreementId: draft.id,
-      payload: { expectedUpdatedAt: draft.updatedAt },
-    })
+  const handleCloseDiscardModal = () => {
+    if (discardMutation.isPending) return
+    setDiscardOpen(false)
+  }
+
+  const handleConfirmDiscard = () => {
+    discardMutation.mutate(
+      {
+        agreementId: draft.id,
+        payload: { expectedUpdatedAt: draft.updatedAt },
+      },
+      {
+        onSuccess: () => setDiscardOpen(false),
+      }
+    )
   }
 
   return (
@@ -40,7 +51,7 @@ export function AgreementDraftCard({ entity, draft }: AgreementDraftCardProps) {
         </button>
         <button
           type="button"
-          onClick={handleDiscard}
+          onClick={() => setDiscardOpen(true)}
           disabled={discardMutation.isPending}
           className="flex items-center gap-1.5 rounded-full border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
         >
@@ -59,6 +70,70 @@ export function AgreementDraftCard({ entity, draft }: AgreementDraftCardProps) {
         open={resumeOpen}
         onClose={() => setResumeOpen(false)}
       />
+
+      <AgreementDraftDiscardConfirmModal
+        open={discardOpen}
+        draftTitle={draft.title}
+        isPending={discardMutation.isPending}
+        onClose={handleCloseDiscardModal}
+        onConfirm={handleConfirmDiscard}
+      />
     </div>
+  )
+}
+
+interface AgreementDraftDiscardConfirmModalProps {
+  open: boolean
+  draftTitle: string
+  isPending: boolean
+  onClose: () => void
+  onConfirm: () => void
+}
+
+function AgreementDraftDiscardConfirmModal({
+  open,
+  draftTitle,
+  isPending,
+  onClose,
+  onConfirm,
+}: AgreementDraftDiscardConfirmModalProps) {
+  const { t } = useTranslation()
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      closeOnOverlayClick={!isPending}
+      closeOnEscape={!isPending}
+      showCloseButton={!isPending}
+      size="lg"
+    >
+      <ModalHeader>
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-destructive" />
+          <ModalTitle className="text-foreground">
+            {t('agreements.draft.discardConfirmTitle')}
+          </ModalTitle>
+        </div>
+        <ModalDescription className="break-words leading-relaxed [overflow-wrap:anywhere]">
+          {t('agreements.draft.discardConfirmDescription', { title: draftTitle })}
+        </ModalDescription>
+      </ModalHeader>
+      <ModalFooter>
+        <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
+          {t('common.cancel')}
+        </Button>
+        <Button
+          type="button"
+          variant="destructive"
+          onClick={onConfirm}
+          disabled={isPending}
+          className="gap-2"
+        >
+          {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          {t('agreements.draft.discardConfirmAction')}
+        </Button>
+      </ModalFooter>
+    </Modal>
   )
 }

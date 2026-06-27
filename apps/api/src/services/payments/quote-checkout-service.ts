@@ -24,6 +24,7 @@ import { prisma } from '../../lib/db'
 import { buildCheckoutSessionParams, isUnsafeProductionReturnUrl } from '../stripe/checkout'
 import { markPaymentQuoteStatus, persistStripeCheckoutSession } from '../stripe/persistence'
 import { rebuildQuoteForCheckout, resolveQuoteCouponOptions } from '../stripe/quote-rebuild'
+import { ensureStripeCustomerForClient } from '../stripe/stripe-customer-link-service'
 import { buildQuotePayUrl } from './quote-send-service'
 import { isBusinessTaxReturnPrepayLine } from '@ella/shared/pricing'
 
@@ -184,7 +185,11 @@ export async function createQuoteCheckoutSession(
   // expired/absent session falls through to a fresh create below.
   // Note: a reused session's discount is frozen at its first-create — a coupon
   // attached/changed between Pay clicks won't apply until the session expires.
-  const reusable = await findReusableCheckoutSession(quote.id)
+  const latestSession = await findLatestCheckoutSession(quote.id)
+  if (isSettledCheckoutSessionStatus(latestSession?.status)) {
+    throw new QuoteCheckoutError('ALREADY_PAID', 'This quote checkout has already been completed')
+  }
+  const reusable = getReusableCheckoutSessionUrl(latestSession)
   if (reusable) return { checkoutUrl: reusable }
 
   // Source-aware rebuild (drift-safe): calculator quotes recompute from the
@@ -193,11 +198,23 @@ export async function createQuoteCheckoutSession(
   // .paymentQuoteId) and session persistence both resolve back to this quote.
   const lineItems = rebuildQuoteForCheckout(quote)
   const couponOptions = await resolveQuoteCouponOptions(quote)
+  const customerId =
+    quote.clientId && quote.organizationId
+      ? await ensureStripeCustomerForClient({
+          clientId: quote.clientId,
+          organizationId: quote.organizationId,
+        })
+      : undefined
+  const customerEmail = customerId ? undefined : (quote.customerEmail ?? undefined)
+  const hasRecurringLine = lineItems.some((item) => item.interval !== 'one_time')
+  const customerCreation = !customerId && !hasRecurringLine && customerEmail ? 'always' : undefined
 
   const session = await getStripeClient().checkout.sessions.create(
     buildCheckoutSessionParams(lineItems, {
       quoteId: quote.id,
-      customerEmail: quote.customerEmail ?? undefined,
+      customerId,
+      customerEmail,
+      customerCreation,
       successUrl: `${payUrl}?status=success`,
       cancelUrl: `${payUrl}?status=canceled`,
       metadataSource: quote.source === 'custom' ? 'custom_link' : 'pricing_calculator',
@@ -206,7 +223,8 @@ export async function createQuoteCheckoutSession(
       // `payToken` so deposit routing is never affected.
       extraMetadata: { quotePayToken: payToken },
       ...couponOptions,
-    })
+    }),
+    { idempotencyKey: buildQuoteCheckoutIdempotencyKey(quote.id, latestSession?.stripeSessionId) }
   )
 
   if (!session.url) {
@@ -230,19 +248,50 @@ export async function createQuoteCheckoutSession(
  * completed it (a completed session means money moved → the webhook will settle
  * the quote, so we must not hand back its single-use URL).
  */
-async function findReusableCheckoutSession(quoteId: string): Promise<string | null> {
-  const existing = await prisma.stripeCheckoutSession.findFirst({
+async function findLatestCheckoutSession(quoteId: string): Promise<{
+  stripeSessionId: string
+  status: string
+  url: string | null
+  expiresAt: Date | null
+} | null> {
+  return prisma.stripeCheckoutSession.findFirst({
     where: {
       paymentQuoteId: quoteId,
-      url: { not: null },
-      status: { notIn: ['complete', 'expired'] },
     },
     orderBy: { createdAt: 'desc' },
-    select: { url: true, expiresAt: true },
+    select: { stripeSessionId: true, status: true, url: true, expiresAt: true },
   })
+}
+
+function getReusableCheckoutSessionUrl(
+  existing: Awaited<ReturnType<typeof findLatestCheckoutSession>>
+): string | null {
   if (!existing?.url) return null
+  if (isTerminalCheckoutSessionStatus(existing.status)) return null
   if (existing.expiresAt && existing.expiresAt <= new Date()) return null
   return existing.url
+}
+
+function isSettledCheckoutSessionStatus(status: string | null | undefined): boolean {
+  return Boolean(status && ['complete', 'invoice_paid'].includes(status))
+}
+
+function isTerminalCheckoutSessionStatus(status: string): boolean {
+  return [
+    'complete',
+    'expired',
+    'invoice_paid',
+    'payment_failed',
+    'invoice_payment_failed',
+    'subscription_canceled',
+  ].includes(status)
+}
+
+function buildQuoteCheckoutIdempotencyKey(
+  quoteId: string,
+  previousSessionId: string | null | undefined
+): string {
+  return `quote-checkout:${quoteId}:${previousSessionId ?? 'initial'}`
 }
 
 function isPaidStatus(status: string): boolean {

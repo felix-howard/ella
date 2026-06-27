@@ -9,12 +9,18 @@ import type Stripe from 'stripe'
 const stripeMocks = vi.hoisted(() => ({
   sessionsCreate: vi.fn(),
   sessionsRetrieve: vi.fn(),
+  paymentIntentsRetrieve: vi.fn(),
+  customersCreate: vi.fn(),
 }))
 
 const prismaMocks = vi.hoisted(() => ({
   payment: {
     findUnique: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
+  },
+  client: {
+    findFirst: vi.fn(),
     updateMany: vi.fn(),
   },
   agreement: {
@@ -35,6 +41,8 @@ vi.mock('stripe', () => ({
     checkout = {
       sessions: { create: stripeMocks.sessionsCreate, retrieve: stripeMocks.sessionsRetrieve },
     }
+    paymentIntents = { retrieve: stripeMocks.paymentIntentsRetrieve }
+    customers = { create: stripeMocks.customersCreate }
   },
 }))
 
@@ -74,11 +82,14 @@ function paymentRow(overrides: Record<string, unknown> = {}) {
     id: 'pay_1',
     organizationId: 'org_1',
     agreementId: 'agr_1',
+    clientId: null,
+    leadId: 'lead_1',
     status: 'PENDING',
     amount: { toString: () => '300' },
     currency: 'usd',
     description: 'Initial payment - 2026 Engagement Letter',
     payToken: 'tok_abc',
+    stripeSessionId: null,
     paidAt: null,
     organization: { name: 'Acme Tax' },
     client: null,
@@ -93,6 +104,8 @@ beforeEach(() => {
   prismaMocks.payment.findUnique.mockResolvedValue(paymentRow())
   prismaMocks.payment.update.mockResolvedValue({})
   prismaMocks.payment.updateMany.mockResolvedValue({ count: 1 })
+  prismaMocks.client.findFirst.mockResolvedValue(null)
+  prismaMocks.client.updateMany.mockResolvedValue({ count: 1 })
   prismaMocks.agreement.updateMany.mockResolvedValue({ count: 1 })
   notifyMocks.smsOptedInAdmins.mockResolvedValue([])
   signerSmsMocks.sendSignerSmsAndPersist.mockResolvedValue(undefined)
@@ -100,6 +113,19 @@ beforeEach(() => {
     id: 'cs_dep_123',
     url: 'https://checkout.stripe.com/c/pay/cs_dep_123',
   })
+  stripeMocks.paymentIntentsRetrieve.mockResolvedValue({
+    id: 'pi_123',
+    customer: 'cus_123',
+    latest_charge: {
+      id: 'ch_123',
+      customer: 'cus_123',
+      payment_intent: 'pi_123',
+      receipt_url: 'https://pay.stripe.com/receipts/ch_123',
+      receipt_number: '1234-5678',
+      payment_method_details: { card: { brand: 'visa', last4: '4242' } },
+    },
+  })
+  stripeMocks.customersCreate.mockResolvedValue({ id: 'cus_new' })
 })
 
 describe('getPublicPaymentView', () => {
@@ -164,28 +190,153 @@ describe('createDepositCheckoutSession', () => {
     const result = await createDepositCheckoutSession('tok_abc')
 
     expect(result).toEqual({ checkoutUrl: 'https://checkout.stripe.com/c/pay/cs_dep_123' })
-    expect(stripeMocks.sessionsCreate).toHaveBeenCalledWith({
-      mode: 'payment',
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: 'usd',
-            unit_amount: 30000, // 300 USD from DB — never from the request
-            product_data: { name: 'Initial payment - 2026 Engagement Letter' },
+    expect(stripeMocks.sessionsCreate).toHaveBeenCalledWith(
+      {
+        mode: 'payment',
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: 'usd',
+              unit_amount: 30000, // 300 USD from DB — never from the request
+              product_data: { name: 'Initial payment - 2026 Engagement Letter' },
+            },
           },
-        },
-      ],
-      success_url: 'http://portal.test/pay/tok_abc?status=success',
-      cancel_url: 'http://portal.test/pay/tok_abc?status=canceled',
-      customer_email: 'anna@test.com',
-      client_reference_id: 'pay_1',
-      metadata: { payToken: 'tok_abc', paymentId: 'pay_1', agreementId: 'agr_1' },
-    })
+        ],
+        success_url: 'http://portal.test/pay/tok_abc?status=success',
+        cancel_url: 'http://portal.test/pay/tok_abc?status=canceled',
+        customer_email: 'anna@test.com',
+        client_reference_id: 'pay_1',
+        metadata: { payToken: 'tok_abc', paymentId: 'pay_1', agreementId: 'agr_1' },
+      },
+      { idempotencyKey: 'deposit-payment:pay_1:initial' },
+    )
     expect(prismaMocks.payment.update).toHaveBeenCalledWith({
       where: { id: 'pay_1' },
       data: { stripeSessionId: 'cs_dep_123' },
     })
+  })
+
+  it('reuses an existing open Checkout Session instead of creating another', async () => {
+    prismaMocks.payment.findUnique.mockResolvedValue(paymentRow({ stripeSessionId: 'cs_existing' }))
+    stripeMocks.sessionsRetrieve.mockResolvedValue({
+      id: 'cs_existing',
+      status: 'open',
+      payment_status: 'unpaid',
+      url: 'https://checkout.stripe.com/c/pay/cs_existing',
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+    })
+
+    const result = await createDepositCheckoutSession('tok_abc')
+
+    expect(result).toEqual({ checkoutUrl: 'https://checkout.stripe.com/c/pay/cs_existing' })
+    expect(stripeMocks.sessionsRetrieve).toHaveBeenCalledWith('cs_existing', {
+      expand: ['payment_intent'],
+    })
+    expect(stripeMocks.sessionsCreate).not.toHaveBeenCalled()
+    expect(prismaMocks.payment.update).not.toHaveBeenCalled()
+  })
+
+  it('uses the stored expired session id in the idempotency key for a retry attempt', async () => {
+    prismaMocks.payment.findUnique.mockResolvedValue(paymentRow({ stripeSessionId: 'cs_expired' }))
+    stripeMocks.sessionsRetrieve.mockResolvedValue({
+      id: 'cs_expired',
+      status: 'expired',
+      payment_status: 'unpaid',
+      url: 'https://checkout.stripe.com/c/pay/cs_expired',
+      expires_at: Math.floor(Date.now() / 1000) - 60,
+    })
+
+    await createDepositCheckoutSession('tok_abc')
+
+    expect(stripeMocks.sessionsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: expect.objectContaining({ paymentId: 'pay_1' }) }),
+      { idempotencyKey: 'deposit-payment:pay_1:cs_expired' },
+    )
+  })
+
+  it('uses a persistent Stripe Customer for known clients', async () => {
+    prismaMocks.payment.findUnique.mockResolvedValue(
+      paymentRow({
+        clientId: 'client_1',
+        leadId: null,
+        client: {
+          id: 'client_1',
+          firstName: 'Anna',
+          lastName: 'Nguyen',
+          email: 'anna@test.com',
+          phone: '+18135550123',
+        },
+        lead: null,
+      }),
+    )
+    prismaMocks.client.findFirst.mockResolvedValue({
+      id: 'client_1',
+      firstName: 'Anna',
+      lastName: 'Nguyen',
+      name: 'Anna Nguyen',
+      email: 'anna@test.com',
+      phone: '+18135550123',
+      stripeCustomerId: 'cus_existing',
+    })
+
+    await createDepositCheckoutSession('tok_abc')
+
+    const params = stripeMocks.sessionsCreate.mock.calls[0][0]
+    expect(params.customer).toBe('cus_existing')
+    expect(params).not.toHaveProperty('customer_email')
+  })
+
+  it('creates and stores a persistent Stripe Customer for known clients without one', async () => {
+    prismaMocks.payment.findUnique.mockResolvedValue(
+      paymentRow({
+        clientId: 'client_1',
+        leadId: null,
+        client: {
+          id: 'client_1',
+          firstName: 'Anna',
+          lastName: 'Nguyen',
+          email: 'anna@test.com',
+          phone: '+18135550123',
+        },
+        lead: null,
+      }),
+    )
+    prismaMocks.client.findFirst.mockResolvedValue({
+      id: 'client_1',
+      firstName: 'Anna',
+      lastName: 'Nguyen',
+      name: 'Anna Nguyen',
+      email: 'anna@test.com',
+      phone: '+18135550123',
+      stripeCustomerId: null,
+    })
+
+    await createDepositCheckoutSession('tok_abc')
+
+    expect(stripeMocks.customersCreate).toHaveBeenCalledWith(
+      {
+        email: 'anna@test.com',
+        name: 'Anna Nguyen',
+        phone: '+18135550123',
+        metadata: {
+          ellaClientId: 'client_1',
+          ellaOrganizationId: 'org_1',
+          source: 'ella',
+        },
+      },
+      { idempotencyKey: 'ella-client-client_1-customer-v1' },
+    )
+    expect(prismaMocks.client.updateMany).toHaveBeenCalledWith({
+      where: { id: 'client_1', organizationId: 'org_1', stripeCustomerId: null },
+      data: {
+        stripeCustomerId: 'cus_new',
+        stripeCustomerLinkedAt: expect.any(Date),
+      },
+    })
+    const params = stripeMocks.sessionsCreate.mock.calls[0][0]
+    expect(params.customer).toBe('cus_new')
+    expect(params).not.toHaveProperty('customer_email')
   })
 
   it('normalizes legacy retainer descriptions in Stripe product names', async () => {
@@ -205,6 +356,7 @@ describe('createDepositCheckoutSession', () => {
           }),
         ],
       }),
+      expect.any(Object),
     )
   })
 
@@ -260,6 +412,19 @@ describe('markDepositPaymentPaid', () => {
         stripePaymentIntentId: 'pi_123',
       },
     })
+    expect(prismaMocks.payment.update).toHaveBeenCalledWith({
+      where: { id: 'pay_1' },
+      data: {
+        stripeCustomerId: 'cus_123',
+        stripePaymentIntentId: 'pi_123',
+        stripeChargeId: 'ch_123',
+        stripeReceiptUrl: 'https://pay.stripe.com/receipts/ch_123',
+        stripeReceiptNumber: '1234-5678',
+        paymentMethodBrand: 'visa',
+        paymentMethodLast4: '4242',
+        receiptSyncedAt: expect.any(Date),
+      },
+    })
     expect(prismaMocks.agreement.updateMany).toHaveBeenCalledWith({
       where: { id: 'agr_1', depositStatus: { not: 'PAID' } },
       data: { depositStatus: 'PAID', depositPaidAt: eventAt },
@@ -284,8 +449,36 @@ describe('markDepositPaymentPaid', () => {
     await markDepositPaymentPaid(stripeSession(), eventAt)
 
     expect(prismaMocks.agreement.updateMany).not.toHaveBeenCalled()
+    expect(stripeMocks.paymentIntentsRetrieve).not.toHaveBeenCalled()
     expect(notifyMocks.smsOptedInAdmins).not.toHaveBeenCalled()
     expect(signerSmsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
+  })
+
+  it('backfills a client Stripe Customer from the paid session when missing', async () => {
+    prismaMocks.payment.findUnique.mockResolvedValue(
+      paymentRow({
+        clientId: 'client_1',
+        leadId: null,
+        client: {
+          id: 'client_1',
+          firstName: 'Anna',
+          lastName: 'Nguyen',
+          email: 'anna@test.com',
+          phone: '+18135550123',
+        },
+        lead: null,
+      }),
+    )
+
+    await markDepositPaymentPaid(stripeSession({ customer: 'cus_session' }), eventAt)
+
+    expect(prismaMocks.client.updateMany).toHaveBeenCalledWith({
+      where: { id: 'client_1', organizationId: 'org_1', stripeCustomerId: null },
+      data: {
+        stripeCustomerId: 'cus_session',
+        stripeCustomerLinkedAt: expect.any(Date),
+      },
+    })
   })
 
   it('still sends the client receipt when admin notification fails', async () => {

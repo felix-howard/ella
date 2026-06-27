@@ -17,8 +17,15 @@
  * no double SMS. The failure alert is de-duped by the caller on Stripe event id.
  */
 import type Stripe from 'stripe'
+import type { Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { convertLeadToClientCore } from '../leads/lead-conversion-service'
+import { linkClientToStripeCustomerIfMissing } from '../stripe/stripe-customer-link-service'
+import {
+  getReceiptFactsFromCheckoutSession,
+  toPaymentReceiptData,
+  type StripeReceiptFacts,
+} from '../stripe/stripe-receipt-facts'
 import { notifyFirstQuotePayment, notifyQuotePaymentFailed } from './quote-fulfillment-notify'
 import { formatUsdAmount } from './payment-sms-templates'
 import {
@@ -38,6 +45,13 @@ function firstPaymentDescription(quote: SendableQuote): string {
   return quote.monthlyTotalCents > 0 ? 'Initial payment (setup + first month)' : 'Initial payment'
 }
 
+class LeadConversionFailedError extends Error {
+  constructor(readonly originalError: unknown) {
+    super('Lead conversion failed during quote payment fulfillment')
+    this.name = 'LeadConversionFailedError'
+  }
+}
+
 /** Pick the SMS recipient + the Payment's clientId, auto-converting a lead. */
 function leadSigner(lead: NonNullable<SendableQuote['lead']>): QuoteSigner {
   return {
@@ -50,12 +64,12 @@ function leadSigner(lead: NonNullable<SendableQuote['lead']>): QuoteSigner {
 }
 
 /**
- * Resolve the quote to a Client, auto-converting a Lead on first payment so the
- * charge lands in the existing client Payments tab. Repoints the quote to the
- * resulting client. Never throws — on convert failure the Payment is recorded
- * against the lead instead (admins are still alerted downstream).
+ * Resolve the quote to a Client, auto-converting a Lead on first payment inside
+ * the same transaction as the deterministic Payment insert. If that insert
+ * loses a duplicate-webhook race, the conversion work rolls back with it.
  */
-async function resolveRecipientClient(
+async function resolveRecipientClientInTransaction(
+  tx: Prisma.TransactionClient,
   quote: SendableQuote,
   eventAt: Date,
 ): Promise<{ clientId: string | null; signer: QuoteSigner | null }> {
@@ -71,29 +85,26 @@ async function resolveRecipientClient(
 
   // Already converted (e.g. a self-healing webhook retry) — reuse that client.
   if (quote.lead.status === 'CONVERTED' && quote.lead.convertedToId) {
-    await repointQuoteToClient(quote.id, quote.lead.convertedToId)
+    await repointQuoteToClient(tx, quote.id, quote.lead.convertedToId)
     return clientSignerFor(quote.lead.convertedToId, quote.lead)
   }
 
   try {
-    const result = await prisma.$transaction((tx) =>
-      convertLeadToClientCore(tx, {
-        lead: quote.lead!,
-        organizationId: quote.organizationId!,
-        firstName: quote.lead!.firstName,
-        lastName: quote.lead!.lastName,
-        email: quote.lead!.email,
-        taxYear: eventAt.getFullYear(),
-        createdByStaffId: quote.sentByStaffId ?? null,
-        managedById: quote.sentByStaffId ?? null,
-      }),
-    )
+    const result = await convertLeadToClientCore(tx, {
+      lead: quote.lead!,
+      organizationId: quote.organizationId!,
+      firstName: quote.lead!.firstName,
+      lastName: quote.lead!.lastName,
+      email: quote.lead!.email,
+      taxYear: eventAt.getFullYear(),
+      createdByStaffId: quote.sentByStaffId ?? null,
+      managedById: quote.sentByStaffId ?? null,
+    })
     const clientId = result.duplicate ? result.existingClient.id : result.client.id
-    await repointQuoteToClient(quote.id, clientId)
+    await repointQuoteToClient(tx, quote.id, clientId)
     return clientSignerFor(clientId, quote.lead)
   } catch (err) {
-    console.error(`[QuoteFulfillment] Lead→Client convert failed for quote=${quote.id}:`, err)
-    return { clientId: null, signer: leadSigner(quote.lead) }
+    throw new LeadConversionFailedError(err)
   }
 }
 
@@ -114,8 +125,12 @@ function clientSignerFor(
   }
 }
 
-async function repointQuoteToClient(quoteId: string, clientId: string): Promise<void> {
-  await prisma.paymentQuote.updateMany({
+async function repointQuoteToClient(
+  tx: Prisma.TransactionClient,
+  quoteId: string,
+  clientId: string,
+): Promise<void> {
+  await tx.paymentQuote.updateMany({
     where: { id: quoteId, clientId: null },
     data: { clientId },
   })
@@ -142,25 +157,91 @@ export async function fulfillFirstQuotePayment(params: {
     return
   }
 
-  const recipient = await resolveRecipientClient(quote, eventAt)
   const amount = centsToAmount(quote.monthlyTotalCents + quote.setupTotalCents)
+  const receiptFacts = await getReceiptFactsFromCheckoutSession(session)
 
-  if (!(await createQuotePayment({
-    payToken: `qf_${session.id}`,
-    organizationId: quote.organizationId,
-    clientId: recipient.clientId,
-    leadId: recipient.clientId ? null : quote.leadId,
-    type: 'OTHER',
+  const result = await recordFirstQuotePayment({
+    quote,
+    session,
+    receiptFacts,
+    eventAt,
     amount,
-    stripeSessionId: session.id,
-    stripePaymentIntentId: stripeIdOf(session.payment_intent),
-    paidAt: eventAt,
-    description: firstPaymentDescription(quote),
-  }))) {
+  })
+  if (!result) {
     return // duplicate delivery — Payment + SMS already happened
   }
 
-  await notifyFirstQuotePayment({ quote, signer: recipient.signer, amountFormatted: formatUsdAmount(amount) })
+  await linkRecipientStripeCustomerIfMissing({
+    clientId: result.recipient.clientId,
+    organizationId: quote.organizationId,
+    stripeCustomerId: receiptFacts.stripeCustomerId,
+  })
+
+  await notifyFirstQuotePayment({
+    quote,
+    signer: result.recipient.signer,
+    amountFormatted: formatUsdAmount(amount),
+  })
+}
+
+async function recordFirstQuotePayment({
+  quote,
+  session,
+  receiptFacts,
+  eventAt,
+  amount,
+}: {
+  quote: SendableQuote
+  session: Stripe.Checkout.Session
+  receiptFacts: StripeReceiptFacts
+  eventAt: Date
+  amount: string
+}): Promise<{ recipient: { clientId: string | null; signer: QuoteSigner | null } } | null> {
+  if (!quote.organizationId) return null
+
+  const inputBase = {
+    payToken: `qf_${session.id}`,
+    organizationId: quote.organizationId,
+    type: 'OTHER',
+    amount,
+    stripeSessionId: session.id,
+    stripePaymentIntentId: stripeIdOf(session.payment_intent) ?? receiptFacts.stripePaymentIntentId ?? null,
+    receiptFacts,
+    paidAt: eventAt,
+    description: firstPaymentDescription(quote),
+  } satisfies Omit<QuotePaymentInput, 'clientId' | 'leadId'>
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const recipient = await resolveRecipientClientInTransaction(tx, quote, eventAt)
+      await insertQuotePayment(tx, {
+        ...inputBase,
+        clientId: recipient.clientId,
+        leadId: recipient.clientId ? null : quote.leadId,
+      })
+      return { recipient }
+    })
+  } catch (err) {
+    if (isUniqueViolation(err)) return null
+    if (!(err instanceof LeadConversionFailedError)) throw err
+
+    console.error(
+      `[QuoteFulfillment] Lead→Client convert failed for quote=${quote.id}:`,
+      err.originalError,
+    )
+    const recipient = {
+      clientId: null,
+      signer: quote.lead ? leadSigner(quote.lead) : null,
+    }
+    if (!(await createQuotePayment({
+      ...inputBase,
+      clientId: null,
+      leadId: quote.leadId,
+    }))) {
+      return null
+    }
+    return { recipient }
+  }
 }
 
 /**
@@ -190,6 +271,7 @@ export async function recordRecurringQuotePayment(params: {
     amount: centsToAmount(invoice.amountPaidCents),
     stripeSessionId: null,
     stripePaymentIntentId: invoice.paymentIntentId,
+    receiptFacts: invoice.receiptFacts,
     paidAt: eventAt,
     description: 'Monthly service',
   })
@@ -235,8 +317,26 @@ interface QuotePaymentInput {
   amount: string
   stripeSessionId: string | null
   stripePaymentIntentId: string | null
+  receiptFacts?: StripeReceiptFacts
   paidAt: Date
   description: string
+}
+
+async function linkRecipientStripeCustomerIfMissing({
+  clientId,
+  organizationId,
+  stripeCustomerId,
+}: {
+  clientId: string | null
+  organizationId: string
+  stripeCustomerId: string | null | undefined
+}): Promise<void> {
+  if (!clientId || !stripeCustomerId) return
+  try {
+    await linkClientToStripeCustomerIfMissing({ clientId, organizationId, stripeCustomerId })
+  } catch (err) {
+    console.error(`[QuoteFulfillment] Client Stripe Customer link failed client=${clientId}:`, err)
+  }
 }
 
 /**
@@ -246,26 +346,34 @@ interface QuotePaymentInput {
  */
 async function createQuotePayment(input: QuotePaymentInput): Promise<boolean> {
   try {
-    await prisma.payment.create({
-      data: {
-        organizationId: input.organizationId,
-        clientId: input.clientId,
-        leadId: input.leadId,
-        type: input.type,
-        status: 'PAID',
-        amount: input.amount,
-        currency: 'usd',
-        payToken: input.payToken,
-        stripeSessionId: input.stripeSessionId,
-        stripePaymentIntentId: input.stripePaymentIntentId,
-        paidAt: input.paidAt,
-        description: input.description,
-      },
-    })
+    await insertQuotePayment(prisma, input)
     return true
   } catch (err) {
     if (isUniqueViolation(err)) return false
     console.error(`[QuoteFulfillment] Payment insert failed (payToken=${input.payToken}):`, err)
-    return false
+    throw err
   }
+}
+
+async function insertQuotePayment(
+  db: Pick<Prisma.TransactionClient, 'payment'>,
+  input: QuotePaymentInput,
+): Promise<void> {
+  await db.payment.create({
+    data: {
+      organizationId: input.organizationId,
+      clientId: input.clientId,
+      leadId: input.leadId,
+      type: input.type,
+      status: 'PAID',
+      amount: input.amount,
+      currency: 'usd',
+      payToken: input.payToken,
+      stripeSessionId: input.stripeSessionId,
+      stripePaymentIntentId: input.stripePaymentIntentId,
+      ...toPaymentReceiptData(input.receiptFacts ?? {}, input.paidAt),
+      paidAt: input.paidAt,
+      description: input.description,
+    } satisfies Prisma.PaymentUncheckedCreateInput,
+  })
 }

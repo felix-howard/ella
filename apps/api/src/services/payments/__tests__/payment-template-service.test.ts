@@ -35,8 +35,8 @@ function buildInput(overrides: Partial<CreatePaymentTemplateInput> = {}): Create
       billingInterval: 'month',
       items: [
         {
-          label: ' Bookkeeping ',
-          description: ' Monthly close ',
+          label: ' Bookkeeping \n Cleanup ',
+          description: ' Monthly close \n\n Tax review ',
           unitAmountCents: 50000,
           quantity: 1,
         },
@@ -107,8 +107,8 @@ describe('payment-template-service', () => {
       billingInterval: 'month',
       items: [
         {
-          label: 'Bookkeeping',
-          description: 'Monthly close',
+          label: 'Bookkeeping Cleanup',
+          description: 'Monthly close\nTax review',
           unitAmountCents: 50000,
           quantity: 1,
         },

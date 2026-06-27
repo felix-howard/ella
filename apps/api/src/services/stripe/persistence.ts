@@ -5,6 +5,15 @@ import type { CreateCheckoutSessionInput } from '../../routes/billing/schemas'
 import type { CheckoutQuote } from './quote-calculator'
 import type { CheckoutInterval, CheckoutLineItem } from './checkout-line-items'
 
+const CHECKOUT_CREATED_ALLOWED_STATUSES = [
+  'pending_checkout',
+  'sent',
+  'checkout_created',
+  'stripe_create_failed',
+  'checkout_persist_failed',
+  'stripe_missing_url',
+]
+
 export interface CreateCheckoutSessionContext {
   organizationId?: string | null
   createdByStaffId?: string | null
@@ -111,21 +120,32 @@ export async function persistStripeCheckoutSession(
   paymentQuoteId: string,
   session: Stripe.Checkout.Session
 ): Promise<void> {
+  const sessionData = {
+    stripeCustomerId: getStripeObjectId(session.customer),
+    stripeSubscriptionId: getStripeObjectId(session.subscription),
+    stripePaymentIntentId: getStripeObjectId(session.payment_intent),
+    stripeInvoiceId: getStripeObjectId(session.invoice),
+    status: session.status ?? 'created',
+    url: session.url,
+    expiresAt: session.expires_at ? new Date(session.expires_at * 1000) : null,
+  }
+
   await prisma.$transaction([
-    prisma.stripeCheckoutSession.create({
-      data: {
+    prisma.stripeCheckoutSession.upsert({
+      where: { stripeSessionId: session.id },
+      create: {
         paymentQuoteId,
         stripeSessionId: session.id,
-        stripeCustomerId: getStripeObjectId(session.customer),
-        stripeSubscriptionId: getStripeObjectId(session.subscription),
-        stripePaymentIntentId: getStripeObjectId(session.payment_intent),
-        status: session.status ?? 'created',
-        url: session.url,
-        expiresAt: session.expires_at ? new Date(session.expires_at * 1000) : null,
+        ...sessionData,
       },
+      update: sessionData,
     }),
-    prisma.paymentQuote.update({
-      where: { id: paymentQuoteId },
+    prisma.paymentQuote.updateMany({
+      where: {
+        id: paymentQuoteId,
+        lastStripeEventAt: null,
+        status: { in: CHECKOUT_CREATED_ALLOWED_STATUSES },
+      },
       data: { status: 'checkout_created' },
     }),
   ])
@@ -133,8 +153,12 @@ export async function persistStripeCheckoutSession(
 
 export async function markPaymentQuoteStatus(paymentQuoteId: string, status: string): Promise<void> {
   try {
-    await prisma.paymentQuote.update({
-      where: { id: paymentQuoteId },
+    await prisma.paymentQuote.updateMany({
+      where: {
+        id: paymentQuoteId,
+        lastStripeEventAt: null,
+        status: { notIn: ['paid', 'active', 'canceled'] },
+      },
       data: { status },
     })
   } catch {

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createCheckoutSession } from '../checkout'
+import { persistStripeCheckoutSession } from '../persistence'
 import { checkoutRequest } from './checkout-fixtures'
 
 const stripeMocks = vi.hoisted(() => ({
@@ -9,10 +10,10 @@ const stripeMocks = vi.hoisted(() => ({
 const prismaMocks = vi.hoisted(() => ({
   paymentQuote: {
     create: vi.fn(),
-    update: vi.fn(),
+    updateMany: vi.fn(),
   },
   stripeCheckoutSession: {
-    create: vi.fn(),
+    upsert: vi.fn(),
   },
   $transaction: vi.fn(),
 }))
@@ -48,8 +49,8 @@ describe('Stripe checkout persistence', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     prismaMocks.paymentQuote.create.mockResolvedValue({})
-    prismaMocks.paymentQuote.update.mockResolvedValue({})
-    prismaMocks.stripeCheckoutSession.create.mockResolvedValue({})
+    prismaMocks.paymentQuote.updateMany.mockResolvedValue({ count: 1 })
+    prismaMocks.stripeCheckoutSession.upsert.mockResolvedValue({})
     prismaMocks.$transaction.mockImplementation(async (operations: Promise<unknown>[]) =>
       Promise.all(operations)
     )
@@ -63,6 +64,7 @@ describe('Stripe checkout persistence', () => {
       expires_at: 1_800_000_000,
       customer: 'cus_123',
       subscription: 'sub_123',
+      invoice: 'in_123',
       payment_intent: null,
     })
 
@@ -100,19 +102,42 @@ describe('Stripe checkout persistence', () => {
     expect(stripeMocks.createSession.mock.calls[0]?.[0].metadata).not.toHaveProperty('customerName')
     expect(stripeMocks.createSession.mock.calls[0]?.[0].metadata).not.toHaveProperty('businessName')
     expect(stripeMocks.createSession.mock.calls[0]?.[1]).toEqual({ idempotencyKey: quoteId })
-    expect(prismaMocks.stripeCheckoutSession.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
+    expect(prismaMocks.stripeCheckoutSession.upsert).toHaveBeenCalledWith({
+      where: { stripeSessionId: 'cs_test_123' },
+      create: expect.objectContaining({
         paymentQuoteId: quoteId,
         stripeSessionId: 'cs_test_123',
         stripeCustomerId: 'cus_123',
         stripeSubscriptionId: 'sub_123',
+        stripeInvoiceId: 'in_123',
+        status: 'open',
+        url: 'https://checkout.stripe.com/cs_test_123',
+        expiresAt: expect.any(Date),
+      }),
+      update: expect.objectContaining({
+        stripeCustomerId: 'cus_123',
+        stripeSubscriptionId: 'sub_123',
+        stripeInvoiceId: 'in_123',
         status: 'open',
         url: 'https://checkout.stripe.com/cs_test_123',
         expiresAt: expect.any(Date),
       }),
     })
-    expect(prismaMocks.paymentQuote.update).toHaveBeenCalledWith({
-      where: { id: quoteId },
+    expect(prismaMocks.paymentQuote.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: quoteId,
+        lastStripeEventAt: null,
+        status: {
+          in: [
+            'pending_checkout',
+            'sent',
+            'checkout_created',
+            'stripe_create_failed',
+            'checkout_persist_failed',
+            'stripe_missing_url',
+          ],
+        },
+      },
       data: { status: 'checkout_created' },
     })
   })
@@ -123,11 +148,15 @@ describe('Stripe checkout persistence', () => {
     await expect(createCheckoutSession(checkoutRequest())).rejects.toThrow('Stripe unavailable')
 
     const quoteId = prismaMocks.paymentQuote.create.mock.calls[0]?.[0].data.id
-    expect(prismaMocks.paymentQuote.update).toHaveBeenCalledWith({
-      where: { id: quoteId },
+    expect(prismaMocks.paymentQuote.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: quoteId,
+        lastStripeEventAt: null,
+        status: { notIn: ['paid', 'active', 'canceled'] },
+      },
       data: { status: 'stripe_create_failed' },
     })
-    expect(prismaMocks.stripeCheckoutSession.create).not.toHaveBeenCalled()
+    expect(prismaMocks.stripeCheckoutSession.upsert).not.toHaveBeenCalled()
   })
 
   it('marks the quote when local session persistence fails after Stripe success', async () => {
@@ -145,8 +174,12 @@ describe('Stripe checkout persistence', () => {
     await expect(createCheckoutSession(checkoutRequest())).rejects.toThrow('DB write failed')
 
     const quoteId = prismaMocks.paymentQuote.create.mock.calls[0]?.[0].data.id
-    expect(prismaMocks.paymentQuote.update).toHaveBeenCalledWith({
-      where: { id: quoteId },
+    expect(prismaMocks.paymentQuote.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: quoteId,
+        lastStripeEventAt: null,
+        status: { notIn: ['paid', 'active', 'canceled'] },
+      },
       data: { status: 'checkout_persist_failed' },
     })
   })
@@ -167,10 +200,59 @@ describe('Stripe checkout persistence', () => {
     )
 
     const quoteId = prismaMocks.paymentQuote.create.mock.calls[0]?.[0].data.id
-    expect(prismaMocks.paymentQuote.update).toHaveBeenCalledWith({
-      where: { id: quoteId },
+    expect(prismaMocks.paymentQuote.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: quoteId,
+        lastStripeEventAt: null,
+        status: { notIn: ['paid', 'active', 'canceled'] },
+      },
       data: { status: 'stripe_missing_url' },
     })
-    expect(prismaMocks.stripeCheckoutSession.create).not.toHaveBeenCalled()
+    expect(prismaMocks.stripeCheckoutSession.upsert).not.toHaveBeenCalled()
+  })
+
+  it('upserts duplicate Stripe session persistence and guards quote status after webhook settlement', async () => {
+    prismaMocks.paymentQuote.updateMany.mockResolvedValueOnce({ count: 0 })
+
+    await persistStripeCheckoutSession('quote_paid', {
+      id: 'cs_test_race',
+      url: 'https://checkout.stripe.com/cs_test_race',
+      status: 'open',
+      expires_at: null,
+      customer: null,
+      subscription: null,
+      payment_intent: 'pi_race',
+      invoice: null,
+    } as never)
+
+    expect(prismaMocks.stripeCheckoutSession.upsert).toHaveBeenCalledWith({
+      where: { stripeSessionId: 'cs_test_race' },
+      create: expect.objectContaining({
+        paymentQuoteId: 'quote_paid',
+        stripeSessionId: 'cs_test_race',
+        stripePaymentIntentId: 'pi_race',
+      }),
+      update: expect.objectContaining({
+        stripePaymentIntentId: 'pi_race',
+        status: 'open',
+      }),
+    })
+    expect(prismaMocks.paymentQuote.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'quote_paid',
+        lastStripeEventAt: null,
+        status: {
+          in: [
+            'pending_checkout',
+            'sent',
+            'checkout_created',
+            'stripe_create_failed',
+            'checkout_persist_failed',
+            'stripe_missing_url',
+          ],
+        },
+      },
+      data: { status: 'checkout_created' },
+    })
   })
 })

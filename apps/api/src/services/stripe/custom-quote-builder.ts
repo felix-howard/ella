@@ -4,6 +4,8 @@ import { CheckoutQuoteError } from './quote-calculator'
 import type { CheckoutQuote, LineKind, QuoteLine } from './quote-calculator'
 import {
   customItemsToLineItems,
+  normalizeLineItemDescription,
+  normalizeLineItemLabel,
   type CheckoutInterval,
   type CheckoutLineItem,
   type CustomLineItemInput,
@@ -77,12 +79,13 @@ export function buildCustomQuote(input: CustomQuoteInput): CustomQuoteResult {
 }
 
 function validateItem(item: CustomLineItemInput): void {
-  const label = item.label?.trim() ?? ''
+  const label = normalizeLineItemLabel(item.label ?? '')
   if (label.length < 1 || label.length > MAX_LABEL_LENGTH) {
     throw new CheckoutQuoteError(`Line item label must be 1-${MAX_LABEL_LENGTH} characters`)
   }
 
-  if (item.description && item.description.trim().length > MAX_DESCRIPTION_LENGTH) {
+  const description = normalizeLineItemDescription(item.description)
+  if (description && description.length > MAX_DESCRIPTION_LENGTH) {
     throw new CheckoutQuoteError(
       `Line item description must be ${MAX_DESCRIPTION_LENGTH} characters or fewer`
     )
@@ -103,9 +106,9 @@ function validateItem(item: CustomLineItemInput): void {
 
 function toQuoteLines(items: CustomLineItemInput[], kind: LineKind): QuoteLine[] {
   return items.map((item) => {
-    const description = item.description?.trim()
+    const description = normalizeLineItemDescription(item.description)
     return {
-      label: item.label.trim(),
+      label: normalizeLineItemLabel(item.label),
       // Surfaced on the portal pay page; omit when blank so calculator parity holds.
       ...(description ? { description } : {}),
       amount: (item.unitAmountCents * item.quantity) / 100,

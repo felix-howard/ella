@@ -11,6 +11,7 @@ import crypto from 'crypto'
 import { processMmsMedia } from './mms-media-handler'
 import { updateLastActivity } from '../activity-tracker'
 import { publishMessageEventFromConversation } from '../realtime/message-publisher'
+import { notifyClientMessagePushFromConversation } from '../web-push'
 import { processTapbackReaction } from './tapback-reaction-handler'
 import {
   isValidE164Phone,
@@ -382,6 +383,7 @@ export async function processIncomingMessage(
     direction: 'INBOUND',
     channel: 'SMS',
   }).catch(() => {})
+  notifyClientMessagePushFromConversation(conversationId, message).catch(() => {})
 
   // Update case activity timestamp for computed status system
   await updateLastActivity(caseId)

@@ -43,6 +43,7 @@
     "stripe": "^22.2.0",
     "svix": "^1.89.0",
     "twilio": "^5.4.0",
+    "web-push": "^3.6.7",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^3.24.1"
   },
@@ -52,6 +53,7 @@
     "@types/react": "^19.0.0",
     "@types/sanitize-html": "^2.16.1",
     "@types/sharp": "^0.32.0",
+    "@types/web-push": "^3.6.4",
     "@vitest/coverage-v8": "^4.0.17",
     "concurrently": "^9.1.2",
     "dotenv-cli": "^8.0.0",

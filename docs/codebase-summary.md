@@ -1,7 +1,9 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-06-25
-**Current Branch:** feature/team-clerk-membership-reconciliation
+**Current Date:** 2026-06-27
+**Current Branch:** feature/260625-next-work
+**Payment Ledger Receipt Capture and Stripe Customer Polish:** COMPLETE. Deposit and quote payments now capture receipt and invoice facts on `Payment`, client-linked checkouts reuse persistent Stripe Customers, webhook/session reconciliation is best-effort and race-safe, and Stripe-hosted email receipts still depend on Dashboard settings.
+**PWA Web Push Notifications:** COMPLETE. Added `WebPushSubscription`, `config.webPush` VAPID env/config scaffolding, protected `/push` subscription/test APIs, a reusable `sendWebPushToStaff()` delivery service, and inbound SMS case-message fanout to active staff with enabled subscriptions (`ADMIN`/`MANAGER` org-wide, assigned `STAFF`/`CPA` via `ClientManager`). Workspace registers a service worker and exposes Settings Notifications enable/disable/test controls for the current browser subscription. Payloads are privacy-safe (`Ella`, `New client message`, `/messages/:caseId`), delivery is best-effort, expired subscriptions disable on 404/410, and the 500-row paging loader avoids fanout truncation. Automated validation/docs are synced; physical iPhone HTTPS smoke remains rollout QA.
 **Team Clerk Membership Reconciliation:** COMPLETE. Clerk organization membership is now the source of truth for app access and billable seats while `Staff` rows preserve profile/history. Team removal is Clerk-first and fail-closed, inactive Staff cannot be reactivated by auth bootstrap, admins get `GET /team/reconciliation` with live `seatsUsed` and mismatch statuses, workspace Team shows seat/status context plus remove-access/Invite-again paths, and `docs/team-clerk-membership-runbook.md` gives exact production cleanup steps for Nghi La, Team Tester, and Zairel Gabilagon.
 **Calculator Custom Items:** COMPLETE. Payments Calculator now accepts custom add-ons with `customItems: []` defaults, `one_time`/`month` billing intervals, workspace row validation, summary/print/payment-link/send-to-client support, print payload handoff without custom labels in URL queries, portal checkout rebuild from frozen snapshots, and blocked custom-only/yearly Calculator checkout.
 **Calculator Engagement Letter Send Flow:** COMPLETE WITH CONCERNS. Workspace pricing calculator now exposes a `Prepare engagement letter` panel, lets CPAs pick a client/lead through org-scoped recipient search, opens a direct Engagement Letter editor modal seeded from the calculator snapshot, keeps initial payment off by default, uses a 30-day expiry, and reuses the existing Agreement preview/send APIs. Calculator auto-fills setup/monthly fees only; yearly business tax pre-pay stays in Custom Link and is manually editable agreement copy for now. Automated tests/type-checks pass; authenticated browser smoke remains manual.
@@ -560,6 +562,6 @@
 
 **Version:** 3.7
 **Created:** 2026-01-11
-**Last Updated:** 2026-06-03
+**Last Updated:** 2026-06-27
 **Maintained By:** Documentation Manager
 **Status:** Production-ready with Multi-Staff Client Management, Unified Conversation & Business UX, Client-Business Entity Separation Phase 03 (Business Detail Buttons Redirect to Individual), TaxBandits API Migration Phase 3 (OAuth JWT, 3-step 1099-NEC workflow), Tag-Based Lead/Client Categorization, Clerk Webhook Sync, Document Upload Notification Phase 2, Landing Mobile Responsive Phase 01, Multi-Tenancy, Landing Page Animations, Schedule E Phase 1 Backend, SMS-First Killer Features, IRS Schedule Classification Phase 5, Tax Return Recognition Phase 1-4 complete

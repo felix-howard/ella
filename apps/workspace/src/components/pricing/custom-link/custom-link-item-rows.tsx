@@ -60,26 +60,26 @@ export function CustomLinkItemRows({ items, disabled, onChange }: CustomLinkItem
                 <div className="grid flex-1 gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_7rem] lg:grid-cols-[minmax(0,1fr)_8rem_7rem_4.5rem]">
                   <label className="block text-xs font-medium text-foreground sm:col-span-3 lg:col-span-4">
                     Item name
-                    <textarea
+                    <Input
                       value={item.label}
                       disabled={disabled}
                       onChange={(e) => updateItem(item.id, { label: e.target.value })}
-                      className="mt-1 flex min-h-20 w-full resize-y rounded-lg border border-input bg-card px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 placeholder:text-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-50"
-                      placeholder={'Bookkeeping\nAudit tax\nPaperwork cleanup'}
+                      className="mt-1"
+                      placeholder="Bookkeeping"
                       maxLength={120}
-                      rows={3}
                       aria-label={`Item ${index + 1} name`}
                     />
                   </label>
                   <label className="block text-xs font-medium text-foreground sm:col-span-3 lg:col-span-4">
                     Description optional
-                    <Input
+                    <textarea
                       value={item.description}
                       disabled={disabled}
                       onChange={(e) => updateItem(item.id, { description: e.target.value })}
-                      className="mt-1"
-                      placeholder="What this covers"
+                      className="mt-1 flex min-h-20 w-full resize-y rounded-lg border border-input bg-card px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 placeholder:text-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder={'Tax Analysis\nBookkeeping'}
                       maxLength={500}
+                      rows={3}
                       aria-label={`Item ${index + 1} description`}
                     />
                   </label>

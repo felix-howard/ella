@@ -17,9 +17,16 @@ const prismaMocks = vi.hoisted(() => ({
     findUnique: vi.fn(),
     updateMany: vi.fn(),
   },
+  stripeWebhookEventLog: {
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+  },
   payment: {
     findUnique: vi.fn(),
     updateMany: vi.fn(),
+    create: vi.fn(),
   },
   $transaction: vi.fn(),
 }))
@@ -113,6 +120,19 @@ describe('Stripe webhook route', () => {
     prismaMocks.stripeCheckoutSession.updateMany.mockResolvedValue({ count: 1 })
     prismaMocks.paymentQuote.updateMany.mockResolvedValue({ count: 1 })
     prismaMocks.paymentQuote.findFirst.mockResolvedValue(null)
+    prismaMocks.stripeWebhookEventLog.findUnique.mockResolvedValue(null)
+    prismaMocks.stripeWebhookEventLog.create.mockResolvedValue({
+      stripeEventId: 'evt_checkout_session_completed',
+      status: 'received',
+      attemptCount: 1,
+    })
+    prismaMocks.stripeWebhookEventLog.update.mockResolvedValue({
+      stripeEventId: 'evt_checkout_session_completed',
+      status: 'processed',
+      attemptCount: 1,
+    })
+    prismaMocks.stripeWebhookEventLog.updateMany.mockResolvedValue({ count: 1 })
+    prismaMocks.payment.create.mockResolvedValue({})
     prismaMocks.$transaction.mockImplementation(async (operations: Promise<unknown>[]) =>
       Promise.all(operations)
     )
@@ -380,6 +400,126 @@ describe('Stripe webhook route', () => {
     }
   )
 
+  it('records recurring invoice payments with receipt facts', async () => {
+    stripeMocks.constructEvent.mockReturnValueOnce(
+      stripeEvent('invoice.paid', {
+        id: 'in_123',
+        object: 'invoice',
+        subscription: 'sub_123',
+        billing_reason: 'subscription_cycle',
+        amount_paid: 8500,
+        amount_due: 8500,
+        customer: 'cus_123',
+        hosted_invoice_url: 'https://invoice.stripe.com/in_123',
+        invoice_pdf: 'https://invoice.stripe.com/in_123.pdf',
+        payments: {
+          data: [
+            {
+              payment: {
+                payment_intent: {
+                  id: 'pi_inv_123',
+                  latest_charge: {
+                    id: 'ch_inv_123',
+                    customer: 'cus_123',
+                    payment_intent: 'pi_inv_123',
+                    receipt_url: 'https://pay.stripe.com/receipts/ch_inv_123',
+                    receipt_number: 'R-123',
+                    payment_method_details: { card: { brand: 'visa', last4: '4242' } },
+                  },
+                },
+              },
+            },
+          ],
+        },
+      })
+    )
+    prismaMocks.paymentQuote.findFirst.mockResolvedValueOnce({
+      id: 'quote_123',
+      organizationId: 'org_1',
+      clientId: 'client_123',
+      leadId: null,
+      client: { id: 'client_123', firstName: 'Anna', lastName: 'Nguyen', phone: null },
+      lead: null,
+    })
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(200)
+    expect(prismaMocks.payment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        organizationId: 'org_1',
+        clientId: 'client_123',
+        leadId: null,
+        type: 'RECURRING',
+        status: 'PAID',
+        amount: '85.00',
+        payToken: 'qf_pi_inv_123',
+        stripePaymentIntentId: 'pi_inv_123',
+        stripeCustomerId: 'cus_123',
+        stripeInvoiceId: 'in_123',
+        stripeChargeId: 'ch_inv_123',
+        stripeReceiptUrl: 'https://pay.stripe.com/receipts/ch_inv_123',
+        stripeReceiptNumber: 'R-123',
+        stripeHostedInvoiceUrl: 'https://invoice.stripe.com/in_123',
+        stripeInvoicePdfUrl: 'https://invoice.stripe.com/in_123.pdf',
+        paymentMethodBrand: 'visa',
+        paymentMethodLast4: '4242',
+        receiptSyncedAt: expect.any(Date),
+      }),
+    })
+  })
+
+  it('returns 500 when recurring Payment insert fails with a non-idempotency error', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    stripeMocks.constructEvent.mockReturnValueOnce(
+      stripeEvent('invoice.paid', {
+        object: 'invoice',
+        subscription: 'sub_123',
+        billing_reason: 'subscription_cycle',
+        amount_paid: 8500,
+        amount_due: 8500,
+        customer: 'cus_123',
+        payments: {
+          data: [
+            {
+              payment: {
+                type: 'payment_intent',
+                payment_intent: 'pi_inv_123',
+              },
+            },
+          ],
+        },
+      })
+    )
+    prismaMocks.paymentQuote.findFirst.mockResolvedValueOnce({
+      id: 'quote_123',
+      organizationId: 'org_1',
+      clientId: 'client_123',
+      leadId: null,
+      client: { id: 'client_123', firstName: 'Anna', lastName: 'Nguyen', phone: null },
+      lead: null,
+    })
+    prismaMocks.payment.create.mockRejectedValueOnce(new Error('insert failed'))
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({ error: 'Processing failed' })
+    expect(prismaMocks.payment.create).toHaveBeenCalled()
+    expect(prismaMocks.stripeWebhookEventLog.updateMany).toHaveBeenCalledWith({
+      where: {
+        stripeEventId: 'evt_invoice_paid',
+        status: { not: 'processed' },
+      },
+      data: expect.objectContaining({
+        status: 'failed',
+        errorMessage: 'Error: insert failed',
+        processedAt: null,
+      }),
+    })
+    errorSpy.mockRestore()
+  })
+
   it('returns 400 when the Stripe signature is missing', async () => {
     const app = createApp()
     const res = await app.request('/webhooks/stripe', {
@@ -562,5 +702,131 @@ describe('Stripe webhook route', () => {
     expect(prismaMocks.stripeCheckoutSession.updateMany).not.toHaveBeenCalled()
     expect(prismaMocks.paymentQuote.updateMany).not.toHaveBeenCalled()
     expect(prismaMocks.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('returns 200 for already processed Stripe event duplicates without side effects', async () => {
+    prismaMocks.stripeWebhookEventLog.findUnique.mockResolvedValue({
+      stripeEventId: 'evt_checkout_session_completed',
+      status: 'processed',
+      attemptCount: 1,
+    })
+    prismaMocks.stripeWebhookEventLog.updateMany.mockResolvedValueOnce({ count: 0 })
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      received: true,
+      processed: false,
+      duplicate: true,
+      type: 'checkout.session.completed',
+    })
+    expect(prismaMocks.stripeWebhookEventLog.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { stripeEventId: 'evt_checkout_session_completed' },
+        data: expect.objectContaining({ attemptCount: { increment: 1 } }),
+      })
+    )
+    expect(prismaMocks.stripeCheckoutSession.findUnique).not.toHaveBeenCalled()
+    expect(prismaMocks.paymentQuote.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('retries a previously failed Stripe event and marks it processed on success', async () => {
+    prismaMocks.stripeWebhookEventLog.findUnique
+      .mockResolvedValueOnce({
+        stripeEventId: 'evt_checkout_session_completed',
+        status: 'failed',
+        attemptCount: 1,
+      })
+      .mockResolvedValueOnce({
+        stripeEventId: 'evt_checkout_session_completed',
+        status: 'failed',
+        attemptCount: 1,
+      })
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(200)
+    expect(prismaMocks.stripeCheckoutSession.findUnique).toHaveBeenCalled()
+    expect(prismaMocks.stripeWebhookEventLog.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { stripeEventId: 'evt_checkout_session_completed' },
+        data: expect.objectContaining({
+          attemptCount: { increment: 1 },
+        }),
+      })
+    )
+    expect(prismaMocks.stripeWebhookEventLog.updateMany).toHaveBeenCalledWith({
+      where: {
+        stripeEventId: 'evt_checkout_session_completed',
+        OR: [
+          { status: { in: ['received', 'failed'] } },
+          { status: 'processing', updatedAt: { lt: expect.any(Date) } },
+        ],
+      },
+      data: {
+        status: 'processing',
+        errorMessage: null,
+        processedAt: null,
+      },
+    })
+    expect(prismaMocks.stripeWebhookEventLog.updateMany).toHaveBeenCalledWith({
+      where: { stripeEventId: 'evt_checkout_session_completed' },
+      data: expect.objectContaining({
+        status: 'processed',
+        errorMessage: null,
+        processedAt: expect.any(Date),
+      }),
+    })
+  })
+
+  it('returns a retryable response for fresh in-flight processing collisions', async () => {
+    prismaMocks.stripeWebhookEventLog.findUnique.mockResolvedValue({
+      stripeEventId: 'evt_checkout_session_completed',
+      status: 'processing',
+      attemptCount: 1,
+    })
+    prismaMocks.stripeWebhookEventLog.updateMany.mockResolvedValueOnce({ count: 0 })
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({
+      error: 'Webhook already processing',
+      received: true,
+      processed: false,
+      type: 'checkout.session.completed',
+    })
+    expect(prismaMocks.stripeCheckoutSession.findUnique).not.toHaveBeenCalled()
+    expect(prismaMocks.paymentQuote.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('reclaims stale processing webhook events instead of retrying forever', async () => {
+    prismaMocks.stripeWebhookEventLog.findUnique.mockResolvedValue({
+      stripeEventId: 'evt_checkout_session_completed',
+      status: 'processing',
+      attemptCount: 1,
+    })
+    prismaMocks.stripeWebhookEventLog.updateMany.mockResolvedValueOnce({ count: 1 })
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(200)
+    expect(prismaMocks.stripeWebhookEventLog.update).not.toHaveBeenCalled()
+    expect(prismaMocks.stripeWebhookEventLog.updateMany).toHaveBeenCalledWith({
+      where: {
+        stripeEventId: 'evt_checkout_session_completed',
+        OR: [
+          { status: { in: ['received', 'failed'] } },
+          { status: 'processing', updatedAt: { lt: expect.any(Date) } },
+        ],
+      },
+      data: {
+        status: 'processing',
+        errorMessage: null,
+        processedAt: null,
+      },
+    })
+    expect(prismaMocks.stripeCheckoutSession.findUnique).toHaveBeenCalled()
   })
 })

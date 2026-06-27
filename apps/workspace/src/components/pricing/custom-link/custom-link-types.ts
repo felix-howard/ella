@@ -51,7 +51,7 @@ export function parseQuantity(value: string): number | null {
 /** True when a row has a non-empty label, valid amount, and valid quantity. */
 export function isItemValid(item: CustomItemDraft): boolean {
   return (
-    normalizeMultilineLabel(item.label).length > 0 &&
+    normalizeLineText(item.label, ' ').length > 0 &&
     dollarsToCents(item.amount) !== null &&
     parseQuantity(item.quantity) !== null
   )
@@ -108,9 +108,9 @@ export function computeBillingTotals(items: CustomItemDraft[]): CustomBillingTot
 export function draftToApiItem(item: CustomItemDraft): CustomLineItemInput | null {
   const unitAmountCents = dollarsToCents(item.amount)
   const quantity = parseQuantity(item.quantity)
-  const label = normalizeMultilineLabel(item.label)
+  const label = normalizeLineText(item.label, ' ')
   if (unitAmountCents === null || quantity === null || !label) return null
-  const description = item.description.trim()
+  const description = normalizeLineText(item.description, '\n')
   return {
     label,
     quantity,
@@ -195,6 +195,6 @@ function createItemId(): string {
   return `item-${itemKeySeq}`
 }
 
-function normalizeMultilineLabel(value: string): string {
-  return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).join('\n')
+function normalizeLineText(value: string, separator: ' ' | '\n'): string {
+  return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).join(separator)
 }

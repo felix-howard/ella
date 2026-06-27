@@ -8,16 +8,21 @@ import type { CheckoutPricingInput } from '../../../routes/billing/schemas'
 
 const stripeMocks = vi.hoisted(() => ({
   sessionsCreate: vi.fn(),
+  customersCreate: vi.fn(),
 }))
 
 const prismaMocks = vi.hoisted(() => ({
   paymentQuote: {
     findUnique: vi.fn(),
-    update: vi.fn(),
+    updateMany: vi.fn(),
   },
   stripeCheckoutSession: {
     findFirst: vi.fn(),
-    create: vi.fn(),
+    upsert: vi.fn(),
+  },
+  client: {
+    findFirst: vi.fn(),
+    updateMany: vi.fn(),
   },
   $transaction: vi.fn(),
 }))
@@ -25,6 +30,7 @@ const prismaMocks = vi.hoisted(() => ({
 vi.mock('stripe', () => ({
   default: class {
     checkout = { sessions: { create: stripeMocks.sessionsCreate } }
+    customers = { create: stripeMocks.customersCreate }
   },
 }))
 
@@ -87,6 +93,8 @@ function quoteRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'quote_1',
     organizationId: 'org_1',
+    clientId: null,
+    leadId: null,
     status: 'sent',
     customerEmail: 'client@example.com',
     inputSnapshot: { pricingInput: basePricingInput },
@@ -126,6 +134,11 @@ beforeEach(() => {
   vi.clearAllMocks()
   prismaMocks.$transaction.mockResolvedValue([])
   prismaMocks.stripeCheckoutSession.findFirst.mockResolvedValue(null)
+  prismaMocks.stripeCheckoutSession.upsert.mockResolvedValue({})
+  prismaMocks.paymentQuote.updateMany.mockResolvedValue({ count: 1 })
+  prismaMocks.client.findFirst.mockResolvedValue(null)
+  prismaMocks.client.updateMany.mockResolvedValue({ count: 1 })
+  stripeMocks.customersCreate.mockResolvedValue({ id: 'cus_new' })
 })
 
 describe('getPublicQuoteView', () => {
@@ -375,6 +388,8 @@ describe('createQuoteCheckoutSession', () => {
   it('reuses an open session instead of minting a new one', async () => {
     prismaMocks.paymentQuote.findUnique.mockResolvedValue(quoteRow())
     prismaMocks.stripeCheckoutSession.findFirst.mockResolvedValue({
+      stripeSessionId: 'cs_existing',
+      status: 'open',
       url: 'https://stripe.test/existing',
       expiresAt: null,
     })
@@ -382,6 +397,21 @@ describe('createQuoteCheckoutSession', () => {
     const result = await createQuoteCheckoutSession('tok_abcdefghij')
 
     expect(result).toEqual({ checkoutUrl: 'https://stripe.test/existing' })
+    expect(stripeMocks.sessionsCreate).not.toHaveBeenCalled()
+  })
+
+  it('blocks a new checkout when the latest local session already completed', async () => {
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(quoteRow())
+    prismaMocks.stripeCheckoutSession.findFirst.mockResolvedValue({
+      stripeSessionId: 'cs_complete',
+      status: 'complete',
+      url: 'https://stripe.test/complete',
+      expiresAt: null,
+    })
+
+    await expect(createQuoteCheckoutSession('tok_abcdefghij')).rejects.toMatchObject({
+      code: 'ALREADY_PAID',
+    })
     expect(stripeMocks.sessionsCreate).not.toHaveBeenCalled()
   })
 
@@ -408,7 +438,103 @@ describe('createQuoteCheckoutSession', () => {
     expect(params.metadata.quotePayToken).toBe('tok_abcdefghij')
     expect(params.success_url).toBe('https://portal.test/quote/tok_abcdefghij?status=success')
     expect(params.cancel_url).toBe('https://portal.test/quote/tok_abcdefghij?status=canceled')
+    expect(stripeMocks.sessionsCreate.mock.calls[0][1]).toEqual({
+      idempotencyKey: 'quote-checkout:quote_1:initial',
+    })
     expect(prismaMocks.$transaction).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses the previous expired Checkout Session id in the retry idempotency key', async () => {
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(quoteRow())
+    prismaMocks.stripeCheckoutSession.findFirst.mockResolvedValue({
+      stripeSessionId: 'cs_expired',
+      status: 'expired',
+      url: 'https://stripe.test/expired',
+      expiresAt: new Date(Date.now() - 60_000),
+    })
+    stripeMocks.sessionsCreate.mockResolvedValue({
+      id: 'cs_retry',
+      url: 'https://stripe.test/cs_retry',
+      status: 'open',
+      customer: null,
+      subscription: null,
+      payment_intent: null,
+      expires_at: null,
+    })
+
+    await createQuoteCheckoutSession('tok_abcdefghij')
+
+    expect(stripeMocks.sessionsCreate.mock.calls[0][1]).toEqual({
+      idempotencyKey: 'quote-checkout:quote_1:cs_expired',
+    })
+  })
+
+  it('uses a persistent Stripe Customer for known client quotes', async () => {
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(
+      quoteRow({ clientId: 'client_1', customerEmail: 'client@example.com' }),
+    )
+    prismaMocks.client.findFirst.mockResolvedValue({
+      id: 'client_1',
+      firstName: 'Anna',
+      lastName: 'Nguyen',
+      name: 'Anna Nguyen',
+      email: 'client@example.com',
+      phone: '+18135550123',
+      stripeCustomerId: 'cus_existing',
+    })
+    stripeMocks.sessionsCreate.mockResolvedValue({
+      id: 'cs_client',
+      url: 'https://stripe.test/cs_client',
+      status: 'open',
+      customer: 'cus_existing',
+      subscription: null,
+      payment_intent: null,
+      expires_at: null,
+    })
+
+    await createQuoteCheckoutSession('tok_abcdefghij')
+
+    const params = stripeMocks.sessionsCreate.mock.calls[0][0]
+    expect(params.customer).toBe('cus_existing')
+    expect(params.customer_email).toBeUndefined()
+  })
+
+  it('requests Customer creation for lead-only one-time quote checkout', async () => {
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(
+      quoteRow({
+        source: 'custom',
+        billingInterval: null,
+        customerEmail: 'lead@example.com',
+        resultSnapshot: {
+          lineItems: [
+            {
+              label: 'Single fee',
+              unitAmountCents: 50000,
+              quantity: 1,
+              interval: 'one_time',
+            },
+          ],
+        },
+        monthlyTotalCents: 0,
+        setupTotalCents: 50000,
+      }),
+    )
+    stripeMocks.sessionsCreate.mockResolvedValue({
+      id: 'cs_one_time',
+      url: 'https://stripe.test/cs_one_time',
+      status: 'open',
+      customer: 'cus_created',
+      subscription: null,
+      payment_intent: null,
+      expires_at: null,
+    })
+
+    await createQuoteCheckoutSession('tok_abcdefghij')
+
+    const params = stripeMocks.sessionsCreate.mock.calls[0][0]
+    expect(params.mode).toBe('payment')
+    expect(params.customer_email).toBe('lead@example.com')
+    expect(params.customer_creation).toBe('always')
   })
 
   it('rebuilds checkout line amounts from frozen calculator custom items', async () => {

@@ -18,5 +18,10 @@ export const clientAndAgreementIdParamSchema = z.object({
   id: z.string().min(1).regex(CUID_REGEX, 'Invalid agreement ID'),
 })
 
+export const clientAndPaymentIdParamSchema = z.object({
+  clientId: z.string().min(1).regex(CUID_REGEX, 'Invalid client ID'),
+  paymentId: z.string().min(1).regex(CUID_REGEX, 'Invalid payment ID'),
+})
+
 /** Legacy alias — preserved for transitional callers. */
 export const clientAndNdaIdParamSchema = clientAndAgreementIdParamSchema

@@ -5,6 +5,20 @@
 
 ---
 
+### Calculator Engagement Letter Send Button Fix
+**Status:** Complete
+
+**Changed:**
+- Fixed pricing calculator engagement-letter modal so new calculator drafts can open `Preview & Send` without first saving a draft.
+- Kept explicit `Save draft` available for staff who want a resumable draft.
+- Preserved saved-draft conflict/autosave protections for draft send flow.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/agreements/agreement-draft-editor-hooks.test.tsx src/components/pricing/__tests__/calculator-engagement-letter-modal.test.ts src/components/pricing/__tests__/pricing-engagement-letter-panel.test.tsx` pass
+- `pnpm -F @ella/workspace test -- agreement` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass
+
 ### Payment Calculator Professional Service Labels
 **Status:** Complete
 

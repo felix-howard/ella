@@ -1,5 +1,4 @@
 import type { PricingCalculatorResult, PricingLineItem } from '@ella/shared/pricing'
-import { Badge } from '@ella/ui'
 import { ReceiptText } from 'lucide-react'
 import { formatCurrency } from './pricing-format'
 
@@ -15,29 +14,18 @@ export function PricingSummaryPanel({ result }: PricingSummaryPanelProps) {
       className="rounded-lg border border-border bg-card p-5 sm:p-6"
       aria-labelledby="pricing-summary-title"
     >
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h2
-            id="pricing-summary-title"
-            className="flex items-center gap-2 text-sm font-semibold text-foreground"
-          >
-            <ReceiptText className="h-4 w-4 text-primary" />
-            Quote summary
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Monthly services plus setup and one-time work.
-          </p>
-        </div>
-        <Badge variant={result.isEnterprise ? 'warning' : 'success'} className="shrink-0">
-          {result.tierLabel}
-        </Badge>
-      </header>
-
-      {result.isEnterprise && (
-        <p className="mt-4 rounded-lg border border-warning-light bg-warning-light/40 px-3 py-2 text-xs text-warning">
-          VIP quotes require manual follow-up and cannot create checkout links.
+      <header>
+        <h2
+          id="pricing-summary-title"
+          className="flex items-center gap-2 text-sm font-semibold text-foreground"
+        >
+          <ReceiptText className="h-4 w-4 text-primary" />
+          Quote summary
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Monthly services plus setup and one-time work.
         </p>
-      )}
+      </header>
 
       <div className="mt-6 space-y-6">
         <LineGroup title="Monthly" items={result.monthlyItems} total={result.monthlyTotal} />

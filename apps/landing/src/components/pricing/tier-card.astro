@@ -1,24 +1,24 @@
 ---
 /**
- * Pricing tier card — marketing card for Basic/Pro/VIP tiers.
+ * Pricing card — marketing card for worker-count service ranges.
  *
  * Displays:
  *  - Headline price = typical bundle (marketingMonthly from pricing-constants).
  *  - Optional `breakdown` list revealing how the bundle adds up, so users
  *    can mentally reconcile it against the interactive calculator below.
- *    Basic/Pro show strict sums (tier base + payroll base).
- *    VIP uses softer "includes" copy since $425 isn't a clean sum.
+ *    Smaller ranges show strict sums (service base + payroll base).
+ *    Larger ranges use softer "includes" copy since $425 isn't a clean sum.
  *  - Optional `priceNote` subtitle under the price (e.g. "typical salon setup").
  *
- * Pro tier gets `popular=true` for the "Most Popular" badge + emphasis.
+ * The middle worker range gets `popular=true` for the "Most Popular" badge.
  */
 import { checkPath } from "@/lib/icons";
 import { siteConfig } from "@/config/site";
 
 export interface BreakdownRow {
-  /** Item label, e.g. "Basic tier (≤10 workers)". */
+  /** Item label, e.g. "Monthly service (≤10 workers)". */
   label: string;
-  /** Optional dollar amount; when omitted we render label only (VIP case). */
+  /** Optional dollar amount; when omitted we render label only. */
   amount?: number;
   /** Rate unit, defaults to `/mo`. */
   unit?: string;
@@ -36,7 +36,7 @@ interface Props {
   setupFee?: number;
   /** Fixed payroll setup fee in USD; rendered as a second setup line when present. */
   payrollSetupFee?: number;
-  /** Free-form setup copy, used when no fixed fee (e.g. VIP custom quote). */
+  /** Free-form setup copy, used when no fixed fee. */
   setupNote?: string;
   /** Optional formula rows shown under price — explains how `monthlyPrice` adds up. */
   breakdown?: readonly BreakdownRow[];
@@ -65,15 +65,12 @@ const {
   ctaHref = siteConfig.cta.primaryHref,
 } = Astro.props;
 
-// When a fixed setup fee is provided, render two specific setup lines
-// (bookkeeping + payroll) prefixed with the tier name for clarity.
-// Falls back to free-form `setupNote` (e.g. VIP "Custom setup quote").
-const tierPrefix = name.toLowerCase();
+// When a fixed setup fee is provided, render bookkeeping + payroll setup lines.
 const setupLines: string[] = [];
 if (setupFee !== undefined) {
-  setupLines.push(`+ $${setupFee} ${tierPrefix} bookkeeping one-time setup`);
+  setupLines.push(`+ $${setupFee} bookkeeping one-time setup`);
   if (payrollSetupFee !== undefined) {
-    setupLines.push(`+ $${payrollSetupFee} ${tierPrefix} payroll one-time setup`);
+    setupLines.push(`+ $${payrollSetupFee} payroll one-time setup`);
   }
 } else if (setupNote) {
   setupLines.push(setupNote);

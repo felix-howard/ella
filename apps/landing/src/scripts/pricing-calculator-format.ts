@@ -38,7 +38,7 @@ export function formatBreakdown(result: CalcResult): string {
   return [
     "I'd like to book a free consultation. My estimated pricing:",
     "",
-    `Tier: ${result.tierLabel}`,
+    `Worker range: ${result.tierLabel}`,
     `Monthly: ${formatUsd(result.monthlyTotal)}/mo`,
     monthlyLines,
     ...(result.yearlyTotal > 0 ? [`Yearly pre-pay: ${formatUsd(result.yearlyTotal)}`, yearlyLines] : []),

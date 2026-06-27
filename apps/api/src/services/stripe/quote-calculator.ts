@@ -40,12 +40,8 @@ export function calculateCheckoutQuote(input: CheckoutPricingInput): CheckoutQuo
     throw new CheckoutQuoteError('Select at least one billable service before checkout')
   }
 
-  if (result.isEnterprise) {
-    throw new CheckoutQuoteError('Enterprise quotes require manual follow-up')
-  }
-
   if (!isPricingInputSane(input)) {
-    throw new CheckoutQuoteError('Quantity limits exceeded. Use manual follow-up')
+    throw new CheckoutQuoteError('Quantity limits exceeded. Reduce quantities before checkout')
   }
 
   if (result.monthlyTotal <= 0 && result.setupTotal <= 0) {

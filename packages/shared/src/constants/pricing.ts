@@ -1,7 +1,7 @@
 export const TIER_BASIC = {
   id: 'basic' as const,
-  label: 'Basic',
-  tagline: 'For small shops starting out',
+  label: '0-10 workers',
+  tagline: 'For smaller contractor teams',
   monthly: 75,
   setup: 150,
   marketingMonthly: 125,
@@ -16,14 +16,14 @@ export const TIER_BASIC = {
 
 export const TIER_PRO = {
   id: 'pro' as const,
-  label: 'Pro',
-  tagline: 'For growing salons',
+  label: '11-20 workers',
+  tagline: 'For growing contractor teams',
   monthly: 85,
   setup: 150,
   marketingMonthly: 135,
   maxNec1099: 20,
   bullets: [
-    'Everything in Basic',
+    'Bookkeeping + quarterly reviews',
     '11-20 workers (1099-NEC)',
     'Priority email + SMS support',
     'Monthly accountant check-ins',
@@ -33,13 +33,13 @@ export const TIER_PRO = {
 export const TIER_ENTERPRISE = {
   id: 'enterprise' as const,
   label: 'Enterprise — Contact Us',
-  marketingLabel: 'VIP',
-  tagline: 'Complete peace of mind',
+  marketingLabel: '21+ workers',
+  tagline: 'For larger contractor teams',
   monthly: null,
   setup: null,
   marketingMonthly: 435,
   bullets: [
-    'Everything in Pro',
+    'Larger 1099-NEC worker counts',
     'Audit Detection included',
     'Dedicated accountant',
     'Monthly strategy consult',

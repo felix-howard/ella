@@ -19,7 +19,7 @@ export const pricingTierCards = [
     breakdownHeading: "How it adds up",
     breakdown: [
       {
-        label: `Basic tier (\u2264${TIER_BASIC.maxNec1099} workers)`,
+        label: `Monthly service (\u2264${TIER_BASIC.maxNec1099} workers)`,
         amount: TIER_BASIC.monthly,
       },
       { label: "+ Payroll base", amount: PAYROLL.baseMonthly },
@@ -38,7 +38,7 @@ export const pricingTierCards = [
     breakdownHeading: "How it adds up",
     breakdown: [
       {
-        label: `Pro tier (${TIER_BASIC.maxNec1099 + 1}\u2013${TIER_PRO.maxNec1099} workers)`,
+        label: `Monthly service (${TIER_BASIC.maxNec1099 + 1}\u2013${TIER_PRO.maxNec1099} workers)`,
         amount: TIER_PRO.monthly,
       },
       { label: "+ Payroll base", amount: PAYROLL.baseMonthly },
@@ -56,7 +56,7 @@ export const pricingTierCards = [
     breakdownHeading: "How it adds up",
     breakdown: [
       {
-        label: `Pro tier (${TIER_BASIC.maxNec1099 + 1}\u2013${TIER_PRO.maxNec1099} workers)`,
+        label: `Monthly service (${TIER_BASIC.maxNec1099 + 1}\u2013${TIER_PRO.maxNec1099} workers)`,
         amount: TIER_PRO.monthly,
       },
       { label: "+ Payroll base", amount: PAYROLL.baseMonthly },

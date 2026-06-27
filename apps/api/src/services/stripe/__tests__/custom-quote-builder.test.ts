@@ -6,6 +6,7 @@ import {
   CALCULATOR_SETUP_LABEL,
   toCheckoutLineItems,
 } from '../checkout-line-items'
+import { BOOKKEEPING_SERVICE_LABEL } from '@ella/shared/pricing'
 
 const item = (overrides: Partial<CustomQuoteInput['items'][number]> = {}) => ({
   label: 'Consulting',
@@ -155,7 +156,7 @@ describe('toCheckoutLineItems', () => {
   it('collapses a calculator quote to the 2 canonical aggregate lines', () => {
     const lines = toCheckoutLineItems({
       quoteId: 'quote_calc',
-      monthlyItems: [{ label: 'Basic tier', amount: 200, kind: 'monthly' }],
+      monthlyItems: [{ label: BOOKKEEPING_SERVICE_LABEL, amount: 200, kind: 'monthly' }],
       setupItems: [{ label: 'Setup', amount: 150, kind: 'setup' }],
       monthlyTotal: 200,
       setupTotal: 150,

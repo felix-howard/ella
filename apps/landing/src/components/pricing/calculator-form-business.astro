@@ -34,7 +34,7 @@ import {
         class={inputCls}
       />
       <p id="calc-nec1099-hint" class={hintCls}>
-        Drives your tier (≤10 Basic · 11-20 Pro · 21+ VIP).
+        Monthly rate is selected by 1099 worker count.
       </p>
     </div>
     <div>
@@ -59,7 +59,7 @@ import {
     <p class={labelCls}>Monthly base rates</p>
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <label class="text-xs text-gray-500">
-        Basic tier
+        0-10 workers
         <span class="mt-1 block text-gray-700">
           $<input
             type="text"
@@ -69,12 +69,12 @@ import {
             value={TIER_BASIC.monthly}
             data-calc-input="rates.tiers.basicMonthly"
             class={rateInputCls}
-            aria-label="Basic tier monthly rate"
+            aria-label="0-10 workers monthly rate"
           />/mo
         </span>
       </label>
       <label class="text-xs text-gray-500">
-        Pro tier
+        11-20 workers
         <span class="mt-1 block text-gray-700">
           $<input
             type="text"
@@ -84,12 +84,12 @@ import {
             value={TIER_PRO.monthly}
             data-calc-input="rates.tiers.proMonthly"
             class={rateInputCls}
-            aria-label="Pro tier monthly rate"
+            aria-label="11-20 workers monthly rate"
           />/mo
         </span>
       </label>
       <label class="text-xs text-gray-500">
-        VIP tier
+        21+ workers
         <span class="mt-1 block text-gray-700">
           $<input
             type="text"
@@ -99,7 +99,7 @@ import {
             value={TIER_PRO.monthly}
             data-calc-input="rates.tiers.vipMonthly"
             class={rateInputCls}
-            aria-label="VIP tier monthly rate"
+            aria-label="21+ workers monthly rate"
           />/mo
         </span>
       </label>

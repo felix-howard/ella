@@ -14,7 +14,7 @@ export const BUSINESS_TAX_RETURN_PREPAY_LABEL = 'Business tax return pre-pay (1 
 export const ONE_TIME_LABELS: Record<keyof PricingCalculatorInput['oneTime'], string> = {
   startLlc: 'Start LLC',
   holdingLlcNew: 'Holding LLC (new)',
-  holdingLlcModify: 'Re-structure LLC basic',
+  holdingLlcModify: 'LLC restructure',
   personalTaxReturn: 'Personal tax return',
   businessTaxReturn: BUSINESS_TAX_RETURN_PREPAY_LABEL,
 }

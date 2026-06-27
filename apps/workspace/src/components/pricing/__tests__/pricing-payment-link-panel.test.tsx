@@ -7,6 +7,17 @@ vi.mock('../../../lib/clipboard', () => ({
   copyToClipboard: vi.fn(),
 }))
 
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) =>
+      ({
+        'paymentLinks.createAnonymousStripeUrl': 'Create anonymous Stripe URL',
+        'paymentLinks.anonymousClientHistoryWarning':
+          'Not attached to a client profile. Use Send Payment Link to save payment history on the client ledger.',
+      })[key] ?? key,
+  }),
+}))
+
 vi.mock('@ella/ui', () => ({
   Button: ({
     children,
@@ -31,7 +42,7 @@ describe('PricingPaymentLinkPanel', () => {
         isCreating={false}
         quoteChanged={false}
         onCreate={vi.fn()}
-      />,
+      />
     )
 
     expect(markup).toContain('VIP quotes require manual follow-up.')
@@ -47,10 +58,11 @@ describe('PricingPaymentLinkPanel', () => {
         isCreating={false}
         quoteChanged={false}
         onCreate={vi.fn()}
-      />,
+      />
     )
 
-    expect(markup).toContain('Create payment link')
+    expect(markup).toContain('Create anonymous Stripe URL')
+    expect(markup).toContain('Not attached to a client profile.')
     expect(markup).not.toContain('Customer email optional')
     expect(markup).not.toContain('Customer name')
     expect(markup).not.toContain('Business')
@@ -69,7 +81,7 @@ describe('PricingPaymentLinkPanel', () => {
         isCreating={false}
         quoteChanged={false}
         onCreate={vi.fn()}
-      />,
+      />
     )
 
     expect(markup).toContain('quote_123')

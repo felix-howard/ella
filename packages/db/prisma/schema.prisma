@@ -502,6 +502,7 @@ model Staff {
   // Notification subscriptions (admin subscribes to other staff's client uploads)
   notificationSubscriptions NotificationSubscription[] @relation("NotificationSubscriber")
   notificationSubscribers   NotificationSubscription[] @relation("NotificationTarget")
+  webPushSubscriptions      WebPushSubscription[]
 
   termsAcceptances               TermsAcceptance[]
   contractorAgreementAcceptances ContractorAgreementAcceptance[]
@@ -673,6 +674,30 @@ model NotificationSubscription {
   @@index([targetStaffId])
 }
 
+model WebPushSubscription {
+  id             String       @id @default(cuid())
+  staffId        String
+  staff          Staff        @relation(fields: [staffId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  endpoint     String   @unique
+  p256dh       String
+  auth         String
+  enabled      Boolean  @default(true)
+  userAgent    String?
+  deviceLabel  String?
+  lastSeenAt   DateTime @default(now())
+  lastSentAt   DateTime?
+  failureCount Int      @default(0)
+  failedAt     DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([staffId, enabled])
+  @@index([organizationId, enabled])
+}
+
 model Organization {
   id         String  @id @default(cuid())
   clerkOrgId String  @unique
@@ -719,6 +744,7 @@ model Organization {
   agreementTemplates             AgreementTemplate[]
   contractorAgreementAcceptances ContractorAgreementAcceptance[]
   companyVaultCredentials        CompanyVaultCredential[]
+  webPushSubscriptions           WebPushSubscription[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -734,10 +760,12 @@ model CompanyVaultCredential {
   usernameEncrypted String?      @db.Text
   passwordEncrypted String?      @db.Text
   noteEncrypted     String?      @db.Text
+  sortOrder         Int          @default(0)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
   @@index([organizationId, toolName])
+  @@index([organizationId, sortOrder])
 }
 
 model ClientGroup {
@@ -763,6 +791,9 @@ model Client {
   language  Language     @default(VI)
   source    ClientSource @default(MANUAL)
   tags      String[]     @default([])
+
+  stripeCustomerId       String?   @unique
+  stripeCustomerLinkedAt DateTime?
 
   clientType    ClientType   @default(INDIVIDUAL)
   clientGroupId String?
@@ -1887,6 +1918,7 @@ model StripeCheckoutSession {
   stripeCustomerId      String?
   stripeSubscriptionId  String?
   stripePaymentIntentId String?
+  stripeInvoiceId       String?
   status                String
   lastStripeEventId     String?
   lastStripeEventAt     DateTime?
@@ -1902,6 +1934,26 @@ model StripeCheckoutSession {
   @@index([stripeCustomerId])
   @@index([stripeSubscriptionId])
   @@index([stripePaymentIntentId])
+  @@index([stripeInvoiceId])
+}
+
+model StripeWebhookEventLog {
+  id             String    @id @default(cuid())
+  stripeEventId  String    @unique
+  eventType      String
+  stripeObjectId String?
+  livemode       Boolean
+  status         String
+  attemptCount   Int       @default(1)
+  errorMessage   String?   @db.Text
+  receivedAt     DateTime  @default(now())
+  processedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status, receivedAt])
+  @@index([eventType])
+  @@index([stripeObjectId])
 }
 
 enum PaymentType {
@@ -1938,9 +1990,19 @@ model Payment {
   currency String        @default("usd")
 
   // Public pay-link token (portal/pay/:payToken). Separate lifecycle from agreement signing token.
-  payToken              String  @unique
-  stripeSessionId       String?
-  stripePaymentIntentId String?
+  payToken               String    @unique
+  stripeSessionId        String?
+  stripePaymentIntentId  String?
+  stripeCustomerId       String?
+  stripeInvoiceId        String?
+  stripeChargeId         String?
+  stripeReceiptUrl       String?   @db.Text
+  stripeReceiptNumber    String?
+  stripeHostedInvoiceUrl String?   @db.Text
+  stripeInvoicePdfUrl    String?   @db.Text
+  paymentMethodBrand     String?
+  paymentMethodLast4     String?
+  receiptSyncedAt        DateTime?
 
   paidAt      DateTime?
   description String?
@@ -1952,6 +2014,9 @@ model Payment {
   @@index([leadId])
   @@index([agreementId])
   @@index([organizationId, status])
+  @@index([stripeCustomerId])
+  @@index([stripeInvoiceId])
+  @@index([stripeChargeId])
 }
 
 model SmsSendLog {

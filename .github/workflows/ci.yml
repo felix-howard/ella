@@ -9,6 +9,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  migration-immutability:
+    name: Migration Immutability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Block edits to existing Prisma migrations
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          git fetch origin "$BASE_SHA" --depth=1
+
+          CHANGED_EXISTING_MIGRATIONS=$(git diff --name-status --diff-filter=MDRC "$BASE_SHA"...HEAD -- 'packages/db/prisma/migrations/*/migration.sql' || true)
+
+          if [ -n "$CHANGED_EXISTING_MIGRATIONS" ]; then
+            echo "::error::Existing Prisma migration files must not be modified, deleted, renamed, or copied after they may have been applied."
+            echo "$CHANGED_EXISTING_MIGRATIONS"
+            echo "Create a new migration instead. Local-dev checksum drift can be fixed with migrate reset only against disposable databases."
+            exit 1
+          fi
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

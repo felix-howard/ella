@@ -121,19 +121,19 @@ describe('draftToApiItem / draftsToApiItems', () => {
   })
 
   it('includes a non-empty description', () => {
-    expect(draftToApiItem(draft({ description: '  covers onboarding ' }))?.description).toBe(
-      'covers onboarding'
-    )
+    expect(
+      draftToApiItem(draft({ description: '  Tax Analysis  \n\n  Bookkeeping  ' }))?.description
+    ).toBe('Tax Analysis\nBookkeeping')
   })
 
-  it('normalizes multiline labels for bundled services', () => {
+  it('normalizes pasted multiline labels as a single item name', () => {
     expect(
       draftToApiItem(
         draft({
           label: '  Bookkeeping  \n\n  Audit tax \n Paperwork cleanup  ',
         })
       )?.label
-    ).toBe('Bookkeeping\nAudit tax\nPaperwork cleanup')
+    ).toBe('Bookkeeping Audit tax Paperwork cleanup')
   })
 
   it('returns null when any row is invalid', () => {

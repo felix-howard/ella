@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Button, Input } from '@ella/ui'
 import { Copy, ExternalLink, Link2, Loader2 } from 'lucide-react'
 import { copyToClipboard } from '../../lib/clipboard'
@@ -20,6 +21,7 @@ export function PricingPaymentLinkPanel({
   quoteChanged,
   onCreate,
 }: PricingPaymentLinkPanelProps) {
+  const { t } = useTranslation()
   const createDisabled = Boolean(disabledReason) || isCreating
 
   const handleCreate = async () => {
@@ -41,32 +43,57 @@ export function PricingPaymentLinkPanel({
   }
 
   return (
-    <section className="rounded-lg border border-border bg-card p-4" aria-labelledby="payment-link-title">
+    <section
+      className="rounded-lg border border-border bg-card p-4"
+      aria-labelledby="payment-link-title"
+    >
       <header>
-        <h2 id="payment-link-title" className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <h2
+          id="payment-link-title"
+          className="flex items-center gap-2 text-sm font-semibold text-foreground"
+        >
           <Link2 className="h-4 w-4 text-primary" />
           Payment link
         </h2>
-        <p className="mt-1 text-xs text-muted-foreground">Create a Stripe Checkout URL with your workspace session.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Create a Stripe Checkout URL with your workspace session.
+        </p>
       </header>
 
       <div className="mt-4 space-y-3">
         <Button type="button" className="w-full" onClick={handleCreate} disabled={createDisabled}>
-          {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-          Create payment link
+          {isCreating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Link2 className="h-4 w-4" />
+          )}
+          {t('paymentLinks.createAnonymousStripeUrl')}
         </Button>
+        <p className="text-xs text-muted-foreground">
+          {t('paymentLinks.anonymousClientHistoryWarning')}
+        </p>
 
         <p className="min-h-5 text-xs text-muted-foreground" role="status" aria-live="polite">
-          {disabledReason ?? (quoteChanged ? 'Quote changed. Create a new link before sharing.' : '')}
+          {disabledReason ??
+            (quoteChanged ? 'Quote changed. Create a new link before sharing.' : '')}
           {errorMessage ? <span className="block text-error">{errorMessage}</span> : null}
         </p>
 
         {checkout && (
           <div className="space-y-3 rounded-lg border border-primary-light bg-primary-light/30 p-3">
             <p className="text-xs font-medium text-primary-dark">Quote {checkout.quoteId}</p>
-            <label htmlFor="pricing-checkout-url" className="block text-xs font-medium text-foreground">
+            <label
+              htmlFor="pricing-checkout-url"
+              className="block text-xs font-medium text-foreground"
+            >
               Stripe Checkout URL
-              <Input id="pricing-checkout-url" type="url" readOnly value={checkout.checkoutUrl} className="mt-1 overflow-hidden text-ellipsis" />
+              <Input
+                id="pricing-checkout-url"
+                type="url"
+                readOnly
+                value={checkout.checkoutUrl}
+                className="mt-1 overflow-hidden text-ellipsis"
+              />
             </label>
             <div className="grid gap-2 sm:grid-cols-2">
               <Button type="button" variant="outline" onClick={handleCopy}>

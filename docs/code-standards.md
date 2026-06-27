@@ -52,6 +52,13 @@ packages/{name}/
 - Migrations versioned via `prisma/migrations/`
 - Generated client output to `src/generated/` (git-ignored)
 
+**Migration Safety:**
+- Never edit, delete, rename, or copy an existing `prisma/migrations/*/migration.sql` after it may have been applied anywhere.
+- Add schema changes with a new migration. Use `prisma migrate dev --name <descriptive_name>` for development and review generated SQL before applying destructive statements.
+- Local dev checksum drift may be repaired with `prisma migrate reset` only when the target database is disposable. Never reset staging or production.
+- Staging/production must apply committed migrations with `prisma migrate deploy`; do not use `prisma db push` for relational schema changes.
+- PR CI blocks modifications to existing migration SQL files while allowing newly added migration directories.
+
 **Client Pattern (Singleton):**
 ```typescript
 const globalForPrisma = globalThis as unknown as {
@@ -123,13 +130,14 @@ export type User = z.infer<typeof userSchema>
 ## Condition Types & Evaluation
 
 **Three Condition Formats:**
-
 1. **Legacy flat** (implicit AND):
+
    ```typescript
    { hasW2: true, hasSelfEmployment: true }
    ```
 
 2. **Simple with operator:**
+
    ```typescript
    { key: 'foreignBalance', value: 10000, operator: '>' }
    ```
@@ -207,6 +215,7 @@ const clients = await prisma.client.findMany({ where: filter })
 - Returns Client | null (null if not found or wrong clientType)
 - Example: Contractor management routes (/clients/:clientId/contractors) require BUSINESS clients
 - Pattern:
+
 ```typescript
 app.get('/clients/:clientId/contractors', async (c) => {
   const user = c.get('user')
@@ -290,6 +299,7 @@ pnpm type-check
 - Detects secure context (HTTPS/localhost) before attempting write
 - **Options:** `successMsg` (default: i18n `common.linkCopied`), `errorMsg` (default: i18n `common.copyFailed`), `showToast` (default: true)
 - **Usage:** Always call from user gesture context (click, keypress) to avoid `NotAllowedError: Document is not focused`
+
 ```typescript
 import { copyToClipboard } from '@lib/clipboard'
 
@@ -460,6 +470,7 @@ export function MyComponent() {
 - Workspace app (`@ella/workspace`) has vitest configured for unit testing pure utility helpers (e.g., `compute-link-state.test.ts`)
 - Configuration: `vitest.config.ts` with node environment, matches `src/**/*.test.ts` pattern
 - Test scripts: `pnpm test` (run), `pnpm test:watch` (watch mode)
+
 ```typescript
 // Test file naming: feature.test.ts
 describe('Feature', () => {
@@ -508,6 +519,12 @@ describe('Feature', () => {
 - `PORTAL_URL` - Client portal base URL
 - `R2_*` - Cloudflare R2 credentials
 
+**Web Push Notifications (Phase 1):**
+- `WEB_PUSH_VAPID_PUBLIC_KEY` - Public VAPID key exposed to Workspace for push subscription setup
+- `WEB_PUSH_VAPID_PRIVATE_KEY` - Secret VAPID key used only by the API for push delivery
+- `WEB_PUSH_VAPID_SUBJECT` - VAPID contact URI; defaults to `mailto:support@ellatax.com`
+- `config.webPush.isConfigured` is true only when the public/private key pair is present
+
 **TaxBandits Integration (Phase 3.5):**
 - `TAXBANDITS_CLIENT_ID` - TaxBandits OAuth client ID
 - `TAXBANDITS_CLIENT_SECRET` - TaxBandits OAuth client secret
@@ -522,6 +539,9 @@ describe('Feature', () => {
 - `STRIPE_CURRENCY` - Currency code for Checkout sessions; stored lowercase, defaults to `usd`
 - Localhost defaults are dev-only. Production config must satisfy the HTTPS return-URL guard.
 - Persist `PaymentQuote` before the Stripe API call and `StripeCheckoutSession` after success; keep stored snapshots minimal, exclude internal notes like `quoteNotes`, and avoid customer/business PII in Stripe metadata.
+- Client-linked checkout sessions should reuse a persistent Stripe Customer via `ensureStripeCustomerForClient`; lead-only one-time quote checkout may fall back to `customer_email` and `customer_creation: 'always'` when an email exists.
+- Webhook receipt enrichment is best-effort. When Stripe provides receipt or invoice data, persist the available facts on `Payment` and backfill `Client.stripeCustomerId`; missing receipt data must never block settlement.
+- Staff-facing receipt links must be filtered before serialization and before rendering. Only HTTPS Stripe receipt/invoice hosts (`invoice.stripe.com`, `pay.stripe.com`) are safe to expose as external links; blank, malformed, non-HTTPS, JavaScript/data, or non-Stripe URLs must be treated as missing receipt data.
 
 **Optional:**
 - `GEMINI_MODEL` - default: gemini-2.0-flash

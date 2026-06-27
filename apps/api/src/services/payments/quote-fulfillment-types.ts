@@ -3,6 +3,7 @@
  * (quote-fulfillment-service + quote-fulfillment-notify).
  */
 import type { Prisma } from '@ella/db'
+import type { StripeReceiptFacts } from '../stripe/stripe-receipt-facts'
 
 /**
  * Relations the fulfillment side-effects need off a PaymentQuote. Lead carries
@@ -47,6 +48,7 @@ export interface InvoiceFacts {
   amountDueCents: number
   paymentIntentId: string | null
   subscriptionId: string | null
+  receiptFacts?: StripeReceiptFacts
 }
 
 /** True for a Prisma unique-constraint violation (deterministic-payToken dedupe). */

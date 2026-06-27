@@ -5,7 +5,15 @@
  */
 import { useTranslation } from 'react-i18next'
 import { Link } from '@tanstack/react-router'
-import { Loader2, CreditCard, Copy, FileSignature, AlertTriangle } from 'lucide-react'
+import {
+  Loader2,
+  CreditCard,
+  Copy,
+  FileSignature,
+  AlertTriangle,
+  ReceiptText,
+  ExternalLink,
+} from 'lucide-react'
 import { type ClientPayment } from '../../../lib/api-client'
 import { CardSection } from '../../shared/card-section'
 import { copyToClipboard } from '../../../lib/clipboard'
@@ -18,8 +26,30 @@ interface Props {
   clientId: string
 }
 
+const allowedStripeReceiptHosts = new Set(['invoice.stripe.com', 'pay.stripe.com'])
+
+function getSafeReceiptUrl(url: string | null | undefined): string | null {
+  const trimmed = url?.trim()
+  if (!trimmed) return null
+
+  try {
+    const parsed = new URL(trimmed)
+    if (parsed.protocol !== 'https:') return null
+    if (!allowedStripeReceiptHosts.has(parsed.hostname)) return null
+    return parsed.toString()
+  } catch {
+    return null
+  }
+}
+
 function PaymentRow({ payment, clientId }: { payment: ClientPayment; clientId: string }) {
   const { t } = useTranslation()
+  const receiptHref =
+    getSafeReceiptUrl(payment.hostedInvoiceUrl) ||
+    getSafeReceiptUrl(payment.invoicePdfUrl) ||
+    getSafeReceiptUrl(payment.receiptUrl) ||
+    null
+  const showReceiptPending = payment.status === 'PAID' && payment.receiptStatus === 'pending'
 
   const handleCopyPayLink = () => {
     void copyToClipboard(payment.payUrl, { successMsg: t('payments.payLinkCopied') })
@@ -48,6 +78,9 @@ function PaymentRow({ payment, clientId }: { payment: ClientPayment; clientId: s
                 {t('payments.paidOn')} {formatFullDateTime(payment.paidAt)}
               </span>
             )}
+            {payment.paymentMethodLabel && payment.status === 'PAID' && (
+              <span>{t('payments.paymentMethod', { method: payment.paymentMethodLabel })}</span>
+            )}
           </div>
         </div>
 
@@ -56,11 +89,30 @@ function PaymentRow({ payment, clientId }: { payment: ClientPayment; clientId: s
             <button
               type="button"
               onClick={handleCopyPayLink}
-              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted/70"
+              className="flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <Copy className="w-3.5 h-3.5" />
               {t('payments.copyPayLink')}
             </button>
+          )}
+          {payment.status === 'PAID' && receiptHref && (
+            <a
+              href={receiptHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t('payments.openReceiptAria')}
+              className="flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <ReceiptText className="w-3.5 h-3.5" aria-hidden />
+              {t('payments.receiptAction')}
+              <ExternalLink className="w-3 h-3" aria-hidden />
+            </a>
+          )}
+          {showReceiptPending && (
+            <span className="flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
+              <ReceiptText className="w-3.5 h-3.5" aria-hidden />
+              {t('payments.receiptPending')}
+            </span>
           )}
         </div>
       </div>
@@ -109,9 +161,7 @@ export function ClientPaymentsTab({ clientId }: Props) {
           <Loader2 className="w-6 h-6 text-primary animate-spin" />
         </div>
       ) : query.isError ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          {t('payments.loadError')}
-        </p>
+        <p className="py-8 text-center text-sm text-muted-foreground">{t('payments.loadError')}</p>
       ) : payments.length === 0 ? (
         <div className="flex flex-col items-center py-10 text-center">
           <CreditCard className="w-10 h-10 text-muted-foreground/50 mb-3" />

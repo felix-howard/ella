@@ -5,8 +5,10 @@ import type { AuthVariables } from '../../../middleware/auth'
 
 vi.mock('../../../lib/db', () => ({
   prisma: {
+    $transaction: vi.fn(async (operations: Promise<unknown>[]) => Promise.all(operations)),
     companyVaultCredential: {
       findMany: vi.fn(),
+      aggregate: vi.fn(async () => ({ _max: { sortOrder: 0 } })),
       create: vi.fn(),
       updateMany: vi.fn(),
       findFirstOrThrow: vi.fn(),
@@ -65,6 +67,7 @@ function mockCredential(overrides: Record<string, unknown> = {}) {
     usernameEncrypted: encryptSensitiveValue('user@example.com'),
     passwordEncrypted: encryptSensitiveValue('secret-password'),
     noteEncrypted: encryptSensitiveValue('office account'),
+    sortOrder: 10,
     createdAt: new Date('2026-06-18T10:00:00Z'),
     updatedAt: new Date('2026-06-18T10:00:00Z'),
     ...overrides,
@@ -88,7 +91,7 @@ describe('company vault routes', () => {
     expect(res.status).toBe(200)
     expect(prisma.companyVaultCredential.findMany).toHaveBeenCalledWith({
       where: { organizationId: 'org_1' },
-      orderBy: [{ toolName: 'asc' }, { createdAt: 'asc' }],
+      orderBy: [{ sortOrder: 'asc' }, { toolName: 'asc' }, { createdAt: 'asc' }],
     })
     expect(json.credentials).toEqual([
       expect.objectContaining({
@@ -97,6 +100,7 @@ describe('company vault routes', () => {
         username: 'user@example.com',
         password: 'secret-password',
         note: 'office account',
+        sortOrder: 10,
       }),
     ])
   })
@@ -145,6 +149,7 @@ describe('company vault routes', () => {
 
     expect(res.status).toBe(201)
     expect(createArg.data.organizationId).toBe('org_1')
+    expect(createArg.data.sortOrder).toBe(10)
     expect(createArg.data.usernameEncrypted).not.toBe('user@example.com')
     expect(createArg.data.passwordEncrypted).not.toBe('secret-password')
     expect(createArg.data.noteEncrypted).not.toBe('office account')
@@ -181,6 +186,7 @@ describe('company vault routes', () => {
       usernameEncrypted: null,
       passwordEncrypted: null,
       noteEncrypted: null,
+      sortOrder: 10,
     }))
     expect(json.credential).toEqual(expect.objectContaining({
       username: null,
@@ -242,6 +248,61 @@ describe('company vault routes', () => {
 
     expect(res.status).toBe(404)
     expect(prisma.companyVaultCredential.findFirstOrThrow).not.toHaveBeenCalled()
+  })
+
+  it('reorders all credentials for the authenticated organization', async () => {
+    vi.mocked(prisma.companyVaultCredential.findMany).mockResolvedValueOnce([
+      { id: 'cred_1' },
+      { id: 'cred_2' },
+    ] as any)
+    vi.mocked(prisma.companyVaultCredential.updateMany).mockResolvedValue({ count: 1 } as any)
+
+    const res = await createApp().request('/company-vault/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credentialIds: ['cred_2', 'cred_1'] }),
+    })
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json).toEqual({ success: true })
+    expect(prisma.companyVaultCredential.findMany).toHaveBeenCalledWith({
+      where: { organizationId: 'org_1' },
+      select: { id: true },
+      orderBy: [{ sortOrder: 'asc' }, { toolName: 'asc' }, { createdAt: 'asc' }],
+    })
+    expect(prisma.companyVaultCredential.updateMany).toHaveBeenNthCalledWith(1, {
+      where: { id: 'cred_2', organizationId: 'org_1' },
+      data: { sortOrder: 10 },
+    })
+    expect(prisma.companyVaultCredential.updateMany).toHaveBeenNthCalledWith(2, {
+      where: { id: 'cred_1', organizationId: 'org_1' },
+      data: { sortOrder: 20 },
+    })
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1)
+    expect(logStaffActivity).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'company_vault.reordered',
+      metadata: { credentialCount: 2 },
+    }))
+  })
+
+  it('rejects reorder payloads that omit current credentials', async () => {
+    vi.mocked(prisma.companyVaultCredential.findMany).mockResolvedValueOnce([
+      { id: 'cred_1' },
+      { id: 'cred_2' },
+    ] as any)
+
+    const res = await createApp().request('/company-vault/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credentialIds: ['cred_2'] }),
+    })
+    const json = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(json).toEqual({ error: 'Reorder requires all current credentials' })
+    expect(prisma.companyVaultCredential.updateMany).not.toHaveBeenCalled()
+    expect(prisma.$transaction).not.toHaveBeenCalled()
   })
 
   it('hard deletes credentials by id and organization', async () => {

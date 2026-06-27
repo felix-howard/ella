@@ -180,6 +180,7 @@ export interface CompanyVaultCredential {
   username: string | null
   password: string | null
   note: string | null
+  sortOrder: number
   createdAt: string
   updatedAt: string
 }
@@ -193,6 +194,71 @@ export interface CompanyVaultInput {
   username?: string | null
   password?: string | null
   note?: string | null
+}
+
+export interface WebPushVapidPublicKeyResponse {
+  configured: boolean
+  publicKey: string | null
+}
+
+export interface WebPushSubscriptionSummary {
+  id: string
+  deviceLabel: string | null
+  userAgent: string | null
+  createdAt: string
+  lastSeenAt: string
+  lastSentAt: string | null
+}
+
+export interface WebPushSubscriptionListResponse {
+  data: WebPushSubscriptionSummary[]
+}
+
+export interface WebPushCurrentSubscriptionResponse {
+  current: boolean
+  data: WebPushSubscriptionSummary | null
+}
+
+export interface WebPushSubscribeInput {
+  endpoint: string
+  expirationTime?: number | null
+  keys: {
+    p256dh: string
+    auth: string
+  }
+  deviceLabel?: string
+}
+
+export interface WebPushSubscribeResponse {
+  data: WebPushSubscriptionSummary
+}
+
+export interface WebPushUnsubscribeResponse {
+  success: boolean
+  disabled: boolean
+}
+
+export interface WebPushDeliveryResult {
+  configured: boolean
+  attempted: number
+  sent: number
+  failed: number
+  disabled: number
+  skippedReason?:
+    | 'not_configured'
+    | 'configuration_error'
+    | 'query_failed'
+    | 'no_staff'
+    | 'no_subscriptions'
+  failures: Array<{
+    subscriptionId: string
+    statusCode?: number
+  }>
+}
+
+export interface WebPushTestResponse {
+  success: boolean
+  result: WebPushDeliveryResult
 }
 
 // --- Custom (free-form) payment links --------------------------------------
@@ -546,6 +612,41 @@ export const api = {
       request<RecipientSearchResponse>('/recipients/search', { params: { q } }),
   },
 
+  push: {
+    getVapidPublicKey: () =>
+      request<WebPushVapidPublicKeyResponse>('/push/vapid-public-key', { retries: 0 }),
+
+    listSubscriptions: () =>
+      request<WebPushSubscriptionListResponse>('/push/subscriptions'),
+
+    getCurrentSubscription: (endpoint: string) =>
+      request<WebPushCurrentSubscriptionResponse>('/push/current', {
+        method: 'POST',
+        body: JSON.stringify({ endpoint }),
+        retries: 0,
+      }),
+
+    subscribe: (data: WebPushSubscribeInput) =>
+      request<WebPushSubscribeResponse>('/push/subscribe', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+
+    unsubscribe: (endpoint: string) =>
+      request<WebPushUnsubscribeResponse>('/push/unsubscribe', {
+        method: 'POST',
+        body: JSON.stringify({ endpoint }),
+        retries: 0,
+      }),
+
+    sendTest: () =>
+      request<WebPushTestResponse>('/push/test', {
+        method: 'POST',
+        retries: 0,
+      }),
+  },
+
   companyVault: {
     list: (params?: { search?: string }) =>
       request<CompanyVaultListResponse>('/company-vault', { params }),
@@ -571,6 +672,12 @@ export const api = {
       )
       return response.credential
     },
+    reorder: (credentialIds: string[]) =>
+      request<{ success: boolean }>('/company-vault/reorder', {
+        method: 'POST',
+        body: JSON.stringify({ credentialIds }),
+        retries: 0,
+      }),
     delete: (id: string) =>
       request<{ success: boolean }>(`/company-vault/${id}`, {
         method: 'DELETE',
@@ -2348,6 +2455,7 @@ export type NdaAgreement = Agreement & { depositStatus: DepositStatus }
 // Client payments (deposit collected after agreement signing, etc.)
 export type PaymentType = 'DEPOSIT' | 'BALANCE' | 'OTHER' | 'RECURRING'
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'CANCELED'
+export type ReceiptStatus = 'available' | 'pending' | 'not_applicable'
 
 export interface ClientPayment {
   id: string
@@ -2362,6 +2470,17 @@ export interface ClientPayment {
   agreement: { id: string; title: string } | null
   /** Public portal pay page URL for this payment's payToken */
   payUrl: string
+  /** Staff-only Stripe support ids and receipt artifacts. */
+  stripeCustomerId: string | null
+  stripeInvoiceId: string | null
+  stripeChargeId: string | null
+  receiptUrl: string | null
+  invoicePdfUrl: string | null
+  hostedInvoiceUrl: string | null
+  receiptNumber: string | null
+  paymentMethodLabel: string | null
+  receiptSyncedAt: string | null
+  receiptStatus: ReceiptStatus
 }
 
 export interface CreateAgreementPayload {

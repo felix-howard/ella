@@ -30,6 +30,8 @@ export interface CheckoutSessionResult {
 export interface CheckoutSessionParamsOptions {
   quoteId: string
   customerEmail?: string
+  customerId?: string
+  customerCreation?: 'always' | 'if_required'
   successUrl?: string
   cancelUrl?: string
   extraMetadata?: Record<string, string | undefined>
@@ -59,7 +61,7 @@ export function buildCheckoutSessionParams(
     line_items: lineItems.map(toStripeLineItem),
     success_url: opts.successUrl ?? config.stripe.successUrl,
     cancel_url: opts.cancelUrl ?? config.stripe.cancelUrl,
-    customer_email: opts.customerEmail,
+    ...buildCustomerParams(opts, anyRecurring),
     client_reference_id: opts.quoteId,
     ...buildDiscountParams(opts),
     metadata: compactMetadata({
@@ -68,6 +70,22 @@ export function buildCheckoutSessionParams(
       source: opts.metadataSource ?? 'pricing_calculator',
       ...opts.extraMetadata,
     }),
+  }
+}
+
+function buildCustomerParams(
+  opts: CheckoutSessionParamsOptions,
+  anyRecurring: boolean
+): Pick<Stripe.Checkout.SessionCreateParams, 'customer' | 'customer_email' | 'customer_creation'> {
+  const customerId = opts.customerId?.trim()
+  if (customerId) return { customer: customerId }
+  if (opts.customerCreation && anyRecurring) {
+    throw new CheckoutQuoteError('Customer creation is only supported for one-time checkout')
+  }
+
+  return {
+    customer_email: opts.customerEmail,
+    ...(opts.customerCreation ? { customer_creation: opts.customerCreation } : {}),
   }
 }
 
@@ -169,22 +187,25 @@ function toStripeLineItem(item: CheckoutLineItem): Stripe.Checkout.SessionCreate
       currency: config.stripe.currency,
       unit_amount: item.unitAmountCents,
       product_data: {
-        // Hosted Stripe Checkout normalizes line breaks, so make bundled services readable there.
-        name: formatStripeProductName(item.label),
+        name: formatStripeProductText(item.label, ' '),
         metadata: { kind: isRecurring ? 'monthly' : 'setup' },
-        ...(item.description ? { description: item.description } : {}),
+        // Hosted Stripe Checkout does not support rich bullet styling here, so
+        // multiline descriptions are flattened into readable comma-separated text.
+        ...(item.description
+          ? { description: formatStripeProductText(item.description, ', ') }
+          : {}),
       },
       ...(item.interval !== 'one_time' ? { recurring: { interval: item.interval } } : {}),
     },
   }
 }
 
-function formatStripeProductName(value: string): string {
+function formatStripeProductText(value: string, separator: ' ' | ', '): string {
   return value
     .split(/\r?\n/)
-    .map((line) => line.trim().replace(/^[-*]\s+/, '').replace(/\s+/g, ' '))
+    .map((line) => line.trim().replace(/^[-*•]\s+/, '').replace(/\s+/g, ' '))
     .filter(Boolean)
-    .join(', ')
+    .join(separator)
 }
 
 function compactMetadata(metadata: Record<string, string | undefined>): Record<string, string> {

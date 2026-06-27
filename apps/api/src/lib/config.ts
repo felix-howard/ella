@@ -94,6 +94,21 @@ export const config = {
     ),
   },
 
+  // Web Push Configuration
+  webPush: (() => {
+    const vapidPublicKey = (process.env.WEB_PUSH_VAPID_PUBLIC_KEY || '').trim()
+    const vapidPrivateKey = (process.env.WEB_PUSH_VAPID_PRIVATE_KEY || '').trim()
+    const configuredSubject = (process.env.WEB_PUSH_VAPID_SUBJECT || '').trim()
+    const vapidSubject = configuredSubject || 'mailto:support@ellatax.com'
+
+    return {
+      vapidPublicKey,
+      vapidPrivateKey,
+      vapidSubject,
+      isConfigured: Boolean(vapidPublicKey && vapidPrivateKey),
+    }
+  })(),
+
   // Stripe Checkout
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY || '',

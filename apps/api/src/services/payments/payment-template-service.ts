@@ -6,6 +6,10 @@ import type {
   UpdatePaymentTemplateInput,
 } from '../../routes/billing/schemas'
 import { buildCustomQuote } from '../stripe/custom-quote-builder'
+import {
+  normalizeLineItemDescription,
+  normalizeLineItemLabel,
+} from '../stripe/checkout-line-items'
 
 export type PaymentTemplateErrorCode = 'PAYMENT_TEMPLATE_NOT_FOUND' | 'PAYMENT_TEMPLATE_DUPLICATE'
 
@@ -131,9 +135,9 @@ function normalizeTemplate(input: PaymentTemplateItemsInput): PaymentTemplateIte
 }
 
 function normalizeLineItem(item: PaymentTemplateItemsInput['items'][number]) {
-  const description = item.description?.trim()
+  const description = normalizeLineItemDescription(item.description)
   return {
-    label: item.label.trim(),
+    label: normalizeLineItemLabel(item.label),
     ...(description ? { description } : {}),
     unitAmountCents: item.unitAmountCents,
     quantity: item.quantity,

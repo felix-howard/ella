@@ -60,6 +60,14 @@ vi.mock('../../realtime/message-publisher', () => ({
   publishMessageEventFromConversation: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('../../web-push', () => ({
+  notifyClientMessagePushFromConversation: vi.fn().mockResolvedValue(null),
+}))
+
+vi.mock('../tapback-reaction-handler', () => ({
+  processTapbackReaction: vi.fn().mockResolvedValue(null),
+}))
+
 vi.mock('../../voice/voicemail-helpers', () => ({
   isValidE164Phone: vi.fn().mockReturnValue(true),
   createPlaceholderConversation: vi.fn(),
@@ -75,6 +83,8 @@ import { prisma } from '../../../lib/db'
 import { findLeadByPhone, processLeadInbound } from '../lead-inbound-handler'
 import { processIncomingMessage, type TwilioIncomingMessage } from '../webhook-handler'
 import { createPlaceholderConversation } from '../../voice/voicemail-helpers'
+import { notifyClientMessagePushFromConversation } from '../../web-push'
+import { processTapbackReaction } from '../tapback-reaction-handler'
 import type { Lead } from '@ella/db'
 
 function makeIncoming(overrides: Partial<TwilioIncomingMessage> = {}): TwilioIncomingMessage {
@@ -180,7 +190,12 @@ describe('processIncomingMessage — routing priority (Phase 03)', () => {
     vi.mocked(prisma.client.findFirst).mockResolvedValueOnce(client as never)
     vi.mocked(findLeadByPhone).mockResolvedValueOnce({ id: 'lead_1' } as unknown as Lead)
     vi.mocked(prisma.conversation.upsert).mockResolvedValueOnce({ id: 'conv_1' } as never)
-    vi.mocked(prisma.message.create).mockResolvedValueOnce({ id: 'msg_client_1' } as never)
+    vi.mocked(prisma.message.create).mockResolvedValueOnce({
+      id: 'msg_client_1',
+      direction: 'INBOUND',
+      channel: 'SMS',
+      isSystem: false,
+    } as never)
     vi.mocked(prisma.conversation.update).mockResolvedValueOnce({} as never)
 
     const res = await processIncomingMessage(makeIncoming({ MessageSid: 'SM_collision' }))
@@ -203,6 +218,14 @@ describe('processIncomingMessage — routing priority (Phase 03)', () => {
         unreadCount: { increment: 1 },
       },
     })
+    expect(notifyClientMessagePushFromConversation).toHaveBeenCalledWith(
+      'conv_1',
+      expect.objectContaining({
+        id: 'msg_client_1',
+        direction: 'INBOUND',
+        channel: 'SMS',
+      })
+    )
     expect(vi.mocked(prisma.client.findFirst)).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ organizationId: 'org_1' }),
@@ -325,5 +348,30 @@ describe('processIncomingMessage — routing priority (Phase 03)', () => {
       'org_1',
       'INCOMING_SMS'
     )
+  })
+
+  it('tapback reactions update the existing message without push fanout', async () => {
+    vi.mocked(prisma.message.findFirst).mockResolvedValueOnce(null)
+    vi.mocked(prisma.client.findFirst).mockResolvedValueOnce({
+      id: 'client_1',
+      phone: '+15551234567',
+      taxCases: [{ id: 'case_1' }],
+    } as never)
+    vi.mocked(findLeadByPhone).mockResolvedValueOnce(null)
+    vi.mocked(prisma.conversation.upsert).mockResolvedValueOnce({ id: 'conv_1' } as never)
+    vi.mocked(processTapbackReaction).mockResolvedValueOnce({
+      targetMessageId: 'msg_original',
+      duplicate: false,
+    })
+
+    const res = await processIncomingMessage(makeIncoming({
+      MessageSid: 'SM_tapback',
+      Body: 'Loved "hello"',
+    }))
+
+    expect(res.success).toBe(true)
+    expect(res.messageId).toBe('msg_original')
+    expect(prisma.message.create).not.toHaveBeenCalled()
+    expect(notifyClientMessagePushFromConversation).not.toHaveBeenCalled()
   })
 })

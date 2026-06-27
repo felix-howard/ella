@@ -120,6 +120,7 @@ export const ACTIVITY_ACTIONS = {
   COMPANY_VAULT: {
     CREATED: 'company_vault.created',
     UPDATED: 'company_vault.updated',
+    REORDERED: 'company_vault.reordered',
     DELETED: 'company_vault.deleted',
   },
   AUTH: {

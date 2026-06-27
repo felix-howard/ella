@@ -1,9 +1,122 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-25 ICT
+> **Last Updated:** 2026-06-27 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### PWA Web Push Notifications for Client Messages
+**Status:** Complete with rollout device QA pending
+
+**Changed:**
+- Added Workspace PWA Web Push for inbound client SMS case messages with generic notification copy only: `Ella` + `New client message`.
+- Added `WebPushSubscription`, VAPID configuration, protected `/push` subscription/test APIs, best-effort delivery via `web-push`, and automatic disabling for expired provider endpoints.
+- Wired inbound case-message fanout to active staff who can see the client: `ADMIN`/`MANAGER` org-wide, assigned `STAFF`/`CPA` through `ClientManager`.
+- Added Workspace service worker registration and Settings Notifications enable/disable/test controls with iOS Home Screen PWA guidance.
+- Documented VAPID env vars, privacy contract, recipient rule, and rollout checklist.
+
+**Validation:**
+- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/api test -- push web-push webhook-handler messages` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api build` pass
+- `pnpm -F @ella/workspace test -- web-push` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace build` pass with non-blocking route-file/chunk-size warnings
+- `pnpm type-check` pass
+- `pnpm i18n:check` pass
+- Migration SQL reviewed: additive table/index/FK creation only, no destructive statements.
+- Physical iPhone Lock Screen smoke requires deployed HTTPS Workspace/API and must be run during rollout.
+
+### Payment Ledger Receipt Capture and Stripe Customer Checkout Polish
+**Status:** Complete
+
+**Changed:**
+- Checkout sessions now reuse persistent Stripe Customers for client-linked payments, fall back to `customer_email` for lead-only payments, and request `customer_creation: 'always'` for lead-only one-time quote checkouts with email.
+- Webhook and fulfillment paths now extract receipt facts from Checkout Session, Invoice, and PaymentIntent data, persist available receipt/invoice fields on `Payment`, backfill `Client.stripeCustomerId` when missing, and handle the newer invoice `payment_intent` shape.
+- Quote checkout session persistence now stores `stripeInvoiceId` alongside the existing session mirror ids so downstream invoice flows stay aligned.
+- Staff client Payments tab now receives admin-only receipt fields, shows a compact Stripe receipt/invoice action for paid rows, displays `Receipt pending` for unsynced paid rows, and shows safe card brand/last4 labels when available.
+- Receipt URLs returned to Workspace are normalized to HTTPS Stripe receipt/invoice hosts only (`invoice.stripe.com`, `pay.stripe.com`), with matching UI-side filtering before rendering external links.
+- Anonymous calculator/custom payment-link actions now say `Create anonymous Stripe URL` and warn staff to use `Send Payment Link` when payment history should attach to the client ledger.
+- Sent quote checkout now uses deterministic per-quote Stripe idempotency keys, idempotent local session upserts, and guarded quote status updates so concurrent pay clicks or fast webhooks cannot create duplicate payable sessions or regress paid/active quotes.
+
+**Validation:**
+- Final phase validation passed:
+  - `pnpm -F @ella/db type-check`
+  - `pnpm -F @ella/api test -- payment` (16 files, 206 tests)
+  - `pnpm -F @ella/api test -- stripe` (9 files, 99 tests)
+  - `pnpm -F @ella/workspace test -- payments` (1 file, 4 tests)
+  - `pnpm type-check`
+  - `pnpm -r --if-present test`
+- Manual Stripe browser/CLI checkout checklist was not run in this session because `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` were not exported in the shell. Stripe CLI is installed locally; use the README local webhook setup before manual validation.
+- Phase 4 validation passed: `payments-staff.test.ts` 13 tests, workspace receipt/link panel tests 8 tests, API/workspace type-check, i18n parity, and API/workspace lint. Lint warnings remain only in unrelated pre-existing files.
+
+### Payment Receipt Schema and Migration Safety
+**Status:** Complete
+
+**Changed:**
+- Added additive Prisma schema/migration support for Stripe customer linkage, payment receipt/invoice facts, safe payment method display fields, and webhook event logging.
+- Applied `20260626195935_payment_receipts_stripe_customer_polish` to the local-dev Supabase database.
+- Added CI guard that blocks PRs from modifying/deleting/renaming/copying existing Prisma migration SQL files while still allowing new migrations.
+- Documented migration safety rules in code standards.
+
+**Validation:**
+- `pnpm -F @ella/db migrate:deploy` pass before local reset; migration applied cleanly.
+- Local-dev `prisma migrate reset --force --skip-seed` pass to repair checksum drift in disposable DB.
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass, database schema up to date.
+- Direct DB probes confirm new payment receipt columns/table and zero failed migration rows.
+- `pnpm -F @ella/db type-check` pass.
+
+### Custom Payment Description Multiline Fix
+**Status:** Complete
+
+**Fixed:**
+- Changed Workspace Custom Link item names back to a single-line input.
+- Changed Custom Link descriptions to a multiline textarea and normalized pasted description lines for saved templates, sent quotes, and direct custom checkout links.
+- Moved portal bullet-list rendering from item name to multiline description.
+- Flattened multiline Stripe product descriptions into comma-separated text, since hosted Stripe Checkout product descriptions do not support custom bullet styling.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/stripe/__tests__/checkout.test.ts src/services/stripe/__tests__/custom-quote-builder.test.ts src/services/payments/__tests__/payment-template-service.test.ts src/services/payments/__tests__/quote-checkout-service.test.ts` pass, 62 tests
+- `pnpm -F @ella/workspace test -- src/components/pricing/custom-link/__tests__/custom-link-money.test.ts` pass, 19 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `git diff --check` pass
+
+### Company Vault Drag Reorder
+**Status:** Complete
+
+**Changed:**
+- Added persisted Company Vault ordering with `sortOrder`, additive Prisma migration, and org-scoped reorder endpoint.
+- Added drag handle reorder in Workspace using `@dnd-kit`; reorder disabled while search is active to avoid saving filtered subsets.
+- Changed note cells to wrap full note text instead of truncating with ellipsis.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/company-vault/__tests__/company-vault-routes.test.ts` pass, 12 tests
+- `pnpm -F @ella/workspace test -- src/components/company-vault` pass, 6 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma validate` pass
+- `pnpm i18n:check` pass, workspace 3074 keys and portal 531 keys
+- `pnpm -F @ella/workspace lint` pass with 12 pre-existing warnings outside this change
+- `pnpm -F @ella/api lint` pass with 1 pre-existing warning outside this change
+- `git diff --check` pass
+
+### Agreement Draft Discard Modal
+**Status:** Complete
+
+**Changed:**
+- Replaced the browser confirm prompt on saved agreement draft discard with a dedicated Ella modal.
+- Added EN/VI modal copy, destructive action styling, pending spinner, and close blocking while discard is running.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- src/components/agreements` pass, 18 tests
+- `pnpm i18n:check` pass, workspace 3067 keys and portal 531 keys
+- `pnpm -F @ella/workspace lint` pass with 12 pre-existing warnings outside this change
+- `git diff --check` pass
 
 ### Archived Staff Manager Detach
 **Status:** Complete
@@ -3504,6 +3617,7 @@
 - Shared helpers reduce code duplication between /clients and /businesses routes during transition
 
 **Backward Compatibility:** ✅ Full
+
 - All /businesses/:businessId/1099-nec/* routes remain functional and unchanged
 - Existing integrations continue without modifications
 - @deprecated markers indicate Phase 15 removal timeline
@@ -3536,6 +3650,7 @@
 - **Modified:** `apps/api/src/app.ts` - Route registration
 
 **Backward Compatibility:** ✅ Full
+
 - All /businesses/:businessId/contractors routes remain functional
 - Existing integrations continue without changes
 - @deprecated markers indicate Phase 15 removal timeline
@@ -3874,6 +3989,7 @@
 **Summary:** Multi-phase restructuring complete. Client = person, Business = separate entity. Enables multi-business per client, simplified client creation. All cleanup + integration testing done.
 
 **Phase 06: Cleanup & Integration Testing** (0.5h)
+
 - Removed all stale `clientType` references from codebase (except migration files)
 - Cleaned up constants, field labels, localization strings
 - Removed business-related form fields from client overview & intake form
@@ -4414,4 +4530,5 @@
 ---
 
 ## Previous Releases
+
 [See git history for prior versions before 2026-03-30]

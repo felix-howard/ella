@@ -68,10 +68,22 @@ export function customItemsToLineItems(
   interval: CheckoutInterval
 ): CheckoutLineItem[] {
   return items.map((item) => ({
-    label: item.label.trim(),
-    description: item.description?.trim() || undefined,
+    label: normalizeLineItemLabel(item.label),
+    description: normalizeLineItemDescription(item.description),
     unitAmountCents: item.unitAmountCents,
     quantity: item.quantity,
     interval,
   }))
+}
+
+export function normalizeLineItemLabel(value: string): string {
+  return normalizeLines(value, ' ')
+}
+
+export function normalizeLineItemDescription(value: string | undefined): string | undefined {
+  return value ? normalizeLines(value, '\n') || undefined : undefined
+}
+
+function normalizeLines(value: string, separator: ' ' | '\n'): string {
+  return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).join(separator)
 }

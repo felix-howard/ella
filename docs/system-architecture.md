@@ -66,6 +66,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations
 - `/actions` - Action queue with priority filtering
+- `/company-vault` - Org-scoped shared credentials list with encrypted username/password/note fields and persisted drag reorder
 - `/pricing-calculator` - Admin-only pricing calculator with quote summary, Stripe payment-link creation, send-to-client quotes, and direct Engagement Letter preparation through existing Agreement APIs
 - `/team` - Team profile access for all active staff; admin-only team management controls (Phase 3)
 - `/accept-invitation` - Clerk org invite acceptance (Phase 6)
@@ -157,7 +158,6 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Database: `src/lib/db.ts` (Prisma singleton)
 
 **Endpoints (80+ total):**
-
 **Company Vault (Shared Staff Credentials):**
 - `GET /company-vault` - Authenticated org-scoped list/search of shared credentials. Values decrypt only at the response boundary.
 - `POST /company-vault` - Create a shared credential with required `toolName` and optional username/password/note encrypted before storage.
@@ -180,14 +180,17 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - **Quote Sources:** `PaymentQuote.source` field (enum: 'calculator' | 'custom') branches payment flow. Calculator quotes (`source='calculator'`) rebuild from stored `inputSnapshot` (pricing inputs). Custom quotes (`source='custom'`) have no `inputSnapshot`—line items frozen in `resultSnapshot` are the source of truth.
 - **PaymentTemplate:** Org-scoped reusable custom-link presets store only line-item payloads (`billingInterval`, `items`, optional `oneTimeItems`). They intentionally exclude recipients, discounts/coupons, Stripe sessions/links, sent status, and customer fields. Creating or sending from a template copies the current rows into the editable custom-link form, then snapshots those rows into `PaymentQuote` so later template edits do not mutate historical quotes.
 - **PaymentTemplate CRUD API:** Admin-only `/billing/payment-templates` routes list, create, update, and archive org-scoped presets. Mutations reuse the custom quote line-item schema and `buildCustomQuote()` validation, return normalized summaries for dropdown/load flows, and soft-delete via `archivedAt` without touching Stripe.
-- `POST /billing/checkout-sessions` - Admin-only. Persists a `PaymentQuote` first, then creates the Stripe Checkout session and stores the returned session URL, status, and expiry in `StripeCheckoutSession`. Uses `quoteId` as the Stripe idempotency key, keeps Stripe metadata free of internal notes and PII, and surfaces config errors as `STRIPE_NOT_CONFIGURED` or `STRIPE_RETURN_URLS_INVALID`. Handles calculator quote creation; custom quotes use the custom checkout routes.
-- `POST /webhooks/stripe` - Public Stripe webhook. Verifies `Stripe-Signature` with the raw request body and `STRIPE_WEBHOOK_SECRET`, then syncs local `PaymentQuote` and `StripeCheckoutSession` status for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `invoice.paid`, `invoice.payment_failed`, and `customer.subscription.deleted`. Completed unpaid checkouts map to `awaiting_payment`, and the existing local checkout-session quote association wins over Stripe metadata when both exist. Webhook updates persist `lastStripeEventId` and `lastStripeEventAt` on quote/session records, ignore older events, apply same-second status precedence, and keep canceled sessions terminal for later invoice events on the same subscription.
+- `POST /billing/checkout-sessions` - Admin-only. Persists a `PaymentQuote` first, then creates the Stripe Checkout session and stores the returned session URL, status, expiry, and Stripe customer/subscription/paymentIntent/invoice ids in `StripeCheckoutSession`. Uses `quoteId` as the Stripe idempotency key, keeps Stripe metadata free of internal notes and PII, reuses persistent Stripe Customers for client-linked quotes, and falls back to `customer_email` / one-time `customer_creation: 'always'` for lead-only checkouts with email. Handles calculator quote creation; custom quotes use the custom checkout routes.
+- `POST /webhooks/stripe` - Public Stripe webhook. Verifies `Stripe-Signature` with the raw request body and `STRIPE_WEBHOOK_SECRET`, then syncs local `PaymentQuote` and `StripeCheckoutSession` status for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `invoice.paid`, `invoice.payment_failed`, and `customer.subscription.deleted`. Completed unpaid checkouts map to `awaiting_payment`, and the existing local checkout-session quote association wins over Stripe metadata when both exist. Webhook updates persist `lastStripeEventId` and `lastStripeEventAt` on quote/session records, store Stripe customer/invoice/paymentIntent ids on the session mirror, ignore older events, apply same-second status precedence, and keep canceled sessions terminal for later invoice events on the same subscription. Paid deposit and recurring quote events also capture receipt facts best-effort; missing Stripe receipt data or retrieval errors do not block settlement.
+- **Checkout Race Safety:** Sent quote checkout creation uses a per-quote Stripe idempotency key (`quote-checkout:{quoteId}:{previousSessionId|initial}`), reuses still-open local sessions, and upserts returned Stripe sessions locally. Local session persistence only moves quotes to `checkout_created` when no webhook event has already been recorded, preventing a fast `checkout.session.completed` or `invoice.paid` webhook from being overwritten by the request thread.
 - **Custom Payment Links (Staff-Driven):** Staff create free-form quotes with per-line item control (label, description, amount, quantity) + per-line billing interval (one-time | monthly | yearly). Line items frozen in `resultSnapshot`. Optional coupon attachment (XOR with promotion codes per Stripe rules). Checkout session built via generalized `buildCheckoutSessionParams(lineItems[], opts)` supporting mixed intervals via line-item grouping + subscription logic.
 - **Coupons (Stripe-Native):** New `Coupon` model (organizationId, name, stripeId, code, discountType, discountValue, maxRedemptions, expiresAt, active). App-side source of truth synced bidirectionally with Stripe Coupon + Promotion Code. Routes: `POST /coupons` (create + sync), `GET /coupons` (list org), `PATCH /coupons/:id` (update), `DELETE /coupons/:id` (soft-delete, deactivate on Stripe). Per-checkout, enforce Stripe rule: `discounts:[{coupon}]` OR `allow_promotion_codes:true`, not both.
 - **Quote Drift-Safety:** New `rebuildQuoteForCheckout(quote)` rebuilds Stripe params from frozen snapshot. For calculator source: calls `calculateCheckoutQuote(inputSnapshot)` to regenerate. For custom source: reads `resultSnapshot.lineItems` directly (no recalc, line items are frozen).
+- **Receipt Fact Sync:** Deposit and quote fulfillment use a shared extractor that merges Checkout Session, Invoice, and PaymentIntent data. When Stripe exposes it, the flow persists Stripe customer, invoice, charge, receipt, hosted invoice URL, invoice PDF, and card brand/last4 facts on `Payment`; retrieval failures are best-effort only and do not block settlement. Staff client payment APIs expose receipt artifacts only through the admin/org-scoped client payments endpoint, and receipt URLs are filtered to HTTPS Stripe receipt/invoice hosts before Workspace renders external links.
+- **Stripe Email Receipts:** Stripe-hosted customer receipt emails are controlled by Stripe Dashboard email settings for successful payments. Ella's ledger receipt storage is independent of that setting and keeps staff receipt/invoice actions available when Stripe returns URLs.
 - **Portal Pay Page:** New `PublicQuoteView.billingInterval` field exposes per-line cadence (null = one-time). UI surfaces per-line descriptions, correct "Monthly" / "Yearly" group headers, and /mo vs /yr badges.
 - Pricing payment links are disabled for enterprise-sized quotes (>20 1099 workers); those quotes remain contact-sales only.
-- Workspace `/pricing-calculator` uses the same shared calculator domain as billing and creates payment links through the authenticated `api.billing` client. No-selection, enterprise-sized, unsafe quantity, and oversized checkout states disable link creation before the API call and are enforced again by billing before Stripe session creation. New calculator quote creation rejects `oneTime.businessTaxReturn > 0`; yearly business tax return pre-pay belongs in `Payments > Custom link`, while historical calculator snapshots with yearly lines remain readable/payable through frozen quote rebuild/display paths.
+- Workspace `/pricing-calculator` uses the same shared calculator domain as billing and creates payment links through the authenticated `api.billing` client. No-selection, enterprise-sized, unsafe quantity, and oversized checkout states disable link creation before the API call and are enforced again by billing before Stripe session creation. Anonymous Stripe URL creation is labeled separately from recipient send flows because direct anonymous links do not attach history to a client ledger. New calculator quote creation rejects `oneTime.businessTaxReturn > 0`; yearly business tax return pre-pay belongs in `Payments > Custom link`, while historical calculator snapshots with yearly lines remain readable/payable through frozen quote rebuild/display paths.
 - The calculator can prepare Engagement Letters directly from the current setup/monthly quote. Workspace searches org-scoped clients/leads, seeds the shared `AgreementDraftEditor` with `source="CALCULATOR"` and a minimal source snapshot, defaults initial payment off, uses 30-day expiry, and requires a saved draft before preview/send. If the recipient already has a CALCULATOR draft, the modal offers `Resume saved calculator draft` vs `Start from current quote`; manual drafts are ignored. Final send uses the draft-send endpoint so the original creator signer is preserved and the actual sender is recorded. The generated copy includes manually editable yearly pre-pay wording but does not auto-import a yearly Custom Link amount.
 - Stripe config lives in the API process env: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `STRIPE_CURRENCY`. Local API dev loads `apps/api/.env`.
 - Landing payment-link calls require `PUBLIC_API_URL` in the landing process/build env so `/pricing` can reach the API. Local landing dev loads `apps/landing/.env`; deployed static builds need the same variable configured in build/deploy env.
@@ -414,6 +417,14 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - **60-Second Fallback Polling**: Retained as safety net if Realtime unavailable. React Query cache auto-refetch at 60s intervals keeps data fresh.
 - **Performance Impact**: Near-instant updates (100-500ms vs 10-30s polling). Org-scoped isolation ensures no cross-org leaks. Broadcast channels auto-cleanup after unsubscribe.
 
+**Workspace PWA Web Push:**
+- **Subscription APIs** (`apps/api/src/routes/push`): Protected `/push/vapid-public-key`, `/push/subscriptions`, `/push/current`, `/push/subscribe`, `/push/unsubscribe`, and rate-limited `/push/test` endpoints. Subscriptions are scoped to the authenticated Staff + Organization and an endpoint already owned by another staff member returns `409`.
+- **Delivery Service** (`apps/api/src/services/web-push`): `sendWebPushToStaff()` loads enabled subscriptions in 500-row pages, sends with VAPID via `web-push`, and disables expired endpoints on provider `404`/`410`. Delivery is best-effort and never blocks message creation.
+- **Inbound Message Fanout**: `notifyClientMessagePushFromConversation()` runs for inbound non-system SMS case messages after existing message persistence/realtime paths. Recipients match client visibility: `ADMIN` and `MANAGER` see org-wide clients; `STAFF` and `CPA` receive only when linked through `ClientManager`; inactive staff and staff without enabled push subscriptions are excluded. Inbound portal-authored case messaging does not currently have a separate creation path, so portal fanout is not claimed until that path exists.
+- **Privacy Contract**: Payloads contain only `title: "Ella"`, `body: "New client message"`, `/messages/:caseId`, tag, and timestamp. No body text, client name, phone, email, SSN, signed URL, storage key, or tax data is placed in the push payload or push logs.
+- **Workspace Client** (`apps/workspace/src/lib/web-push.ts`, `apps/workspace/public/sw.js`): The Settings Notifications card registers `/sw.js`, handles browser support and iOS standalone-PWA checks, saves/removes the current browser subscription, sends test notifications, and constrains notification clicks to `/` or `/messages/:caseId`.
+- **Rollout Requirements**: API requires `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY`, and `WEB_PUSH_VAPID_SUBJECT`. iOS/iPadOS users must open the HTTPS Workspace from a Home Screen install before enabling notifications.
+
 **Read Contract:**
 - `POST /messages/:caseId/read` marks an org-scoped case conversation as read, accepts optional `upTo` to preserve newer inbound messages, returns `caseId`, `unreadCount`, and `readAt`, and publishes a non-blocking `conversation.read` realtime event for UI refreshes.
 
@@ -477,6 +488,7 @@ Organization (root entity)
 **Key Models (Multi-Tenant):**
 - **Organization** - Org root with Clerk integration, autoSendFormClientUploadLink (bool, Phase 02 Intake Form - auto-send SMS to staff on form submission)
 - **Staff** - organizationId FK, clerkId (unique), role (ADMIN|MANAGER|STAFF|CPA), notifyOnUpload (default: true), isContractorAgent (default: false), title, signaturePngKey, formSlug (auto-generated six-digit unique slug per org for public form routing, editable by staff/admin). Notification preferences for client upload alerts and contractor-agent compliance.
+- **WebPushSubscription** - org/staff-scoped browser push subscription. Fields: organizationId, staffId, endpoint (unique), p256dh, auth, enabled, userAgent, deviceLabel, lastSeenAt, lastSentAt, failureCount, failedAt, createdAt, updatedAt. Used only for Workspace PWA notifications; invalid provider endpoints are disabled automatically.
 - **Client** - organizationId FK, managedById FK (legacy primary manager during rollout; `ClientManager` is canonical), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form), clientType (enum: INDIVIDUAL|BUSINESS, default INDIVIDUAL). For clientType=BUSINESS: businessType (BusinessType enum, required), einEncrypted (encrypted, required), businessAddress, businessCity, businessState, businessZip (all required). Database stores einEncrypted; API returns einMasked (XX-XXX####). clientGroupId FK (optional, links related clients like individual+business or partnerships). Relations: contractors, filingBatches, intakeTokens (all BUSINESS-type specific).
 - **ClientManager** - tenant-scoped canonical join row between Client and Staff. Backfilled from legacy managedById, unique on `[clientId, staffId]`, with org-scoped guards and tenant-scoped foreign keys.
 - **ClientGroup** - organizationId FK (optional, org-scoped grouping), name (group name), clients array relation. Phase 01 Entity Separation: new entity enables flexible grouping of related clients (e.g., family businesses, partnerships, multi-entity tax arrangements). Indexed on organizationId for fast group lookups.
@@ -485,10 +497,11 @@ Organization (root entity)
 - **TaxEngagement** - Year-specific engagement (copy-from support)
 - **ScheduleCExpense** - 20+ fields, version history
 - **ScheduleEExpense** - 1:1 with TaxCase. Status (DRAFT/SUBMITTED/LOCKED), up to 3 rental properties (JSON array), 7 IRS expense fields (insurance, mortgage interest, repairs, taxes, utilities, management fees, cleaning/maintenance), custom expense list, version history, property-level totals
+- **Payment** - deposit and quote settlement row. Stores organization/client/lead/agreement links, type/status, amount/currency, payToken, stripeSessionId, stripePaymentIntentId, stripeCustomerId, stripeInvoiceId, stripeChargeId, stripeReceiptUrl, stripeReceiptNumber, stripeHostedInvoiceUrl, stripeInvoicePdfUrl, paymentMethodBrand/last4, paidAt, and receiptSyncedAt when Stripe data is available. Staff serializers expose receipt links only after HTTPS Stripe-host validation.
 - **PaymentQuote** - checkout quote record for Stripe billing. Stores organization/client/lead links, customerEmail/customerName/businessName, inputSnapshot/resultSnapshot, monthlyTotalCents/setupTotalCents, status, createdByStaffId, and related checkout sessions.
 - **PaymentTemplate** - org-scoped reusable custom-link preset. Stores organizationId, name, optional description, JSON `items` payload (line items only), createdByStaffId, archivedAt soft delete, createdAt, and updatedAt. Recipient/customer, discount, Stripe session/link, sent, and quote-status fields stay on `PaymentQuote`. Active names are unique per organization only while `archivedAt` is null, and creator attribution is tenant-guarded at the DB layer.
 - **CompanyVaultCredential** - org-scoped shared credential row for staff tooling. Fields: organizationId, toolName, usernameEncrypted, passwordEncrypted, noteEncrypted, createdAt, updatedAt. `toolName` is plaintext for display/search; optional username/password/note are encrypted at rest and decrypted only for authenticated org-scoped API responses. Hard delete removes the row, and related activity metadata stores ids/field names only.
-- **StripeCheckoutSession** - Stripe session mirror keyed by `stripeSessionId`. Stores paymentQuoteId, Stripe customer/subscription/paymentIntent ids, status, url, expiresAt, paidAt, and timestamps.
+- **StripeCheckoutSession** - Stripe session mirror keyed by `stripeSessionId`. Stores paymentQuoteId, Stripe customer/subscription/paymentIntent/invoice ids, status, url, expiresAt, paidAt, and timestamps.
 - **Contractor** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). firstName, lastName, tinType (SSN|EIN), ssnEncrypted (encrypted), ssnLast4, address, city, state, zip, email, phone.
 - **ContractorAgreementAcceptance** - staffId FK + organizationId FK. Independent Contractor agreement acceptance for Contractor Agent staff. Fields: version, signedAt, signedPdfR2Key, sourceTemplateR2Key, pdfSha256, signerName, signerEmail, signerIpAddress, signerUserAgent, firmSignerName, firmSignerEmail, firmSignerTitle, firmSignaturePngKey. Unique on `[staffId, version]`.
 - **StaffFile** - org-scoped staff upload record for personal documents and invoices. Fields: organizationId, staffId, uploadedByStaffId, kind (PERSONAL_DOCUMENT|INVOICE), title, category, originalFilename, mimeType, fileSize, r2Key (unique), checksumSha256, invoiceYear, invoiceMonth, invoiceStatus, replacedById, isActive, reviewedByStaffId, reviewedAt, paidAt, adminNote, deletedAt, deletedByStaffId. Contract: invoice rows require invoiceYear/invoiceMonth/invoiceStatus and invoiceMonth 1-12; personal documents must not carry invoice metadata or paidAt. Indexes: organizationId+staffId+kind, organizationId+kind+invoiceYear+invoiceMonth. Storage keys use `staff-files/{org}/{staff}/documents/{uuid}.{ext}` or `staff-files/{org}/{staff}/invoices/{yyyy-mm}/{uuid}.{ext}` and storage logs redact `staff-files/...` keys.
@@ -659,7 +672,6 @@ apps/portal/src/components/pdf-viewer/
 ```
 
 **Key Features:**
-
 1. **Fit-to-Width Scaling**
    - Calculates natural PDF width from rendered canvas
    - Scale formula: `containerWidth / naturalWidth`
@@ -1151,7 +1163,6 @@ overview.notesPlaceholder - Editor placeholder text
 Slide-over drawer enabling CPAs to link additional business entities to existing individual clients directly from the client detail Overview tab. Provides empty state UI for individuals without businesses and persistent add button for those with existing businesses.
 
 **Components:**
-
 1. **AddBusinessDrawer** (`apps/workspace/src/components/clients/client-overview-tab/add-business-drawer.tsx`)
    - Fixed slide-over drawer: 100% height, max-width 28rem (md breakpoint), positioned right side
    - Overlay: Semi-transparent backdrop (opacity-50) with click-to-close
@@ -1207,6 +1218,7 @@ Slide-over drawer enabling CPAs to link additional business entities to existing
      - Individual with businesses: Add button persists at bottom
 
    **Empty State UI:**
+
    ```
    │ Building icon "Linked Business"
    │ "No businesses linked yet."
@@ -1221,6 +1233,7 @@ Slide-over drawer enabling CPAs to link additional business entities to existing
    - Hover state: Border + background color change
 
    **Props:**
+
    ```typescript
    interface ClientLinkedEntityCardProps {
      clientId: string
@@ -1276,6 +1289,7 @@ onBusinessAdded={() =>
   queryClient.invalidateQueries({ queryKey: ['clients', client.id] })
 }
 ```
+
 Ensures GET /clients/:id re-fetches with updated clientGroup.clients array.
 
 **Mobile Support:**
@@ -1299,7 +1313,6 @@ User profile navigation system enabling staff to access member profiles from two
 ```
 
 **Navigation Patterns:**
-
 1. **Sidebar User Section** (desktop + mobile):
    - Component: `SidebarContent` (apps/workspace/src/components/layout/sidebar-content.tsx)
    - Link: `to="/team/profile/$staffId" params={{ staffId: 'me' }}`
@@ -1342,7 +1355,6 @@ Frontend Hook (useOrgRole)
 ```
 
 **Type Contracts:**
-
 1. **Staff.me Response Type** (api-client.ts:773):
    ```typescript
    {
@@ -1357,6 +1369,7 @@ Frontend Hook (useOrgRole)
    ```
 
 2. **useOrgRole Hook Return** (use-org-role.ts:8-24):
+
    ```typescript
    {
      orgRole: OrgRole | null
@@ -1420,6 +1433,7 @@ Frontend Hook (useOrgRole)
 - All changes additive (no breaking changes)
 
 **Code Quality:** 9.5/10
+
 - Type-safe navigation
 - Proper accessibility (title, aria labels)
 - Full i18n coverage
@@ -1448,8 +1462,8 @@ Frontend Hook (useOrgRole)
 - **NEW (Phase 10):** Comprehensive test suite covering all 874 OCR extraction tests across 7 test files
 
 **Services:**
-
 Schedule E Services:
+
 ```typescript
 apps/api/src/services/schedule-e/
 ├── expense-calculator.ts - Calculate totals, fair rental days
@@ -1458,6 +1472,7 @@ apps/api/src/services/schedule-e/
 ```
 
 Gemini Service:
+
 ```typescript
 apps/api/src/services/ai/
 ├── gemini-client.ts - API client with retry/validation
@@ -1518,6 +1533,7 @@ apps/api/src/services/ai/
 - See: [`phase-02-classification-job.md`](./phase-02-classification-job.md#entity-routing-step-phase-03) for details
 
 Magic Link Service:
+
 ```typescript
 apps/api/src/services/magic-link.ts
 ├── getMagicLinkUrl() - Maps link types to URLs (/upload, /expense, /rental, /draft)
@@ -1594,7 +1610,6 @@ ScheduleETab (index.tsx) [4 states]
 Three-path client creation wizard supporting Individual, Individual+Business, and Business-only client types. Path selection drives form complexity and submission strategy. Business-only path submits directly without SMS confirmation step.
 
 **Client Creation Paths:**
-
 1. **Individual Path** (Type: 'INDIVIDUAL')
    - Steps: Basic Info → Confirm & Send SMS
    - Form: firstName, lastName, phone, email, language, taxYear
@@ -1690,8 +1705,8 @@ type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | '
 ```
 
 **Validation Rules:**
-
 *Basic Info (Individual paths):*
+
 - firstName: required, non-empty trim check
 - lastName: required, non-empty trim check
 - phone: required, exactly 10 digits (after removing non-digits)
@@ -1700,6 +1715,7 @@ type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | '
 - taxYear: valid year from TAX_YEARS list
 
 *Business Info (Business paths):*
+
 - name: required, non-empty trim check
 - businessType: must be valid enum value
 - EIN: if provided, must match format XX-XXXXXXX (2-digit + hyphen + 7-digit)
@@ -1726,8 +1742,8 @@ type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | '
 - Checked async: isCheckingPhone loading state during API call
 
 **API Submissions:**
-
 *Individual Path:*
+
 ```
 POST /clients
 {
@@ -1742,6 +1758,7 @@ POST /clients
 ```
 
 *Individual + Business Path:*
+
 ```
 POST /clients/with-business
 {
@@ -1771,6 +1788,7 @@ POST /clients/with-business
 ```
 
 *Business Only Path:*
+
 ```
 POST /clients
 {
@@ -1789,8 +1807,8 @@ POST /clients
 ```
 
 **Step Navigation:**
-
 *Forward Navigation (handleNext):*
+
 - 'individual-form' → validate basic info
   - If INDIVIDUAL: go to 'confirm'
   - If INDIVIDUAL_WITH_BUSINESS: go to 'business-form'
@@ -1798,12 +1816,14 @@ POST /clients
 - 'business-form' (BUSINESS only): no next step, submit inline via button
 
 *Backward Navigation (handleBack):*
+
 - 'individual-form' → 'type-select' (reset type)
 - 'business-form' (INDIVIDUAL_WITH_BUSINESS) → 'individual-form'
 - 'business-form' (BUSINESS only) → 'type-select' (reset type)
 - 'confirm' → 'business-form' (INDIVIDUAL_WITH_BUSINESS) or 'individual-form' (INDIVIDUAL)
 
 *Step Indicator:*
+
 - Hidden on 'type-select'
 - INDIVIDUAL path: 2 steps (Basic Info, Confirm)
 - BUSINESS path: 1 step (Business Info, no indicator shown)
@@ -1876,7 +1896,6 @@ POST /clients
 Client detail page now renders different tab layouts based on clientType (INDIVIDUAL vs BUSINESS). INDIVIDUAL clients show Overview, Files, Data Entry, Draft Return, Schedule C, Schedule E. BUSINESS clients show Overview, Files, Contractors, Data Entry, Draft Return, Schedule C. Removed old "Businesses" tab. Added cross-link banner showing linked clients in same ClientGroup. Header adapts with building icon and businessType badge for BUSINESS clients.
 
 **Tab Configuration:**
-
 **BUSINESS Client Tabs:**
 - Overview (Building2 icon)
 - Files (FolderOpen icon)
@@ -1925,7 +1944,6 @@ const overflowTabs = isBusiness
 ```
 
 **Header Adaptations:**
-
 1. **Avatar**
    - BUSINESS: Building2 icon with primary/10 background
    - INDIVIDUAL: Initials with color-coded background (getAvatarColor)
@@ -1940,8 +1958,8 @@ const overflowTabs = isBusiness
    - INDIVIDUAL: No EIN displayed
 
 **Cross-Link Banner (lines 551-574):**
-
 Shows linked clients in same ClientGroup below back button:
+
 ```typescript
 {client.clientGroup && client.clientGroup.clients.length > 1 && (
   <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-muted/50 border border-border rounded-lg text-sm mb-4">
@@ -1969,8 +1987,8 @@ Shows linked clients in same ClientGroup below back button:
 ```
 
 **Tab State Management:**
-
 Tab state resets on clientId change via useEffect (prevents stale state when navigating between clients):
+
 ```typescript
 useEffect(() => {
   setActiveTab('files') // or appropriate default per clientType
@@ -1996,8 +2014,8 @@ type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' 
 Messages and Upload buttons on BUSINESS client detail page now intelligently redirect to the individual owner's tax case. Unread badge queries the correct case conversation count. Visual indicators show owner name. Seamless fallback for standalone business clients.
 
 **Sibling Client Data Flow:**
-
 Backend API (`GET /clients/:id`, apps/api/src/routes/clients/index.ts):
+
 ```
 For each sibling in clientGroup.clients (excluding self):
   - Query latest TaxCase (taxYear DESC, take 1)
@@ -2007,6 +2025,7 @@ For each sibling in clientGroup.clients (excluding self):
 ```
 
 Frontend ClientPreview type (apps/shared):
+
 ```typescript
 interface ClientPreview {
   id: string
@@ -2022,7 +2041,6 @@ interface ClientPreview {
 ```
 
 **Owner Individual Resolution (lines 282–288):**
-
 ```typescript
 const ownerIndividual = useMemo(() => {
   if (client?.clientType !== 'BUSINESS' || !client.clientGroup?.clients) {
@@ -2033,7 +2051,6 @@ const ownerIndividual = useMemo(() => {
 ```
 
 **Unread Badge Query (line 298):**
-
 ```typescript
 const messageCaseId = ownerIndividual?.latestCaseId || activeCaseId
 const { data: unreadData } = useQuery({
@@ -2044,7 +2061,6 @@ const { data: unreadData } = useQuery({
 ```
 
 **Upload Button (lines 709–728):**
-
 - Uses three-tier fallback chain for portal URL:
   1. `ownerIndividual?.portalUrl` (preferred for business clients in groups)
   2. `selectedCase?.portalUrl` (current case portal)
@@ -2053,26 +2069,22 @@ const { data: unreadData } = useQuery({
 - Shows visual hint: `(via {ownerName.split(' ')[0]})`
 
 **Messages Button (lines 731–750):**
-
 - Navigates to `/messages` with `caseId=messageCaseId` (ownerIndividual's latestCaseId when available)
 - Shows same "(via Name)" hint
 - Unread badge queries correct case conversation count
 - All message queries use `messageCaseId` for accurate count
 
 **Send Upload Link Button (line 752):**
-
 - Visible only when portalUrl is null (no active magic link)
 - Uses same portal URL fallback chain to determine visibility
 - Submits with correct caseId for SMS routing
 
 **Backward Compatibility:**
-
 - INDIVIDUAL clients: `ownerIndividual` null, uses current client's caseId/portalUrl
 - BUSINESS clients without clientGroup: No redirect hint shown, uses current client's portalUrl
 - Clients with multiple businesses: Only first INDIVIDUAL sibling used (assumes 1:many relationships)
 
 **Visual Indicators:**
-
 ```
 Messages button:    [📨 Messages (via John)]
 Upload button:      [⬆️ Upload (via John)]
@@ -2081,6 +2093,7 @@ Upload button:      [⬆️ Upload (via John)]
 The "(via Name)" hint is semantic text (no screen reader override), helping CPAs understand which entity's documents they're accessing.
 
 **Code Quality:** 9.2/10
+
 - Minimal prop additions (latestCaseId, portalUrl on ClientPreview)
 - Clear fallback logic (3-tier chain)
 - Consistent UX across Messages/Upload/SendLink flows
@@ -2133,6 +2146,7 @@ export async function findGroupIndividual(clientGroupId: string, organizationId?
 **Endpoint: PATCH /clients/:id/managed-by**
 
 Current behavior:
+
 ```
 1. Query client with clientGroupId
 2. If client.clientGroupId exists:
@@ -2145,7 +2159,6 @@ Current behavior:
 ```
 
 **Code Pattern:**
-
 ```typescript
 // Group-aware manager sync
 const client = await prisma.client.findUnique({
@@ -2163,14 +2176,15 @@ await prisma.$transaction((tx) =>
 ```
 
 **Verification Tests:**
-
 `send-upload-link.test.ts` (13 tests):
+
 - Magic link routed to individual's taxCase when business has clientGroupId
 - SMS sent to individual's phone (not business landline)
 - Fallback to business case with warning log if individual lacks taxCase for year
 - Standalone business clients unchanged (backward compatible)
 
 `managed-by-propagation.test.ts` (13 tests):
+
 - Assign staff to individual -> business manager set also updated atomically
 - Assign staff to business -> individual manager set also updated atomically
 - Clear all managers -> linked clients clear manager rows and legacy mirror
@@ -2178,7 +2192,6 @@ await prisma.$transaction((tx) =>
 - Orphan client updates don't affect other groups
 
 **Integration Points:**
-
 1. **Messages Routes** (`apps/api/src/routes/messages/index.ts`): Guard conversation creation against business cases using `isBizWithGroup()` helper—conversations belong to individual owner only.
 
 2. **SMS Webhook** (`apps/api/src/services/sms/webhook-handler.ts`): Check `isBizWithGroup()` before creating incoming message conversation. Routes inbound SMS to individual's conversation if applicable.
@@ -2186,6 +2199,7 @@ await prisma.$transaction((tx) =>
 3. **Portal Routes** (`apps/api/src/routes/portal/index.ts`): send-upload-link endpoint uses `findGroupIndividual()` to resolve individual's taxCase, creates magic link on individual's case, SMS to individual's phone.
 
 **Code Quality:** 9.3/10
+
 - Helper functions eliminate duplication (used in 3+ route files)
 - Atomic transactions ensure group consistency
 - Comprehensive test coverage (26+ tests across 2 files)
@@ -2202,8 +2216,8 @@ await prisma.$transaction((tx) =>
 Enables CPAs to add linked businesses to existing individual clients directly from client detail page. Component hierarchy: ClientOverviewTab → ClientLinkedEntityCard (shows empty state + add button) → AddBusinessDrawer (form submission).
 
 **Components:**
-
 **AddBusinessDrawer** (`add-business-drawer.tsx`):
+
 - Slide-over drawer from right side (fixed inset-y-0 right-0, max-w-md, z-50)
 - Overlay: fixed inset-0 bg-black/30 z-40 (dismisses on click)
 - Form: BusinessInfoForm + TaxYearSelector
@@ -2214,6 +2228,7 @@ Enables CPAs to add linked businesses to existing individual clients directly fr
 - Mobile-friendly: Full viewport width on mobile, constrained on desktop
 
 **ClientLinkedEntityCard** (Enhanced):
+
 - Props: `clientId` (NEW), `currentClientType`, `linkedClients`, `onBusinessAdded` (NEW)
 - Behavior: Shows for INDIVIDUAL clients even when no businesses linked (empty state)
 - Empty State: Card title "Linked Business" + "No businesses linked yet" + "+ Add Business" button
@@ -2222,6 +2237,7 @@ Enables CPAs to add linked businesses to existing individual clients directly fr
 - Non-empty: Lists existing linked clients with edit/archive icons
 
 **ClientOverviewTab** (Updated):
+
 - Condition: Shows LinkedEntityCard if `client.clientGroup?.clients.length > 0` OR `client.clientType === 'INDIVIDUAL'`
 - Callback: `onBusinessAdded={() => queryClient.invalidateQueries({ queryKey: ['clients', client.id] })}`
 - Passes: `clientId`, `currentClientType`, `linkedClients` array, callback
@@ -2247,8 +2263,8 @@ Staff notification preferences UI enabling staff to control SMS alerts for docum
 - `notifyOnUpload` toggle: Receive SMS when managed clients upload documents; admins receive org-wide upload alerts while this is enabled.
 
 **UI Integration:**
-
 **ProfileForm Component** (`apps/workspace/src/components/profile/profile-form.tsx`):
+
 ```typescript
 // State management
 const [editNotifyOnUpload, setEditNotifyOnUpload] = useState(staff.notifyOnUpload)
@@ -2267,6 +2283,7 @@ api.team.updateProfile(staffId, {
 ```
 
 **UI Package Switch Component** (`packages/ui/src/components/switch.tsx`, NEW):
+
 - Accessible toggle switch (role="switch", aria-checked)
 - Keyboard support: Enter/Space to toggle
 - Controlled + uncontrolled modes
@@ -2275,8 +2292,8 @@ api.team.updateProfile(staffId, {
 - No external dependencies (pure CSS via CVA)
 
 **API Integration:**
-
 **Backend Schema** (`apps/api/src/routes/team/schemas.ts`):
+
 ```typescript
 export const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -2286,10 +2303,12 @@ export const updateProfileSchema = z.object({
 ```
 
 **Backend Endpoints** (`apps/api/src/routes/team/index.ts`):
+
 - `GET /team/members/:staffId/profile` - Returns Staff with notification fields (self or admin)
 - `PATCH /team/members/:staffId/profile` - Updates notification fields (self or admin)
 
 **API Client** (`apps/workspace/src/lib/api-client.ts`):
+
 ```typescript
 interface StaffProfile {
   id: string
@@ -2308,6 +2327,7 @@ interface UpdateStaffProfileInput {
 ```
 
 **Localization Keys** (5 new keys):
+
 ```json
 {
   "profile.notifyOnUpload": "Document upload notifications",
@@ -2316,6 +2336,7 @@ interface UpdateStaffProfileInput {
 ```
 
 **Vietnamese Translations** (vi.json):
+
 ```json
 {
   "profile.notifyOnUpload": "Thông báo tải tài liệu",
@@ -2355,6 +2376,7 @@ Success toast: "Profile updated"
 - Graceful fallback for existing staff without preferences
 
 **Code Quality:** 9.2/10
+
 - Type-safe notification fields
 - Accessible Switch component (WCAG 2.1 compliant)
 - Full i18n coverage (EN/VI)
@@ -2405,6 +2427,7 @@ Client {
 
 **Activity Timeline (`GET /activity/recent` and `GET /activity/clients/:clientId`):**
 Aggregates recent events into safe timeline DTOs with actor hydration and cursor pagination:
+
 ```typescript
 ActivityTimelineResponse {
   data: ActivityTimelineResponseItem[]
@@ -2435,6 +2458,7 @@ ActivityTimelineResponseItem {
   method: string | null
 }
 ```
+
 - **Safe surface:** no raw `metadata`, IP address, or user-agent in the list response.
 - **Cursor handling:** stale or out-of-scope cursors return 400 `INVALID_CURSOR`.
 - **Actor hydration:** actor names/avatar URLs are joined from org-scoped `Staff` records.
@@ -2443,6 +2467,7 @@ ActivityTimelineResponseItem {
 
 **Quick Stats (`GET /clients/:id/stats`):**
 Single query endpoint for client overview cards:
+
 ```typescript
 {
   totalFiles: number          // Count of RawImage uploads
@@ -2483,6 +2508,7 @@ api.clients.updateNotes(clientId, { notes })
 
 **Localization:**
 All avatar/notes UI will need i18n keys in workspace:
+
 - `profile.changeClientAvatar` - Button label
 - `profile.avatarUpdated` - Success toast
 - `profile.notesPlaceholder` - Editor hint text
@@ -2504,22 +2530,24 @@ All avatar/notes UI will need i18n keys in workspace:
 
 ## Initial Payment Flow (Post-Agreement Signing)
 
-**Overview:** After client signs an agreement with an initial payment amount, system auto-creates Payment record + SMS to client with portal pay link + Stripe checkout session. Webhook marks payment PAID → SMS admins + client receipt. Staff can resend links + view payment status on client profile. Internal service/model names still use `deposit*` and `Payment.type='DEPOSIT'`.
+**Overview:** After client signs an agreement with an initial payment amount, system auto-creates Payment record + SMS to client with portal pay link + Stripe checkout session. Webhook marks payment PAID → receipt sync + SMS admins + client receipt. Staff can resend links + view payment status on client profile. Internal service/model names still use `deposit*` and `Payment.type='DEPOSIT'`.
 
 **Models & Data:**
-- **Payment** - `organizationId, clientId, leadId, agreementId` (FKs with SetNull), `type='DEPOSIT'`, `status` (PENDING|PAID|FAILED|CANCELED|REFUNDED), `payToken` (unique per-token rate limit 3/hour with auto-refund on server failure), `amount` (Decimal USD amount; converted to cents for Stripe), `stripeCheckoutSessionId`, `paidAt`, `failedAt`
+- **Payment** - `organizationId, clientId, leadId, agreementId` (FKs with SetNull), `type='DEPOSIT'`, `status` (PENDING|PAID|FAILED|CANCELED|REFUNDED), `payToken` (unique per-token rate limit 3/hour with auto-refund on server failure), `amount` (Decimal USD amount; converted to cents for Stripe), `stripeSessionId`, `stripeCustomerId`, `stripeInvoiceId`, receipt/charge fields, `paidAt`, `failedAt`
 - **Staff Notifications** - ADMIN-only toggles: `notifyOnAgreementSigned` (SMS to admins when client signs), `notifyOnClientPayment` (SMS to admins when client pays)
 
 **Post-Sign Hook** (`agreement-signing-service.ts`):
 Fire-and-forget after signing commit — isolated try/catch per step (no transaction impact):
+
 1. Admin SMS fan-out: Query staff with `notifyOnAgreementSigned=true` → send SMS via `agreement-post-sign-notifications.ts`
 2. Payment creation: Create Payment(type=DEPOSIT, status=PENDING, payToken) via `deposit-payment-service.ts`
 3. Client SMS: Send pay-link SMS with `portal/pay/:payToken` URL via `signer-sms-delivery.ts` (SMSTemplate: `payment-sms-templates.ts`)
 
 **Public Payment API** (`/public/pay`):
+
 - `GET /:payToken` - Public view Payment (no auth required). Returns amount, client name, agreement details. Returns 404 if token invalid/payment already paid
 - `POST /:payToken/checkout` - Fresh Stripe Checkout session (mode=payment). Amount always from DB (never client-supplied). Per-token rate limit 3/hour with auto-slot-refund on server failure (idempotent). Returns session.url. Returns 410 if already PAID, 404 if invalid token
-- Shared Stripe webhook (`webhook-handler.ts`) — discriminates deposit sessions via `metadata.payToken` → `markDepositPaymentPaid` in `deposit-checkout-service.ts`. Idempotent claim guard (status !== PAID before mutate). Syncs agreement depositStatus. Admin SMS + client receipt SMS on success
+- Shared Stripe webhook (`webhook-handler.ts`) — discriminates deposit sessions via `metadata.payToken` → `markDepositPaymentPaid` in `deposit-checkout-service.ts`. Idempotent claim guard (status !== PAID before mutate). Syncs agreement depositStatus. Receipt sync is best-effort: when Stripe exposes it, the handler persists receipt/invoice facts and backfills `Client.stripeCustomerId` without blocking PAID settlement. Admin SMS + client receipt SMS on success
 
 **Workspace UI:**
 - **Payments Tab** (new `/clients/:id` tab): Client Payment list, status badges (PENDING, PAID, FAILED), created date, amount
@@ -2531,6 +2559,7 @@ Fire-and-forget after signing commit — isolated try/catch per step (no transac
 React/TanStack Router public checkout flow. Validates token → displays amount + pay CTA → redirects to Stripe Checkout session.url → webhook marks paid.
 
 **Staff Payments Endpoint** (`/clients/payments-staff.ts`):
+
 - `POST /clients/:clientId/payments/resend` - ADMIN/MANAGER only. Throttled 1/60s per client. Creates fresh Payment + sends new SMS to client. Returns 429 if throttled
 - Query `GET /clients/:clientId/payments` - List client payments with status filtering + pagination
 

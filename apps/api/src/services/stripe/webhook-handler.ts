@@ -9,6 +9,7 @@ import {
   recordRecurringQuotePayment,
 } from '../payments/quote-fulfillment-service'
 import type { InvoiceFacts } from '../payments/quote-fulfillment-types'
+import { getReceiptFactsFromInvoice } from './stripe-receipt-facts'
 
 type StripeEventType =
   | 'checkout.session.completed'
@@ -105,7 +106,16 @@ export async function handleStripeWebhookEvent(event: Stripe.Event): Promise<Str
       // handled there — skip it to avoid a duplicate first-payment row.
       if (facts.subscriptionId && facts.billingReason !== 'subscription_create') {
         const quote = await loadSendableQuoteBySubscription(facts.subscriptionId)
-        if (quote) await recordRecurringQuotePayment({ quote, invoice: facts, eventAt: cursor.at })
+        if (quote) {
+          await recordRecurringQuotePayment({
+            quote,
+            invoice: {
+              ...facts,
+              receiptFacts: await getReceiptFactsFromInvoice(event.data.object),
+            },
+            eventAt: cursor.at,
+          })
+        }
       }
       break
     }
@@ -224,6 +234,7 @@ async function handleCheckoutSession(
         },
         data: {
           stripeCustomerId: getStripeObjectId(session.customer),
+          stripeInvoiceId: getStripeObjectId(session.invoice),
           stripeSubscriptionId: getStripeObjectId(session.subscription),
           stripePaymentIntentId: getStripeObjectId(session.payment_intent),
           status: targetSessionStatus,
@@ -269,7 +280,7 @@ function extractInvoiceFacts(stripeObject: unknown): InvoiceFacts {
     billingReason: typeof obj.billing_reason === 'string' ? obj.billing_reason : null,
     amountPaidCents: typeof obj.amount_paid === 'number' ? obj.amount_paid : 0,
     amountDueCents: typeof obj.amount_due === 'number' ? obj.amount_due : 0,
-    paymentIntentId: getStripeObjectId(obj.payment_intent),
+    paymentIntentId: getStripeObjectId(obj.payment_intent) ?? getInvoicePaymentIntentId(obj),
     subscriptionId: getSubscriptionId(stripeObject),
   }
 }
@@ -494,4 +505,22 @@ function getStripeObjectId(value: unknown): string | null {
 
   const id = (value as { id?: unknown }).id
   return typeof id === 'string' ? id : null
+}
+
+function getInvoicePaymentIntentId(invoice: Record<string, unknown>): string | null {
+  const payments = invoice.payments
+  if (!payments || typeof payments !== 'object') return null
+
+  const data = (payments as { data?: unknown }).data
+  if (!Array.isArray(data)) return null
+
+  for (const entry of data) {
+    const payment = (entry as { payment?: unknown } | null)?.payment
+    if (!payment || typeof payment !== 'object') continue
+    const paymentIntentId = getStripeObjectId(
+      (payment as { payment_intent?: unknown }).payment_intent
+    )
+    if (paymentIntentId) return paymentIntentId
+  }
+  return null
 }

@@ -5,12 +5,26 @@
 
 ---
 
+### Calculator Engagement Letter Send Button Fix
+**Status:** Complete
+
+**Changed:**
+- Fixed pricing calculator engagement-letter modal so new calculator drafts can open `Preview & Send` without first saving a draft.
+- Kept explicit `Save draft` available for staff who want a resumable draft.
+- Preserved saved-draft conflict/autosave protections for draft send flow.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/agreements/agreement-draft-editor-hooks.test.tsx src/components/pricing/__tests__/calculator-engagement-letter-modal.test.ts src/components/pricing/__tests__/pricing-engagement-letter-panel.test.tsx` pass
+- `pnpm -F @ella/workspace test -- agreement` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass
+
 ### Payment Calculator Professional Service Labels
 **Status:** Complete
 
 **Changed:**
 - Removed client-facing `Basic`, `Pro`, and `VIP` package/tier wording from Workspace calculator quote summaries, calculator rate labels, generated engagement letter text, landing pricing calculator copy, and print/consultation estimate copy.
-- Replaced calculator-generated quote line items with professional service labels: `Monthly bookkeeping and compliance service` and `Bookkeeping onboarding setup`.
+- Replaced calculator-generated quote line items with professional service labels: `Monthly bookkeeping service` and `Bookkeeping onboarding setup`.
 - Added public quote label sanitization so older calculator quote snapshots render clean labels in the Payment Portal while custom staff-entered link labels remain unchanged.
 - Kept internal pricing ids (`basic`, `pro`, `vip`) unchanged to avoid unnecessary migrations or quote contract churn.
 

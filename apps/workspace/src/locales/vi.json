@@ -153,7 +153,6 @@
   "agreements.draft.resume": "Tiếp tục",
   "agreements.draft.resumeDescription": "Sửa bản nháp đã lưu, tiếp tục lưu thay đổi, hoặc gửi khi sẵn sàng.",
   "agreements.draft.saveCta": "Lưu nháp",
-  "agreements.draft.saveBeforeSend": "Lưu nháp trước khi xem trước và gửi.",
   "agreements.draft.savingSendBlocked": "Chờ tự động lưu xong trước khi gửi.",
   "agreements.draft.state.conflict": "Xung đột lưu",
   "agreements.draft.state.failed": "Lưu thất bại",

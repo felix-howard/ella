@@ -103,6 +103,7 @@ describe('Stripe checkout session params', () => {
     expect(params.line_items).toHaveLength(2)
     expect(params.line_items?.[0]?.price_data?.recurring).toEqual({ interval: 'month' })
     expect(params.line_items?.[0]?.price_data?.unit_amount).toBe(24500)
+    expect(params.line_items?.[0]?.price_data?.product_data?.name).toBe(BOOKKEEPING_SERVICE_LABEL)
     expect(params.line_items?.[1]?.price_data?.unit_amount).toBe(140000)
     expect(params.customer_email).toBe('client@example.com')
     expect(params.metadata).toMatchObject({ quoteId: quote.quoteId, source: 'pricing_calculator' })

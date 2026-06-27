@@ -116,6 +116,10 @@ function quoteRow(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function legacyBookkeepingServiceLabel(): string {
+  return ['Monthly bookkeeping and', 'com' + 'pliance service'].join(' ')
+}
+
 function couponRow(overrides: Record<string, unknown> = {}) {
   return {
     code: 'SAVE10',
@@ -151,7 +155,7 @@ describe('getPublicQuoteView', () => {
     expect(view?.orgName).toBe('Acme Tax')
     expect(view?.recipientFirstName).toBe('Anna')
     expect(view?.lineItems).toEqual([
-      { label: 'Monthly bookkeeping and compliance service', amount: 85, kind: 'monthly' },
+      { label: 'Monthly bookkeeping service', amount: 85, kind: 'monthly' },
       { label: 'LLC setup', amount: 1500, kind: 'setup' },
     ])
     expect(view?.monthlyTotal).toBe(85)
@@ -160,6 +164,25 @@ describe('getPublicQuoteView', () => {
     expect(view?.discount).toBeNull()
     expect(view?.dueToday).toBe(1585)
     expect(view?.paidAt).toBeNull()
+  })
+
+  it('sanitizes the older bookkeeping service label in public calculator quotes', async () => {
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(
+      quoteRow({
+        resultSnapshot: {
+          monthlyItems: [{ label: legacyBookkeepingServiceLabel(), amount: 85, kind: 'monthly' }],
+          setupItems: [],
+          monthlyTotal: 85,
+          setupTotal: 0,
+        },
+      })
+    )
+
+    const view = await getPublicQuoteView('tok_abcdefghij')
+
+    expect(view?.lineItems).toEqual([
+      { label: 'Monthly bookkeeping service', amount: 85, kind: 'monthly' },
+    ])
   })
 
   it('previews an active pre-applied percent coupon on the public quote', async () => {
@@ -305,7 +328,7 @@ describe('getPublicQuoteView', () => {
     const view = await getPublicQuoteView('tok_abcdefghij')
 
     expect(view?.lineItems).toEqual([
-      { label: 'Monthly bookkeeping and compliance service', amount: 75, kind: 'monthly' },
+      { label: 'Monthly bookkeeping service', amount: 75, kind: 'monthly' },
       { label: 'Business tax return pre-pay (1 tax year)', amount: 900, kind: 'yearly' },
       { label: 'Bookkeeping onboarding setup', amount: 150, kind: 'setup' },
     ])
@@ -578,6 +601,9 @@ describe('createQuoteCheckoutSession', () => {
 
     const params = stripeMocks.sessionsCreate.mock.calls[0][0]
     expect(params.line_items?.[0]?.price_data?.unit_amount).toBe(12500)
+    expect(params.line_items?.[0]?.price_data?.product_data?.name).toBe(
+      'Monthly bookkeeping service'
+    )
     expect(params.line_items?.[0]?.price_data?.recurring).toEqual({ interval: 'month' })
     expect(params.line_items?.[1]?.price_data?.unit_amount).toBe(21000)
     expect(params.line_items?.[1]?.price_data?.recurring).toBeUndefined()

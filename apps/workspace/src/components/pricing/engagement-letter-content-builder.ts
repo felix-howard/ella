@@ -51,7 +51,7 @@ function renderScopeOfServices(
 ): string[] {
   return [
     '<h3>1. Scope of Services</h3>',
-    '<p>The Firm will provide monthly bookkeeping and compliance services strictly as described below and subject to all terms, exclusions, limitations, and fee provisions contained in this Agreement.</p>',
+    '<p>The Firm will provide monthly bookkeeping services strictly as described below and subject to all terms, exclusions, limitations, and fee provisions contained in this Agreement.</p>',
     '<h3>1.1 Monthly Recurring Services</h3>',
     ...renderMonthlyServiceBlocks(input, result),
   ]
@@ -68,7 +68,7 @@ function renderMonthlyServiceBlocks(
     blockIndex += 1
   }
 
-  append('Monthly Bookkeeping and Compliance', [
+  append('Monthly Bookkeeping', [
     'The Firm will provide routine client support, account maintenance, bookkeeping support, and general administrative servicing directly related to the services expressly described in this Agreement.',
   ])
 

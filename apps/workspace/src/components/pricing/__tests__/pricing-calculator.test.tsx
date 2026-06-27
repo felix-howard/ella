@@ -166,7 +166,7 @@ describe('workspace pricing calculator', () => {
 
     const markup = renderToStaticMarkup(<PricingSummaryPanel result={calculatePricing(input)} />)
 
-    expect(markup).toContain('Monthly bookkeeping and compliance service')
+    expect(markup).toContain('Monthly bookkeeping service')
     expect(markup).toContain('Payroll employees')
     expect(markup).toContain('Cash Plan')
     expect(markup).toContain('$245')
@@ -459,7 +459,7 @@ describe('workspace pricing calculator', () => {
     expect(result.monthlyTotal).toBe(65)
     expect(getCreateDisabledReason(input, result)).toBeNull()
     expect(getPrintDisabledReason(input, result)).toBeNull()
-    expect(markup).toContain('Monthly bookkeeping and compliance service')
+    expect(markup).toContain('Monthly bookkeeping service')
     expect(markup).toContain('$65')
     expect(markup).not.toContain('manual follow-up')
     expect(markup).not.toContain('cannot create checkout links')

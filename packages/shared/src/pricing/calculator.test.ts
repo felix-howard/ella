@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BOOKKEEPING_SERVICE_LABEL,
+  BOOKKEEPING_SETUP_LABEL,
   calculatePricing,
   createDefaultPricingInput,
   detectPricingTier,
@@ -9,32 +11,36 @@ import {
 } from './calculator'
 
 describe('pricing calculator', () => {
-  it('detects basic tier at 0 and 10 1099 workers', () => {
+  it('detects the 0-10 worker range at 0 and 10 1099 workers', () => {
     expect(detectPricingTier(0)).toBe('basic')
     expect(detectPricingTier(10)).toBe('basic')
   })
 
-  it('detects pro tier at 11 and 20 1099 workers', () => {
+  it('detects the 11-20 worker range at 11 and 20 1099 workers', () => {
     expect(detectPricingTier(11)).toBe('pro')
     expect(detectPricingTier(20)).toBe('pro')
   })
 
-  it('detects VIP tier above 20 1099 workers', () => {
+  it('detects the largest worker range above 20 1099 workers', () => {
     expect(detectPricingTier(21)).toBe('vip')
   })
 
-  it('keeps VIP quotes payable', () => {
+  it('keeps 21+ worker quotes payable', () => {
     const input = createDefaultPricingInput()
     input.nec1099Count = 21
 
     const result = calculatePricing(input)
 
     expect(result.tier).toBe('vip')
-    expect(result.tierLabel).toBe('VIP')
+    expect(result.tierLabel).toBe('21+ workers')
     expect(result.isEnterprise).toBe(false)
-    expect(result.monthlyItems).toContainEqual({ label: 'VIP tier', amount: 85, kind: 'monthly' })
+    expect(result.monthlyItems).toContainEqual({
+      label: BOOKKEEPING_SERVICE_LABEL,
+      amount: 85,
+      kind: 'monthly',
+    })
     expect(result.setupItems).toContainEqual({
-      label: 'VIP bookkeeping setup',
+      label: BOOKKEEPING_SETUP_LABEL,
       amount: 150,
       kind: 'setup',
     })

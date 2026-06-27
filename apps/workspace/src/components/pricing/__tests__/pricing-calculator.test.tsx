@@ -166,7 +166,7 @@ describe('workspace pricing calculator', () => {
 
     const markup = renderToStaticMarkup(<PricingSummaryPanel result={calculatePricing(input)} />)
 
-    expect(markup).toContain('Pro')
+    expect(markup).toContain('Monthly bookkeeping and compliance service')
     expect(markup).toContain('Payroll employees')
     expect(markup).toContain('Cash Plan')
     expect(markup).toContain('$245')
@@ -208,7 +208,7 @@ describe('workspace pricing calculator', () => {
       <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
     )
 
-    expect(markup).toContain('aria-label="Basic / mo rate"')
+    expect(markup).toContain('aria-label="0-10 workers / mo rate"')
     expect(markup).toContain('aria-label="Setup rate"')
     expect(markup).toContain('aria-label="Audit / mo rate"')
     // Money fields render formatted (e.g. "$1,000") for clarity.
@@ -440,14 +440,14 @@ describe('workspace pricing calculator', () => {
     expect(markup).toContain('$270')
   })
 
-  it('allows Basic-only print quotes', () => {
+  it('allows small-range print quotes', () => {
     const input = createDefaultPricingInput()
     input.nec1099Count = 1
 
     expect(getPrintDisabledReason(input, calculatePricing(input))).toBeNull()
   })
 
-  it('allows VIP payment links, send-to-client, print quotes, and custom monthly rates', () => {
+  it('allows 21+ worker payment links, send-to-client, print quotes, and custom monthly rates', () => {
     const input = createDefaultPricingInput()
     input.nec1099Count = 25
     input.rates.tiers.vipMonthly = 65
@@ -455,11 +455,11 @@ describe('workspace pricing calculator', () => {
     const markup = renderToStaticMarkup(<PricingSummaryPanel result={result} />)
 
     expect(result.tier).toBe('vip')
-    expect(result.tierLabel).toBe('VIP')
+    expect(result.tierLabel).toBe('21+ workers')
     expect(result.monthlyTotal).toBe(65)
     expect(getCreateDisabledReason(input, result)).toBeNull()
     expect(getPrintDisabledReason(input, result)).toBeNull()
-    expect(markup).toContain('VIP')
+    expect(markup).toContain('Monthly bookkeeping and compliance service')
     expect(markup).toContain('$65')
     expect(markup).not.toContain('manual follow-up')
     expect(markup).not.toContain('cannot create checkout links')
@@ -495,7 +495,7 @@ describe('workspace pricing calculator', () => {
       <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
     )
 
-    expect(markup).toContain('aria-label="Pro / mo rate"')
+    expect(markup).toContain('aria-label="11-20 workers / mo rate"')
     expect(markup).toContain('value=""')
     expect(markup).not.toContain('value="0"')
   })

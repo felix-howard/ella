@@ -3,6 +3,8 @@ import { BUSINESS_TAX_RETURN_PREPAY_LABEL, ONE_TIME_LABELS } from './pricing-def
 export { createDefaultPricingInput } from './pricing-defaults'
 
 export type Tier = 'basic' | 'pro' | 'vip'
+export const BOOKKEEPING_SERVICE_LABEL = 'Monthly bookkeeping and compliance service'
+export const BOOKKEEPING_SETUP_LABEL = 'Bookkeeping onboarding setup'
 
 export type PayrollMode = 'owner-manual' | 'ella-staff'
 
@@ -126,8 +128,8 @@ export function calculatePricing(input: PricingCalculatorInput): PricingCalculat
         ? input.rates.tiers.proMonthly
         : input.rates.tiers.vipMonthly
 
-  monthly.push({ label: `${tierDef.label} tier`, amount: tierMonthly, kind: 'monthly' })
-  setup.push({ label: `${tierDef.label} bookkeeping setup`, amount: tierDef.setup, kind: 'setup' })
+  monthly.push({ label: BOOKKEEPING_SERVICE_LABEL, amount: tierMonthly, kind: 'monthly' })
+  setup.push({ label: BOOKKEEPING_SETUP_LABEL, amount: tierDef.setup, kind: 'setup' })
 
   if (input.payrollEmployees > 0) {
     const perEmployee =

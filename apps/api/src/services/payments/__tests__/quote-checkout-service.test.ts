@@ -151,7 +151,7 @@ describe('getPublicQuoteView', () => {
     expect(view?.orgName).toBe('Acme Tax')
     expect(view?.recipientFirstName).toBe('Anna')
     expect(view?.lineItems).toEqual([
-      { label: 'Pro plan', amount: 85, kind: 'monthly' },
+      { label: 'Monthly bookkeeping and compliance service', amount: 85, kind: 'monthly' },
       { label: 'LLC setup', amount: 1500, kind: 'setup' },
     ])
     expect(view?.monthlyTotal).toBe(85)
@@ -305,9 +305,9 @@ describe('getPublicQuoteView', () => {
     const view = await getPublicQuoteView('tok_abcdefghij')
 
     expect(view?.lineItems).toEqual([
-      { label: 'Basic tier', amount: 75, kind: 'monthly' },
+      { label: 'Monthly bookkeeping and compliance service', amount: 75, kind: 'monthly' },
       { label: 'Business tax return pre-pay (1 tax year)', amount: 900, kind: 'yearly' },
-      { label: 'Basic bookkeeping setup', amount: 150, kind: 'setup' },
+      { label: 'Bookkeeping onboarding setup', amount: 150, kind: 'setup' },
     ])
     expect(view?.setupTotal).toBe(1050)
     expect(view?.dueToday).toBe(1125)

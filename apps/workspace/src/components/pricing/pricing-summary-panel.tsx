@@ -28,16 +28,10 @@ export function PricingSummaryPanel({ result }: PricingSummaryPanelProps) {
             Monthly services plus setup and one-time work.
           </p>
         </div>
-        <Badge variant={result.isEnterprise ? 'warning' : 'success'} className="shrink-0">
+        <Badge variant="success" className="shrink-0">
           {result.tierLabel}
         </Badge>
       </header>
-
-      {result.isEnterprise && (
-        <p className="mt-4 rounded-lg border border-warning-light bg-warning-light/40 px-3 py-2 text-xs text-warning">
-          VIP quotes require manual follow-up and cannot create checkout links.
-        </p>
-      )}
 
       <div className="mt-6 space-y-6">
         <LineGroup title="Monthly" items={result.monthlyItems} total={result.monthlyTotal} />

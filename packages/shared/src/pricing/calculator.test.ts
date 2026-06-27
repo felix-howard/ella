@@ -19,19 +19,25 @@ describe('pricing calculator', () => {
     expect(detectPricingTier(20)).toBe('pro')
   })
 
-  it('detects enterprise tier above 20 1099 workers', () => {
-    expect(detectPricingTier(21)).toBe('enterprise')
+  it('detects VIP tier above 20 1099 workers', () => {
+    expect(detectPricingTier(21)).toBe('vip')
   })
 
-  it('keeps enterprise quotes in contact-sales state', () => {
+  it('keeps VIP quotes payable', () => {
     const input = createDefaultPricingInput()
     input.nec1099Count = 21
 
     const result = calculatePricing(input)
 
-    expect(result.tier).toBe('enterprise')
+    expect(result.tier).toBe('vip')
     expect(result.tierLabel).toBe('VIP')
-    expect(result.isEnterprise).toBe(true)
+    expect(result.isEnterprise).toBe(false)
+    expect(result.monthlyItems).toContainEqual({ label: 'VIP tier', amount: 85, kind: 'monthly' })
+    expect(result.setupItems).toContainEqual({
+      label: 'VIP bookkeeping setup',
+      amount: 150,
+      kind: 'setup',
+    })
   })
 
   it('calculates payroll and cash plan totals from current defaults', () => {

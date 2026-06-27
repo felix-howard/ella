@@ -274,10 +274,25 @@ describe('Stripe checkout session params', () => {
     ).toThrow('Select at least one billable service before checkout')
   })
 
-  it('rejects enterprise-sized payment links', () => {
-    expect(() => calculateCheckoutQuote({ ...basePricingInput, nec1099Count: 21 })).toThrow(
-      'Enterprise quotes require manual follow-up'
-    )
+  it('allows VIP-sized payment links', () => {
+    const quote = calculateCheckoutQuote({
+      ...basePricingInput,
+      nec1099Count: 25,
+      rates: {
+        ...basePricingInput.rates,
+        tiers: {
+          ...basePricingInput.rates.tiers,
+          vipMonthly: 65,
+        },
+      },
+    })
+
+    expect(quote.monthlyTotal).toBe(65)
+    expect(quote.setupTotal).toBe(150)
+    expect(quote.monthlyItems).toEqual([{ label: 'VIP tier', amount: 65, kind: 'monthly' }])
+    expect(quote.setupItems).toEqual([
+      { label: 'VIP bookkeeping setup', amount: 150, kind: 'setup' },
+    ])
   })
 
   it('rejects unsafe direct checkout counts above workspace limits', () => {

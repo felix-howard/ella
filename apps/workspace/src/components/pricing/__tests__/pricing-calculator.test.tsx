@@ -368,7 +368,7 @@ describe('workspace pricing calculator', () => {
     )
 
     expect(markup).toContain('Finish or remove incomplete custom item rows.')
-    expect(markup).not.toContain('Quantity limits exceeded. Use manual follow-up.')
+    expect(markup).not.toContain('Quantity limits exceeded. Reduce quantities before checkout.')
   })
 
   it('shows custom item fix copy before selection copy for payment links', () => {
@@ -445,6 +445,24 @@ describe('workspace pricing calculator', () => {
     input.nec1099Count = 1
 
     expect(getPrintDisabledReason(input, calculatePricing(input))).toBeNull()
+  })
+
+  it('allows VIP payment links, send-to-client, print quotes, and custom monthly rates', () => {
+    const input = createDefaultPricingInput()
+    input.nec1099Count = 25
+    input.rates.tiers.vipMonthly = 65
+    const result = calculatePricing(input)
+    const markup = renderToStaticMarkup(<PricingSummaryPanel result={result} />)
+
+    expect(result.tier).toBe('vip')
+    expect(result.tierLabel).toBe('VIP')
+    expect(result.monthlyTotal).toBe(65)
+    expect(getCreateDisabledReason(input, result)).toBeNull()
+    expect(getPrintDisabledReason(input, result)).toBeNull()
+    expect(markup).toContain('VIP')
+    expect(markup).toContain('$65')
+    expect(markup).not.toContain('manual follow-up')
+    expect(markup).not.toContain('cannot create checkout links')
   })
 
   it('keeps custom item labels out of the print quote URL', () => {

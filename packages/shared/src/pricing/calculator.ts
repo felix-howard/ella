@@ -2,7 +2,7 @@ import { PAYROLL, TIER_BASIC, TIER_ENTERPRISE, TIER_PRO } from '../constants'
 import { BUSINESS_TAX_RETURN_PREPAY_LABEL, ONE_TIME_LABELS } from './pricing-defaults'
 export { createDefaultPricingInput } from './pricing-defaults'
 
-export type Tier = 'basic' | 'pro' | 'enterprise'
+export type Tier = 'basic' | 'pro' | 'vip'
 
 export type PayrollMode = 'owner-manual' | 'ella-staff'
 
@@ -106,7 +106,7 @@ export const MAX_CALCULATOR_CUSTOM_ITEM_QUANTITY = 99
 export function detectPricingTier(nec1099Count: number): Tier {
   if (nec1099Count <= TIER_BASIC.maxNec1099) return 'basic'
   if (nec1099Count <= TIER_PRO.maxNec1099) return 'pro'
-  return 'enterprise'
+  return 'vip'
 }
 
 export function calculatePricing(input: PricingCalculatorInput): PricingCalculatorResult {
@@ -225,7 +225,7 @@ export function calculatePricing(input: PricingCalculatorInput): PricingCalculat
   return {
     tier,
     tierLabel: tierDef.label,
-    isEnterprise: tier === 'enterprise',
+    isEnterprise: false,
     monthlyItems: monthly,
     yearlyItems,
     setupDisplayItems,

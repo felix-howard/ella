@@ -2355,6 +2355,7 @@ export type NdaAgreement = Agreement & { depositStatus: DepositStatus }
 // Client payments (deposit collected after agreement signing, etc.)
 export type PaymentType = 'DEPOSIT' | 'BALANCE' | 'OTHER' | 'RECURRING'
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'CANCELED'
+export type ReceiptStatus = 'available' | 'pending' | 'not_applicable'
 
 export interface ClientPayment {
   id: string
@@ -2369,6 +2370,17 @@ export interface ClientPayment {
   agreement: { id: string; title: string } | null
   /** Public portal pay page URL for this payment's payToken */
   payUrl: string
+  /** Staff-only Stripe support ids and receipt artifacts. */
+  stripeCustomerId: string | null
+  stripeInvoiceId: string | null
+  stripeChargeId: string | null
+  receiptUrl: string | null
+  invoicePdfUrl: string | null
+  hostedInvoiceUrl: string | null
+  receiptNumber: string | null
+  paymentMethodLabel: string | null
+  receiptSyncedAt: string | null
+  receiptStatus: ReceiptStatus
 }
 
 export interface CreateAgreementPayload {

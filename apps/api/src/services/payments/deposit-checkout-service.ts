@@ -14,6 +14,14 @@ import type { Prisma } from '@ella/db'
 import { config } from '../../lib/config'
 import { prisma } from '../../lib/db'
 import { isUnsafeProductionReturnUrl } from '../stripe/checkout'
+import {
+  ensureStripeCustomerForClient,
+  linkClientToStripeCustomerIfMissing,
+} from '../stripe/stripe-customer-link-service'
+import {
+  getReceiptFactsFromCheckoutSession,
+  toPaymentReceiptData,
+} from '../stripe/stripe-receipt-facts'
 import { smsOptedInAdmins } from '../agreements/agreement-post-sign-notifications'
 import { formatPhoneToE164 } from '../sms/twilio-client'
 import {
@@ -158,7 +166,20 @@ export async function createDepositCheckoutSession(
     throw new DepositCheckoutError('NOT_PAYABLE', 'This payment has been canceled')
   }
 
-  const customerEmail = payment.lead?.email ?? payment.client?.email ?? undefined
+  if (payment.stripeSessionId) {
+    const reusableUrl = await getReusableDepositCheckoutUrl(payment.stripeSessionId)
+    if (reusableUrl) return { checkoutUrl: reusableUrl }
+  }
+
+  const stripeCustomerId = payment.clientId
+    ? await ensureStripeCustomerForClient({
+        clientId: payment.clientId,
+        organizationId: payment.organizationId,
+      })
+    : null
+  const customerEmail = stripeCustomerId
+    ? undefined
+    : (payment.lead?.email ?? payment.client?.email ?? undefined)
   const session = await getStripeClient().checkout.sessions.create({
     mode: 'payment',
     line_items: [
@@ -175,6 +196,7 @@ export async function createDepositCheckoutSession(
     ],
     success_url: `${payUrl}?status=success`,
     cancel_url: `${payUrl}?status=canceled`,
+    ...(stripeCustomerId ? { customer: stripeCustomerId } : {}),
     ...(customerEmail ? { customer_email: customerEmail } : {}),
     client_reference_id: payment.id,
     metadata: {
@@ -182,6 +204,8 @@ export async function createDepositCheckoutSession(
       paymentId: payment.id,
       ...(payment.agreementId ? { agreementId: payment.agreementId } : {}),
     },
+  }, {
+    idempotencyKey: buildDepositCheckoutIdempotencyKey(payment),
   })
 
   if (!session.url) {
@@ -194,6 +218,57 @@ export async function createDepositCheckoutSession(
   })
 
   return { checkoutUrl: session.url }
+}
+
+async function getReusableDepositCheckoutUrl(stripeSessionId: string): Promise<string | null> {
+  try {
+    const session = await getStripeClient().checkout.sessions.retrieve(stripeSessionId, {
+      expand: ['payment_intent'],
+    })
+
+    if (session.payment_status === 'paid') {
+      const eventAt = getCheckoutSessionEventTime(session)
+      await markDepositPaymentPaid(session, eventAt)
+      throw new DepositCheckoutError('ALREADY_PAID', 'This payment has already been completed')
+    }
+    if (!isReusableCheckoutSession(session)) return null
+    return session.url
+  } catch (err) {
+    if (err instanceof DepositCheckoutError) throw err
+    if (isStripeResourceMissingError(err)) return null
+    console.error(`[Payment] Unable to retrieve Stripe Checkout Session session=${stripeSessionId}:`, err)
+    throw err
+  }
+}
+
+function isReusableCheckoutSession(session: Stripe.Checkout.Session): session is Stripe.Checkout.Session & {
+  url: string
+} {
+  const expiresAtMs = session.expires_at ? session.expires_at * 1000 : null
+  return Boolean(
+    session.status === 'open' &&
+      session.url &&
+      (!expiresAtMs || expiresAtMs > Date.now())
+  )
+}
+
+function getCheckoutSessionEventTime(session: Stripe.Checkout.Session): Date {
+  const paymentIntent = typeof session.payment_intent === 'object' ? session.payment_intent : null
+  return paymentIntent?.created ? new Date(paymentIntent.created * 1000) : new Date()
+}
+
+function buildDepositCheckoutIdempotencyKey(payment: PaymentWithSigner): string {
+  return `deposit-payment:${payment.id}:${payment.stripeSessionId ?? 'initial'}`
+}
+
+function isStripeResourceMissingError(error: unknown): boolean {
+  const err = error as { code?: unknown; statusCode?: unknown; raw?: { code?: unknown; statusCode?: unknown } }
+  return (
+    err?.code === 'resource_missing' ||
+    err?.raw?.code === 'resource_missing' ||
+    err?.statusCode === 404 ||
+    err?.raw?.statusCode === 404
+  )
 }
 
 /**
@@ -254,6 +329,32 @@ export async function markDepositPaymentPaid(
   }
 
   await notifyDepositPaymentPaid(payment)
+  await syncDepositReceiptFacts({ payment, session })
+}
+
+async function syncDepositReceiptFacts({
+  payment,
+  session,
+}: {
+  payment: PaymentWithSigner
+  session: Stripe.Checkout.Session
+}): Promise<void> {
+  try {
+    const facts = await getReceiptFactsFromCheckoutSession(session)
+    const receiptData = toPaymentReceiptData(facts)
+    if (receiptData.receiptSyncedAt) {
+      await prisma.payment.update({ where: { id: payment.id }, data: receiptData })
+    }
+    if (payment.clientId && facts.stripeCustomerId) {
+      await linkClientToStripeCustomerIfMissing({
+        clientId: payment.clientId,
+        organizationId: payment.organizationId,
+        stripeCustomerId: facts.stripeCustomerId,
+      })
+    }
+  } catch (err) {
+    console.error(`[Payment] Receipt fact sync failed for payment=${payment.id}:`, err)
+  }
 }
 
 type PaymentWithSigner = Prisma.PaymentGetPayload<{

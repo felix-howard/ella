@@ -430,6 +430,48 @@ describe('buildCheckoutSessionParams — generalized line items + coupons', () =
     expect(params.mode).toBe('payment')
   })
 
+  it('uses a Stripe Customer id instead of customer_email when provided', () => {
+    const params = buildCheckoutSessionParams(
+      [{ label: 'Single fee', unitAmountCents: 9900, quantity: 1, interval: 'one_time' }],
+      {
+        quoteId: 'quote_customer',
+        customerEmail: 'client@example.com',
+        customerId: ' cus_123 ',
+      }
+    )
+
+    expect(params.customer).toBe('cus_123')
+    expect(params.customer_email).toBeUndefined()
+  })
+
+  it('supports opt-in Stripe Customer creation without an existing customer id', () => {
+    const params = buildCheckoutSessionParams(
+      [{ label: 'Single fee', unitAmountCents: 9900, quantity: 1, interval: 'one_time' }],
+      {
+        quoteId: 'quote_customer_creation',
+        customerEmail: 'lead@example.com',
+        customerCreation: 'always',
+      }
+    )
+
+    expect(params.customer_email).toBe('lead@example.com')
+    expect(params.customer_creation).toBe('always')
+    expect(params.customer).toBeUndefined()
+  })
+
+  it('rejects opt-in Stripe Customer creation for recurring sessions', () => {
+    expect(() =>
+      buildCheckoutSessionParams(
+        [{ label: 'Monthly', unitAmountCents: 9900, quantity: 1, interval: 'month' }],
+        {
+          quoteId: 'quote_customer_creation_recurring',
+          customerEmail: 'lead@example.com',
+          customerCreation: 'always',
+        }
+      )
+    ).toThrow(CheckoutQuoteError)
+  })
+
   it('attaches a pre-applied coupon as discounts', () => {
     const params = buildCheckoutSessionParams(
       [{ label: 'Item', unitAmountCents: 1000, quantity: 1, interval: 'month' }],

@@ -14,15 +14,14 @@ import type { AuthVariables } from '../../middleware/auth'
 import { checkRateLimit } from '../../middleware/rate-limiter'
 import type { AuthUser } from '../../services/auth'
 import { prisma } from '../../lib/db'
+import { resendDepositPayLink } from '../../services/payments/deposit-payment-service'
+import { reconcilePaymentReceiptFacts } from '../../services/stripe/stripe-payment-receipt-reconcile-service'
 import {
-  buildPaymentPayUrl,
-  normalizeDepositPaymentDescription,
-  resendDepositPayLink,
-} from '../../services/payments/deposit-payment-service'
-import {
-  clientIdParamSchema,
   clientAndAgreementIdParamSchema,
+  clientAndPaymentIdParamSchema,
+  clientIdParamSchema,
 } from './agreements-staff-schemas'
+import { serializeClientPayment } from './client-payment-response'
 
 const clientsPaymentsStaffRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -69,23 +68,51 @@ clientsPaymentsStaffRoute.get(
     return c.json({
       success: true,
       pastDue: pastDueCount > 0,
-      data: payments.map((payment) => ({
-        id: payment.id,
-        type: payment.type,
-        status: payment.status,
-        amount: payment.amount.toString(),
-        currency: payment.currency,
-        description:
-          payment.type === 'DEPOSIT'
-            ? normalizeDepositPaymentDescription(payment.description)
-            : payment.description,
-        paidAt: payment.paidAt,
-        createdAt: payment.createdAt,
-        agreement: payment.agreement,
-        payUrl: buildPaymentPayUrl(payment.payToken),
-      })),
+      data: payments.map(serializeClientPayment),
     })
-  },
+  }
+)
+
+// POST /:clientId/payments/:paymentId/reconcile — refresh Stripe receipt facts
+// for one existing client Payment row. Does not import arbitrary Stripe charges.
+clientsPaymentsStaffRoute.post(
+  '/:clientId/payments/:paymentId/reconcile',
+  requireOrgAdmin,
+  zValidator('param', clientAndPaymentIdParamSchema),
+  async (c) => {
+    const orgId = getOrgId(c.get('user'))
+    const { clientId, paymentId } = c.req.valid('param')
+    const rateLimitKey = `payment-receipt-reconcile:${orgId}:${paymentId}`
+
+    if (!checkRateLimit(rateLimitKey, 60_000, 2)) {
+      throw new HTTPException(429, {
+        message: 'Receipt refresh was just requested — wait a minute before retrying',
+      })
+    }
+
+    try {
+      const result = await reconcilePaymentReceiptFacts({
+        paymentId,
+        clientId,
+        organizationId: orgId,
+      })
+      if (!result) throw new HTTPException(404, { message: 'Payment not found' })
+
+      return c.json({
+        success: true,
+        refreshed: result.refreshed,
+        data: serializeClientPayment(result.payment),
+      })
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Stripe is not configured') {
+        return c.json(
+          { error: 'STRIPE_NOT_CONFIGURED', message: 'Stripe is not configured' },
+          503
+        )
+      }
+      throw error
+    }
+  }
 )
 
 // POST /:clientId/agreements/:id/resend-payment-link — re-SMS the pay link
@@ -108,7 +135,7 @@ clientsPaymentsStaffRoute.post(
 
     const result = await resendDepositPayLink({ clientId, agreementId: id, orgId })
     return c.json({ success: true, data: result })
-  },
+  }
 )
 
 export { clientsPaymentsStaffRoute }

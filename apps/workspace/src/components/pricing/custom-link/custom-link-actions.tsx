@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button, Combobox, type ComboboxItem } from '@ella/ui'
 import { Link2, Loader2, Send, X } from 'lucide-react'
 import type { CreateCustomCheckoutInput } from '../../../lib/api-client'
@@ -16,6 +17,7 @@ interface CustomLinkActionsProps {
 }
 
 export function CustomLinkActions({ corePayload, disabledReason }: CustomLinkActionsProps) {
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<ComboboxItem | null>(null)
   const { items, loading } = useRecipientSearch(query)
@@ -60,9 +62,15 @@ export function CustomLinkActions({ corePayload, disabledReason }: CustomLinkAct
   }
 
   return (
-    <section className="rounded-lg border border-border bg-card p-4" aria-labelledby="custom-actions-title">
+    <section
+      className="rounded-lg border border-border bg-card p-4"
+      aria-labelledby="custom-actions-title"
+    >
       <header>
-        <h2 id="custom-actions-title" className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <h2
+          id="custom-actions-title"
+          className="flex items-center gap-2 text-sm font-semibold text-foreground"
+        >
           <Send className="h-4 w-4 text-primary" />
           Create or send
         </h2>
@@ -73,9 +81,16 @@ export function CustomLinkActions({ corePayload, disabledReason }: CustomLinkAct
 
       <div className="mt-4 space-y-3">
         <Button type="button" className="w-full" onClick={handleCreate} disabled={createDisabled}>
-          {createLink.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-          Create payment link
+          {createLink.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Link2 className="h-4 w-4" />
+          )}
+          {t('paymentLinks.createAnonymousStripeUrl')}
         </Button>
+        <p className="text-xs text-muted-foreground">
+          {t('paymentLinks.anonymousClientHistoryWarning')}
+        </p>
 
         {createLink.data && <CustomLinkCreateResult checkout={createLink.data} />}
 
@@ -83,12 +98,22 @@ export function CustomLinkActions({ corePayload, disabledReason }: CustomLinkAct
           {selected ? (
             <div className="flex items-center justify-between gap-2 rounded-lg border border-primary-light bg-primary-light/30 px-3 py-2">
               <span className="min-w-0">
-                <span className="block truncate text-sm font-medium text-foreground">{selected.label}</span>
-                {selected.hint && <span className="block truncate text-xs text-muted-foreground">{selected.hint}</span>}
+                <span className="block truncate text-sm font-medium text-foreground">
+                  {selected.label}
+                </span>
+                {selected.hint && (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {selected.hint}
+                  </span>
+                )}
               </span>
               <button
                 type="button"
-                onClick={() => { setSelected(null); setQuery(''); sendQuote.reset() }}
+                onClick={() => {
+                  setSelected(null)
+                  setQuery('')
+                  sendQuote.reset()
+                }}
                 className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                 aria-label="Clear selected recipient"
               >
@@ -97,7 +122,10 @@ export function CustomLinkActions({ corePayload, disabledReason }: CustomLinkAct
             </div>
           ) : (
             <>
-              <label htmlFor="custom-recipient" className="mb-1 block text-xs font-medium text-foreground">
+              <label
+                htmlFor="custom-recipient"
+                className="mb-1 block text-xs font-medium text-foreground"
+              >
                 Recipient
               </label>
               <Combobox
@@ -106,7 +134,11 @@ export function CustomLinkActions({ corePayload, disabledReason }: CustomLinkAct
                 query={query}
                 loading={loading}
                 onQueryChange={setQuery}
-                onSelect={(item) => { setSelected(item); setQuery(''); sendQuote.reset() }}
+                onSelect={(item) => {
+                  setSelected(item)
+                  setQuery('')
+                  sendQuote.reset()
+                }}
                 placeholder="Search clients or leads…"
                 emptyMessage="No clients or leads match"
                 aria-label="Search for a client or lead"
@@ -114,8 +146,17 @@ export function CustomLinkActions({ corePayload, disabledReason }: CustomLinkAct
             </>
           )}
 
-          <Button type="button" className="mt-3 w-full" onClick={handleSend} disabled={sendDisabled}>
-            {sendQuote.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          <Button
+            type="button"
+            className="mt-3 w-full"
+            onClick={handleSend}
+            disabled={sendDisabled}
+          >
+            {sendQuote.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
             Send Payment Link
           </Button>
         </div>

@@ -147,6 +147,8 @@ For local payment-link testing, place `STRIPE_*` in `apps/api/.env` and `PUBLIC_
 
 When Stripe CLI is installed and both `STRIPE_SECRET_KEY` and the matching local `STRIPE_WEBHOOK_SECRET` are present, `pnpm dev` starts a local Stripe webhook listener automatically for `localhost:3002/webhooks/stripe`. To bootstrap a local `whsec_...`, run `stripe listen --events checkout.session.completed --forward-to localhost:3002/webhooks/stripe` once with the same test account/key, copy the printed signing secret into `apps/api/.env`, then restart `pnpm dev`. Do not reuse the live Dashboard webhook secret for local CLI forwarding. If any prerequisite is missing, the listener is skipped and the rest of dev mode still starts.
 
+Stripe-hosted email receipts depend on the Stripe Dashboard email setting for successful payments. Ella still stores available receipt and invoice URLs from webhooks for staff use in the client Payments tab.
+
 ## Architecture
 
 ### Monorepo Structure

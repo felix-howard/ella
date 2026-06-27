@@ -23,18 +23,25 @@ const prismaMocks = vi.hoisted(() => ({
 
 const serviceMocks = vi.hoisted(() => ({
   buildPaymentPayUrl: vi.fn((token: string) => `http://portal.test/pay/${token}`),
-  normalizeDepositPaymentDescription: vi.fn((description: string | null) =>
-    description?.replace(/^Retainer\s+[–-]\s*/i, 'Initial payment - ') ?? null,
+  normalizeDepositPaymentDescription: vi.fn(
+    (description: string | null) =>
+      description?.replace(/^Retainer\s+[–-]\s*/i, 'Initial payment - ') ?? null
   ),
   resendDepositPayLink: vi.fn(),
 }))
 
+const receiptReconcileMocks = vi.hoisted(() => ({
+  reconcilePaymentReceiptFacts: vi.fn(),
+}))
+
 vi.mock('../../../lib/db', () => ({ prisma: prismaMocks }))
 vi.mock('../../../services/payments/deposit-payment-service', () => serviceMocks)
+vi.mock('../../../services/stripe/stripe-payment-receipt-reconcile-service', () => receiptReconcileMocks)
 
 import { clientsPaymentsStaffRoute } from '../payments-staff'
 
 const CLIENT_ID = 'cabcdefghij1234567890aaaa'
+const PAYMENT_ID = `c${'p'.repeat(24)}`
 
 // Unique agreement IDs per test — resend uses the real in-memory rate limiter.
 let agreementCounter = 10
@@ -62,6 +69,32 @@ function buildApp(role: 'ADMIN' | 'MANAGER' | 'STAFF' = 'ADMIN') {
   return app
 }
 
+function paymentRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: PAYMENT_ID,
+    type: 'DEPOSIT',
+    status: 'PAID',
+    amount: { toString: () => '500.00' },
+    currency: 'usd',
+    description: 'Initial payment - 2026 Engagement Letter',
+    paidAt: new Date('2026-06-08T10:00:00Z'),
+    createdAt: new Date('2026-06-07T10:00:00Z'),
+    payToken: 'tok_paid',
+    agreement: null,
+    stripeCustomerId: 'cus_123',
+    stripeInvoiceId: null,
+    stripeChargeId: 'ch_123',
+    stripeReceiptUrl: 'https://pay.stripe.com/receipts/ch_123',
+    stripeReceiptNumber: 'R-123',
+    stripeHostedInvoiceUrl: null,
+    stripeInvoicePdfUrl: null,
+    paymentMethodBrand: 'visa',
+    paymentMethodLast4: '4242',
+    receiptSyncedAt: new Date('2026-06-08T10:01:00Z'),
+    ...overrides,
+  }
+}
+
 afterEach(() => {
   __resetRateLimitMapForTests()
 })
@@ -74,12 +107,16 @@ beforeEach(() => {
   serviceMocks.resendDepositPayLink.mockResolvedValue({
     payUrl: 'http://portal.test/pay/tok_abc',
   })
+  receiptReconcileMocks.reconcilePaymentReceiptFacts.mockResolvedValue({
+    refreshed: true,
+    payment: paymentRow(),
+  })
   serviceMocks.buildPaymentPayUrl.mockImplementation(
-    (token: string) => `http://portal.test/pay/${token}`,
+    (token: string) => `http://portal.test/pay/${token}`
   )
   serviceMocks.normalizeDepositPaymentDescription.mockImplementation(
     (description: string | null) =>
-      description?.replace(/^Retainer\s+[–-]\s*/i, 'Initial payment - ') ?? null,
+      description?.replace(/^Retainer\s+[–-]\s*/i, 'Initial payment - ') ?? null
   )
 })
 
@@ -139,7 +176,7 @@ describe('GET /clients/:clientId/payments', () => {
     expect(prismaMocks.payment.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { clientId: CLIENT_ID, organizationId: 'org_1' },
-      }),
+      })
     )
     expect(json.data).toEqual([
       expect.objectContaining({
@@ -151,6 +188,180 @@ describe('GET /clients/:clientId/payments', () => {
         agreement: { id: 'agr_1', title: '2026 Engagement Letter' },
       }),
     ])
+  })
+
+  it('returns receipt-safe staff fields and receipt status', async () => {
+    prismaMocks.payment.findMany.mockResolvedValue([
+      {
+        id: 'pay_paid',
+        type: 'DEPOSIT',
+        status: 'PAID',
+        amount: { toString: () => '500.00' },
+        currency: 'usd',
+        description: 'Initial payment - 2026 Engagement Letter',
+        paidAt: new Date('2026-06-08T10:00:00Z'),
+        createdAt: new Date('2026-06-07T10:00:00Z'),
+        payToken: 'tok_paid',
+        agreement: null,
+        stripeCustomerId: 'cus_123',
+        stripeInvoiceId: 'in_123',
+        stripeChargeId: 'ch_123',
+        stripeReceiptUrl: 'https://pay.stripe.com/receipts/ch_123',
+        stripeReceiptNumber: 'R-123',
+        stripeHostedInvoiceUrl: 'https://invoice.stripe.com/i/in_123',
+        stripeInvoicePdfUrl: 'https://invoice.stripe.com/i/in_123.pdf',
+        paymentMethodBrand: 'visa',
+        paymentMethodLast4: '4242',
+        receiptSyncedAt: new Date('2026-06-08T10:01:00Z'),
+      },
+      {
+        id: 'pay_unsynced',
+        type: 'OTHER',
+        status: 'PAID',
+        amount: { toString: () => '250.00' },
+        currency: 'usd',
+        description: 'One-time advisory',
+        paidAt: new Date('2026-06-09T10:00:00Z'),
+        createdAt: new Date('2026-06-09T09:00:00Z'),
+        payToken: 'tok_unsynced',
+        agreement: null,
+        stripeCustomerId: null,
+        stripeInvoiceId: null,
+        stripeChargeId: null,
+        stripeReceiptUrl: null,
+        stripeReceiptNumber: null,
+        stripeHostedInvoiceUrl: null,
+        stripeInvoicePdfUrl: null,
+        paymentMethodBrand: null,
+        paymentMethodLast4: null,
+        receiptSyncedAt: null,
+      },
+      {
+        id: 'pay_pending',
+        type: 'DEPOSIT',
+        status: 'PENDING',
+        amount: { toString: () => '300.00' },
+        currency: 'usd',
+        description: 'Initial payment - 2026 Engagement Letter',
+        paidAt: null,
+        createdAt: new Date('2026-06-10T09:00:00Z'),
+        payToken: 'tok_pending',
+        agreement: null,
+        stripeCustomerId: null,
+        stripeInvoiceId: null,
+        stripeChargeId: null,
+        stripeReceiptUrl: null,
+        stripeReceiptNumber: null,
+        stripeHostedInvoiceUrl: null,
+        stripeInvoicePdfUrl: null,
+        paymentMethodBrand: null,
+        paymentMethodLast4: null,
+        receiptSyncedAt: null,
+      },
+    ])
+
+    const res = await buildApp().request(`/clients/${CLIENT_ID}/payments`)
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.data[0]).toEqual(
+      expect.objectContaining({
+        id: 'pay_paid',
+        stripeCustomerId: 'cus_123',
+        stripeInvoiceId: 'in_123',
+        stripeChargeId: 'ch_123',
+        receiptUrl: 'https://pay.stripe.com/receipts/ch_123',
+        receiptNumber: 'R-123',
+        hostedInvoiceUrl: 'https://invoice.stripe.com/i/in_123',
+        invoicePdfUrl: 'https://invoice.stripe.com/i/in_123.pdf',
+        paymentMethodLabel: 'Visa •••• 4242',
+        receiptStatus: 'available',
+      })
+    )
+    expect(json.data[0].receiptSyncedAt).toBe('2026-06-08T10:01:00.000Z')
+    expect(json.data[1]).toEqual(
+      expect.objectContaining({
+        id: 'pay_unsynced',
+        receiptStatus: 'pending',
+        paymentMethodLabel: null,
+      })
+    )
+    expect(json.data[2]).toEqual(
+      expect.objectContaining({
+        id: 'pay_pending',
+        receiptStatus: 'not_applicable',
+      })
+    )
+  })
+
+  it('drops blank and unsafe receipt URLs from the staff response', async () => {
+    prismaMocks.payment.findMany.mockResolvedValue([
+      {
+        id: 'pay_unsafe',
+        type: 'DEPOSIT',
+        status: 'PAID',
+        amount: { toString: () => '500.00' },
+        currency: 'usd',
+        description: 'Initial payment - 2026 Engagement Letter',
+        paidAt: new Date('2026-06-08T10:00:00Z'),
+        createdAt: new Date('2026-06-07T10:00:00Z'),
+        payToken: 'tok_paid',
+        agreement: null,
+        stripeCustomerId: 'cus_123',
+        stripeInvoiceId: 'in_123',
+        stripeChargeId: 'ch_123',
+        stripeReceiptUrl: 'https://example.test/receipts/ch_123',
+        stripeReceiptNumber: 'R-123',
+        stripeHostedInvoiceUrl: '   ',
+        stripeInvoicePdfUrl: 'javascript:alert(1)',
+        paymentMethodBrand: 'visa',
+        paymentMethodLast4: '4242',
+        receiptSyncedAt: null,
+      },
+      {
+        id: 'pay_http',
+        type: 'DEPOSIT',
+        status: 'PAID',
+        amount: { toString: () => '500.00' },
+        currency: 'usd',
+        description: 'Initial payment - 2026 Engagement Letter',
+        paidAt: new Date('2026-06-08T10:00:00Z'),
+        createdAt: new Date('2026-06-07T10:00:00Z'),
+        payToken: 'tok_http',
+        agreement: null,
+        stripeCustomerId: 'cus_123',
+        stripeInvoiceId: 'in_123',
+        stripeChargeId: 'ch_123',
+        stripeReceiptUrl: 'http://pay.stripe.com/receipts/ch_123',
+        stripeReceiptNumber: 'R-123',
+        stripeHostedInvoiceUrl: null,
+        stripeInvoicePdfUrl: null,
+        paymentMethodBrand: 'visa',
+        paymentMethodLast4: '4242',
+        receiptSyncedAt: null,
+      },
+    ])
+
+    const res = await buildApp().request(`/clients/${CLIENT_ID}/payments`)
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.data[0]).toEqual(
+      expect.objectContaining({
+        id: 'pay_unsafe',
+        receiptUrl: null,
+        hostedInvoiceUrl: null,
+        invoicePdfUrl: null,
+        receiptStatus: 'pending',
+      })
+    )
+    expect(json.data[1]).toEqual(
+      expect.objectContaining({
+        id: 'pay_http',
+        receiptUrl: null,
+        receiptStatus: 'pending',
+      })
+    )
   })
 
   it('normalizes legacy retainer descriptions in the staff payments list', async () => {
@@ -200,11 +411,105 @@ describe('GET /clients/:clientId/payments', () => {
   })
 })
 
+describe('POST /clients/:clientId/payments/:paymentId/reconcile', () => {
+  it('rejects STAFF role with 403', async () => {
+    const res = await buildApp('STAFF').request(
+      `/clients/${CLIENT_ID}/payments/${PAYMENT_ID}/reconcile`,
+      { method: 'POST' }
+    )
+
+    expect(res.status).toBe(403)
+    expect(receiptReconcileMocks.reconcilePaymentReceiptFacts).not.toHaveBeenCalled()
+  })
+
+  it('rejects MANAGER role with 403', async () => {
+    const res = await buildApp('MANAGER').request(
+      `/clients/${CLIENT_ID}/payments/${PAYMENT_ID}/reconcile`,
+      { method: 'POST' }
+    )
+
+    expect(res.status).toBe(403)
+    expect(receiptReconcileMocks.reconcilePaymentReceiptFacts).not.toHaveBeenCalled()
+  })
+
+  it('refreshes one org-scoped client payment receipt', async () => {
+    const res = await buildApp().request(
+      `/clients/${CLIENT_ID}/payments/${PAYMENT_ID}/reconcile`,
+      { method: 'POST' }
+    )
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(receiptReconcileMocks.reconcilePaymentReceiptFacts).toHaveBeenCalledWith({
+      clientId: CLIENT_ID,
+      paymentId: PAYMENT_ID,
+      organizationId: 'org_1',
+    })
+    expect(json).toEqual({
+      success: true,
+      refreshed: true,
+      data: expect.objectContaining({
+        id: PAYMENT_ID,
+        receiptUrl: 'https://pay.stripe.com/receipts/ch_123',
+        paymentMethodLabel: 'Visa •••• 4242',
+        receiptStatus: 'available',
+      }),
+    })
+  })
+
+  it('returns 404 when the payment does not belong to that client and org', async () => {
+    receiptReconcileMocks.reconcilePaymentReceiptFacts.mockResolvedValueOnce(null)
+
+    const res = await buildApp().request(
+      `/clients/${CLIENT_ID}/payments/${PAYMENT_ID}/reconcile`,
+      { method: 'POST' }
+    )
+
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 503 when Stripe is not configured', async () => {
+    receiptReconcileMocks.reconcilePaymentReceiptFacts.mockRejectedValueOnce(
+      new Error('Stripe is not configured')
+    )
+
+    const res = await buildApp().request(
+      `/clients/${CLIENT_ID}/payments/${PAYMENT_ID}/reconcile`,
+      { method: 'POST' }
+    )
+
+    expect(res.status).toBe(503)
+    expect(await res.json()).toEqual({
+      error: 'STRIPE_NOT_CONFIGURED',
+      message: 'Stripe is not configured',
+    })
+  })
+
+  it('rate-limits repeated receipt refresh attempts per payment', async () => {
+    const app = buildApp()
+
+    const first = await app.request(`/clients/${CLIENT_ID}/payments/${PAYMENT_ID}/reconcile`, {
+      method: 'POST',
+    })
+    const second = await app.request(`/clients/${CLIENT_ID}/payments/${PAYMENT_ID}/reconcile`, {
+      method: 'POST',
+    })
+    const third = await app.request(`/clients/${CLIENT_ID}/payments/${PAYMENT_ID}/reconcile`, {
+      method: 'POST',
+    })
+
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(200)
+    expect(third.status).toBe(429)
+    expect(receiptReconcileMocks.reconcilePaymentReceiptFacts).toHaveBeenCalledTimes(2)
+  })
+})
+
 describe('POST /clients/:clientId/agreements/:id/resend-payment-link', () => {
   it('rejects STAFF role with 403', async () => {
     const res = await buildApp('STAFF').request(
       `/clients/${CLIENT_ID}/agreements/${freshAgreementId()}/resend-payment-link`,
-      { method: 'POST' },
+      { method: 'POST' }
     )
 
     expect(res.status).toBe(403)
@@ -214,7 +519,7 @@ describe('POST /clients/:clientId/agreements/:id/resend-payment-link', () => {
   it('rejects MANAGER role with 403', async () => {
     const res = await buildApp('MANAGER').request(
       `/clients/${CLIENT_ID}/agreements/${freshAgreementId()}/resend-payment-link`,
-      { method: 'POST' },
+      { method: 'POST' }
     )
 
     expect(res.status).toBe(403)
@@ -225,7 +530,7 @@ describe('POST /clients/:clientId/agreements/:id/resend-payment-link', () => {
     const agreementId = freshAgreementId()
     const res = await buildApp().request(
       `/clients/${CLIENT_ID}/agreements/${agreementId}/resend-payment-link`,
-      { method: 'POST' },
+      { method: 'POST' }
     )
 
     expect(res.status).toBe(200)
@@ -246,11 +551,11 @@ describe('POST /clients/:clientId/agreements/:id/resend-payment-link', () => {
 
     const first = await app.request(
       `/clients/${CLIENT_ID}/agreements/${agreementId}/resend-payment-link`,
-      { method: 'POST' },
+      { method: 'POST' }
     )
     const second = await app.request(
       `/clients/${CLIENT_ID}/agreements/${agreementId}/resend-payment-link`,
-      { method: 'POST' },
+      { method: 'POST' }
     )
 
     expect(first.status).toBe(200)

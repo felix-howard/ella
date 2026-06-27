@@ -1,9 +1,48 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-26 ICT
+> **Last Updated:** 2026-06-27 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### Payment Ledger Receipt Capture and Stripe Customer Checkout Polish
+**Status:** Complete
+
+**Changed:**
+- Checkout sessions now reuse persistent Stripe Customers for client-linked payments, fall back to `customer_email` for lead-only payments, and request `customer_creation: 'always'` for lead-only one-time quote checkouts with email.
+- Webhook and fulfillment paths now extract receipt facts from Checkout Session, Invoice, and PaymentIntent data, persist available receipt/invoice fields on `Payment`, backfill `Client.stripeCustomerId` when missing, and handle the newer invoice `payment_intent` shape.
+- Quote checkout session persistence now stores `stripeInvoiceId` alongside the existing session mirror ids so downstream invoice flows stay aligned.
+- Staff client Payments tab now receives admin-only receipt fields, shows a compact Stripe receipt/invoice action for paid rows, displays `Receipt pending` for unsynced paid rows, and shows safe card brand/last4 labels when available.
+- Receipt URLs returned to Workspace are normalized to HTTPS Stripe receipt/invoice hosts only (`invoice.stripe.com`, `pay.stripe.com`), with matching UI-side filtering before rendering external links.
+- Anonymous calculator/custom payment-link actions now say `Create anonymous Stripe URL` and warn staff to use `Send Payment Link` when payment history should attach to the client ledger.
+- Sent quote checkout now uses deterministic per-quote Stripe idempotency keys, idempotent local session upserts, and guarded quote status updates so concurrent pay clicks or fast webhooks cannot create duplicate payable sessions or regress paid/active quotes.
+
+**Validation:**
+- Final phase validation passed:
+  - `pnpm -F @ella/db type-check`
+  - `pnpm -F @ella/api test -- payment` (16 files, 206 tests)
+  - `pnpm -F @ella/api test -- stripe` (9 files, 99 tests)
+  - `pnpm -F @ella/workspace test -- payments` (1 file, 4 tests)
+  - `pnpm type-check`
+  - `pnpm -r --if-present test`
+- Manual Stripe browser/CLI checkout checklist was not run in this session because `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` were not exported in the shell. Stripe CLI is installed locally; use the README local webhook setup before manual validation.
+- Phase 4 validation passed: `payments-staff.test.ts` 13 tests, workspace receipt/link panel tests 8 tests, API/workspace type-check, i18n parity, and API/workspace lint. Lint warnings remain only in unrelated pre-existing files.
+
+### Payment Receipt Schema and Migration Safety
+**Status:** Complete
+
+**Changed:**
+- Added additive Prisma schema/migration support for Stripe customer linkage, payment receipt/invoice facts, safe payment method display fields, and webhook event logging.
+- Applied `20260626195935_payment_receipts_stripe_customer_polish` to the local-dev Supabase database.
+- Added CI guard that blocks PRs from modifying/deleting/renaming/copying existing Prisma migration SQL files while still allowing new migrations.
+- Documented migration safety rules in code standards.
+
+**Validation:**
+- `pnpm -F @ella/db migrate:deploy` pass before local reset; migration applied cleanly.
+- Local-dev `prisma migrate reset --force --skip-seed` pass to repair checksum drift in disposable DB.
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass, database schema up to date.
+- Direct DB probes confirm new payment receipt columns/table and zero failed migration rows.
+- `pnpm -F @ella/db type-check` pass.
 
 ### Custom Payment Description Multiline Fix
 **Status:** Complete
@@ -3555,6 +3594,7 @@
 - Shared helpers reduce code duplication between /clients and /businesses routes during transition
 
 **Backward Compatibility:** ✅ Full
+
 - All /businesses/:businessId/1099-nec/* routes remain functional and unchanged
 - Existing integrations continue without modifications
 - @deprecated markers indicate Phase 15 removal timeline
@@ -3587,6 +3627,7 @@
 - **Modified:** `apps/api/src/app.ts` - Route registration
 
 **Backward Compatibility:** ✅ Full
+
 - All /businesses/:businessId/contractors routes remain functional
 - Existing integrations continue without changes
 - @deprecated markers indicate Phase 15 removal timeline
@@ -3925,6 +3966,7 @@
 **Summary:** Multi-phase restructuring complete. Client = person, Business = separate entity. Enables multi-business per client, simplified client creation. All cleanup + integration testing done.
 
 **Phase 06: Cleanup & Integration Testing** (0.5h)
+
 - Removed all stale `clientType` references from codebase (except migration files)
 - Cleaned up constants, field labels, localization strings
 - Removed business-related form fields from client overview & intake form
@@ -4465,4 +4507,5 @@
 ---
 
 ## Previous Releases
+
 [See git history for prior versions before 2026-03-30]

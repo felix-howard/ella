@@ -30,6 +30,8 @@ export interface CheckoutSessionResult {
 export interface CheckoutSessionParamsOptions {
   quoteId: string
   customerEmail?: string
+  customerId?: string
+  customerCreation?: 'always' | 'if_required'
   successUrl?: string
   cancelUrl?: string
   extraMetadata?: Record<string, string | undefined>
@@ -59,7 +61,7 @@ export function buildCheckoutSessionParams(
     line_items: lineItems.map(toStripeLineItem),
     success_url: opts.successUrl ?? config.stripe.successUrl,
     cancel_url: opts.cancelUrl ?? config.stripe.cancelUrl,
-    customer_email: opts.customerEmail,
+    ...buildCustomerParams(opts, anyRecurring),
     client_reference_id: opts.quoteId,
     ...buildDiscountParams(opts),
     metadata: compactMetadata({
@@ -68,6 +70,22 @@ export function buildCheckoutSessionParams(
       source: opts.metadataSource ?? 'pricing_calculator',
       ...opts.extraMetadata,
     }),
+  }
+}
+
+function buildCustomerParams(
+  opts: CheckoutSessionParamsOptions,
+  anyRecurring: boolean
+): Pick<Stripe.Checkout.SessionCreateParams, 'customer' | 'customer_email' | 'customer_creation'> {
+  const customerId = opts.customerId?.trim()
+  if (customerId) return { customer: customerId }
+  if (opts.customerCreation && anyRecurring) {
+    throw new CheckoutQuoteError('Customer creation is only supported for one-time checkout')
+  }
+
+  return {
+    customer_email: opts.customerEmail,
+    ...(opts.customerCreation ? { customer_creation: opts.customerCreation } : {}),
   }
 }
 

@@ -766,6 +766,9 @@ model Client {
   source    ClientSource @default(MANUAL)
   tags      String[]     @default([])
 
+  stripeCustomerId       String?   @unique
+  stripeCustomerLinkedAt DateTime?
+
   clientType    ClientType   @default(INDIVIDUAL)
   clientGroupId String?
   clientGroup   ClientGroup? @relation(fields: [clientGroupId], references: [id], onDelete: SetNull)
@@ -1889,6 +1892,7 @@ model StripeCheckoutSession {
   stripeCustomerId      String?
   stripeSubscriptionId  String?
   stripePaymentIntentId String?
+  stripeInvoiceId       String?
   status                String
   lastStripeEventId     String?
   lastStripeEventAt     DateTime?
@@ -1904,6 +1908,26 @@ model StripeCheckoutSession {
   @@index([stripeCustomerId])
   @@index([stripeSubscriptionId])
   @@index([stripePaymentIntentId])
+  @@index([stripeInvoiceId])
+}
+
+model StripeWebhookEventLog {
+  id             String    @id @default(cuid())
+  stripeEventId  String    @unique
+  eventType      String
+  stripeObjectId String?
+  livemode       Boolean
+  status         String
+  attemptCount   Int       @default(1)
+  errorMessage   String?   @db.Text
+  receivedAt     DateTime  @default(now())
+  processedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status, receivedAt])
+  @@index([eventType])
+  @@index([stripeObjectId])
 }
 
 enum PaymentType {
@@ -1940,9 +1964,19 @@ model Payment {
   currency String        @default("usd")
 
   // Public pay-link token (portal/pay/:payToken). Separate lifecycle from agreement signing token.
-  payToken              String  @unique
-  stripeSessionId       String?
-  stripePaymentIntentId String?
+  payToken               String    @unique
+  stripeSessionId        String?
+  stripePaymentIntentId  String?
+  stripeCustomerId       String?
+  stripeInvoiceId        String?
+  stripeChargeId         String?
+  stripeReceiptUrl       String?   @db.Text
+  stripeReceiptNumber    String?
+  stripeHostedInvoiceUrl String?   @db.Text
+  stripeInvoicePdfUrl    String?   @db.Text
+  paymentMethodBrand     String?
+  paymentMethodLast4     String?
+  receiptSyncedAt        DateTime?
 
   paidAt      DateTime?
   description String?
@@ -1954,6 +1988,9 @@ model Payment {
   @@index([leadId])
   @@index([agreementId])
   @@index([organizationId, status])
+  @@index([stripeCustomerId])
+  @@index([stripeInvoiceId])
+  @@index([stripeChargeId])
 }
 
 model SmsSendLog {

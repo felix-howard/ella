@@ -33,6 +33,7 @@ import type { ChatContext } from '../../types/chat-context'
 import { getQuickTemplates } from '../../lib/chat-quick-templates'
 import { ChatTemplateDropdown } from './chat-template-dropdown'
 import { AttachmentPreviewStrip, type ComposerAttachment } from './attachment-preview-strip'
+import { shouldSendMessageWithKeyboard } from './quick-actions-bar-keyboard'
 
 const ACCEPTED_MESSAGE_IMAGE_TYPES = ALLOWED_MESSAGE_IMAGE_TYPES.join(',')
 
@@ -295,8 +296,7 @@ export function QuickActionsBar({
 
   // Handle keyboard shortcuts
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Send on Enter (without Shift)
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (shouldSendMessageWithKeyboard(e)) {
       e.preventDefault()
       handleSend()
     }
@@ -476,6 +476,7 @@ export function QuickActionsBar({
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
+              enterKeyHint="enter"
               placeholder={t('messages.inputPlaceholder')}
               disabled={disabled || isSending}
               rows={1}

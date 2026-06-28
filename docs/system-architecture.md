@@ -65,7 +65,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Schedule C, Schedule E, Draft Return. Overview includes the admin multi-select manager editor and read-only fallback. Tab layout varies by clientType (Phase 15)
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations
-- `/actions` - Action queue with priority filtering
+- `/actions` - Action queue with priority filtering, client/lead reply cards, and lead deep links
 - `/company-vault` - Org-scoped shared credentials list with encrypted username/password/note fields and persisted drag reorder
 - `/pricing-calculator` - Admin-only pricing calculator with quote summary, Stripe payment-link creation, send-to-client quotes, and direct Engagement Letter preparation through existing Agreement APIs
 - `/team` - Team profile access for all active staff; admin-only team management controls (Phase 3)
@@ -270,9 +270,9 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Lead Management (9 - Phase 02 API Endpoints + Tag-Based Categorization Complete):**
 - `POST /leads` - Create lead from registration form (public, rate-limited 5/min). P2002 duplicate phone+org returns success (idempotent). Accepts `tags` string array for flexible categorization.
-- `GET /leads` - List org leads (org-scoped, admin/manager required). Supports pagination (limit 1-100), status filter (NEW|SENT|CONTACTED|CONVERTED|LOST), single tag filter, and full-text search (firstName, lastName, phone, businessName). Returns `latestSms` per lead, plus `selectableTotal` and `bulkSmsMaxRecipients` for bulk-send planning.
+- `GET /leads` - List org leads (org-scoped, admin/manager required). Supports pagination (limit 1-100), status filter (NEW|SENT|CONTACTED|CONVERTED|LOST), single tag filter, and full-text search (firstName, lastName, phone, businessName). Returns `latestSms` per lead, plus `unreadMessageCount`, `totalUnreadMessages`, `selectableTotal`, and `bulkSmsMaxRecipients` for bulk-send planning.
 - `GET /leads/tags` - Get distinct tags (admin/manager required). Returns array of unique tag strings across all org leads, sorted alphabetically. Used for tag filter dropdowns + tag management UI.
-- `GET /leads/:id` - Get lead detail with SMS send history (last 20 SMS logs ordered by sentAt desc). Returns tags array + campaignTag (original source)
+- `GET /leads/:id` - Get lead detail with SMS send history (last 20 SMS logs ordered by sentAt desc). Returns tags array + campaignTag (original source) plus `latestInboundMessage` metadata for safe timeline copy.
 - `PATCH /leads/:id` - Update lead (status, notes, firstName, lastName, email, businessName, phone, tags). Phone is optional, normalized to E.164, and validated before update; duplicate phone conflicts return 409. All text fields + tags sanitized. Tags support add/remove mutations. Activity metadata records changed field names only.
 - `GET /leads/:id/convert-check` - Check for duplicate client by phone (admin/manager required). Returns hasDuplicate + existingClient data
 - `POST /leads/:id/convert` - Convert lead to Client with transaction (create Client + TaxEngagement + TaxCase). Carries over tags to new Client. Optional welcome SMS with magic link. Server enforces phone uniqueness (409 if duplicate)
@@ -280,6 +280,15 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /leads/bulk-sms` - Send bulk SMS to leads with form link personalization. Shared recipient cap comes from `@ella/shared/constants` (`BULK_SMS_MAX_RECIPIENTS = 200`). Supports tag-based filtering + batched concurrency. SMS templates: `{{firstName}}` and `{{formLink}}` replacement. Rejects converted leads before send, returns per-recipient `results` with `sent` / `failed` and structured `errors`, and marks successful new sends as `SENT`.
 - `DELETE /leads/:id` - Delete lead (org-scoped, admin/manager required)
 - Rate limiter on public create (5/min), authMiddleware + requireAdminOrManager on all protected endpoints (except team management). Phone normalized to E.164 format. Tags: flexible string array (1-100 chars each), stored with GIN index for fast containment queries. SMS integration via Twilio with optional staff form routing
+
+**Lead Messages and MMS:**
+- Lead conversations are separate from the client/case inbox. Lead messages use `Message.leadId`; case messages use `Message.conversationId`.
+- `GET /leads/:id/messages` returns lead-scoped chat history with proxy attachment URLs only. It strips `attachmentR2Keys` and repairs legacy R2 keys from known lead attachment URLs when possible.
+- `GET /leads/:id/messages/media/:messageId/:index` proxies lead MMS through org-scoped auth. Anonymous and cross-org requests return not-found/unauthorized instead of signed storage URLs.
+- Inbound Twilio lead MMS stores objects under `lead-message-attachments/{orgId}/{leadId}/{twilioSid}/{index}.{ext}`. Lead MMS never creates `RawImage` rows and never enters document classification.
+- `POST /leads/:id/messages/read` advances lead read state, completes related `LEAD_REPLIED` actions when unread count reaches zero, and publishes `lead.read` realtime events for Workspace cache invalidation.
+- Converted-lead inbound replies reroute to the converted client conversation, preserving attachments through the client message media proxy.
+- Lead web push payloads are generic: title `Ella`, body `New lead reply`, URL `/leads/:leadId`, and no body text, phone number, media key, or signed URL.
 
 **Team & Organization (19 - Phase 3 + Phase 02 Profile API + Phase 04 Navigation + Client Intake):**
 - `GET /org-settings` - Get org profile, org slug, upload-link automation defaults, default upload-link SMS language, and the firm address/governing-law/contact fields used by NDA setup.
@@ -355,7 +364,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /cases/:id/mark-filed` - Canonical filed action. Sets `status=FILED`, `isFiled=true`, clears review state, stamps `filedAt`, and schedules eligible identity document retention.
 - `POST /cases/:id/reopen` - Reopens a filed case, resets status to `IN_PROGRESS`, and clears pending identity retention for not-yet-deleted docs.
 - `POST /cases/:id/identity-retention/extend` - Extends scheduled identity retention by 30, 60, or 90 days without shortening later schedules.
-- Actions for compliance tracking
+
+**Actions (Compliance Queue):**
+- `GET /actions` - Org-scoped queue grouped by priority. Case-owned actions are visible through case access; lead-owned actions are visible only to same-org ADMIN/MANAGER.
+- `GET /actions/:id` - Action detail with case or lead owner serialization.
+- `PATCH /actions/:id` - Assign/complete action. `assignedToId` must reference an active same-org Staff member; completion stamps or clears `completedAt`.
+- Reply actions (`CLIENT_REPLIED`, `LEAD_REPLIED`) deep-link to `/messages/:caseId` and `/leads/:leadId`.
+- Client reply metadata may include a bounded preview; lead reply metadata strips previews and keeps safe message/media facts. Lead reply activity emits `ACTIVITY_ACTIONS.LEAD.MESSAGE_RECEIVED`, and `lead.read` realtime events invalidate lead detail/list/nav/action caches in the workspace.
 
 **Documents & Classification (14+):**
 - `POST /documents/upload` - Upload images
@@ -516,6 +531,7 @@ Organization (root entity)
 - **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token (unique, 12-char base36), caseId/type reference, optional `draftReturnId` FK (SetNull) pointing at current ShareableDocument — FK column name preserved for zero data movement, isActive, expiresAt (14-day TTL for DRAFT_RETURN, null for others), usageCount, lastUsedAt. On version upload the same token is retained and `draftReturnId` is repointed to the new version. Indexes: token (unique), caseId+type, draftReturnId
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
+- **Action** - org-scoped task/reply row with polymorphic owner. Exactly one of `caseId` or `leadId` is populated (DB CHECK). Fields: type (`VERIFY_DOCS`, `AI_FAILED`, `BLURRY_DETECTED`, `READY_FOR_ENTRY`, `REMINDER_DUE`, `CLIENT_REPLIED`, `LEAD_REPLIED`), priority, assignedToId, isCompleted, completedAt, title, description, metadata, scheduledFor. `assignedToId` must point to an active same-org Staff; client reply metadata may include bounded previews, while lead reply metadata strips previews.
 - **Lead** - Marketing lead capture. Fields: id (cuid), firstName, lastName, phone (unique per org + organizationId), email, businessName, status (NEW|SENT|CONTACTED|CONVERTED|LOST), campaignTag (renamed from source; eventSlug or null), tags (String[] for categorization, auto-populated from campaignTag on creation), notes (5KB max), organizationId FK, convertedToId FK (Client, null if not converted), createdAt/updatedAt. Indexes: organizationId+status, organizationId+phone, tags (GIN). Phase 02 Marketing API Complete. Phase 01 Tag-Based Categorization Added.
 - **SmsSendLog** - Audit trail for SMS to leads. Fields: id (cuid), message, status (SENT|DELIVERED|UNDELIVERED|FAILED), twilioSid (optional), error (optional), sentAt timestamp, createdAt/updatedAt. Relations: leadId FK, sentById FK (Staff), organizationId FK. Used by bulk-sms endpoints to track per-message delivery and drive `latestSms` summaries. Phase 02 Marketing API Complete.
 

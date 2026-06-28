@@ -2,7 +2,7 @@
  * Lead Card - Individual lead display with actions
  */
 import { useTranslation } from 'react-i18next'
-import { Phone, Mail, Building2, Calendar, ArrowRight } from 'lucide-react'
+import { Phone, Mail, Building2, Calendar, ArrowRight, MessageCircle } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { cn } from '@ella/ui'
 import { LeadStatusBadge } from './lead-status-badge'
@@ -32,10 +32,13 @@ function formatDate(dateStr: string): string {
 export function LeadCard({ lead, selected, onSelect, onConvert }: LeadCardProps) {
   const { t } = useTranslation()
   const isConverted = lead.status === 'CONVERTED'
+  const unreadCount = lead.unreadMessageCount ?? 0
+  const hasUnreadReplies = unreadCount > 0
 
   return (
     <div className={cn(
       'bg-card rounded-lg border border-border p-4 transition-colors',
+      hasUnreadReplies && 'border-success/40 bg-success/5',
       selected && 'border-primary bg-primary/5'
     )}>
       <div className="flex items-start gap-3">
@@ -50,9 +53,20 @@ export function LeadCard({ lead, selected, onSelect, onConvert }: LeadCardProps)
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-2">
-            <h3 className="font-medium text-foreground truncate">
-              {lead.firstName} {lead.lastName}
-            </h3>
+            <div className="min-w-0">
+              <h3 className="font-medium text-foreground truncate">
+                {lead.firstName} {lead.lastName}
+              </h3>
+              {hasUnreadReplies && (
+                <span
+                  className="mt-1 inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success"
+                  aria-label={t('leads.unreadRepliesAria', { count: unreadCount })}
+                >
+                  <MessageCircle className="h-3 w-3" aria-hidden="true" />
+                  {t('leads.newReplyBadge', { count: unreadCount })}
+                </span>
+              )}
+            </div>
             <LeadStatusBadge status={lead.status} />
           </div>
 

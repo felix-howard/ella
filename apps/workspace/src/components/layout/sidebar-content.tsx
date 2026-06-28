@@ -36,6 +36,7 @@ interface SidebarContentProps {
   navItems: NavItem[]
   currentPath: string
   unreadCount: number
+  leadUnreadCount: number
   userInitials: string
   userName: string
   organizationName?: string
@@ -56,6 +57,7 @@ export function SidebarContent({
   navItems,
   currentPath,
   unreadCount,
+  leadUnreadCount,
   userInitials,
   userName,
   organizationName,
@@ -98,7 +100,10 @@ export function SidebarContent({
           const isActive = item.path === '/' ? currentPath === '/' : currentPath.startsWith(item.path)
           const Icon = item.icon
           const isMessages = item.path === '/messages'
-          const showBadge = isMessages && unreadCount > 0
+          const isLeads = item.path === '/leads'
+          const badgeCount = isMessages ? unreadCount : isLeads ? leadUnreadCount : 0
+          const badgeLabel = isLeads ? 'sidebar.unreadLeadReplies' : 'sidebar.unreadMessages'
+          const showBadge = badgeCount > 0
 
           return (
             <Link
@@ -117,11 +122,13 @@ export function SidebarContent({
                 <span
                   className={cn(
                     'bg-destructive text-white text-xs font-medium rounded-full min-w-[18px] h-[18px] flex items-center justify-center',
+                    isLeads && 'bg-success',
                     isCollapsedDesktop ? 'absolute top-0.5 right-0.5 px-1' : 'ml-auto px-1.5'
                   )}
-                  aria-label={t('sidebar.unreadMessages', { count: unreadCount })}
+                  aria-label={t(badgeLabel, { count: badgeCount })}
+                  title={t(badgeLabel, { count: badgeCount })}
                 >
-                  {unreadCount > BADGE_MAX_COUNT ? `${BADGE_MAX_COUNT}+` : unreadCount}
+                  {badgeCount > BADGE_MAX_COUNT ? `${BADGE_MAX_COUNT}+` : badgeCount}
                 </span>
               )}
             </Link>

@@ -241,7 +241,7 @@ export async function processMmsMedia(
  *
  * Uses Basic Auth with Twilio Account SID and Auth Token for secure access
  */
-async function downloadFromTwilioUrl(url: string, timeout: number): Promise<Buffer | null> {
+export async function downloadFromTwilioUrl(url: string, timeout: number): Promise<Buffer | null> {
   // Tenant/credential safety: never fetch (or attach Twilio credentials to) a URL
   // that isn't a Twilio host. Blocks SSRF + Account SID/Auth Token exfiltration via
   // a forged MediaUrl in an inbound webhook (ELLA-SEC-004).
@@ -303,7 +303,7 @@ async function downloadFromTwilioUrl(url: string, timeout: number): Promise<Buff
 /**
  * Get file extension from MIME type
  */
-function getExtensionFromMimeType(mimeType: string): string {
+export function getExtensionFromMimeType(mimeType: string): string {
   const mimeMap: Record<string, string> = {
     'image/jpeg': 'jpg',
     'image/jpg': 'jpg',

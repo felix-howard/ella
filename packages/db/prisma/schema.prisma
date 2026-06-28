@@ -316,6 +316,7 @@ enum ActionType {
   READY_FOR_ENTRY
   REMINDER_DUE
   CLIENT_REPLIED
+  LEAD_REPLIED
 }
 
 enum ActionPriority {
@@ -1335,9 +1336,11 @@ model MagicLink {
 }
 
 model Action {
-  id      String  @id @default(cuid())
-  caseId  String
-  taxCase TaxCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  id      String   @id @default(cuid())
+  caseId  String?
+  taxCase TaxCase? @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  leadId  String?
+  lead    Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   type     ActionType
   priority ActionPriority @default(NORMAL)
@@ -1358,6 +1361,8 @@ model Action {
   updatedAt DateTime @updatedAt
 
   @@index([caseId])
+  @@index([leadId])
+  @@index([leadId, type, isCompleted])
   @@index([type])
   @@index([priority])
   @@index([isCompleted])
@@ -1801,6 +1806,7 @@ model Lead {
   smsSendLogs   SmsSendLog[]
   agreements    Agreement[]
   messages      Message[]
+  actions       Action[]
   paymentQuotes PaymentQuote[]
   payments      Payment[]
 

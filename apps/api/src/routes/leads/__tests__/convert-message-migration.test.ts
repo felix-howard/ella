@@ -12,8 +12,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const {
   updateManyMock,
+  messageFindFirstMock,
+  messageCountMock,
   messageCreateMock,
+  conversationCreateMock,
   agreementUpdateManyMock,
+  actionUpdateManyMock,
   clientCreateMock,
   clientFindFirstMock,
   clientUpdateManyMock,
@@ -22,8 +26,12 @@ const {
   staffFindManyMock,
 } = vi.hoisted(() => ({
   updateManyMock: vi.fn(),
+  messageFindFirstMock: vi.fn(),
+  messageCountMock: vi.fn(),
   messageCreateMock: vi.fn(),
+  conversationCreateMock: vi.fn(),
   agreementUpdateManyMock: vi.fn(),
+  actionUpdateManyMock: vi.fn(),
   clientCreateMock: vi.fn(),
   clientFindFirstMock: vi.fn(),
   clientUpdateManyMock: vi.fn(),
@@ -53,9 +61,11 @@ vi.mock('../../../lib/db', () => {
       create: vi.fn().mockResolvedValue({ id: 'case_1' }),
     },
     conversation: {
-      create: vi.fn().mockResolvedValue({ id: 'conv_1' }),
+      create: conversationCreateMock,
     },
     message: {
+      findFirst: messageFindFirstMock,
+      count: messageCountMock,
       updateMany: updateManyMock,
       // Exposed to assert it is NOT called — preserves "zero duplicates"
       // invariant: conversion must REASSIGN messages, never copy.
@@ -64,6 +74,10 @@ vi.mock('../../../lib/db', () => {
     agreement: {
       updateMany: agreementUpdateManyMock,
     },
+    action: {
+      updateMany: actionUpdateManyMock,
+    },
+    $executeRaw: vi.fn(),
     lead: {
       update: vi.fn().mockResolvedValue({ id: 'lead_1' }),
     },
@@ -168,8 +182,16 @@ function mockLead(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   updateManyMock.mockReset()
   updateManyMock.mockResolvedValue({ count: 3 })
+  messageFindFirstMock.mockReset()
+  messageFindFirstMock.mockResolvedValue({ createdAt: new Date('2026-04-24T10:00:00Z') })
+  messageCountMock.mockReset()
+  messageCountMock.mockResolvedValue(2)
+  conversationCreateMock.mockReset()
+  conversationCreateMock.mockResolvedValue({ id: 'conv_1' })
   agreementUpdateManyMock.mockReset()
   agreementUpdateManyMock.mockResolvedValue({ count: 0 })
+  actionUpdateManyMock.mockReset()
+  actionUpdateManyMock.mockResolvedValue({ count: 1 })
   messageCreateMock.mockReset()
   clientCreateMock.mockReset()
   clientCreateMock.mockResolvedValue({
@@ -212,6 +234,24 @@ describe('POST /leads/:id/convert — message history migration', () => {
     expect(updateManyMock).toHaveBeenCalledWith({
       where: { leadId: VALID_LEAD_CUID },
       data: { conversationId: 'conv_1', leadId: null },
+    })
+    expect(conversationCreateMock).toHaveBeenCalledWith({
+      data: {
+        caseId: 'case_1',
+        lastMessageAt: new Date('2026-04-24T10:00:00Z'),
+        unreadCount: 2,
+      },
+    })
+    expect(actionUpdateManyMock).toHaveBeenCalledWith({
+      where: {
+        leadId: VALID_LEAD_CUID,
+        type: 'LEAD_REPLIED',
+        isCompleted: false,
+      },
+      data: {
+        isCompleted: true,
+        completedAt: expect.any(Date),
+      },
     })
 
     // Zero-duplicates invariant: conversion must NEVER also create new Message rows

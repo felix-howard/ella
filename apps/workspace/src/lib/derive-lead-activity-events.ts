@@ -13,6 +13,7 @@ export type TimelineEventType =
   | 'converted'
   | 'status'
   | 'sms'
+  | 'lead-reply'
 
 export type TimelineEventColor = 'mint' | 'coral' | 'blue' | 'gray'
 
@@ -101,6 +102,20 @@ export function deriveLeadActivityEvents(
       subtitle: isFailure ? latestSms.error ?? undefined : undefined,
       timestamp: latestSms.sentAt,
       color: isFailure ? 'coral' : latestSms.status === 'DELIVERED' ? 'mint' : 'gray',
+    })
+  }
+
+  if (lead.latestInboundMessage) {
+    const hasText = lead.latestInboundMessage.content.trim().length > 0
+    const hasAttachment = lead.latestInboundMessage.attachmentCount > 0
+    events.push({
+      id: `lead-reply-${lead.latestInboundMessage.id}`,
+      type: 'lead-reply',
+      titleKey: hasAttachment && !hasText
+        ? 'leads.activity.leadSentImage'
+        : 'leads.activity.leadReplied',
+      timestamp: lead.latestInboundMessage.createdAt,
+      color: 'mint',
     })
   }
 

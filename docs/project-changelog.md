@@ -1,9 +1,63 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-27 ICT
+> **Last Updated:** 2026-06-28 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### Lead Reply MMS and Visibility Final Validation
+**Status:** Complete with rollout QA pending
+
+**Changed:**
+- Completed final documentation sync for lead-owned messages, `LEAD_REPLIED` actions, lead MMS storage/proxy behavior, generic lead web push, and rollout/rollback expectations.
+- Kept lead conversations out of `/messages`; lead reply visibility remains in Leads nav/list/detail, Actions, lead activity, and generic push.
+- Fixed stale `bulk-sms.test.ts` Prisma mocks after `GET /leads` started using `$queryRaw`, and added the new `messages: []` fixture shape required by lead detail responses.
+
+**Validation:**
+- `pnpm -F @ella/db generate` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test` pass, 3182/3182 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test` pass
+- `pnpm lint` pass with existing `react-refresh/only-export-components` warnings
+- `pnpm build` pass with existing route-export and large-chunk warnings
+- Manual Twilio/R2/Web Push device QA not run in this session; keep the rollout checklist before production enablement.
+
+**Rollout Notes:**
+- Deploy DB migration `20260628031735_add_lead_reply_actions` before app code that creates `LEAD_REPLIED`.
+- API needs existing Twilio, R2, and Web Push VAPID env vars configured for full lead text/MMS/push behavior.
+- Safe rollback: leave migration in place, disable lead push fanout if push delivery misbehaves, and keep text/action persistence even if lead MMS storage is temporarily unavailable.
+
+### Lead Reply Visibility Phase 3
+**Status:** Complete
+
+**Changed:**
+- Surfaced lead replies in Workspace Leads nav/list/detail/action queue; `/messages` stays client-case only.
+- Extended `GET /leads` with per-lead `unreadMessageCount` and workspace `totalUnreadMessages` for list/detail badges.
+- Added `latestInboundMessage` metadata to lead detail responses for safe timeline copy without exposing raw bodies.
+- Published `lead.read` realtime events and invalidated lead detail/list/nav/action caches after lead reads.
+- Kept `LEAD_REPLIED` action previews stripped at the API boundary while preserving client reply previews, and continued serving lead MMS through the authenticated proxy URLs from the prior phase.
+
+**Validation:**
+- API/workspace type-checks passed
+- targeted API/workspace tests passed
+- i18n parity passed
+- git diff --check passed
+
+### Lead Reply Action Contracts
+**Status:** Complete
+
+**Changed:**
+- Added `ActionType.LEAD_REPLIED` and polymorphic Action ownership so exactly one of `caseId` or `leadId` is set, enforced by the DB XOR check.
+- Restricted lead-owned actions to same-org ADMIN and MANAGER users; case-owned actions keep existing client-scoped access.
+- Validated `assignedToId` against active same-org Staff on `PATCH /actions/:id`, preserved bounded client reply previews, and stripped lead reply previews from serialized/action metadata.
+- Updated Workspace action cards to deep-link `LEAD_REPLIED` items to `/leads/:leadId` and render generic reply styling for lead/client replies.
+- Added `ACTIVITY_ACTIONS.LEAD.MESSAGE_RECEIVED` for inbound lead reply tracking and generic lead-reply web-push payloads with no PII.
+
+**Validation:**
+- db/api/workspace type-checks passed
+- targeted web-push tests passed 12/12
+- migration applied; rollback-only synthetic lead-owned `LEAD_REPLIED` action probe succeeded
 
 ### Calculator Engagement Letter Send Button Fix
 **Status:** Complete

@@ -8,11 +8,13 @@ const dbMocks = vi.hoisted(() => {
     taxEngagement: { create: vi.fn() },
     taxCase: { create: vi.fn() },
     conversation: { create: vi.fn() },
-    message: { updateMany: vi.fn() },
+    message: { findFirst: vi.fn(), count: vi.fn(), updateMany: vi.fn() },
     agreement: { updateMany: vi.fn() },
+    action: { updateMany: vi.fn() },
     lead: { update: vi.fn() },
     paymentQuote: { updateMany: vi.fn() },
     payment: { create: vi.fn() },
+    $executeRaw: vi.fn(),
   }
   return {
     tx,
@@ -76,6 +78,7 @@ function quoteRow(overrides: Partial<SendableQuote> = {}): SendableQuote {
       notes: null,
       status: 'NEW',
       convertedToId: null,
+      messagesLastReadAt: null,
     },
     ...overrides,
   } as SendableQuote
@@ -106,8 +109,11 @@ describe('fulfillFirstQuotePayment', () => {
     dbMocks.tx.taxEngagement.create.mockResolvedValue({ id: 'eng_1' })
     dbMocks.tx.taxCase.create.mockResolvedValue({ id: 'case_1' })
     dbMocks.tx.conversation.create.mockResolvedValue({ id: 'conv_1' })
+    dbMocks.tx.message.findFirst.mockResolvedValue({ createdAt: new Date('2026-06-07T12:00:00Z') })
+    dbMocks.tx.message.count.mockResolvedValue(0)
     dbMocks.tx.message.updateMany.mockResolvedValue({ count: 0 })
     dbMocks.tx.agreement.updateMany.mockResolvedValue({ count: 1 })
+    dbMocks.tx.action.updateMany.mockResolvedValue({ count: 1 })
     dbMocks.tx.lead.update.mockResolvedValue({})
     dbMocks.tx.paymentQuote.updateMany.mockResolvedValue({ count: 1 })
     dbMocks.tx.payment.create.mockResolvedValue({})

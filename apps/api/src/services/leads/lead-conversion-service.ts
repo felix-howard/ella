@@ -10,6 +10,7 @@
  * route-specific concerns the webhook deliberately skips).
  */
 import type { ClientSource, Language, Prisma } from '@ella/db'
+import { acquireLeadReplyActionLock } from '../sms/lead-reply-action-service'
 
 /** Lead fields the conversion needs; both callers already have a full Lead row. */
 export interface LeadConversionSource {
@@ -17,6 +18,7 @@ export interface LeadConversionSource {
   phone: string
   tags: string[]
   notes: string | null
+  messagesLastReadAt?: Date | null
 }
 
 export interface ConvertLeadToClientParams {
@@ -67,6 +69,8 @@ export async function convertLeadToClientCore(
   })
   if (existingClient) return { duplicate: true, existingClient }
 
+  await acquireLeadReplyActionLock(tx, lead.id)
+
   const client = await tx.client.create({
     data: {
       firstName: params.firstName,
@@ -98,9 +102,30 @@ export async function convertLeadToClientCore(
     },
   })
 
+  const [latestLeadMessage, unreadLeadMessageCount] = await Promise.all([
+    tx.message.findFirst({
+      where: { leadId: lead.id },
+      select: { createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    }),
+    tx.message.count({
+      where: {
+        leadId: lead.id,
+        direction: 'INBOUND',
+        ...(lead.messagesLastReadAt
+          ? { createdAt: { gt: lead.messagesLastReadAt } }
+          : {}),
+      },
+    }),
+  ])
+
   // Always create a conversation to host the reassigned lead messages.
   const conversation = await tx.conversation.create({
-    data: { caseId: taxCase.id, lastMessageAt: new Date() },
+    data: {
+      caseId: taxCase.id,
+      lastMessageAt: latestLeadMessage?.createdAt ?? new Date(),
+      unreadCount: unreadLeadMessageCount,
+    },
   })
 
   // Reassign pre-conversion lead messages via UPDATE (not copy) so Message IDs
@@ -108,6 +133,18 @@ export async function convertLeadToClientCore(
   const migrated = await tx.message.updateMany({
     where: { leadId: lead.id },
     data: { conversationId: conversation.id, leadId: null },
+  })
+
+  await tx.action.updateMany({
+    where: {
+      leadId: lead.id,
+      type: 'LEAD_REPLIED',
+      isCompleted: false,
+    },
+    data: {
+      isCompleted: true,
+      completedAt: new Date(),
+    },
   })
 
   // Link all of the lead's agreements to the new client (org filter is

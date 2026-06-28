@@ -109,6 +109,15 @@ export function Sidebar() {
   })
   const unreadCount = unreadData || 0
 
+  const { data: leadUnreadData } = useQuery({
+    queryKey: ['lead-unread-summary'],
+    queryFn: () => api.leads.unreadSummary(),
+    enabled: canManageClients,
+    refetchInterval: 60000,
+    staleTime: 10000,
+  })
+  const leadUnreadCount = leadUnreadData?.totalUnread || 0
+
   const showLabels = isMobile || !sidebarCollapsed
   const isCollapsedDesktop = !isMobile && sidebarCollapsed
 
@@ -119,6 +128,7 @@ export function Sidebar() {
     navItems,
     currentPath,
     unreadCount,
+    leadUnreadCount,
     userInitials,
     userName,
     organizationName: organization?.name,

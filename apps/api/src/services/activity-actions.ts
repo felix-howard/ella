@@ -109,6 +109,7 @@ export const ACTIVITY_ACTIONS = {
     UPDATED: 'lead.updated',
     CONVERTED: 'lead.converted',
     DELETED: 'lead.deleted',
+    MESSAGE_RECEIVED: 'lead.message_received',
     MESSAGE_SENT: 'lead.message_sent',
     MESSAGE_READ: 'lead.message_read',
   },

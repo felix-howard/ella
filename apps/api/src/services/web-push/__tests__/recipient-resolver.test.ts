@@ -6,6 +6,9 @@ const mocks = vi.hoisted(() => ({
     conversation: {
       findUnique: vi.fn(),
     },
+    lead: {
+      findUnique: vi.fn(),
+    },
     staff: {
       findMany: vi.fn(),
     },
@@ -17,7 +20,10 @@ vi.mock('../../../lib/db', () => ({
 }))
 
 import { prisma } from '../../../lib/db'
-import { resolveClientMessagePushRecipients } from '../recipient-resolver'
+import {
+  resolveClientMessagePushRecipients,
+  resolveLeadMessagePushRecipients,
+} from '../recipient-resolver'
 
 describe('resolveClientMessagePushRecipients', () => {
   beforeEach(() => {
@@ -87,6 +93,47 @@ describe('resolveClientMessagePushRecipients', () => {
     vi.mocked(prisma.conversation.findUnique).mockResolvedValueOnce(null)
 
     await expect(resolveClientMessagePushRecipients('missing_conv')).resolves.toBeNull()
+    expect(prisma.staff.findMany).not.toHaveBeenCalled()
+  })
+})
+
+describe('resolveLeadMessagePushRecipients', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('loads active admin and manager staff with enabled push subscriptions', async () => {
+    vi.mocked(prisma.lead.findUnique).mockResolvedValueOnce({
+      id: 'lead_1',
+      organizationId: 'org_1',
+    } as never)
+    vi.mocked(prisma.staff.findMany).mockResolvedValueOnce([
+      { id: 'admin_1' },
+      { id: 'manager_1' },
+    ] as never)
+
+    const result = await resolveLeadMessagePushRecipients('lead_1')
+
+    expect(result).toEqual({
+      leadId: 'lead_1',
+      organizationId: 'org_1',
+      staffIds: ['admin_1', 'manager_1'],
+    })
+    expect(prisma.staff.findMany).toHaveBeenCalledWith({
+      where: {
+        organizationId: 'org_1',
+        isActive: true,
+        role: { in: [StaffRole.ADMIN, StaffRole.MANAGER] },
+        webPushSubscriptions: { some: { enabled: true } },
+      },
+      select: { id: true },
+    })
+  })
+
+  it('returns null when the lead does not exist', async () => {
+    vi.mocked(prisma.lead.findUnique).mockResolvedValueOnce(null)
+
+    await expect(resolveLeadMessagePushRecipients('missing_lead')).resolves.toBeNull()
     expect(prisma.staff.findMany).not.toHaveBeenCalled()
   })
 })

@@ -82,6 +82,18 @@ app.use(requireOrg) // Verify orgId in JWT token
 app.use(requireOrgAdmin) // Verify org:admin role (Clerk)
 ```
 
+**Polymorphic Message and Action Ownership:**
+- `Message` owners are mutually exclusive: use `conversationId` for client/case inbox messages and `leadId` for lead workflow messages. Do not mirror a lead conversation into `/messages`.
+- `Action` owners are mutually exclusive: exactly one of `caseId` or `leadId` must be populated. The DB `action_owner_xor` check is the source of truth; route and service code should preserve that invariant before writes.
+- Case-owned actions follow client/case access. Lead-owned actions are visible only to same-org ADMIN/MANAGER users and deep-link to `/leads/:leadId`.
+- `CLIENT_REPLIED` may keep a bounded, redacted preview for the client inbox UX. `LEAD_REPLIED` must not persist or serialize lead message body previews.
+
+**Message Media Proxy Safety:**
+- Store durable R2 keys internally (`attachmentR2Keys`) but never serialize them to Workspace/Portal clients.
+- Case message attachments use the case message media proxy. Lead message attachments use the lead media proxy (`/leads/:id/messages/media/:messageId/:index`).
+- Lead MMS R2 keys must stay under `lead-message-attachments/{orgId}/{leadId}/{twilioSid}/{index}.{ext}` and may be logged only through storage redaction helpers.
+- Inbound lead MMS is communication history only. Do not create `RawImage`, OCR, or classification work for lead message attachments.
+
 ## Authentication (Clerk JWT)
 
 **Token Parsing (Read-Only):**

@@ -1,5 +1,6 @@
 export {
   buildClientMessagePushPayload,
+  buildLeadMessagePushPayload,
   buildTestPushPayload,
   type SafePushPayload,
 } from './push-payloads'
@@ -7,8 +8,13 @@ export {
   notifyClientMessagePushFromConversation,
 } from './client-message-push'
 export {
+  notifyLeadMessagePushFromLead,
+} from './lead-message-push'
+export {
   resolveClientMessagePushRecipients,
+  resolveLeadMessagePushRecipients,
   type ClientMessagePushRecipients,
+  type LeadMessagePushRecipients,
 } from './recipient-resolver'
 export {
   sendWebPushToStaff,

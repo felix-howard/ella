@@ -3,7 +3,7 @@
  */
 import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Mail } from 'lucide-react'
+import { Mail, MessageCircle } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { formatPhone, getInitials, getAvatarColor, formatSmartRelativeTime } from '../../lib/formatters'
 import { LeadStatusBadge } from './lead-status-badge'
@@ -22,8 +22,10 @@ interface LeadListRowProps {
 export const LeadListRow = memo(function LeadListRow({
   lead, selected, onSelect, onRowClick, selectionDisabled = false, isLast,
 }: LeadListRowProps) {
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const isConverted = lead.status === 'CONVERTED'
+  const unreadCount = lead.unreadMessageCount ?? 0
+  const hasUnreadReplies = unreadCount > 0
   const avatarColor = useMemo(
     () => getAvatarColor(`${lead.firstName} ${lead.lastName}`),
     [lead.firstName, lead.lastName],
@@ -48,6 +50,7 @@ export const LeadListRow = memo(function LeadListRow({
         'hover:bg-muted/40 hover:shadow-sm',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-inset',
         !isLast && 'border-b border-border/50',
+        hasUnreadReplies && 'bg-success/5',
         selected && 'bg-primary/5',
       )}
     >
@@ -86,7 +89,19 @@ export const LeadListRow = memo(function LeadListRow({
             </span>
           </div>
           <div className="min-w-0">
-            <p className="font-medium text-foreground truncate">{lead.firstName} {lead.lastName}</p>
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="font-medium text-foreground truncate">{lead.firstName} {lead.lastName}</p>
+              {hasUnreadReplies && (
+                <span
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success"
+                  aria-label={t('leads.unreadRepliesAria', { count: unreadCount })}
+                  title={t('leads.unreadRepliesAria', { count: unreadCount })}
+                >
+                  <MessageCircle className="h-3 w-3" aria-hidden="true" />
+                  {t('leads.newReplyBadge', { count: unreadCount })}
+                </span>
+              )}
+            </div>
             {lead.email && (
               <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
                 <Mail className="w-3 h-3 flex-shrink-0" aria-hidden="true" />

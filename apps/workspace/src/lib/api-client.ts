@@ -2057,13 +2057,12 @@ export const api = {
   // Leads management (admin-only)
   leads: {
     list: (params?: { page?: number; limit?: number; status?: string; search?: string; tag?: string; includeConverted?: boolean }) =>
-      request<{
-        success: boolean
-        data: Lead[]
-        pagination: { page: number; limit: number; total: number; totalPages: number }
-        selectableTotal: number
-        bulkSmsMaxRecipients: number
-      }>('/leads', { params }),
+      request<LeadListResponse>('/leads', { params }),
+
+    unreadSummary: async () => {
+      const response = await request<LeadListResponse>('/leads', { params: { page: 1, limit: 1 } })
+      return { totalUnread: response.totalUnreadMessages ?? 0 }
+    },
 
     create: (data: { firstName: string; lastName: string; phone: string; email?: string | null; notes?: string | null }) =>
       request<{ success: boolean; data: Lead }>('/leads/admin', { method: 'POST', body: JSON.stringify(data) }),
@@ -2357,6 +2356,22 @@ export interface Lead {
   updatedAt: string
   smsSendLogs?: SmsSendLog[]
   latestSms?: LatestLeadSms | null
+  unreadMessageCount?: number
+  latestInboundMessage?: {
+    id: string
+    content: string
+    attachmentCount: number
+    createdAt: string
+  } | null
+}
+
+export interface LeadListResponse {
+  success: boolean
+  data: Lead[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
+  selectableTotal: number
+  bulkSmsMaxRecipients: number
+  totalUnreadMessages: number
 }
 
 export interface BulkSmsTargetPreview {
@@ -2569,6 +2584,7 @@ export type ActionType =
   | 'READY_FOR_ENTRY'
   | 'REMINDER_DUE'
   | 'CLIENT_REPLIED'
+  | 'LEAD_REPLIED'
 
 export type ActionPriority = 'URGENT' | 'HIGH' | 'NORMAL' | 'LOW'
 
@@ -3238,7 +3254,8 @@ export interface SignedUrlResponse {
 // Action types
 export interface Action {
   id: string
-  caseId: string
+  caseId: string | null
+  leadId?: string | null
   type: ActionType
   priority: ActionPriority
   title: string
@@ -3246,11 +3263,18 @@ export interface Action {
   isCompleted: boolean
   assignedToId: string | null
   createdAt: string
-  metadata?: Record<string, unknown> // JSON field for action-specific data
+  metadata?: Record<string, unknown> | null // JSON field for action-specific data
   taxCase?: {
     id: string
     client: { id: string; name: string }
-  }
+  } | null
+  lead?: {
+    id: string
+    firstName: string
+    lastName: string
+    businessName: string | null
+    status: LeadStatus
+  } | null
 }
 
 // Actions grouped by priority (API response)

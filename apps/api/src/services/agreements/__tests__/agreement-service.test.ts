@@ -4,6 +4,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type * as ConfigModule from '../../../lib/config'
 
 vi.mock('../../../lib/db', () => {
   const prisma: any = {
@@ -28,6 +29,19 @@ vi.mock('../../storage', () => ({
   copyR2Object: vi.fn().mockResolvedValue({ key: 'copied' }),
   deleteFile: vi.fn().mockResolvedValue(true),
 }))
+
+vi.mock('../../../lib/config', async () => {
+  const actual = await vi.importActual<typeof ConfigModule>('../../../lib/config')
+  return {
+    config: {
+      ...actual.config,
+      twilio: {
+        ...actual.config.twilio,
+        phoneNumber: '+15550001111',
+      },
+    },
+  }
+})
 
 // Wrap the shared mock in vi.hoisted so it's available when vi.mock runs.
 const { sharedSendInviteMock } = vi.hoisted(() => ({
@@ -790,7 +804,11 @@ describe('NDA service', () => {
         return null
       }) as any)
       mockStaffFindUnique.mockResolvedValue(staffWithSignature({ id: 'staff-creator' }) as any)
-      mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
+      mockLeadFindFirst.mockResolvedValueOnce(
+        leadWithOrg({
+          organization: { ...ORG_V2_FIELDS, firmPhone: null },
+        }) as any,
+      )
       mockNdaUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
 
       const result = await sendAgreementDraftForEntity({

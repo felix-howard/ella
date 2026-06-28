@@ -5,6 +5,20 @@
 
 ---
 
+### Engagement Letter Firm Contact Twilio Fallback
+**Status:** Complete
+
+**Fixed:**
+- Treated configured Twilio inbound number as the effective firm phone when `Organization.firmPhone` is empty.
+- Fixed engagement-letter readiness so `Firm contact` no longer blocks send when the settings card shows the locked Twilio inbound number plus firm email.
+- Applied same fallback to direct send, draft send, default HTML/preview rendering, public view, and signed PDF contact lines.
+- Added regression coverage for readiness, direct engagement-letter send, and draft send with DB `firmPhone: null`.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/staff/__tests__/nda-readiness.test.ts src/services/agreements/__tests__/agreement-types.test.ts src/services/agreements/__tests__/agreement-service.test.ts` pass, 66 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass with 1 pre-existing `react-refresh/only-export-components` warning in `pdf-signature-page.tsx`
+
 ### Lead Reply MMS and Visibility Final Validation
 **Status:** Complete with rollout QA pending
 

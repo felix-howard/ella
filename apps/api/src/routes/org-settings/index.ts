@@ -11,6 +11,7 @@ import { sanitizeTextInput } from '../../lib/validation'
 import { isOrgAdmin } from '../../lib/org-scope'
 import { clerkClient } from '../../lib/clerk-client'
 import { config } from '../../lib/config'
+import { getEffectiveFirmPhone } from '../../lib/firm-contact'
 import { formatPhoneToE164, isValidPhoneNumber } from '../../services/sms'
 import { UPLOAD_LINK_TEMPLATE_IDS } from '../../services/sms/upload-link-template-resolver'
 import type { AuthVariables } from '../../middleware/auth'
@@ -19,10 +20,6 @@ import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '..
 
 const orgSettingsRoute = new Hono<{ Variables: AuthVariables }>()
 type RegistrationHeaderMode = 'DEFAULT' | 'CUSTOM' | 'HIDDEN'
-
-function getTwilioInboundNumber(fallbackPhone: string | null) {
-  return config.twilio.phoneNumber || fallbackPhone
-}
 
 async function getDeniedRequestChangedFields(request: Request) {
   try {
@@ -121,7 +118,7 @@ orgSettingsRoute.get('/', async (c) => {
     governingState: org.governingState,
     governingCounty: org.governingCounty,
     firmPhone: org.firmPhone,
-    twilioInboundNumber: getTwilioInboundNumber(org.firmPhone),
+    twilioInboundNumber: getEffectiveFirmPhone(org.firmPhone),
     firmEmail: org.firmEmail,
     firmWebsite: org.firmWebsite,
   })
@@ -400,7 +397,7 @@ orgSettingsRoute.patch(
       governingState: updated.governingState,
       governingCounty: updated.governingCounty,
       firmPhone: updated.firmPhone,
-      twilioInboundNumber: getTwilioInboundNumber(updated.firmPhone),
+      twilioInboundNumber: getEffectiveFirmPhone(updated.firmPhone),
       firmEmail: updated.firmEmail,
       firmWebsite: updated.firmWebsite,
     })

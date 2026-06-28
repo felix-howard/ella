@@ -1,6 +1,7 @@
 import type { AgreementSource, AgreementType, Prisma } from '@ella/db'
 import { HTTPException } from 'hono/http-exception'
 import { prisma } from '../../lib/db'
+import { hasRequiredFirmContact } from '../../lib/firm-contact'
 import { generateAgreementToken, expiryDate, clampExpiryDays } from './token-service'
 import {
   sendAgreementInviteSmsBestEffort,
@@ -338,9 +339,7 @@ export async function sendAgreementDraftForEntity(input: SendAgreementDraftInput
           ),
         orgContactOk:
           isUploadedPdf ||
-          Boolean(
-            v2Entity?.organization.firmPhone?.trim() && v2Entity.organization.firmEmail?.trim(),
-          ),
+          Boolean(v2Entity && hasRequiredFirmContact(v2Entity.organization)),
       })
     : null
 

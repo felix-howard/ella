@@ -23,6 +23,7 @@ import { generateSignaturePagePdf } from './pdf-signature-page'
 import { appendPagesToPdf } from './pdf-merge'
 import { getTemplate } from '../../lib/agreements/template-registry'
 import type { TemplateSection } from '../../lib/agreements/types'
+import { getEffectiveFirmPhone } from '../../lib/firm-contact'
 import {
   composeAddressLine,
   composeContactLine,
@@ -270,7 +271,7 @@ export async function toPublicView(agreement: LoadedAgreement): Promise<PublicAg
       ? await getSignedDownloadUrl(agreement.firmSignaturePngKey, VIEW_PRESIGN_TTL_SECONDS)
       : null
     const firmContact = composeContactLine({
-      phone: agreement.organization.firmPhone,
+      phone: getEffectiveFirmPhone(agreement.organization.firmPhone),
       email: agreement.organization.firmEmail,
       website: agreement.organization.firmWebsite,
     })
@@ -465,7 +466,7 @@ export async function signAgreement(input: SignAgreementInput) {
       zip: agreement.organization.zip,
     })
     const firmContactLine = composeContactLine({
-      phone: agreement.organization.firmPhone,
+      phone: getEffectiveFirmPhone(agreement.organization.firmPhone),
       email: agreement.organization.firmEmail,
       website: agreement.organization.firmWebsite,
     })

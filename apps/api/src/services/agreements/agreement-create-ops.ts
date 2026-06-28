@@ -21,6 +21,7 @@ import { sanitizeAgreementHtml } from '../../lib/agreements/sanitize-html'
 import { findAgreementPlaceholders } from '../../lib/agreements/placeholders'
 import { renderDefaultAgreementHtml } from '../../lib/agreements/render-default-html'
 import { currentTemplate, defaultTemplateForType } from '../../lib/agreements/template-registry'
+import { getEffectiveFirmPhone, hasRequiredFirmContact } from '../../lib/firm-contact'
 import { generateAgreementToken, expiryDate, clampExpiryDays } from './token-service'
 import {
   sendAgreementInviteSmsBestEffort,
@@ -160,7 +161,7 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
         Boolean(v2.organization.governingState?.trim() && v2.organization.governingCounty?.trim()),
       orgContactOk:
         isUploadedPdf ||
-        Boolean(v2.organization.firmPhone?.trim() && v2.organization.firmEmail?.trim()),
+        hasRequiredFirmContact(v2.organization),
     })
   }
 
@@ -281,7 +282,7 @@ export async function getDefaultHtmlForEntity(input: {
       governingState: entity.organization.governingState,
       governingCounty: entity.organization.governingCounty,
       firmAddress,
-      firmPhone: entity.organization.firmPhone,
+      firmPhone: getEffectiveFirmPhone(entity.organization.firmPhone),
       firmEmail: entity.organization.firmEmail,
       firmWebsite: entity.organization.firmWebsite,
     },
@@ -348,7 +349,7 @@ export async function renderPreviewPdf(input: {
     leadBusinessName: v2Entity.leadBusinessName,
   })
   const firmContact = composeContactLine({
-    phone: v2Entity.organization.firmPhone,
+    phone: getEffectiveFirmPhone(v2Entity.organization.firmPhone),
     email: v2Entity.organization.firmEmail,
     website: v2Entity.organization.firmWebsite,
   })

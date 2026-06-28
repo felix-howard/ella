@@ -949,6 +949,11 @@ export const api = {
         request<{ success: boolean; data: ClientPayment[]; pastDue?: boolean }>(
           `/clients/${clientId}/payments`,
         ),
+      reconcileReceipt: (clientId: string, paymentId: string) =>
+        request<{ success: boolean; refreshed: boolean; data: ClientPayment }>(
+          `/clients/${clientId}/payments/${paymentId}/reconcile`,
+          { method: 'POST', retries: 0 },
+        ),
     },
 
   },

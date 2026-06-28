@@ -5,6 +5,21 @@
 
 ---
 
+### Client Payment Receipt Refresh Action
+**Status:** Complete
+
+**Fixed:**
+- Replaced the dead-end paid payment `Receipt pending` chip with a `Refresh receipt` action in the client Payments tab.
+- Wired the action to the existing admin-only Stripe receipt reconcile endpoint and updates the row cache when receipt/invoice URLs become available.
+- Split payment row rendering into a focused component so the tab stays small and easier to maintain.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- client-payments-tab` pass, 4 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with 14 pre-existing unrelated warnings
+- `pnpm i18n:check` pass; workspace 3132 keys and portal 532 keys in parity
+- `pnpm -F @ella/workspace build` pass with pre-existing route-file and chunk-size warnings
+
 ### Agreement Revocation
 **Status:** Complete
 

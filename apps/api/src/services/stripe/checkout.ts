@@ -12,6 +12,9 @@ import { calculateCheckoutQuote, CheckoutQuoteError } from './quote-calculator'
 import type { CheckoutQuote } from './quote-calculator'
 import { toCheckoutLineItems, type CheckoutLineItem } from './checkout-line-items'
 
+const SUBSCRIPTION_AUTHORIZATION_TEXT =
+  'By subscribing, you authorize ELLA TAX SERVICES LLC to charge you according to the terms and conditions in the engagement letter.'
+
 export interface CheckoutSessionResult {
   quoteId: string
   checkoutUrl: string
@@ -64,6 +67,7 @@ export function buildCheckoutSessionParams(
     ...buildCustomerParams(opts, anyRecurring),
     client_reference_id: opts.quoteId,
     ...buildDiscountParams(opts),
+    ...(anyRecurring ? buildSubscriptionCustomTextParams() : {}),
     metadata: compactMetadata({
       paymentQuoteId: opts.quoteId,
       quoteId: opts.quoteId,
@@ -95,6 +99,19 @@ function buildDiscountParams(
   if (opts.stripeCouponId) return { discounts: [{ coupon: opts.stripeCouponId }] }
   if (opts.allowPromotionCodes) return { allow_promotion_codes: true }
   return {}
+}
+
+function buildSubscriptionCustomTextParams(): Pick<
+  Stripe.Checkout.SessionCreateParams,
+  'custom_text'
+> {
+  return {
+    custom_text: {
+      submit: {
+        message: SUBSCRIPTION_AUTHORIZATION_TEXT,
+      },
+    },
+  }
 }
 
 export async function createCheckoutSession(

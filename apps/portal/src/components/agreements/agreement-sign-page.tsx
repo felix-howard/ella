@@ -14,7 +14,6 @@ import { FileText, Loader2, Lock, ShieldCheck } from 'lucide-react'
 import { EllaLogoLight, EllaLogoDark } from '@ella/ui'
 import {
   portalApi,
-  ApiError,
   type AgreementPublicView,
   type AgreementSignResult,
 } from '../../lib/api-client'
@@ -24,6 +23,7 @@ import { AgreementSignForm, type AgreementSignSubmission } from './agreement-sig
 import { AgreementConfirmationPanel } from './agreement-confirmation-panel'
 import { AgreementErrorPanel, type AgreementErrorCode } from './agreement-error-panel'
 import { toast } from '../../lib/toast-store'
+import { deriveStatusError, mapLoadError, mapSignError } from './agreement-error-mapping'
 
 // Lazy-load the full PDF.js viewer (vertical scroll, fit-to-width, zoom) only
 // when an uploaded PDF needs rendering — keeps the worker bundle out of the
@@ -31,32 +31,6 @@ import { toast } from '../../lib/toast-store'
 const PdfViewer = lazy(() => import('../pdf-viewer/index'))
 
 type PageState = 'loading' | 'ready' | 'submitting' | 'confirmed' | 'error'
-
-function mapLoadError(err: unknown): AgreementErrorCode {
-  if (!(err instanceof ApiError)) return 'server'
-  if (err.status === 404) return 'invalid'
-  if (err.status === 410) return 'expired'
-  if (err.status === 409) return 'signed'
-  if (err.status === 429) return 'rate_limited'
-  return 'server'
-}
-
-function mapSignError(err: unknown): AgreementErrorCode {
-  if (!(err instanceof ApiError)) return 'server'
-  if (err.status === 409) return 'signed'
-  if (err.status === 410) return 'expired'
-  if (err.status === 429) return 'rate_limited'
-  if (err.status === 404) return 'invalid'
-  return 'server'
-}
-
-function deriveStatusError(view: AgreementPublicView): AgreementErrorCode | null {
-  if (view.expired) return 'expired'
-  if (view.status === 'SIGNED') return 'signed'
-  if (view.status === 'VOIDED') return 'voided'
-  if (view.status !== 'SENT') return 'invalid'
-  return null
-}
 
 interface AgreementSignPageProps {
   token: string

@@ -11,6 +11,7 @@ vi.mock('../../../services/agreements/agreement-service', () => ({
   updateDepositForEntity: vi.fn(),
   getPresignedPdfUrlForEntity: vi.fn(),
   resendAgreementForEntity: vi.fn(),
+  voidAgreementForEntity: vi.fn(),
   extendAgreementForEntity: vi.fn(),
   renderPreviewPdf: vi.fn(),
   sendAgreementDraftForEntity: vi.fn(),

@@ -19,6 +19,7 @@ import {
   updateDepositForEntity,
   getPresignedPdfUrlForEntity,
   resendAgreementForEntity,
+  voidAgreementForEntity,
   extendAgreementForEntity,
   createAgreementDraftForEntity,
   updateAgreementDraftForEntity,
@@ -41,7 +42,9 @@ import {
   discardAgreementDraftBodySchema,
   previewAgreementBodySchema,
   extendAgreementBodySchema,
+  voidAgreementBodySchema,
 } from './schemas'
+import { getAuditRequestContext } from '../../services/activity-log'
 
 const staffRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -339,6 +342,28 @@ staffRoute.post(
       url: result.url,
       rotated: result.rotated,
     })
+  },
+)
+
+// POST /:leadId/agreements/:id/void — revoke an unsigned sent/expired agreement.
+staffRoute.post(
+  '/:leadId/agreements/:id/void',
+  zValidator('param', leadAndAgreementIdParamSchema),
+  zValidator('json', voidAgreementBodySchema),
+  async (c) => {
+    const { orgId, staffId } = getAuth(c.get('user'))
+    const { leadId, id } = c.req.valid('param')
+    const body = c.req.valid('json')
+    const data = await voidAgreementForEntity({
+      entityType: 'lead',
+      entityId: leadId,
+      agreementId: id,
+      orgId,
+      staffId,
+      reason: body.reason,
+      request: getAuditRequestContext(c),
+    })
+    return c.json({ success: true, data: stripAgreementToken(data) })
   },
 )
 

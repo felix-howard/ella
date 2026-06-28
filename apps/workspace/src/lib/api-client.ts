@@ -873,6 +873,12 @@ export const api = {
           { method: 'POST' },
         ),
 
+      void: (clientId: string, agreementId: string, body: VoidAgreementPayload) =>
+        request<{ success: boolean; data: Agreement }>(
+          `/clients/${clientId}/agreements/${agreementId}/void`,
+          { method: 'POST', body: JSON.stringify(body), retries: 0 },
+        ),
+
       extend: (clientId: string, agreementId: string, body: { days?: number } = {}) =>
         request<{ success: boolean; data: Agreement }>(
           `/clients/${clientId}/agreements/${agreementId}/extend`,
@@ -2150,6 +2156,12 @@ export const api = {
       resend: (leadId: string, agreementId: string) =>
         request<{ success: boolean; data: Agreement; url: string; rotated: boolean }>(`/leads/${leadId}/agreements/${agreementId}/resend`, { method: 'POST' }),
 
+      void: (leadId: string, agreementId: string, body: VoidAgreementPayload) =>
+        request<{ success: boolean; data: Agreement }>(
+          `/leads/${leadId}/agreements/${agreementId}/void`,
+          { method: 'POST', body: JSON.stringify(body), retries: 0 },
+        ),
+
       extend: (leadId: string, agreementId: string, body: { days?: number } = {}) =>
         request<{ success: boolean; data: Agreement }>(
           `/leads/${leadId}/agreements/${agreementId}/extend`,
@@ -2454,6 +2466,10 @@ export interface Agreement {
   createdByUserId: string
   lastEditedByUserId: string | null
   sentByUserId: string | null
+  voidedAt: string | null
+  voidedByUserId: string | null
+  voidedBy?: AgreementStaffSummary | null
+  voidReason: string | null
   createdBy?: AgreementStaffSummary
   lastEditedBy?: AgreementStaffSummary | null
   sentBy?: AgreementStaffSummary | null
@@ -2529,6 +2545,10 @@ export interface SendAgreementDraftPayload extends CreateAgreementPayload {
 
 export interface DiscardAgreementDraftPayload {
   expectedUpdatedAt: string
+}
+
+export interface VoidAgreementPayload {
+  reason: string
 }
 
 export interface AgreementTemplate {

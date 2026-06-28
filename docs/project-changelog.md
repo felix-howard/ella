@@ -5,6 +5,29 @@
 
 ---
 
+### Agreement Revocation
+**Status:** Complete
+
+**Changed:**
+- Added Agreement revocation for unsigned `SENT` and `EXPIRED` agreements, using existing `VOIDED` status instead of deleting rows.
+- Added `voidedAt`, `voidedByUserId`, and bounded `voidReason` audit fields with redacted activity logging.
+- Added lead/client staff revoke endpoints, Workspace revoke action/modal, and revoked metadata display.
+- Updated public signing links so revoked agreements show a sanitized revoked state and cannot expose or sign the original document.
+- Cleaned generated signature/PDF artifacts when revocation wins the final signing race.
+- Kept signed agreements immutable and drafts on the existing discard flow.
+
+**Validation:**
+- `pnpm -F @ella/db migrate status` pass; no pending migrations, non-blocking Prisma deprecation warnings only.
+- `pnpm -F @ella/api type-check` pass.
+- `pnpm -F @ella/api test -- src/routes/agreements/__tests__/public-handlers.test.ts src/routes/agreements/__tests__/staff-handlers.test.ts src/routes/clients/__tests__/agreements-staff-auth.test.ts src/routes/clients/__tests__/agreements-staff-draft-routes.test.ts src/services/agreements/__tests__/agreement-service.test.ts` pass, 121 tests.
+- `pnpm -F @ella/api test -- src/services/agreements/__tests__/agreement-signing-service.test.ts src/routes/agreements/__tests__/public-handlers.test.ts src/services/agreements/__tests__/agreement-signing-uploaded-pdf.test.ts src/routes/agreements/__tests__/backward-compat-aliases.test.ts` pass, 68 tests.
+- `pnpm -F @ella/workspace type-check` pass.
+- `pnpm -F @ella/workspace test -- src/components/agreements/agreement-card-revoke.test.tsx src/components/agreements/agreement-draft-editor-hooks.test.tsx src/components/agreements/agreement-draft-payload.test.ts src/components/agreements/agreement-void-modal.test.ts src/components/agreements/use-agreement-mutations-void.test.tsx` pass, 15 tests.
+- `pnpm -F @ella/portal type-check` pass.
+- `pnpm -F @ella/portal test -- src/components/agreements/agreement-error-mapping.test.ts src/components/agreements/agreement-error-panel.test.tsx src/lib/api-client.test.ts` pass, 6 tests.
+- `pnpm i18n:check` pass; workspace 3126 keys and portal 531 keys in parity.
+- Migration SQL reviewed as additive only: nullable columns, indexes, and nullable Staff FK.
+
 ### Engagement Letter Firm Contact Twilio Fallback
 **Status:** Complete
 

@@ -19,6 +19,7 @@ vi.mock('../../storage', () => ({
   getSignedDownloadUrl: vi.fn().mockResolvedValue('https://r2.test/signed'),
   fetchImageBuffer: vi.fn().mockResolvedValue(null),
   fetchFileBuffer: vi.fn(),
+  deleteFile: vi.fn().mockResolvedValue(true),
 }))
 
 vi.mock('../pdf-signature-page', async (importOriginal) => {

@@ -7,6 +7,7 @@ export const ACTIVITY_CATEGORIES = {
   SETTINGS: 'SETTINGS',
   TEAM: 'TEAM',
   LEAD: 'LEAD',
+  AGREEMENT: 'AGREEMENT',
   UPLOAD_LINK: 'UPLOAD_LINK',
   COMPANY_VAULT: 'COMPANY_VAULT',
   AUTH: 'AUTH',
@@ -25,6 +26,7 @@ export const ACTIVITY_TARGET_TYPES = {
   STAFF: 'STAFF',
   STAFF_FILE: 'STAFF_FILE',
   ORGANIZATION: 'ORGANIZATION',
+  AGREEMENT: 'AGREEMENT',
   COMPANY_VAULT_CREDENTIAL: 'COMPANY_VAULT_CREDENTIAL',
   LEAD: 'LEAD',
   TEMPLATE: 'TEMPLATE',
@@ -112,6 +114,9 @@ export const ACTIVITY_ACTIONS = {
     MESSAGE_RECEIVED: 'lead.message_received',
     MESSAGE_SENT: 'lead.message_sent',
     MESSAGE_READ: 'lead.message_read',
+  },
+  AGREEMENT: {
+    VOIDED: 'agreement.voided',
   },
   UPLOAD_LINK: {
     GENERATED: 'upload_link.generated',

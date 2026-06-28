@@ -18,6 +18,12 @@ vi.mock('../../../lib/db', () => {
       updateMany: vi.fn(),
       deleteMany: vi.fn(),
     },
+    activityLog: {
+      create: vi.fn(),
+      createMany: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
+    },
     $executeRaw: vi.fn(),
     $transaction: vi.fn(async (fn: any) => fn(prisma)),
   }
@@ -76,6 +82,7 @@ import {
   updateDeposit,
   getPresignedPdfUrl,
   resendNda,
+  voidAgreementForEntity,
   extendAgreementForEntity,
   createAgreementDraftForEntity,
   updateAgreementDraftForEntity,
@@ -92,6 +99,7 @@ const mockNdaFindMany = vi.mocked(prisma.agreement.findMany)
 const mockNdaUpdate = vi.mocked(prisma.agreement.update)
 const mockNdaUpdateMany = vi.mocked(prisma.agreement.updateMany)
 const mockNdaDeleteMany = vi.mocked(prisma.agreement.deleteMany)
+const mockActivityLogCreate = vi.mocked((prisma as any).activityLog.create)
 const mockGetSignedUrl = vi.mocked(getSignedDownloadUrl)
 const mockCopyR2Object = vi.mocked(copyR2Object)
 const mockSendSms = vi.mocked(sendAgreementInviteSms)
@@ -737,6 +745,167 @@ describe('NDA service', () => {
         }),
       ).rejects.toMatchObject({ status: 409 })
       expect(mockNdaUpdateMany).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('voidAgreementForEntity', () => {
+    it.each(['SENT', 'EXPIRED'] as const)('voids a %s lead agreement', async (status) => {
+      const voidedAt = new Date('2026-06-28T07:00:00.000Z')
+      mockNdaFindFirst
+        .mockResolvedValueOnce(nda({ status }) as any)
+        .mockResolvedValueOnce(
+          nda({
+            status: 'VOIDED',
+            isActive: false,
+            voidedAt,
+            voidedByUserId: 'staff-1',
+            voidReason: 'Sent wrong agreement',
+          }) as any,
+        )
+      mockNdaUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+
+      const result = await voidAgreementForEntity({
+        entityType: 'lead',
+        entityId: 'lead-1',
+        agreementId: 'nda-1',
+        orgId: 'org-1',
+        staffId: 'staff-1',
+        reason: ' Sent wrong agreement ',
+      })
+
+      expect(mockNdaUpdateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'nda-1',
+          leadId: 'lead-1',
+          organizationId: 'org-1',
+          status: { in: ['SENT', 'EXPIRED'] },
+        },
+        data: {
+          status: 'VOIDED',
+          isActive: false,
+          voidedAt: expect.any(Date),
+          voidedByUserId: 'staff-1',
+          voidReason: 'Sent wrong agreement',
+        },
+      })
+      expect(result.status).toBe('VOIDED')
+      expect(result.token).toBeUndefined()
+      expect(mockActivityLogCreate).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          action: 'agreement.voided',
+          organizationId: 'org-1',
+          actorStaffId: 'staff-1',
+          targetType: 'AGREEMENT',
+          targetId: 'nda-1',
+        }),
+      }))
+    })
+
+    it('voids a sent client agreement with client scoping and audit metadata', async () => {
+      mockNdaFindFirst
+        .mockResolvedValueOnce(
+          nda({ leadId: null, clientId: 'client-1', status: 'SENT' }) as any,
+        )
+        .mockResolvedValueOnce(
+          nda({
+            leadId: null,
+            clientId: 'client-1',
+            status: 'VOIDED',
+            isActive: false,
+            voidedByUserId: 'staff-1',
+            voidReason: 'Sent wrong agreement',
+          }) as any,
+        )
+      mockNdaUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+
+      const result = await voidAgreementForEntity({
+        entityType: 'client',
+        entityId: 'client-1',
+        agreementId: 'nda-1',
+        orgId: 'org-1',
+        staffId: 'staff-1',
+        reason: 'Sent wrong agreement',
+      })
+
+      expect(mockNdaUpdateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'nda-1',
+          clientId: 'client-1',
+          organizationId: 'org-1',
+          status: { in: ['SENT', 'EXPIRED'] },
+        },
+        data: expect.objectContaining({
+          status: 'VOIDED',
+          isActive: false,
+          voidedByUserId: 'staff-1',
+          voidReason: 'Sent wrong agreement',
+        }),
+      })
+      expect(result.status).toBe('VOIDED')
+      expect(mockActivityLogCreate).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          action: 'agreement.voided',
+          metadata: expect.objectContaining({
+            entityType: 'client',
+            entityId: 'client-1',
+            reasonProvided: true,
+          }),
+        }),
+      }))
+    })
+
+    it.each(['DRAFT', 'SIGNED', 'VOIDED'] as const)('rejects %s agreement voiding', async (status) => {
+      mockNdaFindFirst.mockResolvedValueOnce(nda({ status }) as any)
+
+      await expect(
+        voidAgreementForEntity({
+          entityType: 'lead',
+          entityId: 'lead-1',
+          agreementId: 'nda-1',
+          orgId: 'org-1',
+          staffId: 'staff-1',
+          reason: 'Sent wrong agreement',
+        }),
+      ).rejects.toMatchObject({ status: 409 })
+
+      expect(mockNdaUpdateMany).not.toHaveBeenCalled()
+    })
+
+    it('returns 404 when agreement is outside the scoped entity or org', async () => {
+      mockNdaFindFirst.mockResolvedValueOnce(null)
+
+      await expect(
+        voidAgreementForEntity({
+          entityType: 'client',
+          entityId: 'client-1',
+          agreementId: 'nda-1',
+          orgId: 'org-1',
+          staffId: 'staff-1',
+          reason: 'Sent wrong agreement',
+        }),
+      ).rejects.toMatchObject({ status: 404 })
+
+      expect(mockNdaUpdateMany).not.toHaveBeenCalled()
+    })
+
+    it('returns 409 when signing wins the void race', async () => {
+      mockNdaFindFirst
+        .mockResolvedValueOnce(nda({ status: 'SENT' }) as any)
+        .mockResolvedValueOnce(nda({ status: 'SIGNED' }) as any)
+      mockNdaUpdateMany.mockResolvedValueOnce({ count: 0 } as any)
+
+      await expect(
+        voidAgreementForEntity({
+          entityType: 'lead',
+          entityId: 'lead-1',
+          agreementId: 'nda-1',
+          orgId: 'org-1',
+          staffId: 'staff-1',
+          reason: 'Sent wrong agreement',
+        }),
+      ).rejects.toMatchObject({ status: 409 })
+
+      expect(mockActivityLogCreate).not.toHaveBeenCalled()
     })
   })
 

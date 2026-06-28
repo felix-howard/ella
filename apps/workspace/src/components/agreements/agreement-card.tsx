@@ -6,13 +6,14 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Copy, RefreshCw, FileText, Loader2, Pencil, Clock } from 'lucide-react'
+import { Ban, Copy, RefreshCw, FileText, Loader2, Pencil, Clock } from 'lucide-react'
 import { useResendAgreement, agreementsApi } from './use-agreement-mutations'
 import { UpdateDepositPanel } from './update-deposit-panel'
 import { NdaReadonlyCard } from './agreement-readonly-card'
 import { AgreementDraftCard } from './agreement-draft-card'
 import { ResendPaymentLinkButton } from './resend-payment-link-button'
 import { AgreementExtendModal } from './agreement-extend-modal'
+import { AgreementVoidModal } from './agreement-void-modal'
 import { getExpiryStatus } from './agreement-expiry'
 import { toast } from '../../stores/toast-store'
 import { copyToClipboard } from '../../lib/clipboard'
@@ -29,6 +30,7 @@ export function NdaCard({ entity, nda }: Props) {
   const { t, i18n } = useTranslation()
   const [depositModalOpen, setDepositModalOpen] = useState(false)
   const [extendOpen, setExtendOpen] = useState(false)
+  const [voidOpen, setVoidOpen] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const resendMutation = useResendAgreement(entity, nda.type)
 
@@ -68,6 +70,7 @@ export function NdaCard({ entity, nda }: Props) {
   // without rotating the token + spamming SMS via Resend).
   const canExtend =
     nda.status !== 'SIGNED' && nda.status !== 'VOIDED' && !!nda.expiresAt
+  const canVoid = nda.status === 'SENT' || nda.status === 'EXPIRED'
   // Hide deposit editor for agreements that opted out of deposit at send time.
   const canEditDeposit = nda.depositStatus !== null
   // Signed but deposit still unpaid → staff can re-SMS the portal pay link.
@@ -82,7 +85,7 @@ export function NdaCard({ entity, nda }: Props) {
   // View PDF rendered here (not via shared card) so it lines up with the
   // other entity-page actions on a single flex row.
   const hasActions =
-    canCopyLink || canCopyOrResend || canExtend || canViewPdf || canEditDeposit || canResendPaymentLink
+    canCopyLink || canCopyOrResend || canExtend || canViewPdf || canEditDeposit || canResendPaymentLink || canVoid
 
   return (
     <div className="rounded-xl border border-border/60 bg-card p-4 shadow-sm transition-colors hover:border-border">
@@ -156,6 +159,16 @@ export function NdaCard({ entity, nda }: Props) {
               {t('nda.card.updateDeposit')}
             </button>
           )}
+          {canVoid && (
+            <button
+              type="button"
+              onClick={() => setVoidOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+            >
+              <Ban className="w-3.5 h-3.5" />
+              {t('nda.card.revoke')}
+            </button>
+          )}
         </div>
       )}
 
@@ -173,6 +186,12 @@ export function NdaCard({ entity, nda }: Props) {
         entity={entity}
         nda={nda}
         onClose={() => setExtendOpen(false)}
+      />
+      <AgreementVoidModal
+        open={voidOpen}
+        entity={entity}
+        nda={nda}
+        onClose={() => setVoidOpen(false)}
       />
     </div>
   )

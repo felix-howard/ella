@@ -10,6 +10,7 @@ vi.mock('../../../services/agreements/agreement-service', () => ({
   updateDepositForEntity: vi.fn(),
   getPresignedPdfUrlForEntity: vi.fn(),
   resendAgreementForEntity: vi.fn(),
+  voidAgreementForEntity: vi.fn(),
   extendAgreementForEntity: vi.fn(),
   renderPreviewPdf: vi.fn(),
   sendAgreementDraftForEntity: vi.fn(),
@@ -28,6 +29,7 @@ import {
   discardAgreementDraftForEntity,
   sendAgreementDraftForEntity,
   updateAgreementDraftForEntity,
+  voidAgreementForEntity,
 } from '../../../services/agreements/agreement-service'
 
 const ADMIN_USER = {
@@ -179,5 +181,34 @@ describe('client agreement draft staff routes', () => {
       orgId: 'org_1',
       expectedUpdatedAt,
     })
+  })
+
+  it('passes client void requests to the shared void service', async () => {
+    vi.mocked(voidAgreementForEntity).mockResolvedValueOnce(
+      draft({
+        status: 'VOIDED',
+        voidReason: 'Sent wrong agreement',
+        voidedByUserId: 'staff_admin_1',
+      }) as never,
+    )
+
+    const res = await jsonRequest(
+      `/clients/${clientId}/agreements/${agreementId}/void`,
+      'POST',
+      { reason: 'Sent wrong agreement' },
+    )
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.data.token).toBeUndefined()
+    expect(json.data.status).toBe('VOIDED')
+    expect(voidAgreementForEntity).toHaveBeenCalledWith(expect.objectContaining({
+      entityType: 'client',
+      entityId: clientId,
+      agreementId,
+      orgId: 'org_1',
+      staffId: 'staff_admin_1',
+      reason: 'Sent wrong agreement',
+    }))
   })
 })

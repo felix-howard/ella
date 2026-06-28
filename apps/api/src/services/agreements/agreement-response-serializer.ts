@@ -9,6 +9,7 @@ export const agreementResponseInclude = {
   createdBy: { select: agreementStaffSummarySelect },
   lastEditedBy: { select: agreementStaffSummarySelect },
   sentBy: { select: agreementStaffSummarySelect },
+  voidedBy: { select: agreementStaffSummarySelect },
 } satisfies Prisma.AgreementInclude
 
 export type AgreementStaffSummary = Prisma.StaffGetPayload<{

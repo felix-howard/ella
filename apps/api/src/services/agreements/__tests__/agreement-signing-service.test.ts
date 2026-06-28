@@ -18,6 +18,7 @@ vi.mock('../../../lib/db', () => ({
 vi.mock('../../storage', () => ({
   uploadFile: vi.fn().mockResolvedValue(undefined),
   getSignedDownloadUrl: vi.fn().mockResolvedValue('https://r2.test/signed/pdf'),
+  deleteFile: vi.fn().mockResolvedValue(true),
 }))
 
 vi.mock('../pdf-generator', () => ({
@@ -33,7 +34,7 @@ vi.mock('../../payments/deposit-payment-service', () => ({
 }))
 
 import { prisma } from '../../../lib/db'
-import { uploadFile, getSignedDownloadUrl } from '../../storage'
+import { uploadFile, getSignedDownloadUrl, deleteFile } from '../../storage'
 import { generateSignedPdf } from '../pdf-generator'
 import { createDepositPaymentForAgreement } from '../../payments/deposit-payment-service'
 import { loadNdaByToken, toPublicView, signAgreement, signNda } from '../agreement-signing-service'
@@ -42,6 +43,7 @@ const mockFindUnique = vi.mocked(prisma.agreement.findUnique)
 const mockUpdateMany = vi.mocked(prisma.agreement.updateMany)
 const mockUpload = vi.mocked(uploadFile)
 const mockGetSigned = vi.mocked(getSignedDownloadUrl)
+const mockDeleteFile = vi.mocked(deleteFile)
 const mockGenPdf = vi.mocked(generateSignedPdf)
 const mockCreateDepositPayment = vi.mocked(createDepositPaymentForAgreement)
 
@@ -587,8 +589,27 @@ describe('signNda', () => {
     mockFindUnique.mockResolvedValueOnce(activeNda() as any)
     mockUpdateMany.mockResolvedValueOnce({ count: 0 } as any)
     await expect(signNda(baseInput)).rejects.toMatchObject({ status: 409 })
-    // Upload attempted but DB row unchanged — orphaned R2 object tolerated per service comment
     expect(mockUpload).toHaveBeenCalled()
+    expect(mockDeleteFile).toHaveBeenCalledTimes(2)
+    expect(mockDeleteFile).toHaveBeenNthCalledWith(1, mockUpload.mock.calls[0][0])
+    expect(mockDeleteFile).toHaveBeenNthCalledWith(2, mockUpload.mock.calls[1][0])
+  })
+
+  it('deletes generated artifacts when revoke wins a concurrent sign race', async () => {
+    mockFindUnique
+      .mockResolvedValueOnce(activeNda() as any)
+      .mockResolvedValueOnce(activeNda({ status: 'VOIDED', isActive: false }) as any)
+    mockUpdateMany.mockResolvedValueOnce({ count: 0 } as any)
+
+    await expect(signNda(baseInput)).rejects.toMatchObject({
+      status: 409,
+      code: 'AGREEMENT_VOIDED',
+    })
+
+    expect(mockUpload).toHaveBeenCalledTimes(2)
+    expect(mockDeleteFile).toHaveBeenCalledTimes(2)
+    expect(mockDeleteFile).toHaveBeenNthCalledWith(1, mockUpload.mock.calls[0][0])
+    expect(mockDeleteFile).toHaveBeenNthCalledWith(2, mockUpload.mock.calls[1][0])
   })
 
   it('rejects non-PNG signature data URL (400)', async () => {

@@ -6,16 +6,19 @@
  *   2. Decode signature PNG
  *   3. Upload PNG + PDF to R2 under NONCED keys (unique per attempt)
  *   4. Transactional DB update guarded by `WHERE status='SENT' AND isActive=true`
- *   5. If count==0 -> 409 (the other signer won the race, orphaned R2 objects
- *      stay at their nonced keys and are harmless — they'll be swept by R2
- *      lifecycle rules eventually; the canonical keys referenced by the DB
- *      row always belong to the winning attempt)
+ *   5. If count==0 -> best-effort delete generated artifacts, then 409
  */
 import { customAlphabet } from 'nanoid'
 import { HTTPException } from 'hono/http-exception'
-import type { Prisma } from '@ella/db'
+import type { AgreementStatus, Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
-import { uploadFile, getSignedDownloadUrl, fetchImageBuffer, fetchFileBuffer } from '../storage'
+import {
+  uploadFile,
+  getSignedDownloadUrl,
+  fetchImageBuffer,
+  fetchFileBuffer,
+  deleteFile,
+} from '../storage'
 import { isExpired } from './token-service'
 import { decodeSignaturePng } from '../../routes/agreements/helpers'
 import { generateSignedPdf } from './pdf-generator'
@@ -38,6 +41,61 @@ import { createDepositPaymentForAgreement } from '../payments/deposit-payment-se
 const DOWNLOAD_TTL_SECONDS = 900 // 15 min
 const VIEW_PRESIGN_TTL_SECONDS = 900 // 15 min
 const generateAttemptNonce = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 10)
+
+export type PublicAgreementAccessErrorCode =
+  | 'AGREEMENT_VOIDED'
+  | 'AGREEMENT_SIGNED'
+  | 'AGREEMENT_INACTIVE'
+
+export interface PublicAgreementAccessError {
+  error: PublicAgreementAccessErrorCode
+  message: string
+  status: 409
+}
+
+export class AgreementPublicAccessError extends Error {
+  readonly code: PublicAgreementAccessErrorCode
+  readonly status: 409
+
+  constructor(error: PublicAgreementAccessError) {
+    super(error.message)
+    this.name = 'AgreementPublicAccessError'
+    this.code = error.error
+    this.status = error.status
+  }
+}
+
+export function getPublicAgreementAccessError(input: {
+  status: AgreementStatus
+  isActive: boolean
+}): PublicAgreementAccessError | null {
+  if (input.status === 'VOIDED') {
+    return {
+      error: 'AGREEMENT_VOIDED',
+      message: 'Agreement has been revoked',
+      status: 409,
+    }
+  }
+  if (input.status === 'SIGNED') {
+    return {
+      error: 'AGREEMENT_SIGNED',
+      message: 'Agreement has already been signed',
+      status: 409,
+    }
+  }
+  if (input.status !== 'SENT' || !input.isActive) {
+    return {
+      error: 'AGREEMENT_INACTIVE',
+      message: 'Agreement link is not active',
+      status: 409,
+    }
+  }
+  return null
+}
+
+async function deleteGeneratedSigningArtifacts(keys: string[]) {
+  await Promise.all(keys.map((key) => deleteFile(key).catch(() => false)))
+}
 
 type RawLoadedAgreement = Prisma.AgreementGetPayload<{
   include: {
@@ -397,9 +455,8 @@ export async function signAgreement(input: SignAgreementInput) {
   const agreement = await loadAgreementByToken(input.token)
   if (!agreement) throw new HTTPException(404, { message: 'Agreement link not found' })
 
-  if (agreement.status !== 'SENT' || !agreement.isActive) {
-    throw new HTTPException(409, { message: 'Agreement is not available for signing' })
-  }
+  const accessError = getPublicAgreementAccessError(agreement)
+  if (accessError) throw new AgreementPublicAccessError(accessError)
   if (isExpired(agreement.expiresAt)) {
     throw new HTTPException(410, { message: 'Agreement link has expired' })
   }
@@ -585,6 +642,16 @@ export async function signAgreement(input: SignAgreementInput) {
   })
 
   if (result.count === 0) {
+    await deleteGeneratedSigningArtifacts([signaturePngKey, signedPdfKey])
+
+    const latest = await prisma.agreement.findUnique({
+      where: { id: agreement.id },
+      select: { status: true, isActive: true },
+    })
+    if (latest) {
+      const latestAccessError = getPublicAgreementAccessError(latest)
+      if (latestAccessError) throw new AgreementPublicAccessError(latestAccessError)
+    }
     throw new HTTPException(409, { message: 'Agreement was already signed' })
   }
 

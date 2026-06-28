@@ -23,6 +23,7 @@ import {
   updateDepositForEntity,
   resendAgreementForEntity,
   resendNdaForEntity,
+  voidAgreementForEntity,
   extendAgreementForEntity,
 } from './agreement-mutation-ops'
 import {
@@ -51,6 +52,7 @@ export {
   getPresignedPdfUrlForEntity,
   resendAgreementForEntity,
   resendNdaForEntity,
+  voidAgreementForEntity,
   extendAgreementForEntity,
   createAgreementDraftForEntity,
   updateAgreementDraftForEntity,

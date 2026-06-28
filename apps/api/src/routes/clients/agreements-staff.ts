@@ -26,6 +26,7 @@ import {
   updateDepositForEntity,
   getPresignedPdfUrlForEntity,
   resendAgreementForEntity,
+  voidAgreementForEntity,
   extendAgreementForEntity,
   createAgreementDraftForEntity,
   updateAgreementDraftForEntity,
@@ -44,7 +45,9 @@ import {
   previewAgreementBodySchema,
   updateDepositBodySchema,
   extendAgreementBodySchema,
+  voidAgreementBodySchema,
 } from '../agreements/schemas'
+import { getAuditRequestContext } from '../../services/activity-log'
 import {
   clientIdParamSchema,
   clientAndAgreementIdParamSchema,
@@ -334,6 +337,29 @@ clientsAgreementsStaffRoute.post(
       url: result.url,
       rotated: result.rotated,
     })
+  },
+)
+
+// POST /:clientId/agreements/:id/void — revoke an unsigned sent/expired agreement.
+clientsAgreementsStaffRoute.post(
+  '/:clientId/agreements/:id/void',
+  requireAdminOrManager,
+  zValidator('param', clientAndAgreementIdParamSchema),
+  zValidator('json', voidAgreementBodySchema),
+  async (c) => {
+    const { orgId, staffId } = getAuth(c.get('user'))
+    const { clientId, id } = c.req.valid('param')
+    const body = c.req.valid('json')
+    const data = await voidAgreementForEntity({
+      entityType: 'client',
+      entityId: clientId,
+      agreementId: id,
+      orgId,
+      staffId,
+      reason: body.reason,
+      request: getAuditRequestContext(c),
+    })
+    return c.json({ success: true, data: stripAgreementToken(data) })
   },
 )
 

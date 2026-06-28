@@ -238,6 +238,12 @@ export const extendAgreementBodySchema = z
   })
   .strict()
 
+export const voidAgreementBodySchema = z
+  .object({
+    reason: z.string().trim().min(3).max(500),
+  })
+  .strict()
+
 // ---------- Public bodies ----------
 
 const PNG_DATA_URL_PREFIX = 'data:image/png;base64,'
@@ -272,6 +278,7 @@ export const signNdaBodySchema = signAgreementBodySchema
 
 export type UpdateDepositBody = z.infer<typeof updateDepositBodySchema>
 export type ExtendAgreementBody = z.infer<typeof extendAgreementBodySchema>
+export type VoidAgreementBody = z.infer<typeof voidAgreementBodySchema>
 export type SignAgreementBody = z.infer<typeof signAgreementBodySchema>
 export type SignNdaBody = SignAgreementBody
 export type CreateAgreementBody = z.infer<typeof createAgreementBodySchema>

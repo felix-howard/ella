@@ -16,12 +16,14 @@ export type AgreementErrorCode =
 
 interface AgreementErrorPanelProps {
   code: AgreementErrorCode
+  documentLabel?: string
   onRetry?: () => void
 }
 
-export function AgreementErrorPanel({ code, onRetry }: AgreementErrorPanelProps) {
+export function AgreementErrorPanel({ code, documentLabel, onRetry }: AgreementErrorPanelProps) {
   const { t } = useTranslation()
   const retryable = code === 'server' || code === 'rate_limited'
+  const label = documentLabel?.trim() || t('nda.documentLabel.generic')
 
   return (
     <section
@@ -39,7 +41,7 @@ export function AgreementErrorPanel({ code, onRetry }: AgreementErrorPanelProps)
         </h2>
 
         <p className="text-sm sm:text-base text-muted-foreground leading-relaxed mb-6">
-          {t(`nda.error.${code}.message`)}
+          {t(`nda.error.${code}.message`, { documentLabel: label })}
         </p>
 
         {retryable && onRetry && (

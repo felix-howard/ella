@@ -45,7 +45,12 @@ publicRoute.get(
     const accessError = getPublicAgreementAccessError(agreement)
     if (accessError) {
       return c.json(
-        { success: false, error: accessError.error, message: accessError.message },
+        {
+          success: false,
+          error: accessError.error,
+          message: accessError.message,
+          documentLabel: accessError.documentLabel,
+        },
         accessError.status,
       )
     }
@@ -81,7 +86,12 @@ publicRoute.post(
     } catch (error) {
       if (error instanceof AgreementPublicAccessError) {
         return c.json(
-          { success: false, error: error.code, message: error.message },
+          {
+            success: false,
+            error: error.code,
+            message: error.message,
+            documentLabel: error.documentLabel,
+          },
           error.status,
         )
       }

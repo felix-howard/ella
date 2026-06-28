@@ -24,6 +24,7 @@ describe('portal API client', () => {
             success: false,
             error: 'AGREEMENT_VOIDED',
             message: 'Agreement has been revoked',
+            documentLabel: 'Engagement Letter',
           }),
           {
             status: 409,
@@ -36,6 +37,7 @@ describe('portal API client', () => {
     await expect(request('/agreements/revoked-token')).rejects.toMatchObject({
       status: 409,
       code: 'AGREEMENT_VOIDED',
+      documentLabel: 'Engagement Letter',
     } satisfies Partial<ApiError>)
   })
 })

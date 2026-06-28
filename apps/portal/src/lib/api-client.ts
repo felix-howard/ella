@@ -11,7 +11,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     public code: string,
-    message: string
+    message: string,
+    public documentLabel?: string
   ) {
     super(message)
     this.name = 'ApiError'
@@ -82,6 +83,15 @@ function getErrorCode(data: unknown, fallbackCode: string): string {
   return fallbackCode
 }
 
+function getErrorDocumentLabel(data: unknown): string | undefined {
+  if (data && typeof data === 'object' && 'documentLabel' in data) {
+    const label = (data as { documentLabel?: unknown }).documentLabel
+    if (typeof label === 'string' && label.trim()) return label
+  }
+
+  return undefined
+}
+
 // Exported for sibling API modules (e.g. payment-api.ts) so they share the
 // same error mapping without growing this file further.
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -115,7 +125,12 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
         )
       }
       const code = getErrorCode(data, 'UNKNOWN_ERROR')
-      throw new ApiError(response.status, code, getApiErrorMessage(code, response.status))
+      throw new ApiError(
+        response.status,
+        code,
+        getApiErrorMessage(code, response.status),
+        getErrorDocumentLabel(data)
+      )
     }
 
     return data as T

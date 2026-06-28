@@ -10,14 +10,17 @@ interface AgreementConfirmationPanelProps {
   signedAt: string
   downloadUrl: string
   orgName: string
+  documentLabel?: string
 }
 
 export function AgreementConfirmationPanel({
   signedAt,
   downloadUrl,
   orgName,
+  documentLabel,
 }: AgreementConfirmationPanelProps) {
   const { t, i18n } = useTranslation()
+  const label = documentLabel?.trim() || t('nda.documentLabel.generic')
 
   const formattedDate = new Date(signedAt).toLocaleString(
     i18n.language === 'vi' ? 'vi-VN' : 'en-US',
@@ -55,7 +58,7 @@ export function AgreementConfirmationPanel({
             </h2>
 
             <p className="mx-auto mt-3 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">
-              {t('nda.confirmedMessage', { orgName })}
+              {t('nda.confirmedMessage', { orgName, documentLabel: label })}
             </p>
 
             <dl className="mx-auto mt-7 max-w-lg divide-y divide-border border-y border-border text-left">

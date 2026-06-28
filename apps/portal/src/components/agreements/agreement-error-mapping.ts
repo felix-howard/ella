@@ -2,6 +2,7 @@ import type { ApiError, AgreementPublicView } from '../../lib/api-client'
 import type { AgreementErrorCode } from './agreement-error-panel'
 
 type PortalApiError = Pick<ApiError, 'status' | 'code'>
+type PortalAgreementApiError = PortalApiError & Pick<ApiError, 'documentLabel'>
 
 const AGREEMENT_ERROR_CODE_MAP: Partial<Record<string, AgreementErrorCode>> = {
   AGREEMENT_VOIDED: 'voided',
@@ -18,8 +19,22 @@ function isApiError(err: unknown): err is PortalApiError {
   )
 }
 
+function isAgreementApiError(err: unknown): err is PortalAgreementApiError {
+  return isApiError(err) && 'documentLabel' in err
+}
+
 function mapAgreementApiCode(code: string): AgreementErrorCode | null {
   return AGREEMENT_ERROR_CODE_MAP[code] ?? null
+}
+
+export function getAgreementDocumentLabel(view: AgreementPublicView | null | undefined): string {
+  return view?.templateTitle.trim() || 'agreement'
+}
+
+export function getAgreementErrorDocumentLabel(err: unknown): string | undefined {
+  if (!isAgreementApiError(err)) return undefined
+
+  return err.documentLabel?.trim() || undefined
 }
 
 export function mapLoadError(err: unknown): AgreementErrorCode {

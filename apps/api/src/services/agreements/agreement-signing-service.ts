@@ -41,6 +41,13 @@ import { createDepositPaymentForAgreement } from '../payments/deposit-payment-se
 const DOWNLOAD_TTL_SECONDS = 900 // 15 min
 const VIEW_PRESIGN_TTL_SECONDS = 900 // 15 min
 const generateAttemptNonce = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 10)
+const PUBLIC_AGREEMENT_TYPE_LABELS: Record<string, string> = {
+  NDA: 'NDA',
+  ENGAGEMENT_LETTER: 'Engagement Letter',
+  SERVICE_AGREEMENT: 'Service Agreement',
+  CONSENT_7216: 'Consent Agreement',
+  CUSTOM: 'agreement',
+}
 
 export type PublicAgreementAccessErrorCode =
   | 'AGREEMENT_VOIDED'
@@ -50,29 +57,40 @@ export type PublicAgreementAccessErrorCode =
 export interface PublicAgreementAccessError {
   error: PublicAgreementAccessErrorCode
   message: string
+  documentLabel: string
   status: 409
 }
 
 export class AgreementPublicAccessError extends Error {
   readonly code: PublicAgreementAccessErrorCode
+  readonly documentLabel: string
   readonly status: 409
 
   constructor(error: PublicAgreementAccessError) {
     super(error.message)
     this.name = 'AgreementPublicAccessError'
     this.code = error.error
+    this.documentLabel = error.documentLabel
     this.status = error.status
   }
+}
+
+function getPublicAgreementDocumentLabel(type: string | null | undefined): string {
+  return type ? (PUBLIC_AGREEMENT_TYPE_LABELS[type] ?? 'agreement') : 'agreement'
 }
 
 export function getPublicAgreementAccessError(input: {
   status: AgreementStatus
   isActive: boolean
+  type?: string | null
 }): PublicAgreementAccessError | null {
+  const documentLabel = getPublicAgreementDocumentLabel(input.type)
+
   if (input.status === 'VOIDED') {
     return {
       error: 'AGREEMENT_VOIDED',
       message: 'Agreement has been revoked',
+      documentLabel,
       status: 409,
     }
   }
@@ -80,6 +98,7 @@ export function getPublicAgreementAccessError(input: {
     return {
       error: 'AGREEMENT_SIGNED',
       message: 'Agreement has already been signed',
+      documentLabel,
       status: 409,
     }
   }
@@ -87,6 +106,7 @@ export function getPublicAgreementAccessError(input: {
     return {
       error: 'AGREEMENT_INACTIVE',
       message: 'Agreement link is not active',
+      documentLabel,
       status: 409,
     }
   }
@@ -646,7 +666,7 @@ export async function signAgreement(input: SignAgreementInput) {
 
     const latest = await prisma.agreement.findUnique({
       where: { id: agreement.id },
-      select: { status: true, isActive: true },
+      select: { status: true, isActive: true, type: true },
     })
     if (latest) {
       const latestAccessError = getPublicAgreementAccessError(latest)

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { AgreementPublicView } from '../../lib/api-client'
-import { deriveStatusError, mapLoadError, mapSignError } from './agreement-error-mapping'
+import {
+  deriveStatusError,
+  getAgreementDocumentLabel,
+  getAgreementErrorDocumentLabel,
+  mapLoadError,
+  mapSignError,
+} from './agreement-error-mapping'
 
 function apiError(status: number, code: string): Error & { status: number; code: string } {
   const err = new Error(code) as Error & { status: number; code: string }
@@ -52,5 +58,19 @@ describe('agreement error mapping', () => {
     expect(deriveStatusError(publicView({ status: 'SIGNED' }))).toBe('signed')
     expect(deriveStatusError(publicView({ expired: true }))).toBe('expired')
     expect(deriveStatusError(publicView())).toBeNull()
+  })
+
+  it('extracts document labels for type-aware agreement errors', () => {
+    const err = apiError(409, 'AGREEMENT_SIGNED') as Error & {
+      status: number
+      code: string
+      documentLabel: string
+    }
+    err.documentLabel = 'Engagement Letter'
+
+    expect(getAgreementErrorDocumentLabel(err)).toBe('Engagement Letter')
+    expect(getAgreementDocumentLabel(publicView({ templateTitle: 'Service Agreement' }))).toBe(
+      'Service Agreement',
+    )
   })
 })

@@ -23,7 +23,13 @@ import { AgreementSignForm, type AgreementSignSubmission } from './agreement-sig
 import { AgreementConfirmationPanel } from './agreement-confirmation-panel'
 import { AgreementErrorPanel, type AgreementErrorCode } from './agreement-error-panel'
 import { toast } from '../../lib/toast-store'
-import { deriveStatusError, mapLoadError, mapSignError } from './agreement-error-mapping'
+import {
+  deriveStatusError,
+  getAgreementDocumentLabel,
+  getAgreementErrorDocumentLabel,
+  mapLoadError,
+  mapSignError,
+} from './agreement-error-mapping'
 
 // Lazy-load the full PDF.js viewer (vertical scroll, fit-to-width, zoom) only
 // when an uploaded PDF needs rendering — keeps the worker bundle out of the
@@ -42,6 +48,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
   const [state, setState] = useState<PageState>('loading')
   const [view, setView] = useState<AgreementPublicView | null>(null)
   const [errorCode, setErrorCode] = useState<AgreementErrorCode | null>(null)
+  const [errorDocumentLabel, setErrorDocumentLabel] = useState<string | null>(null)
   const [reachedBottom, setReachedBottom] = useState(false)
   const [signed, setSigned] = useState<AgreementSignResult | null>(null)
 
@@ -62,14 +69,17 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
         setView(data)
         if (statusError) {
           setErrorCode(statusError)
+          setErrorDocumentLabel(getAgreementDocumentLabel(data))
           setState('error')
         } else {
           setErrorCode(null)
+          setErrorDocumentLabel(null)
           setState('ready')
         }
       } catch (err) {
         if (!mounted) return
         setErrorCode(mapLoadError(err))
+        setErrorDocumentLabel(getAgreementErrorDocumentLabel(err) ?? null)
         setState('error')
       }
     }
@@ -91,6 +101,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
       } catch (err) {
         const code = mapSignError(err)
         setErrorCode(code)
+        setErrorDocumentLabel(getAgreementErrorDocumentLabel(err) ?? getAgreementDocumentLabel(view))
         // Transient errors (server/rate limit) return the user to the ready
         // state so their signature + typed name aren't lost. Surface via toast.
         if (code === 'server' || code === 'rate_limited') {
@@ -103,7 +114,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
         submittingRef.current = false
       }
     },
-    [token, t]
+    [token, t, view]
   )
 
   const handleReachBottom = useCallback(() => setReachedBottom(true), [])
@@ -149,6 +160,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
         {state === 'error' && (
           <AgreementErrorPanel
             code={errorCode ?? 'server'}
+            documentLabel={errorDocumentLabel ?? undefined}
             onRetry={
               errorCode === 'server' || errorCode === 'rate_limited' ? handleRetry : undefined
             }
@@ -235,6 +247,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
             signedAt={signed.signedAt}
             downloadUrl={signed.downloadUrl}
             orgName={view.orgName}
+            documentLabel={getAgreementDocumentLabel(view)}
           />
         )}
       </main>

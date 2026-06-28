@@ -55,7 +55,9 @@ function activeNda(token: string, overrides: Record<string, unknown> = {}) {
     organizationId: 'org-1',
     token,
     status: 'SENT',
+    type: 'NDA',
     isActive: true,
+    title: null,
     templateVersion: 'v1',
     depositAmount: '300.00',
     expiresAt: new Date('2030-01-01T00:00:00Z'),
@@ -79,7 +81,7 @@ function signBody(overrides: Record<string, unknown> = {}) {
 }
 
 function expectPublicErrorResponseSanitized(json: Record<string, unknown>) {
-  expect(Object.keys(json).sort()).toEqual(['error', 'message', 'success'])
+  expect(Object.keys(json).sort()).toEqual(['documentLabel', 'error', 'message', 'success'])
 }
 
 describe('Public NDA handlers', () => {
@@ -152,6 +154,28 @@ describe('Public NDA handlers', () => {
 
       expect(res.status).toBe(409)
       expect(json).toMatchObject({ success: false, error })
+      expectPublicErrorResponseSanitized(json)
+    })
+
+    it('returns a type-aware document label for an already-signed engagement letter', async () => {
+      const token = freshToken('view-signed-engagement-letter')
+      mockFindUnique.mockResolvedValueOnce(
+        activeNda(token, {
+          status: 'SIGNED',
+          type: 'ENGAGEMENT_LETTER',
+          title: 'Custom 2026 Services Scope',
+        }) as any
+      )
+
+      const res = await app.request(`/public/nda/${token}`)
+      const json = await res.json()
+
+      expect(res.status).toBe(409)
+      expect(json).toMatchObject({
+        success: false,
+        error: 'AGREEMENT_SIGNED',
+        documentLabel: 'Engagement Letter',
+      })
       expectPublicErrorResponseSanitized(json)
     })
 

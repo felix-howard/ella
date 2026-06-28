@@ -5,7 +5,8 @@ import { AgreementErrorPanel } from './agreement-error-panel'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string, options?: { documentLabel?: string }) =>
+      options?.documentLabel ? `${key}:${options.documentLabel}` : key,
   }),
 }))
 
@@ -37,5 +38,14 @@ describe('AgreementErrorPanel', () => {
     )
 
     expect(markup).toContain('common.tryAgain')
+  })
+
+  it('uses the supplied document label for already-signed copy', () => {
+    const markup = renderToStaticMarkup(
+      <AgreementErrorPanel code="signed" documentLabel="Engagement Letter" />,
+    )
+
+    expect(markup).toContain('nda.error.signed.message:Engagement Letter')
+    expect(markup).not.toContain('NDA')
   })
 })

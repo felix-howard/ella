@@ -1,7 +1,7 @@
 /**
  * Itemized quote breakdown for the portal quote pay page. Groups lines into
- * Monthly, Yearly, and Setup/one-time, then shows "Due today" and (when recurring)
- * "Then $X/mo". Port of the workspace pricing-summary-panel, portal-styled.
+ * Monthly, Yearly, and Setup/one-time, then shows "Due Today" and the next
+ * recurring period label. Port of the workspace pricing-summary-panel, portal-styled.
  */
 import { useTranslation } from 'react-i18next'
 import { ReceiptText } from 'lucide-react'
@@ -22,6 +22,7 @@ export function QuoteBreakdown({ view, language }: QuoteBreakdownProps) {
   // Custom yearly links bill once a year; everything else is monthly cadence.
   const isYearly = view.billingInterval === 'year'
   const recurringSuffix = isYearly ? '/yr' : '/mo'
+  const recurringLabel = isYearly ? t('quote.nextYearOnward') : t('quote.nextMonthOnward')
   const recurringTotal = Math.max(0, view.monthlyTotal - (view.discount?.recurringAmount ?? 0))
   const discountLabel = view.discount
     ? t('quote.discountLabel', { code: view.discount.code })
@@ -71,7 +72,7 @@ export function QuoteBreakdown({ view, language }: QuoteBreakdownProps) {
         <TotalRow label={t('quote.dueToday')} value={fmt(view.dueToday)} strong />
         {view.monthlyTotal > 0 && (
           <TotalRow
-            label={t('quote.recurringAfterToday')}
+            label={recurringLabel}
             value={`${fmt(recurringTotal)}${recurringSuffix}`}
           />
         )}

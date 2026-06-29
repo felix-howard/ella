@@ -1340,7 +1340,7 @@
 
 **Changed:**
 - Moved custom-link billing interval selection from quote-level to per-line item.
-- Added `Due today` plus `Then monthly/yearly` summary so one-time setup and first recurring period are shown together.
+- Added `Due Today` plus `Next month/year onward` summary so one-time setup and first recurring period are shown together.
 - Grouped custom rows into recurring `items` plus one-time `oneTimeItems`, matching the existing Stripe backend contract.
 - Blocked mixed monthly + yearly rows in one link before submission; one-time + monthly/yearly remains supported.
 

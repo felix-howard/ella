@@ -258,6 +258,7 @@ describe('message MMS send route', () => {
             channel: 'SMS',
             direction: 'OUTBOUND',
             createdAt: new Date('2026-06-10T00:00:00.000Z'),
+            updatedAt: new Date('2026-06-10T00:00:00.000Z'),
             attachmentUrls: ['https://signed.example.com/photo.png'],
             attachmentR2Keys: ['message-attachments/org_1/case_1/upload/1.png'],
             sentBy: { id: 'staff_1', name: 'Staff User', avatarUrl: null },

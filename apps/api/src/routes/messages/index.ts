@@ -44,6 +44,12 @@ import {
 import { ActivityRiskLevel, type MessageChannel, type MessageDirection } from '@ella/db'
 import { buildClientScopeFilter, isAdminOrManager } from '../../lib/org-scope'
 import { serializePhone } from '../../lib/phone-privacy'
+import {
+  canViewSensitiveMessageContent,
+  getSensitiveMessageRedactionKind,
+  serializeSensitiveMessageText,
+  type SensitiveMessageLike,
+} from '../../lib/sensitive-message-redaction'
 import { isBizWithGroup } from '../../lib/client-helpers'
 import { inngest } from '../../lib/inngest'
 import { rateLimiter } from '../../middleware/rate-limiter'
@@ -123,6 +129,14 @@ function withoutAttachmentR2Keys<T extends object>(message: T): Omit<T, 'attachm
   const copy = { ...message } as T & { attachmentR2Keys?: unknown }
   delete copy.attachmentR2Keys
   return copy
+}
+
+function serializeCaseMessageForViewer<T extends SensitiveMessageLike & object>(
+  user: AuthVariables['user'],
+  message: T
+): Omit<T, 'attachmentR2Keys'> {
+  const publicMessage = withoutAttachmentR2Keys(message) as Omit<T, 'attachmentR2Keys'> & SensitiveMessageLike
+  return serializeSensitiveMessageText(user, publicMessage) as Omit<T, 'attachmentR2Keys'>
 }
 
 function getOptionalFormString(formData: FormData, key: string): string | null {
@@ -353,7 +367,10 @@ messagesRoute.get(
               translationEdited: true,
               channel: true,
               direction: true,
+              templateUsed: true,
+              twilioStatus: true,
               createdAt: true,
+              updatedAt: true,
               attachmentUrls: true,
               sentBy: {
                 select: { id: true, name: true, avatarUrl: true },
@@ -403,8 +420,8 @@ messagesRoute.get(
           status: conv.taxCase.status,
         },
         lastMessage: conv.messages[0]
-          ? {
-              ...withoutAttachmentR2Keys(conv.messages[0]),
+          ? serializeCaseMessageForViewer(user, {
+              ...conv.messages[0],
               attachmentUrls: conv.messages[0].attachmentUrls?.length
                 ? Array.from(
                     { length: conv.messages[0].attachmentUrls.length },
@@ -419,7 +436,8 @@ messagesRoute.get(
                   }
                 : null,
               createdAt: conv.messages[0].createdAt.toISOString(),
-            }
+              updatedAt: conv.messages[0].updatedAt.toISOString(),
+            })
           : null,
       })),
       totalUnread: totalUnread._sum.unreadCount || 0,
@@ -629,6 +647,8 @@ messagesRoute.post(
         id: true,
         content: true,
         channel: true,
+        direction: true,
+        templateUsed: true,
       },
     })
 
@@ -640,6 +660,13 @@ messagesRoute.post(
       return c.json({
         error: 'EMPTY_MESSAGE',
         message: 'Message has no translatable text',
+      }, 400)
+    }
+
+    if (!canViewSensitiveMessageContent(user) && getSensitiveMessageRedactionKind(message)) {
+      return c.json({
+        error: 'SENSITIVE_MESSAGE_REDACTED',
+        message: 'Message content is not available for translation',
       }, 400)
     }
 
@@ -843,7 +870,7 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
       ? Array.from({ length: attachmentCount }, (_, i) => `/messages/media/${m.id}/${i}`)
       : m.attachmentUrls || []
 
-    return {
+    return serializeCaseMessageForViewer(user, {
       ...withoutAttachmentR2Keys(m),
       attachmentUrls: proxyUrls,
       sentBy: m.sentBy
@@ -851,7 +878,7 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
         : null,
       createdAt: m.createdAt.toISOString(),
       updatedAt: m.updatedAt.toISOString(),
-    }
+    })
   })
 
   return c.json({

@@ -3652,7 +3652,10 @@ export interface Conversation {
     translationEdited?: boolean
     channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
     direction: 'INBOUND' | 'OUTBOUND'
+    templateUsed?: string | null
+    twilioStatus?: string | null
     createdAt: string
+    updatedAt: string
     attachmentUrls?: string[]
     sentBy?: {
       id: string

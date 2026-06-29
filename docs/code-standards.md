@@ -87,6 +87,7 @@ app.use(requireOrgAdmin) // Verify org:admin role (Clerk)
 - `Action` owners are mutually exclusive: exactly one of `caseId` or `leadId` must be populated. The DB `action_owner_xor` check is the source of truth; route and service code should preserve that invariant before writes.
 - Case-owned actions follow client/case access. Lead-owned actions are visible only to same-org ADMIN/MANAGER users and deep-link to `/leads/:leadId`.
 - `CLIENT_REPLIED` may keep a bounded, redacted preview for the client inbox UX. `LEAD_REPLIED` must not persist or serialize lead message body previews.
+- Workspace-facing message serializers must redact outbound automated payment/agreement SMS content at read time for MANAGER/STAFF/CPA across case and lead message history. ADMIN is the only role that may see raw content, and `POST /messages/:messageId/translate` must fail closed with `SENSITIVE_MESSAGE_REDACTED` before AI for redacted messages.
 
 **Message Media Proxy Safety:**
 - Store durable R2 keys internally (`attachmentR2Keys`) but never serialize them to Workspace/Portal clients.

@@ -14,6 +14,10 @@ import { zValidator } from '@hono/zod-validator'
 import { ActivityRiskLevel } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { getPaginationParams, buildPaginationResponse } from '../../lib/constants'
+import {
+  serializeSensitiveMessageText,
+  type SensitiveMessageLike,
+} from '../../lib/sensitive-message-redaction'
 import { authMiddleware, requireAdminOrManager } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import { sendSmsOnly, isSmsEnabled } from '../../services/sms'
@@ -45,6 +49,14 @@ function withoutAttachmentR2Keys<T extends object>(message: T): Omit<T, 'attachm
   const copy = { ...message } as T & { attachmentR2Keys?: unknown }
   delete copy.attachmentR2Keys
   return copy
+}
+
+function serializeLeadMessageForViewer<T extends SensitiveMessageLike & object>(
+  user: AuthVariables['user'],
+  message: T
+): Omit<T, 'attachmentR2Keys'> {
+  const publicMessage = withoutAttachmentR2Keys(message) as Omit<T, 'attachmentR2Keys'> & SensitiveMessageLike
+  return serializeSensitiveMessageText(user, publicMessage) as Omit<T, 'attachmentR2Keys'>
 }
 
 function extractLeadMessageR2KeysFromUrls(urls: string[]): string[] {
@@ -111,7 +123,8 @@ leadMessagesRoute.get(
   zValidator('param', leadIdParamSchema),
   zValidator('query', listLeadMessagesQuerySchema),
   async (c) => {
-    const { orgId } = getVerifiedAuth(c.get('user'))
+    const user = c.get('user')
+    const { orgId } = getVerifiedAuth(user)
     const { id } = c.req.valid('param')
     const { page, limit } = c.req.valid('query')
     const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
@@ -170,15 +183,15 @@ leadMessagesRoute.get(
         ? Array.from({ length: attachmentCount }, (_, i) => `/leads/${id}/messages/media/${m.id}/${i}`)
         : []
 
-      return {
-        ...withoutAttachmentR2Keys(m),
+      return serializeLeadMessageForViewer(user, {
+        ...m,
         attachmentUrls,
         sentBy: m.sentBy
           ? { id: m.sentBy.id, name: m.sentBy.name, avatarUrl: avatarCache.get(m.sentBy.id) ?? null }
           : null,
         createdAt: m.createdAt.toISOString(),
         updatedAt: m.updatedAt.toISOString(),
-      }
+      })
     })
 
     return c.json({

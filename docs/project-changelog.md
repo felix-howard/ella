@@ -5,6 +5,43 @@
 
 ---
 
+### Manager Sensitive Message Redaction Phase 4
+**Status:** Complete
+
+**Changed:**
+- Closed the redaction feature with targeted API validation, API type-check, and documentation sync.
+- Confirmed Manager-facing case conversation previews, case thread history, and lead history responses redact automated payment/agreement content at read time; translation requests fail closed with `SENSITIVE_MESSAGE_REDACTED` before AI.
+- Confirmed ADMIN passthrough remains unchanged and no database migration or stored-message rewrite was introduced.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/lib/__tests__/sensitive-message-redaction.test.ts`
+- `pnpm -F @ella/api test -- src/routes/messages/__tests__/sensitive-message-redaction.test.ts src/routes/messages/__tests__/message-translation.test.ts`
+- `pnpm -F @ella/api test -- src/routes/leads/__tests__/messages.test.ts`
+- `pnpm -F @ella/api type-check`
+
+### Manager Sensitive Message Redaction Phase 3
+**Status:** Complete
+
+**Changed:**
+- Applied the shared sensitive-message redaction helper to lead message history API responses for non-admin viewers.
+- Kept ADMIN lead message content raw and left ordinary inbound/outbound lead messages unchanged.
+- Preserved lead attachment proxies, sender metadata, and the no-schema/no-backfill contract.
+
+**Validation:**
+- Lead route regression coverage now includes manager redaction, admin passthrough, and ordinary message preservation.
+
+### Manager Sensitive Message Redaction Phase 2
+**Status:** Complete
+
+**Changed:**
+- Added read-time redaction for outbound automated payment/agreement SMS content in client conversation previews and thread responses for non-admin viewers.
+- Kept ADMIN raw message behavior unchanged.
+- Blocked `POST /messages/:messageId/translate` with `SENSITIVE_MESSAGE_REDACTED` before AI when the message is already redacted.
+- Updated workspace API client message types to include `lastMessage.templateUsed`, `lastMessage.twilioStatus`, and `lastMessage.updatedAt`.
+
+**Validation:**
+- Phase-targeted API and workspace regression coverage was added for the redaction boundary and client contract.
+
 ### Message Reply Translation Phase 4
 **Status:** Complete
 

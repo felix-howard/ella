@@ -64,7 +64,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/clients/new` - Multi-path client creation wizard (Phase 12: INDIVIDUAL | BUSINESS | INDIVIDUAL_WITH_BUSINESS). INDIVIDUAL_WITH_BUSINESS path includes accordion UI for managing up to 10 business entities per individual client, with per-business validation, add/remove, and batch submit to create ClientGroup (Phase 2 multi-business enhancement)
 - `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Schedule C, Schedule E, Draft Return. Overview includes the admin multi-select manager editor and read-only fallback. Tab layout varies by clientType (Phase 15)
 - `/cases/:id` - Tax case with checklist & documents
-- `/messages` - Unified inbox with split-view conversations; conversation lists surface `replyMode` and last-message metadata, use staff-authored English source for translated outbound previews, and the reply composer translation UI lives in both the full case conversation page and the floating case chatbox. Translated outbound case SMS bubbles expose a Workspace-only `Show English` source toggle. Lead chat stays direct-only.
+- `/messages` - Unified inbox with split-view conversations; conversation lists surface `replyMode` and last-message metadata, use staff-authored English source for translated outbound previews, and the reply composer translation UI lives in both the full case conversation page and the floating case chatbox. Translated outbound case SMS bubbles expose a Workspace-only `Show English` source toggle. Non-admin workspace previews and thread responses redact outbound automated payment/agreement SMS content; ADMIN keeps raw content. Lead chat stays direct-only.
 - `/actions` - Action queue with priority filtering, client/lead reply cards, and lead deep links
 - `/company-vault` - Org-scoped shared credentials list with encrypted username/password/note fields and persisted drag reorder
 - `/pricing-calculator` - Admin-only pricing calculator with quote summary, Stripe payment-link creation, send-to-client quotes, and direct Engagement Letter preparation through existing Agreement APIs
@@ -418,12 +418,14 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - Reduces code duplication between /clients and /businesses routes during transition.
 
 **Messages & Voice (12):**
-- `GET /messages/conversations` - List conversations (org-scoped) with `replyMode` and last-message metadata
+- `GET /messages/conversations` - List conversations (org-scoped) with `replyMode` and last-message metadata; workspace-facing previews redact outbound automated payment/agreement content for non-admin viewers
 - `POST /messages/compose-translation` - EN-to-VI reply draft translation for staff composition
+- `POST /messages/:messageId/translate` - EN translation for a case message. Returns 400 `SENSITIVE_MESSAGE_REDACTED` before AI for redacted outbound automated payment/agreement messages; ADMIN keeps raw content.
 - `PATCH /messages/:caseId/reply-mode` - Persist conversation reply mode (`DIRECT` or `EN_TO_VI`)
 - `POST /messages/send` - Send SMS/portal/system message; translation metadata persists on the message when supplied
 - `POST /messages/send-with-attachments` - Send case MMS with optional image attachments and the same translation metadata contract
-- `GET /messages/:caseId` - Thread detail
+- `GET /messages/:caseId` - Thread detail; the same redaction boundary applies to returned messages
+- `GET /leads/:id/messages` - Lead message history; the same redaction boundary applies to outbound automated payment/agreement content for non-admin viewers, while ADMIN keeps raw content
 - `POST /messages/:caseId/read` - Mark case conversation read
 - `GET /messages/:caseId/unread` - Current unread count
 - `POST /voice/token` - Generate Twilio token (VoiceGrant)

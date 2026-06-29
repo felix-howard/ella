@@ -104,8 +104,10 @@ describe('PaymentTemplatePanel', () => {
 
     expect(markup).toContain('Payment templates')
     expect(markup).toContain('Monthly bookkeeping (1 item)')
-    expect(markup).toContain('Load')
+    expect(markup).toContain('Choose template to load')
+    expect(markup).not.toMatch(/<button[^>]*>Load<\/button>/)
     expect(markup).toContain('Save as template')
+    expect(markup).toContain('Selecting a template replaces the current line items.')
   })
 
   it('disables save when rows are invalid', () => {

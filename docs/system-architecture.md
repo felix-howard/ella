@@ -64,7 +64,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/clients/new` - Multi-path client creation wizard (Phase 12: INDIVIDUAL | BUSINESS | INDIVIDUAL_WITH_BUSINESS). INDIVIDUAL_WITH_BUSINESS path includes accordion UI for managing up to 10 business entities per individual client, with per-business validation, add/remove, and batch submit to create ClientGroup (Phase 2 multi-business enhancement)
 - `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Schedule C, Schedule E, Draft Return. Overview includes the admin multi-select manager editor and read-only fallback. Tab layout varies by clientType (Phase 15)
 - `/cases/:id` - Tax case with checklist & documents
-- `/messages` - Unified inbox with split-view conversations
+- `/messages` - Unified inbox with split-view conversations; conversation lists surface `replyMode` and last-message metadata, use staff-authored English source for translated outbound previews, and the reply composer translation UI lives in both the full case conversation page and the floating case chatbox. Translated outbound case SMS bubbles expose a Workspace-only `Show English` source toggle. Lead chat stays direct-only.
 - `/actions` - Action queue with priority filtering, client/lead reply cards, and lead deep links
 - `/company-vault` - Org-scoped shared credentials list with encrypted username/password/note fields and persisted drag reorder
 - `/pricing-calculator` - Admin-only pricing calculator with quote summary, Stripe payment-link creation, send-to-client quotes, and direct Engagement Letter preparation through existing Agreement APIs
@@ -417,10 +417,15 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - `fetchDraftPdfs()` - DRY helper for parallel PDF fetch from TaxBandits S3 + R2 storage + form status updates.
   - Reduces code duplication between /clients and /businesses routes during transition.
 
-**Messages & Voice (15):**
-- `GET /messages` - List conversations (org-scoped)
-- `POST /messages` - Send SMS/portal/system message
-- `GET /conversations/:id/messages` - Thread detail
+**Messages & Voice (12):**
+- `GET /messages/conversations` - List conversations (org-scoped) with `replyMode` and last-message metadata
+- `POST /messages/compose-translation` - EN-to-VI reply draft translation for staff composition
+- `PATCH /messages/:caseId/reply-mode` - Persist conversation reply mode (`DIRECT` or `EN_TO_VI`)
+- `POST /messages/send` - Send SMS/portal/system message; translation metadata persists on the message when supplied
+- `POST /messages/send-with-attachments` - Send case MMS with optional image attachments and the same translation metadata contract
+- `GET /messages/:caseId` - Thread detail
+- `POST /messages/:caseId/read` - Mark case conversation read
+- `GET /messages/:caseId/unread` - Current unread count
 - `POST /voice/token` - Generate Twilio token (VoiceGrant)
 - `POST /voice/presence/register` - Register staff online
 - `GET /voice/caller/:phone` - Lookup incoming caller

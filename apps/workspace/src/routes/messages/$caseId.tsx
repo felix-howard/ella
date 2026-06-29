@@ -18,7 +18,13 @@ import { useOrgRole } from '../../hooks/use-org-role'
 import { api } from '../../lib/api-client'
 import { logMessageRealtimeDebug } from '../../lib/realtime-message-events'
 import { dedupeMessagesById, mergeFetchedMessages } from '../../lib/optimistic-message-merge'
-import type { Conversation, TaxCaseStatus, Language } from '../../lib/api-client'
+import type {
+  ComposeTranslationMetadata,
+  Conversation,
+  TaxCaseStatus,
+  Language,
+  ReplyMode,
+} from '../../lib/api-client'
 import type { OptimisticMessage } from '../../lib/optimistic-message-merge'
 
 export const Route = createFileRoute('/messages/$caseId')({
@@ -31,6 +37,25 @@ type LocalMessage = OptimisticMessage
 type CaseData = {
   client: { id: string; name: string; phone: string; language: Language }
   taxCase: { id: string; taxYear: number; status: TaxCaseStatus }
+}
+
+function getTranslationMetadataFromMessage(
+  message: LocalMessage
+): ComposeTranslationMetadata | undefined {
+  if (
+    message.staffAuthoredContent
+    && message.staffAuthoredLanguage === 'EN'
+    && message.contentLanguage === 'VI'
+  ) {
+    return {
+      sourceContent: message.staffAuthoredContent,
+      sourceLanguage: 'EN',
+      targetLanguage: 'VI',
+      edited: Boolean(message.translationEdited),
+    }
+  }
+
+  return undefined
 }
 
 function getCaseDataFromConversation(conversation: Conversation): CaseData {
@@ -54,17 +79,28 @@ function ConversationDetailView() {
   const { canViewPhone } = useOrgRole()
   const { caseId } = Route.useParams()
   const queryClient = useQueryClient()
+  const initialReplyMode = queryClient.getQueryData<Conversation>([
+    'messages',
+    'conversation-summary',
+    caseId,
+  ])?.replyMode
   const [messages, setMessages] = useState<LocalMessage[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const [caseData, setCaseData] = useState<CaseData | null>(null)
+  const [replyMode, setReplyMode] = useState<ReplyMode>(initialReplyMode ?? 'DIRECT')
+  const [isReplyModeLoaded, setIsReplyModeLoaded] = useState(Boolean(initialReplyMode))
+  const [isReplyModeSaving, setIsReplyModeSaving] = useState(false)
   const prevCaseIdRef = useRef<string>(caseId)
   const currentCaseIdRef = useRef<string>(caseId)
   const isSendingMessageRef = useRef(false)
+  const isReplyModeSavingRef = useRef(false)
+  const replyModeSaveIdRef = useRef(0)
   const optimisticPreviewUrlsRef = useRef<Set<string>>(new Set())
   const lastMarkedReadRef = useRef<string | null>(null)
   const messagesCacheRef = useRef<Map<string, LocalMessage[]>>(new Map())
   const caseDataCacheRef = useRef<Map<string, CaseData>>(new Map())
+  const replyModeCacheRef = useRef<Map<string, ReplyMode>>(new Map())
   currentCaseIdRef.current = caseId
 
   // Voice call state
@@ -105,6 +141,15 @@ function ConversationDetailView() {
       targetCaseId,
     ])
     return conversation ? getCaseDataFromConversation(conversation) : null
+  }, [queryClient])
+
+  const getCachedReplyMode = useCallback((targetCaseId: string): ReplyMode | null => {
+    const conversation = queryClient.getQueryData<Conversation>([
+      'messages',
+      'conversation-summary',
+      targetCaseId,
+    ])
+    return conversation?.replyMode ?? null
   }, [queryClient])
 
   const markLatestRenderedRead = useCallback((latestRenderedAt?: string) => {
@@ -157,6 +202,12 @@ function ConversationDetailView() {
       })
       const response = await api.messages.list(requestCaseId)
       if (currentCaseIdRef.current !== requestCaseId) return
+      const nextReplyMode = response.conversation.replyMode ?? 'DIRECT'
+      if (!isReplyModeSavingRef.current) {
+        replyModeCacheRef.current.set(requestCaseId, nextReplyMode)
+        setReplyMode(nextReplyMode)
+      }
+      setIsReplyModeLoaded(true)
 
       // Messages come in desc order from API, reverse for display
       const fetchedMessages = response.messages.reverse()
@@ -256,16 +307,29 @@ function ConversationDetailView() {
       revokeAllOptimisticPreviewUrls()
       const cachedMessages = messagesCacheRef.current.get(caseId)
       const cachedCaseData = caseDataCacheRef.current.get(caseId) ?? getCachedCaseData(caseId)
+      const cachedReplyMode = replyModeCacheRef.current.get(caseId) ?? getCachedReplyMode(caseId)
 
+      replyModeSaveIdRef.current += 1
+      isReplyModeSavingRef.current = false
+      setIsReplyModeSaving(false)
       setMessages(cachedMessages ?? [])
       setIsLoading(!cachedMessages)
       setCaseData(cachedCaseData ?? null)
+      setReplyMode(cachedReplyMode ?? 'DIRECT')
+      setIsReplyModeLoaded(Boolean(cachedReplyMode))
       lastMarkedReadRef.current = null
       prevCaseIdRef.current = caseId
     }
     fetchMessages()
     fetchCaseData()
-  }, [caseId, fetchMessages, fetchCaseData, getCachedCaseData, revokeAllOptimisticPreviewUrls])
+  }, [
+    caseId,
+    fetchMessages,
+    fetchCaseData,
+    getCachedCaseData,
+    getCachedReplyMode,
+    revokeAllOptimisticPreviewUrls,
+  ])
 
   // Fallback polling (realtime handles instant updates)
   useEffect(() => {
@@ -278,7 +342,12 @@ function ConversationDetailView() {
 
   // Handle message send with true optimistic update
   const handleSend = useCallback(
-    async (content: string, channel: 'SMS' | 'PORTAL', attachments: File[] = []) => {
+    async (
+      content: string,
+      channel: 'SMS' | 'PORTAL',
+      attachments: File[] = [],
+      translation?: ComposeTranslationMetadata
+    ) => {
       if (isSendingMessageRef.current) {
         throw new Error('Message send already in progress')
       }
@@ -299,6 +368,10 @@ function ConversationDetailView() {
         channel,
         direction: 'OUTBOUND',
         content,
+        contentLanguage: translation?.targetLanguage,
+        staffAuthoredContent: translation?.sourceContent,
+        staffAuthoredLanguage: translation?.sourceLanguage,
+        translationEdited: translation?.edited,
         attachmentUrls,
         createdAt: new Date().toISOString(),
         _optimistic: 'sending',
@@ -310,8 +383,13 @@ function ConversationDetailView() {
 
       try {
         const response = attachments.length > 0
-          ? await api.messages.sendWithAttachments({ caseId: sendCaseId, content, images: attachments })
-          : await api.messages.send({ caseId: sendCaseId, content, channel })
+          ? await api.messages.sendWithAttachments({
+              caseId: sendCaseId,
+              content,
+              images: attachments,
+              translation,
+            })
+          : await api.messages.send({ caseId: sendCaseId, content, channel, translation })
         if (currentCaseIdRef.current !== sendCaseId) {
           revokeOptimisticPreviewUrls(attachmentUrls)
           return
@@ -367,11 +445,51 @@ function ConversationDetailView() {
       handleSend(
         failedMessage.content,
         failedMessage.channel as 'SMS' | 'PORTAL',
-        failedMessage._attachmentFiles ?? []
+        failedMessage._attachmentFiles ?? [],
+        getTranslationMetadataFromMessage(failedMessage)
       ).catch(() => undefined)
     },
     [handleSend, revokeOptimisticPreviewUrls, setCurrentMessages]
   )
+
+  const handleReplyModeChange = useCallback(async (mode: ReplyMode) => {
+    if (isReplyModeSavingRef.current || mode === replyMode) return
+
+    const previousMode = replyMode
+    const targetCaseId = caseId
+    const saveId = replyModeSaveIdRef.current + 1
+    replyModeSaveIdRef.current = saveId
+    isReplyModeSavingRef.current = true
+    setIsReplyModeSaving(true)
+    setReplyMode(mode)
+    replyModeCacheRef.current.set(targetCaseId, mode)
+
+    try {
+      const response = await api.messages.updateReplyMode(targetCaseId, { replyMode: mode })
+      replyModeCacheRef.current.set(targetCaseId, response.replyMode)
+      if (currentCaseIdRef.current === targetCaseId) {
+        setReplyMode(response.replyMode)
+      }
+      queryClient.setQueryData<Conversation>(
+        ['messages', 'conversation-summary', targetCaseId],
+        (previous) => previous ? { ...previous, replyMode: response.replyMode } : previous
+      )
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    } catch (error) {
+      replyModeCacheRef.current.set(targetCaseId, previousMode)
+      if (currentCaseIdRef.current === targetCaseId) {
+        setReplyMode(previousMode)
+      }
+      if (import.meta.env.DEV) {
+        console.error('Failed to update reply mode:', error)
+      }
+    } finally {
+      if (replyModeSaveIdRef.current === saveId) {
+        isReplyModeSavingRef.current = false
+        setIsReplyModeSaving(false)
+      }
+    }
+  }, [caseId, queryClient, replyMode])
 
   // Handle call button click
   const displayCaseData = useMemo(() => {
@@ -474,7 +592,7 @@ function ConversationDetailView() {
       />
 
       {/* Quick Actions Bar */}
-      {displayCaseData && (
+      {displayCaseData && isReplyModeLoaded && (
         <QuickActionsBar
           onSend={handleSend}
           clientName={displayCaseData.client.name}
@@ -483,6 +601,10 @@ function ConversationDetailView() {
           caseId={caseId}
           defaultChannel="SMS"
           isSending={isSendingMessage}
+          replyMode={replyMode}
+          onReplyModeChange={handleReplyModeChange}
+          isReplyModeSaving={isReplyModeSaving}
+          translationEnabled
         />
       )}
 

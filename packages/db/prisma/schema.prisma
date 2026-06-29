@@ -350,6 +350,11 @@ enum Language {
   EN
 }
 
+enum ConversationReplyMode {
+  DIRECT
+  EN_TO_VI
+}
+
 enum SubscriptionType {
   UPLOAD
   CHAT
@@ -1242,7 +1247,8 @@ model Conversation {
   messages Message[]
 
   lastMessageAt DateTime?
-  unreadCount   Int       @default(0)
+  unreadCount   Int                   @default(0)
+  replyMode     ConversationReplyMode @default(DIRECT)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1259,10 +1265,14 @@ model Message {
   leadId String?
   lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-  channel   MessageChannel
-  direction MessageDirection
-  content   String           @db.VarChar(5000) // M3: Limit message length for security
-  reactions Json             @default("[]") // SMS Tapback reactions displayed on the original message
+  channel               MessageChannel
+  direction             MessageDirection
+  content               String           @db.VarChar(5000) // M3: Limit message length for security
+  contentLanguage       Language?
+  staffAuthoredContent  String?          @db.VarChar(5000)
+  staffAuthoredLanguage Language?
+  translationEdited     Boolean          @default(false)
+  reactions             Json             @default("[]") // SMS Tapback reactions displayed on the original message
 
   twilioSid    String? @unique
   twilioStatus String?

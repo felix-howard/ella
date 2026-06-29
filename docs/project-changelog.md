@@ -1,9 +1,40 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-28 ICT
+> **Last Updated:** 2026-06-29 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### Message Reply Translation Phase 4
+**Status:** Complete
+
+**Changed:**
+- Added Workspace `Show English` / `Hide English` toggle for outbound translated SMS bubbles with neutral source styling.
+- Kept inbound bubble translation separate from staff source display.
+- Updated conversation previews to use staff-authored English source for translated outbound text while preserving photo-only previews.
+- Tightened optimistic message matching so translated temporary messages are reconciled only with server copies that preserve source metadata.
+- Added focused workspace regression coverage for message bubbles, conversation previews, reply translation components, and optimistic merge.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- message-bubble conversation-list quick-actions-bar reply-translation optimistic-message-merge` pass, 28 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api test -- message-reply-translation message-translation` pass
+- `pnpm -F @ella/api type-check` pass
+
+### Message Reply Translation Phase 3
+**Status:** Complete
+
+**Changed:**
+- Added workspace composer UX for message reply translation in both the full Messages route and the floating case chatbox.
+- Let staff switch `Direct` or `EN -> VI` per case, with EN -> VI debouncing `POST /messages/compose-translation` into an editable Vietnamese SMS preview.
+- Blocked send while the preview is loading, stale, or errored, and kept lead chat direct-only.
+- Kept JSON and MMS send paths aligned so optimistic messages and API payloads preserve staff-authored English metadata (`staffAuthoredContent`, `staffAuthoredLanguage`, `translationEdited`).
+- Hardened composer state with single-flight reply-mode saves, mode-load gating before render, query-cache sync between the page and chatbox, and rollback for the first failed chatbox send.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- reply-translation quick-actions-bar use-reply-translation-preview` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with only existing unrelated warnings
 
 ### Client Payment Receipt Refresh Action
 **Status:** Complete

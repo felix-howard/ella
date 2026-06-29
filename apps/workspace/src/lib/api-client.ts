@@ -1362,6 +1362,12 @@ export const api = {
       formData.append('caseId', data.caseId)
       if (data.content) formData.append('content', data.content)
       if (data.templateName) formData.append('templateName', data.templateName)
+      if (data.translation) {
+        formData.append('staffAuthoredContent', data.translation.sourceContent)
+        formData.append('staffAuthoredLanguage', data.translation.sourceLanguage)
+        formData.append('contentLanguage', data.translation.targetLanguage)
+        formData.append('translationEdited', String(data.translation.edited))
+      }
       data.images.forEach((image) => formData.append('images', image))
       return request<SendMessageResponse>('/messages/send-with-attachments', {
         method: 'POST',
@@ -1373,6 +1379,20 @@ export const api = {
     translate: (messageId: string, data: TranslateMessageInput = { targetLanguage: 'EN' }) =>
       request<TranslateMessageResponse>(`/messages/${messageId}/translate`, {
         method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+
+    translateCompose: (data: TranslateComposeInput) =>
+      request<TranslateComposeResponse>('/messages/compose-translation', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+
+    updateReplyMode: (caseId: string, data: UpdateReplyModeInput) =>
+      request<UpdateReplyModeResponse>(`/messages/${caseId}/reply-mode`, {
+        method: 'PATCH',
         body: JSON.stringify(data),
         retries: 0,
       }),
@@ -2335,6 +2355,7 @@ export type TaxCaseStatus =
 export type TaxType = 'FORM_1040' | 'FORM_1120S' | 'FORM_1065'
 
 export type Language = 'VI' | 'EN'
+export type ReplyMode = 'DIRECT' | 'EN_TO_VI'
 
 export type LeadStatus = 'NEW' | 'SENT' | 'CONTACTED' | 'CONVERTED' | 'LOST'
 
@@ -3326,6 +3347,10 @@ export interface Message {
   channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
   direction: 'INBOUND' | 'OUTBOUND'
   content: string
+  contentLanguage?: Language | null
+  staffAuthoredContent?: string | null
+  staffAuthoredLanguage?: Language | null
+  translationEdited?: boolean
   reactions?: MessageReaction[]
   attachmentUrls?: string[]
   createdAt: string
@@ -3498,6 +3523,14 @@ export interface SendMessageInput {
   caseId: string
   content: string
   channel?: 'SMS' | 'PORTAL'
+  translation?: ComposeTranslationMetadata
+}
+
+export interface ComposeTranslationMetadata {
+  sourceContent: string
+  sourceLanguage: 'EN'
+  targetLanguage: 'VI'
+  edited: boolean
 }
 
 export interface SendMessageWithAttachmentsInput {
@@ -3505,6 +3538,7 @@ export interface SendMessageWithAttachmentsInput {
   content?: string
   templateName?: string
   images: File[]
+  translation?: ComposeTranslationMetadata
 }
 
 export interface TranslateMessageInput {
@@ -3518,12 +3552,36 @@ export interface TranslateMessageResponse {
   translatedText: string
 }
 
+export interface TranslateComposeInput {
+  caseId: string
+  sourceText: string
+  sourceLanguage: 'EN'
+  targetLanguage: 'VI'
+}
+
+export interface TranslateComposeResponse {
+  caseId: string
+  sourceLanguage: 'EN'
+  targetLanguage: 'VI'
+  translatedText: string
+}
+
+export interface UpdateReplyModeInput {
+  replyMode: ReplyMode
+}
+
+export interface UpdateReplyModeResponse {
+  caseId: string
+  replyMode: ReplyMode
+}
+
 // Messages response types
 export interface MessagesResponse {
   conversation: {
     id: string
     caseId: string
     unreadCount: number
+    replyMode?: ReplyMode
     lastMessageAt: string | null
     createdAt: string
     updatedAt: string
@@ -3567,6 +3625,7 @@ export interface Conversation {
   id: string
   caseId: string
   unreadCount: number
+  replyMode?: ReplyMode
   lastMessageAt: string | null
   createdAt: string
   updatedAt: string
@@ -3587,6 +3646,10 @@ export interface Conversation {
   lastMessage: {
     id: string
     content: string
+    contentLanguage?: Language | null
+    staffAuthoredContent?: string | null
+    staffAuthoredLanguage?: Language | null
+    translationEdited?: boolean
     channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
     direction: 'INBOUND' | 'OUTBOUND'
     createdAt: string

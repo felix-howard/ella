@@ -24,6 +24,11 @@ export {
   type MessageTranslationResult,
 } from './message-translator'
 
+export {
+  translateReplyToVietnamese,
+  type ReplyTranslationResult,
+} from './reply-translator'
+
 // Document Classifier
 export {
   classifyDocument,

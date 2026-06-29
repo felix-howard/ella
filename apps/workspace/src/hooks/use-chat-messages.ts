@@ -6,13 +6,14 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api-client'
 import type { ChatContext } from '../types/chat-context'
 import { chatContextId } from '../types/chat-context'
-import type { Message } from '../lib/api-client'
+import type { Message, MessagesResponse } from '../lib/api-client'
 
 // Fallback polling (realtime handles instant updates).
 const FALLBACK_POLLING_MS = 60000
 
 export interface UseChatMessagesResult {
   messages: Message[]
+  conversation: MessagesResponse['conversation'] | null
   isLoading: boolean
   isError: boolean
 }
@@ -29,9 +30,13 @@ export function useChatMessages(context: ChatContext, enabled: boolean): UseChat
     enabled: enabled && !!chatContextId(context),
     refetchInterval: enabled ? FALLBACK_POLLING_MS : false,
   })
+  const caseResponse = context.type === 'case'
+    ? query.data as MessagesResponse | undefined
+    : undefined
 
   return {
     messages: query.data?.messages ?? [],
+    conversation: caseResponse?.conversation ?? null,
     isLoading: query.isLoading,
     isError: query.isError,
   }

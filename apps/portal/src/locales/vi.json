@@ -504,7 +504,7 @@
   "pay.paid.title": "Đã nhận thanh toán",
   "pay.paid.message": "Cảm ơn bạn! Khoản thanh toán {{amount}} cho {{orgName}} đã hoàn tất.",
   "pay.paid.paidOn": "Đã thanh toán ngày {{date}}",
-  "pay.paid.receiptHint": "Biên nhận sẽ được gửi cho bạn qua tin nhắn.",
+  "pay.paid.receiptHint": "Biên nhận sẽ được gửi đến email của bạn.",
   "pay.confirming.title": "Đang xác nhận thanh toán...",
   "pay.confirming.message": "Việc xác nhận có thể mất một phút. Trang này sẽ tự động cập nhật.",
   "pay.confirming.refresh": "Kiểm tra lại",
@@ -532,5 +532,5 @@
   "quote.intro.leadNamed": "Chào {{firstName}}, {{orgName}} đã chuẩn bị báo giá của bạn. Vui lòng xem lại và thanh toán an toàn — chỉ mất một phút.",
   "quote.trust.secureTitle": "Thanh toán an toàn qua Stripe",
   "quote.trust.encryptedTitle": "Mã hóa cấp ngân hàng",
-  "quote.trust.receiptTitle": "Biên nhận gửi qua tin nhắn"
+  "quote.trust.receiptTitle": "Biên nhận gửi qua email"
 }

@@ -504,7 +504,7 @@
   "pay.paid.title": "Payment received",
   "pay.paid.message": "Thank you! Your {{amount}} payment to {{orgName}} is complete.",
   "pay.paid.paidOn": "Paid on {{date}}",
-  "pay.paid.receiptHint": "A receipt will be sent to you by text message.",
+  "pay.paid.receiptHint": "A receipt will be sent to your email address.",
   "pay.confirming.title": "Confirming your payment...",
   "pay.confirming.message": "Confirmation may take a minute. This page will update automatically.",
   "pay.confirming.refresh": "Check again",
@@ -532,5 +532,5 @@
   "quote.intro.leadNamed": "Hi {{firstName}}, {{orgName}} prepared your quote. Look it over and pay securely — it only takes a minute.",
   "quote.trust.secureTitle": "Secure Stripe checkout",
   "quote.trust.encryptedTitle": "Bank-level encryption",
-  "quote.trust.receiptTitle": "Receipt sent by text"
+  "quote.trust.receiptTitle": "Receipt sent by email"
 }

@@ -26,6 +26,7 @@ import {
   AgreementTypeBadge,
   AgreementSourceBadge,
 } from './agreement-status-badges'
+import { AgreementPaymentPortalBadge } from './agreement-payment-portal-status'
 import { AgreementCardCollaborationMetadata } from './agreement-card-collaboration-metadata'
 import { toast } from '../../stores/toast-store'
 import { formatShortRelativeTime, formatFullDateTime } from '../../lib/formatters'
@@ -90,6 +91,7 @@ export function NdaReadonlyCard({ nda, entity, showViewPdf = false, framed = tru
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <NdaStatusBadge status={nda.status} />
           {nda.depositStatus && <DepositStatusBadge status={nda.depositStatus} />}
+          <AgreementPaymentPortalBadge agreement={nda} />
         </div>
       </div>
 

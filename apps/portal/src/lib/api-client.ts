@@ -223,6 +223,12 @@ export interface AgreementSignResult {
   status: 'SIGNED'
   signedAt: string
   downloadUrl: string
+  paymentPortalUrl?: string
+  paymentPortalDelivery?: {
+    mode: 'AUTO_SEND' | 'STAFF_REVIEW' | 'NONE'
+    smsSent?: boolean
+    smsSkippedReason?: 'no_phone' | 'send_failed' | 'already_sent'
+  }
 }
 
 interface ApiEnvelope<T> {

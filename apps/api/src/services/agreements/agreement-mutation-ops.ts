@@ -29,6 +29,7 @@ import {
   agreementResponseInclude,
   serializeAgreementResponse,
 } from './agreement-response-serializer'
+import { activateAgreementQuotePaymentPortal } from '../payments/agreement-quote-service'
 
 const LINK_MUTATION_STATUSES: AgreementStatus[] = ['SENT', 'EXPIRED']
 const VOIDABLE_AGREEMENT_STATUSES: AgreementStatus[] = ['SENT', 'EXPIRED']
@@ -399,4 +400,21 @@ export async function extendAgreementForEntity(input: {
   })
   if (!updated) throw new HTTPException(404, { message: 'Agreement not found' })
   return updated
+}
+
+export async function sendAgreementPaymentPortalForEntity(input: {
+  entityType: EntityType
+  entityId: string
+  agreementId: string
+  orgId: string
+  staffId: string
+}) {
+  return activateAgreementQuotePaymentPortal({
+    agreementId: input.agreementId,
+    orgId: input.orgId,
+    staffId: input.staffId,
+    entityType: input.entityType,
+    entityId: input.entityId,
+    requireStaffReviewMode: true,
+  })
 }

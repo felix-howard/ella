@@ -4,12 +4,27 @@ import { describe, expect, it, vi } from 'vitest'
 import { calculatePricing, createDefaultPricingInput } from '@ella/shared/pricing'
 import {
   createCalculatorEngagementLetterModalState,
+  getCalculatorPaymentModeLabelKey,
   getEngagementLetterDisabledReason,
   type SelectedRecipient,
 } from '../pricing-engagement-letter-panel-helpers'
 import {
   PricingEngagementLetterPanel,
 } from '../pricing-engagement-letter-panel'
+
+vi.mock('react-i18next', () => ({
+  initReactI18next: { type: '3rdParty', init: vi.fn() },
+  useTranslation: () => ({
+    t: (key: string, options?: Record<string, string>) => {
+      if (key === 'pricing.engagementLetterDraft.paymentModeDefaultLabel') {
+        return `Payment after signature: ${options?.mode}`
+      }
+      if (key === 'settings.calculatorPaymentAutoSend') return 'Auto-send payment portal'
+      if (key === 'settings.calculatorPaymentStaffReview') return 'Staff review first'
+      return key
+    },
+  }),
+}))
 
 vi.mock('../use-recipient-search', () => ({
   decodeRecipientId: (value: string) => {
@@ -20,6 +35,14 @@ vi.mock('../use-recipient-search', () => ({
     items: [],
     recipientByItemId: new Map(),
     loading: false,
+  }),
+}))
+
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: () => ({
+    data: { calculatorAgreementPaymentMode: 'AUTO_SEND' },
+    isLoading: false,
+    isError: false,
   }),
 }))
 
@@ -55,8 +78,14 @@ describe('PricingEngagementLetterPanel', () => {
     expect(markup).toContain('Engagement letter')
     expect(markup).toContain('Prepare engagement letter')
     expect(markup).toContain('Search clients or leads')
+    expect(markup).toContain('Payment after signature: Auto-send payment portal')
     expect(markup).toContain('Select a client or lead to prepare an engagement letter.')
     expect(markup).toContain('disabled=""')
+  })
+
+  it('maps calculator payment modes to localized label keys', () => {
+    expect(getCalculatorPaymentModeLabelKey('AUTO_SEND')).toBe('settings.calculatorPaymentAutoSend')
+    expect(getCalculatorPaymentModeLabelKey('STAFF_REVIEW')).toBe('settings.calculatorPaymentStaffReview')
   })
 
   it('prioritizes calculator invalid states over recipient states', () => {
@@ -123,7 +152,9 @@ describe('PricingEngagementLetterPanel', () => {
       setupTotal: expect.any(Number),
       monthlyTotal: expect.any(Number),
       tierLabel: expect.any(String),
+      paymentPortalMode: 'AUTO_SEND',
     })
+    expect(modalState.draftSeed.calculatorQuote.pricingInput).toBe(input)
     expect(modalState.draftSeed.sourceSnapshot).not.toHaveProperty('pricingInput')
     expect(modalState.draftSeed.sourceSnapshot).not.toHaveProperty('pricingResult')
   })

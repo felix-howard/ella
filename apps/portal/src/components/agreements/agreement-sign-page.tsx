@@ -246,6 +246,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
           <AgreementConfirmationPanel
             signedAt={signed.signedAt}
             downloadUrl={signed.downloadUrl}
+            paymentPortalUrl={signed.paymentPortalUrl}
             orgName={view.orgName}
             documentLabel={getAgreementDocumentLabel(view)}
           />

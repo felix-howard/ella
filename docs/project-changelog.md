@@ -1,9 +1,86 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-29 ICT
+> **Last Updated:** 2026-06-30 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### Calculator Agreement Payment Link Phase 6
+**Status:** Complete
+
+**Changed:**
+- Added portal signing confirmation `Continue to payment` CTA when the signed agreement response includes an activated calculator quote URL.
+- Kept signed PDF download available, but secondary when a payment continuation is available.
+- Kept staff-review and legacy agreement confirmations free of payment CTA until staff sends the payment portal.
+- Broadened the portal signing result type for the payment-portal delivery contract and added focused portal confirmation regression coverage.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/agreements/__tests__/agreement-signing-service.test.ts src/routes/agreements/__tests__/agreement-draft-staff-routes.test.ts src/routes/clients/__tests__/agreements-staff-draft-routes.test.ts src/services/payments/__tests__/quote-checkout-service.test.ts src/routes/org-settings/__tests__/activity-logging.test.ts` passed, 5 files / 93 tests.
+- `pnpm -F @ella/workspace test -- src/components/pricing/__tests__/calculator-engagement-letter-modal.test.ts src/components/pricing/__tests__/calculator-engagement-letter-modal-component.test.tsx src/components/pricing/__tests__/pricing-engagement-letter-panel.test.tsx src/components/agreements/agreement-draft-payload.test.ts src/components/agreements/agreement-card-payment-portal.test.tsx src/components/agreements/use-send-agreement-payment-portal.test.tsx` passed, 6 files / 28 tests.
+- `pnpm -F @ella/portal test -- src/components/agreements/agreement-confirmation-panel.test.tsx src/components/agreements/agreement-error-panel.test.tsx src/components/agreements/agreement-error-mapping.test.ts src/lib/api-client.test.ts` passed, 4 files / 10 tests.
+- `pnpm -F @ella/api type-check` passed.
+- `pnpm -F @ella/workspace type-check` passed.
+- `pnpm -F @ella/portal type-check` passed.
+- `pnpm i18n:check` passed; Workspace 3168 keys and Portal 534 keys in parity.
+
+### Calculator Agreement Payment Link Phase 5
+**Status:** Complete
+
+**Changed:**
+- Added Workspace agreement-card status badges and actions for calculator-linked Engagement Letters pending staff-review payment portal send.
+- Added `Send payment portal` / `Copy payment link` behavior through the authorized client/lead agreement action endpoint, with agreement, message, and client-payment cache invalidation after mutation.
+- Kept generic agreement responses on the safe quote-summary contract: no raw `payToken` and no derived public `payUrl` in list/read responses.
+- Added regression tests for staff-review, sent, paid, manual, legacy, non-signed, and serializer token/link exposure cases.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- agreement-card payment-portal calculator-engagement-letter-modal-component` passed, 15 tests.
+- `pnpm -F @ella/api test -- agreement-response-serializer agreements-staff-draft-routes agreement-draft-staff-routes` passed, 13 tests.
+- `pnpm -F @ella/workspace type-check` passed.
+- `pnpm -F @ella/api type-check` passed.
+- `pnpm i18n:check` passed.
+- `pnpm -F @ella/workspace lint` passed with existing warnings only.
+- `pnpm -F @ella/api lint` passed with existing warning only.
+
+### Calculator Agreement Payment Link Phase 3
+**Status:** Complete
+
+**Changed:**
+- Added org-settings support for `calculatorAgreementPaymentMode` with `AUTO_SEND` and `STAFF_REVIEW`, so calculator agreement defaults now come from the org setting when drafts do not override them.
+- Extended agreement draft/send payloads with calculator quote data plus optional `paymentPortalMode` overrides, while keeping public agreement responses on the safe quote-summary contract.
+- Added signed-agreement `send-payment-portal` endpoints for client and lead calculator Engagement Letters pending staff review; manual activation is org/entity scoped, strips raw `payToken`, and returns `payUrl` plus SMS status.
+- Updated Workspace API client and Portal signing result types to match the new payment-portal response contract.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` passed.
+- `pnpm -F @ella/workspace type-check` passed.
+- `pnpm -F @ella/portal type-check` passed.
+- `pnpm -F @ella/api test -- org-settings agreement` passed, 31 files / 460 tests.
+- `git diff --check` passed.
+
+### Calculator Agreement Payment Link Phase 2
+**Status:** Complete
+
+**Changed:**
+- Added backend services to freeze calculator agreement quotes as linked `PaymentQuote` rows before signature, then activate the same quote after signing.
+- Integrated calculator quote freeze/pending-signature transitions into agreement draft send and direct agreement create paths.
+- Added post-sign behavior: `AUTO_SEND` activates the quote and returns a payment URL best-effort; `STAFF_REVIEW` marks the quote for staff approval without sending SMS.
+- Guarded public quote checkout from pre-sign/review statuses and kept signing successful when activation, SMS, or review marking fails.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` passed.
+- `pnpm -F @ella/api test -- agreement quote payment` passed, 46 files / 660 tests.
+- `git diff --check` passed.
+
+### Calculator Agreement Payment Link Phase 1
+**Status:** Complete
+
+**Changed:**
+- Added an Agreement ↔ PaymentQuote link plus `paymentPortalMode` on Agreement and `calculatorAgreementPaymentMode` on Organization to persist the calculator payment-portal state.
+- Updated the Agreement serializer and Workspace API Agreement type to return only a safe linked quote summary (`id`, `status`, `sentAt`, `monthlyTotalCents`, `setupTotalCents`) while keeping `payToken`, `payUrl`, `inputSnapshot`, and `resultSnapshot` server-only.
+- Created an additive Prisma migration for the new relation; it is not applied to the configured datasource yet.
+
+**Validation:**
+- Prisma validate, db/API/Workspace type-checks, targeted Workspace agreement tests, and targeted API client-agreement tests passed.
 
 ### Manager Sensitive Message Redaction Phase 4
 **Status:** Complete

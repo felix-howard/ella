@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { createDefaultPricingInput } from '@ella/shared/pricing'
 import type { Agreement } from '../../lib/api-client'
 import {
   buildCreateAgreementPayload,
   buildSaveAgreementDraftPayload,
+  buildSendAgreementDraftPayload,
   createStep3DraftFromAgreement,
 } from './agreement-draft-payload'
 import {
@@ -27,6 +29,9 @@ function draftAgreement(overrides: Partial<Agreement> = {}): Agreement {
     internalNote: 'Private',
     source: 'MANUAL',
     sourceSnapshot: null,
+    paymentQuoteId: null,
+    paymentPortalMode: 'NONE',
+    paymentQuote: null,
     leadId: 'lead-1',
     clientId: null,
     organizationId: 'org-1',
@@ -91,6 +96,11 @@ describe('agreement draft payload helpers', () => {
   })
 
   it('adds draft source metadata for saved drafts', () => {
+    const calculatorQuote = {
+      pricingInput: createDefaultPricingInput(),
+      paymentPortalMode: 'STAFF_REVIEW' as const,
+    }
+
     expect(
       buildSaveAgreementDraftPayload({
         type: 'ENGAGEMENT_LETTER',
@@ -98,11 +108,28 @@ describe('agreement draft payload helpers', () => {
         resolved,
         source: 'CALCULATOR',
         sourceSnapshot: { quoteId: 'quote-1' },
+        calculatorQuote,
       }),
     ).toMatchObject({
       type: 'ENGAGEMENT_LETTER',
       source: 'CALCULATOR',
       sourceSnapshot: { quoteId: 'quote-1' },
+      calculatorQuote,
+    })
+  })
+
+  it('adds calculator payment mode when sending a saved draft', () => {
+    expect(
+      buildSendAgreementDraftPayload({
+        type: 'ENGAGEMENT_LETTER',
+        templateId: null,
+        resolved,
+        expectedUpdatedAt: '2026-06-25T10:00:00.000Z',
+        paymentPortalMode: 'AUTO_SEND',
+      }),
+    ).toMatchObject({
+      expectedUpdatedAt: '2026-06-25T10:00:00.000Z',
+      paymentPortalMode: 'AUTO_SEND',
     })
   })
 

@@ -470,6 +470,7 @@
   "nda.confirmedTitle": "Đã ký thỏa thuận",
   "nda.confirmedMessage": "{{documentLabel}} của bạn với {{orgName}} đã hoàn tất. Bản sao đã được lưu vào hồ sơ.",
   "nda.signedAtLabel": "Đã ký lúc",
+  "nda.continueToPayment": "Tiếp tục thanh toán",
   "nda.downloadCopy": "Tải PDF đã ký",
   "nda.downloadTtlHint": "Link tải có hiệu lực 15 phút. Liên hệ CPA nếu cần bản mới.",
   "nda.contactHint": "Vui lòng liên hệ CPA nếu cần hỗ trợ.",

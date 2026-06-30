@@ -27,6 +27,7 @@ const serviceMocks = vi.hoisted(() => ({
   listAgreementsForEntity: vi.fn(),
   renderPreviewPdf: vi.fn(),
   resendAgreementForEntity: vi.fn(),
+  sendAgreementPaymentPortalForEntity: vi.fn(),
   sendAgreementDraftForEntity: vi.fn(),
   storeUploadedPdf: vi.fn(),
   stripAgreementToken: vi.fn((agreement: { token?: unknown }) => {
@@ -49,8 +50,10 @@ vi.mock('../../../middleware/auth', () => ({
 }))
 
 import { staffRoute } from '../staff-handlers'
+import { saveAgreementDraftBodySchema, sendAgreementDraftBodySchema } from '../schemas'
 import {
   createAgreementDraftForEntity,
+  sendAgreementPaymentPortalForEntity,
   sendAgreementDraftForEntity,
   updateAgreementDraftForEntity,
 } from '../../../services/agreements/agreement-service'
@@ -59,6 +62,37 @@ const app = new Hono()
 app.route('/leads', staffRoute)
 
 const expectedUpdatedAt = '2026-06-25T10:00:00.000Z'
+const pricingInput = {
+  nec1099Count: 1,
+  payrollEmployees: 0,
+  payrollMode: 'owner-manual',
+  cashPlan: { enabled: false, employees: 0, owners: 0 },
+  auditProtection: false,
+  oneTime: {
+    startLlc: 0,
+    holdingLlcNew: 0,
+    holdingLlcModify: 0,
+    personalTaxReturn: 0,
+    businessTaxReturn: 0,
+  },
+  salesTaxShops: 0,
+  customItems: [],
+  rates: {
+    tiers: { basicMonthly: 50000, proMonthly: 75000, vipMonthly: 100000 },
+    payroll: { baseMonthly: 15000 },
+    cashPlan: { setup: 50000, perEmployeeMonthly: 10000, perOwnerMonthly: 5000 },
+    auditProtection: { monthly: 10000, setup: 5000 },
+    oneTime: {
+      startLlc: 50000,
+      holdingLlcNew: 75000,
+      holdingLlcModify: 50000,
+      personalTaxReturn: 25000,
+      businessTaxReturnFederal: 35000,
+      businessTaxReturnState: 20000,
+    },
+    salesTaxMonitoringMonthly: 5000,
+  },
+} as const
 
 function draft(overrides: Record<string, unknown> = {}) {
   return {
@@ -73,6 +107,39 @@ function draft(overrides: Record<string, unknown> = {}) {
 
 describe('lead agreement draft staff routes', () => {
   beforeEach(() => vi.clearAllMocks())
+
+  it('validates calculator quote payloads and payment portal send modes', () => {
+    const calculatorQuote = { pricingInput, paymentPortalMode: 'STAFF_REVIEW' as const }
+
+    expect(
+      saveAgreementDraftBodySchema.parse({
+        type: 'ENGAGEMENT_LETTER',
+        source: 'CALCULATOR',
+        contentHtml: '<p>Scope</p>',
+        calculatorQuote,
+      }).calculatorQuote,
+    ).toEqual(calculatorQuote)
+    expect(() =>
+      saveAgreementDraftBodySchema.parse({
+        type: 'NDA',
+        source: 'CALCULATOR',
+        calculatorQuote,
+      }),
+    ).toThrow()
+    expect(() =>
+      saveAgreementDraftBodySchema.parse({
+        type: 'ENGAGEMENT_LETTER',
+        source: 'MANUAL',
+        calculatorQuote,
+      }),
+    ).toThrow()
+    expect(() =>
+      sendAgreementDraftBodySchema.parse({
+        expectedUpdatedAt,
+        paymentPortalMode: 'NONE',
+      }),
+    ).toThrow()
+  })
 
   it('creates lead drafts through the shared draft service without returning a public url', async () => {
     vi.mocked(createAgreementDraftForEntity).mockResolvedValueOnce(draft() as never)
@@ -89,6 +156,7 @@ describe('lead agreement draft staff routes', () => {
         expiryDays: 30,
         source: 'CALCULATOR',
         sourceSnapshot: { quoteId: 'quote-1' },
+        calculatorQuote: { pricingInput, paymentPortalMode: 'STAFF_REVIEW' },
       }),
     })
     const json = await res.json()
@@ -106,6 +174,7 @@ describe('lead agreement draft staff routes', () => {
       title: '2026 Engagement',
       source: 'CALCULATOR',
       sourceSnapshot: { quoteId: 'quote-1' },
+      calculatorQuote: { pricingInput, paymentPortalMode: 'STAFF_REVIEW' },
     }))
   })
 
@@ -119,6 +188,8 @@ describe('lead agreement draft staff routes', () => {
         expectedUpdatedAt,
         type: 'ENGAGEMENT_LETTER',
         contentHtml: '<p>Updated scope</p>',
+        source: 'CALCULATOR',
+        calculatorQuote: { pricingInput, paymentPortalMode: 'AUTO_SEND' },
       }),
     })
 
@@ -132,6 +203,8 @@ describe('lead agreement draft staff routes', () => {
       staffId: 'staff-1',
       expectedUpdatedAt,
       contentHtml: '<p>Updated scope</p>',
+      source: 'CALCULATOR',
+      calculatorQuote: { pricingInput, paymentPortalMode: 'AUTO_SEND' },
     }))
   })
 
@@ -148,6 +221,7 @@ describe('lead agreement draft staff routes', () => {
         expectedUpdatedAt,
         type: 'ENGAGEMENT_LETTER',
         contentHtml: '<p>Final scope</p>',
+        paymentPortalMode: 'STAFF_REVIEW',
       }),
     })
     const json = await res.json()
@@ -163,6 +237,38 @@ describe('lead agreement draft staff routes', () => {
       staffId: 'staff-1',
       expectedUpdatedAt,
       contentHtml: '<p>Final scope</p>',
+      paymentPortalMode: 'STAFF_REVIEW',
     }))
+  })
+
+  it('activates a signed lead calculator payment portal without exposing the raw token', async () => {
+    vi.mocked(sendAgreementPaymentPortalForEntity).mockResolvedValueOnce({
+      quoteId: 'quote-1',
+      payToken: 'tok_hidden',
+      payUrl: 'https://portal.test/quote/tok_hidden',
+      smsSent: false,
+      smsSkippedReason: 'already_sent',
+    } as never)
+
+    const res = await app.request('/leads/lead-1/agreements/agreement-1/send-payment-portal', {
+      method: 'POST',
+    })
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json).toEqual({
+      quoteId: 'quote-1',
+      payUrl: 'https://portal.test/quote/tok_hidden',
+      smsSent: false,
+      smsSkippedReason: 'already_sent',
+    })
+    expect(json.payToken).toBeUndefined()
+    expect(sendAgreementPaymentPortalForEntity).toHaveBeenCalledWith({
+      entityType: 'lead',
+      entityId: 'lead-1',
+      agreementId: 'agreement-1',
+      orgId: 'org-1',
+      staffId: 'staff-1',
+    })
   })
 })

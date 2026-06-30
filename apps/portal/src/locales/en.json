@@ -470,6 +470,7 @@
   "nda.confirmedTitle": "Agreement signed",
   "nda.confirmedMessage": "Your {{documentLabel}} with {{orgName}} is complete. A copy has been saved to your file.",
   "nda.signedAtLabel": "Signed at",
+  "nda.continueToPayment": "Continue to payment",
   "nda.downloadCopy": "Download signed PDF",
   "nda.downloadTtlHint": "Download link is valid for 15 minutes. Contact your CPA if you need a fresh copy.",
   "nda.contactHint": "Please contact your CPA if you need help.",

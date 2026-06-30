@@ -3,12 +3,13 @@
  * to download the signed PDF (presigned, short-lived URL served by API).
  */
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, Clock3, Download, FileCheck2, ShieldCheck } from 'lucide-react'
+import { CheckCircle2, Clock3, CreditCard, Download, FileCheck2, ShieldCheck } from 'lucide-react'
 import { buttonVariants, cn } from '@ella/ui'
 
 interface AgreementConfirmationPanelProps {
   signedAt: string
   downloadUrl: string
+  paymentPortalUrl?: string
   orgName: string
   documentLabel?: string
 }
@@ -16,6 +17,7 @@ interface AgreementConfirmationPanelProps {
 export function AgreementConfirmationPanel({
   signedAt,
   downloadUrl,
+  paymentPortalUrl,
   orgName,
   documentLabel,
 }: AgreementConfirmationPanelProps) {
@@ -92,18 +94,33 @@ export function AgreementConfirmationPanel({
               </div>
             </dl>
 
-            <a
-              href={downloadUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(
-                buttonVariants({ size: 'lg' }),
-                'mt-8 min-h-12 w-full px-8 text-base font-semibold shadow-md shadow-primary/20 sm:w-auto sm:px-10',
+            <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+              {paymentPortalUrl && (
+                <a
+                  href={paymentPortalUrl}
+                  className={cn(
+                    buttonVariants({ size: 'lg' }),
+                    'min-h-12 w-full px-8 text-base font-semibold shadow-md shadow-primary/20 sm:w-auto sm:px-10',
+                  )}
+                >
+                  <CreditCard className="h-5 w-5" aria-hidden="true" />
+                  {t('nda.continueToPayment')}
+                </a>
               )}
-            >
-              <Download className="h-5 w-5" aria-hidden="true" />
-              {t('nda.downloadCopy')}
-            </a>
+              <a
+                href={downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  buttonVariants({ variant: paymentPortalUrl ? 'outline' : 'default', size: 'lg' }),
+                  'min-h-12 w-full px-8 text-base font-semibold sm:w-auto sm:px-10',
+                  paymentPortalUrl ? '' : 'shadow-md shadow-primary/20',
+                )}
+              >
+                <Download className="h-5 w-5" aria-hidden="true" />
+                {t('nda.downloadCopy')}
+              </a>
+            </div>
           </div>
         </div>
       </div>

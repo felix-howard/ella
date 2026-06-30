@@ -25,6 +25,7 @@ import {
   resendNdaForEntity,
   voidAgreementForEntity,
   extendAgreementForEntity,
+  sendAgreementPaymentPortalForEntity,
 } from './agreement-mutation-ops'
 import {
   createAgreementDraftForEntity,
@@ -54,6 +55,7 @@ export {
   resendNdaForEntity,
   voidAgreementForEntity,
   extendAgreementForEntity,
+  sendAgreementPaymentPortalForEntity,
   createAgreementDraftForEntity,
   updateAgreementDraftForEntity,
   discardAgreementDraftForEntity,

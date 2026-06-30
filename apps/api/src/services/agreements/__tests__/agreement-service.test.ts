@@ -1015,6 +1015,53 @@ describe('NDA service', () => {
       expect(result.url).toContain('/agreements/tok_fixed_28_char_aaaaaaaaaa')
     })
 
+    it('ignores payment portal mode on manual drafts without a linked quote', async () => {
+      const updatedAt = new Date('2026-06-25T10:00:00.000Z')
+      const draft = draftAgreement({
+        id: 'draft-1',
+        type: 'ENGAGEMENT_LETTER',
+        updatedAt,
+        createdByUserId: 'staff-creator',
+        source: 'MANUAL',
+        customContentHtml: '<p>Manual scope</p>',
+        paymentQuoteId: null,
+      })
+      const sent = nda({
+        id: 'draft-1',
+        type: 'ENGAGEMENT_LETTER',
+        status: 'SENT',
+        source: 'MANUAL',
+        paymentQuoteId: null,
+        isActive: true,
+        sentByUserId: 'staff-sender',
+        createdByUserId: 'staff-creator',
+        lead: lead(),
+      })
+      mockNdaFindFirst.mockImplementation(((args: any) => {
+        if (args.where?.status === 'DRAFT') return draft as any
+        if (args.where?.id === 'draft-1') return sent as any
+        return null
+      }) as any)
+      mockStaffFindUnique.mockResolvedValue(staffWithSignature({ id: 'staff-creator' }) as any)
+      mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
+      mockNdaUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+
+      const result = await sendAgreementDraftForEntity({
+        entityType: 'lead',
+        entityId: 'lead-1',
+        agreementId: 'draft-1',
+        orgId: 'org-1',
+        staffId: 'staff-sender',
+        expectedUpdatedAt: updatedAt.toISOString(),
+        paymentPortalMode: 'STAFF_REVIEW',
+      })
+
+      const updateData = (mockNdaUpdateMany.mock.calls[0][0] as any).data
+      expect(updateData).not.toHaveProperty('paymentPortalMode')
+      expect(updateData).not.toHaveProperty('paymentQuoteId')
+      expect(result.url).toContain('/agreements/tok_fixed_28_char_aaaaaaaaaa')
+    })
+
     it('rejects draft send when the original creator is outside the organization', async () => {
       const updatedAt = new Date('2026-06-25T10:00:00.000Z')
       mockNdaFindFirst.mockImplementation(((args: any) => {

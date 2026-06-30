@@ -2,7 +2,9 @@ import type {
   Agreement,
   AgreementSource,
   AgreementType,
+  CalculatorAgreementQuotePayload,
   CreateAgreementPayload,
+  AgreementPaymentPortalSendMode,
   SaveAgreementDraftPayload,
   SendAgreementDraftPayload,
 } from '../../lib/api-client'
@@ -26,6 +28,12 @@ interface DraftPayloadInput {
 interface SaveDraftPayloadInput extends DraftPayloadInput {
   source: AgreementSource
   sourceSnapshot?: Record<string, unknown>
+  calculatorQuote?: CalculatorAgreementQuotePayload
+}
+
+interface SendDraftPayloadInput extends DraftPayloadInput {
+  expectedUpdatedAt: string
+  paymentPortalMode?: AgreementPaymentPortalSendMode
 }
 
 function realTemplateId(templateId: string | null): string | undefined {
@@ -67,20 +75,23 @@ export function buildSaveAgreementDraftPayload({
   resolved,
   source,
   sourceSnapshot,
+  calculatorQuote,
 }: SaveDraftPayloadInput): SaveAgreementDraftPayload {
   return {
     ...buildCreateAgreementPayload({ type, templateId, resolved }),
     source,
-    sourceSnapshot,
+    ...(sourceSnapshot !== undefined ? { sourceSnapshot } : {}),
+    ...(calculatorQuote ? { calculatorQuote } : {}),
   }
 }
 
 export function buildSendAgreementDraftPayload(
-  input: DraftPayloadInput & { expectedUpdatedAt: string },
+  input: SendDraftPayloadInput,
 ): SendAgreementDraftPayload {
   return {
     ...buildCreateAgreementPayload(input),
     expectedUpdatedAt: input.expectedUpdatedAt,
+    ...(input.paymentPortalMode ? { paymentPortalMode: input.paymentPortalMode } : {}),
   }
 }
 

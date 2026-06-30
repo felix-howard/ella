@@ -1,8 +1,10 @@
 import { useCallback } from 'react'
 import type {
   Agreement,
+  AgreementPaymentPortalSendMode,
   AgreementSource,
   AgreementType,
+  CalculatorAgreementQuotePayload,
   CreateAgreementPayload,
   SaveAgreementDraftPayload,
   SendAgreementDraftPayload,
@@ -23,6 +25,8 @@ interface UseAgreementDraftSubmitHandlersInput {
   effectiveTemplateId: string | null
   source: AgreementSource
   sourceSnapshot?: Record<string, unknown>
+  calculatorQuote?: CalculatorAgreementQuotePayload
+  paymentPortalMode?: AgreementPaymentPortalSendMode
   savedAgreement: Agreement | null
   createMutation: {
     mutate: (payload: CreateAgreementPayload, options: { onSuccess: () => void }) => void
@@ -52,6 +56,8 @@ export function useAgreementDraftSubmitHandlers({
   effectiveTemplateId,
   source,
   sourceSnapshot,
+  calculatorQuote,
+  paymentPortalMode,
   savedAgreement,
   createMutation,
   saveDraftMutation,
@@ -65,47 +71,124 @@ export function useAgreementDraftSubmitHandlers({
   handleSaveDraft: (resolved: Step3Resolved) => void
   handleSubmit: (resolved: Step3Resolved) => void
 } {
+  const shouldSendCalculatorQuote = Boolean(
+    calculatorQuote && (!savedAgreement || !savedAgreement.paymentQuoteId),
+  )
+
+  const handleSendError = useCallback((error: unknown) => {
+    if (isAgreementDraftConflict(error)) {
+      setConflictMessage((error as Error).message || conflictMessage)
+    }
+  }, [conflictMessage, setConflictMessage])
+
+  const sendDraftAgreement = useCallback(
+    ({
+      agreementId,
+      templateId: sendTemplateId,
+      resolved,
+      expectedUpdatedAt,
+    }: {
+      agreementId: string
+      templateId: string | null
+      resolved: Step3Resolved
+      expectedUpdatedAt: string
+    }) => {
+      sendDraftMutation.mutate(
+        {
+          agreementId,
+          payload: buildSendAgreementDraftPayload({
+            type,
+            templateId: sendTemplateId,
+            resolved,
+            expectedUpdatedAt,
+            paymentPortalMode,
+          }),
+        },
+        {
+          onSuccess: onClose,
+          onError: handleSendError,
+        },
+      )
+    },
+    [handleSendError, onClose, paymentPortalMode, sendDraftMutation, type],
+  )
+
   const handleSaveDraft = useCallback((resolved: Step3Resolved) => {
-    const payload = buildSaveAgreementDraftPayload({ type, templateId, resolved, source, sourceSnapshot })
+    const payload = buildSaveAgreementDraftPayload({
+      type,
+      templateId,
+      resolved,
+      source,
+      sourceSnapshot,
+      calculatorQuote: shouldSendCalculatorQuote ? calculatorQuote : undefined,
+    })
     saveDraftMutation.mutate(payload, {
       onSuccess: (res) => {
         setSavedDraft(res.data, resolved)
         resetSavedBaseline(payload)
       },
     })
-  }, [resetSavedBaseline, saveDraftMutation, setSavedDraft, source, sourceSnapshot, templateId, type])
+  }, [
+    calculatorQuote,
+    resetSavedBaseline,
+    saveDraftMutation,
+    setSavedDraft,
+    shouldSendCalculatorQuote,
+    source,
+    sourceSnapshot,
+    templateId,
+    type,
+  ])
 
   const handleSubmit = useCallback((resolved: Step3Resolved) => {
     if (!savedAgreement) {
+      if (shouldSendCalculatorQuote && calculatorQuote) {
+        const draftPayload = buildSaveAgreementDraftPayload({
+          type,
+          templateId,
+          resolved,
+          source,
+          sourceSnapshot,
+          calculatorQuote,
+        })
+        saveDraftMutation.mutate(draftPayload, {
+          onSuccess: (res) => {
+            setSavedDraft(res.data, resolved)
+            resetSavedBaseline(draftPayload)
+            sendDraftAgreement({
+              agreementId: res.data.id,
+              templateId: res.data.templateId ?? effectiveTemplateId,
+              resolved,
+              expectedUpdatedAt: res.data.updatedAt,
+            })
+          },
+        })
+        return
+      }
+
       createMutation.mutate(buildCreateAgreementPayload({ type, templateId, resolved }), { onSuccess: onClose })
       return
     }
 
-    const payload = buildSendAgreementDraftPayload({
-      type,
+    sendDraftAgreement({
+      agreementId: savedAgreement.id,
       templateId: effectiveTemplateId,
       resolved,
       expectedUpdatedAt: savedAgreement.updatedAt,
     })
-    sendDraftMutation.mutate(
-      { agreementId: savedAgreement.id, payload },
-      {
-        onSuccess: onClose,
-        onError: (error) => {
-          if (isAgreementDraftConflict(error)) {
-            setConflictMessage((error as Error).message || conflictMessage)
-          }
-        },
-      },
-    )
   }, [
-    conflictMessage,
+    calculatorQuote,
     createMutation,
     effectiveTemplateId,
     onClose,
+    resetSavedBaseline,
+    saveDraftMutation,
     savedAgreement,
-    sendDraftMutation,
-    setConflictMessage,
+    sendDraftAgreement,
+    setSavedDraft,
+    shouldSendCalculatorQuote,
+    source,
+    sourceSnapshot,
     templateId,
     type,
   ])

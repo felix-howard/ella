@@ -861,6 +861,12 @@ export const api = {
           { method: 'POST', body: JSON.stringify(body), retries: 0 },
         ),
 
+      sendPaymentPortal: (clientId: string, agreementId: string) =>
+        request<AgreementPaymentPortalSendResult>(
+          `/clients/${clientId}/agreements/${agreementId}/send-payment-portal`,
+          { method: 'POST', retries: 0 },
+        ),
+
       discardDraft: (clientId: string, agreementId: string, body: DiscardAgreementDraftPayload) =>
         request<{ success: boolean; data: { id: string; status: 'DISCARDED' } }>(
           `/clients/${clientId}/agreements/${agreementId}/draft`,
@@ -2172,6 +2178,12 @@ export const api = {
           { method: 'POST', body: JSON.stringify(body), retries: 0 },
         ),
 
+      sendPaymentPortal: (leadId: string, agreementId: string) =>
+        request<AgreementPaymentPortalSendResult>(
+          `/leads/${leadId}/agreements/${agreementId}/send-payment-portal`,
+          { method: 'POST', retries: 0 },
+        ),
+
       discardDraft: (leadId: string, agreementId: string, body: DiscardAgreementDraftPayload) =>
         request<{ success: boolean; data: { id: string; status: 'DISCARDED' } }>(
           `/leads/${leadId}/agreements/${agreementId}/draft`,
@@ -2445,6 +2457,8 @@ export type DepositStatus = NdaDepositStatus
 
 export type AgreementType = 'NDA' | 'ENGAGEMENT_LETTER' | 'SERVICE_AGREEMENT' | 'CONSENT_7216' | 'CUSTOM'
 export type AgreementSource = 'MANUAL' | 'CALCULATOR'
+export type AgreementPaymentPortalMode = 'NONE' | 'AUTO_SEND' | 'STAFF_REVIEW'
+export type AgreementPaymentPortalSendMode = Exclude<AgreementPaymentPortalMode, 'NONE'>
 /** Templates exclude built-in consent and CUSTOM (per-send unique content; rejects templateId). */
 export type AgreementTemplateType = Exclude<AgreementType, 'CONSENT_7216' | 'CUSTOM'>
 
@@ -2454,6 +2468,15 @@ export interface AgreementStaffSummary {
   email: string
 }
 
+export interface AgreementPaymentQuoteSummary {
+  id: string
+  status: string
+  payUrl?: string | null
+  sentAt: string | null
+  monthlyTotalCents: number
+  setupTotalCents: number
+}
+
 export interface Agreement {
   id: string
   type: AgreementType
@@ -2461,6 +2484,9 @@ export interface Agreement {
   internalNote: string | null
   source: AgreementSource
   sourceSnapshot: Record<string, unknown> | null
+  paymentQuoteId: string | null
+  paymentPortalMode: AgreementPaymentPortalMode
+  paymentQuote?: AgreementPaymentQuoteSummary | null
   // Null after the originating Lead is deleted; clientId still pins the agreement to its Client.
   leadId: string | null
   clientId: string | null
@@ -2555,9 +2581,18 @@ export interface CreateAgreementPayload {
   expiryDays?: number
 }
 
+export interface CalculatorAgreementQuotePayload {
+  pricingInput: PricingCalculatorInput
+  paymentPortalMode?: AgreementPaymentPortalSendMode
+  customerEmail?: string
+  customerName?: string
+  businessName?: string
+}
+
 export interface SaveAgreementDraftPayload extends CreateAgreementPayload {
   source?: AgreementSource
   sourceSnapshot?: Record<string, unknown>
+  calculatorQuote?: CalculatorAgreementQuotePayload
   expectedUpdatedAt?: string
 }
 
@@ -2567,6 +2602,14 @@ export interface UpdateAgreementDraftPayload extends SaveAgreementDraftPayload {
 
 export interface SendAgreementDraftPayload extends CreateAgreementPayload {
   expectedUpdatedAt: string
+  paymentPortalMode?: AgreementPaymentPortalSendMode
+}
+
+export interface AgreementPaymentPortalSendResult {
+  quoteId: string
+  payUrl: string
+  smsSent: boolean
+  smsSkippedReason?: SendQuoteResponse['smsSkippedReason'] | 'already_sent'
 }
 
 export interface DiscardAgreementDraftPayload {
@@ -4299,6 +4342,7 @@ export interface OrgSettings {
   smsLanguage: Language
   missedCallTextBack: boolean
   autoSendFormClientUploadLink: boolean
+  calculatorAgreementPaymentMode: AgreementPaymentPortalSendMode
   defaultUploadLinkTemplateId: UploadLinkTemplateId | null
   defaultUploadLinkLanguage: Language
   slug: string | null

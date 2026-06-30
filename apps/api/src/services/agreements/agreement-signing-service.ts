@@ -37,6 +37,11 @@ import {
   type PostSignAgreementContext,
 } from './agreement-post-sign-notifications'
 import { createDepositPaymentForAgreement } from '../payments/deposit-payment-service'
+import {
+  activateAgreementQuotePaymentPortal,
+  markAgreementQuoteSignedForReview,
+  type AgreementQuoteActivationResult,
+} from '../payments/agreement-quote-service'
 
 const DOWNLOAD_TTL_SECONDS = 900 // 15 min
 const VIEW_PRESIGN_TTL_SECONDS = 900 // 15 min
@@ -689,12 +694,29 @@ export async function signAgreement(input: SignAgreementInput) {
     depositStatus: agreement.depositStatus,
     signer: agreement.signer,
   })
+  const paymentPortalResult = await runAgreementQuotePostSignSideEffect({
+    agreementId: agreement.id,
+    organizationId: agreement.organizationId,
+    staffId: agreement.sentByUserId ?? agreement.createdByUserId,
+    paymentPortalMode: agreement.paymentPortalMode,
+    paymentQuoteId: agreement.paymentQuoteId,
+  })
 
   const downloadUrl = await getSignedDownloadUrl(signedPdfKey, DOWNLOAD_TTL_SECONDS)
   return {
     status: 'SIGNED' as const,
     signedAt,
     downloadUrl,
+    ...(paymentPortalResult
+      ? {
+          paymentPortalUrl: paymentPortalResult.payUrl,
+          paymentPortalDelivery: {
+            mode: 'AUTO_SEND' as const,
+            smsSent: paymentPortalResult.smsSent,
+            smsSkippedReason: paymentPortalResult.smsSkippedReason,
+          },
+        }
+      : {}),
   }
 }
 
@@ -710,6 +732,45 @@ function runPostSignSideEffects(ctx: PostSignAgreementContext): void {
   createDepositPaymentForAgreement(ctx).catch((err) => {
     console.error(`[Agreement] Post-sign deposit payment hook failed for agreement=${ctx.id}:`, err)
   })
+}
+
+async function runAgreementQuotePostSignSideEffect(input: {
+  agreementId: string
+  organizationId: string
+  staffId: string | null
+  paymentPortalMode: string
+  paymentQuoteId: string | null
+}): Promise<AgreementQuoteActivationResult | null> {
+  if (!input.paymentQuoteId) return null
+  if (input.paymentPortalMode === 'STAFF_REVIEW') {
+    try {
+      await markAgreementQuoteSignedForReview({
+        agreementId: input.agreementId,
+        organizationId: input.organizationId,
+      })
+    } catch (err) {
+      console.error(
+        `[Agreement] Post-sign quote review marker failed for agreement=${input.agreementId}:`,
+        err,
+      )
+    }
+    return null
+  }
+  if (input.paymentPortalMode !== 'AUTO_SEND' || !input.staffId) return null
+
+  try {
+    return await activateAgreementQuotePaymentPortal({
+      agreementId: input.agreementId,
+      orgId: input.organizationId,
+      staffId: input.staffId,
+    })
+  } catch (err) {
+    console.error(
+      `[Agreement] Post-sign quote activation failed for agreement=${input.agreementId}:`,
+      err,
+    )
+    return null
+  }
 }
 
 /** Legacy alias retained for transitional callers + tests. */

@@ -1,6 +1,12 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Agreement, AgreementSource, AgreementType } from '../../lib/api-client'
+import type {
+  Agreement,
+  AgreementPaymentPortalSendMode,
+  AgreementSource,
+  AgreementType,
+  CalculatorAgreementQuotePayload,
+} from '../../lib/api-client'
 import { createStep3DraftFromAgreement } from './agreement-draft-payload'
 import { useAgreementDraftAutosave } from './use-agreement-draft-autosave'
 import { useAgreementDraftCloseGuard } from './use-agreement-draft-close-guard'
@@ -23,6 +29,8 @@ interface AgreementDraftEditorProps {
   templateId: string | null
   source: AgreementSource
   sourceSnapshot?: Record<string, unknown>
+  calculatorQuote?: CalculatorAgreementQuotePayload
+  paymentPortalMode?: AgreementPaymentPortalSendMode
   draft?: Step3Draft
   onDraftChange?: (draft: Step3Draft) => void
   initialDraft?: Step3Draft
@@ -40,6 +48,8 @@ export function AgreementDraftEditor({
   templateId,
   source,
   sourceSnapshot,
+  calculatorQuote,
+  paymentPortalMode,
   draft: controlledDraft,
   onDraftChange,
   initialDraft,
@@ -78,6 +88,7 @@ export function AgreementDraftEditor({
     templateId,
     source,
     sourceSnapshot,
+    calculatorQuote,
   })
 
   const [conflictMessage, setConflictMessage] = useState<string | null>(null)
@@ -133,6 +144,8 @@ export function AgreementDraftEditor({
     effectiveTemplateId,
     source,
     sourceSnapshot,
+    calculatorQuote,
+    paymentPortalMode,
     savedAgreement,
     createMutation,
     saveDraftMutation,

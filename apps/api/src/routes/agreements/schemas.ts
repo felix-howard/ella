@@ -4,6 +4,7 @@
  * Kept separate so handlers stay thin and the schemas are trivially testable.
  */
 import { z } from 'zod'
+import { checkoutPricingInputSchema } from '../billing/schemas'
 import { MIN_EXPIRY_DAYS, MAX_EXPIRY_DAYS } from '../../services/agreements/token-service'
 
 // ---------- Params ----------
@@ -42,6 +43,24 @@ export const agreementTypeSchema = z.enum([
 ])
 
 export const agreementSourceSchema = z.enum(['MANUAL', 'CALCULATOR'])
+
+export const agreementPaymentPortalModeSchema = z.enum([
+  'NONE',
+  'AUTO_SEND',
+  'STAFF_REVIEW',
+])
+
+const calculatorAgreementPaymentPortalModeSchema = z.enum(['AUTO_SEND', 'STAFF_REVIEW'])
+
+export const calculatorAgreementQuoteSchema = z
+  .object({
+    pricingInput: checkoutPricingInputSchema,
+    paymentPortalMode: calculatorAgreementPaymentPortalModeSchema.optional(),
+    customerEmail: z.string().email().optional(),
+    customerName: z.string().trim().min(1).max(120).optional(),
+    businessName: z.string().trim().min(1).max(120).optional(),
+  })
+  .strict()
 
 export const AGREEMENT_SOURCE_SNAPSHOT_MAX = 10_000
 
@@ -164,20 +183,41 @@ export const createAgreementBodySchema =
 const agreementDraftFieldsSchema = agreementEditableFieldsSchema.extend({
   source: agreementSourceSchema.optional(),
   sourceSnapshot: sourceSnapshotSchema.optional(),
+  calculatorQuote: calculatorAgreementQuoteSchema.optional(),
 })
 
+type CalculatorAgreementDraftFields = z.infer<typeof agreementDraftFieldsSchema>
+
+function validateCalculatorAgreementQuoteRules(
+  val: CalculatorAgreementDraftFields,
+  ctx: z.RefinementCtx,
+) {
+  if (!val.calculatorQuote) return
+  if (val.type !== 'ENGAGEMENT_LETTER' || val.source !== 'CALCULATOR') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['calculatorQuote'],
+      message: 'calculatorQuote is only supported for calculator Engagement Letters',
+    })
+  }
+}
+
 export const saveAgreementDraftBodySchema =
-  agreementDraftFieldsSchema.superRefine(validateAgreementContentRules)
+  agreementDraftFieldsSchema
+    .superRefine(validateAgreementContentRules)
+    .superRefine(validateCalculatorAgreementQuoteRules)
 
 export const updateAgreementDraftBodySchema = agreementDraftFieldsSchema
   .extend({
     expectedUpdatedAt: expectedUpdatedAtSchema,
   })
   .superRefine(validateAgreementContentRules)
+  .superRefine(validateCalculatorAgreementQuoteRules)
 
 export const sendAgreementDraftBodySchema = agreementEditableFieldsSchema
   .extend({
     expectedUpdatedAt: expectedUpdatedAtSchema,
+    paymentPortalMode: calculatorAgreementPaymentPortalModeSchema.optional(),
   })
   .superRefine(validateAgreementContentRules)
 

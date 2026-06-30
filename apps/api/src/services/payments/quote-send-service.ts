@@ -17,6 +17,7 @@ import { prisma } from '../../lib/db'
 import type { SendQuoteInput } from '../../routes/billing/schemas'
 import { calculateCheckoutQuote } from '../stripe/quote-calculator'
 import {
+  buildCalculatorQuoteInputSnapshot,
   buildQuotePayUrl,
   generatePayToken,
   resolveOrgName,
@@ -60,7 +61,7 @@ export async function createSendableQuote(
       customerEmail: input.customerEmail,
       customerName: input.customerName,
       businessName: input.businessName,
-      inputSnapshot: toPrismaJson(buildInputSnapshot(input)),
+      inputSnapshot: toPrismaJson(buildCalculatorQuoteInputSnapshot(input)),
       resultSnapshot: toPrismaJson(quote),
       monthlyTotalCents: quote.monthlyTotal * 100,
       setupTotalCents: quote.setupTotal * 100,
@@ -85,17 +86,4 @@ export async function createSendableQuote(
   })
 
   return { quoteId: quote.quoteId, payToken, payUrl, smsSent, smsSkippedReason }
-}
-
-/**
- * Freeze the same shape the anonymous checkout flow persists, so portal checkout
- * can rebuild the quote from `inputSnapshot.pricingInput` uniformly.
- */
-function buildInputSnapshot(input: SendQuoteInput): Omit<SendQuoteInput, 'recipient'> {
-  return {
-    pricingInput: input.pricingInput,
-    customerEmail: input.customerEmail,
-    customerName: input.customerName,
-    businessName: input.businessName,
-  }
 }

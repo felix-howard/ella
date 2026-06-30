@@ -11,6 +11,7 @@ vi.mock('../../../services/agreements/agreement-service', () => ({
   updateDepositForEntity: vi.fn(),
   getPresignedPdfUrlForEntity: vi.fn(),
   resendAgreementForEntity: vi.fn(),
+  sendAgreementPaymentPortalForEntity: vi.fn(),
   voidAgreementForEntity: vi.fn(),
   extendAgreementForEntity: vi.fn(),
   renderPreviewPdf: vi.fn(),
@@ -65,6 +66,15 @@ describe('clients agreement staff auth scope', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     })
+
+    expect(res.status).toBe(403)
+  })
+
+  it('still requires org-admin or manager for client payment portal sends', async () => {
+    const res = await buildApp().request(
+      `/clients/${clientId}/agreements/agreement_1/send-payment-portal`,
+      { method: 'POST' },
+    )
 
     expect(res.status).toBe(403)
   })

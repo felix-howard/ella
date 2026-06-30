@@ -12,9 +12,11 @@ import { UpdateDepositPanel } from './update-deposit-panel'
 import { NdaReadonlyCard } from './agreement-readonly-card'
 import { AgreementDraftCard } from './agreement-draft-card'
 import { ResendPaymentLinkButton } from './resend-payment-link-button'
+import { SendAgreementPaymentPortalButton } from './send-agreement-payment-portal-button'
 import { AgreementExtendModal } from './agreement-extend-modal'
 import { AgreementVoidModal } from './agreement-void-modal'
 import { getExpiryStatus } from './agreement-expiry'
+import { hasAgreementPaymentPortalAction } from './agreement-payment-portal-view'
 import { toast } from '../../stores/toast-store'
 import { copyToClipboard } from '../../lib/clipboard'
 import type { Agreement } from '../../lib/api-client'
@@ -76,6 +78,7 @@ export function NdaCard({ entity, nda }: Props) {
   // Signed but deposit still unpaid → staff can re-SMS the portal pay link.
   const canResendPaymentLink =
     entity.type === 'client' && nda.status === 'SIGNED' && nda.depositStatus === 'PENDING'
+  const canSendAgreementPaymentPortal = hasAgreementPaymentPortalAction(nda)
 
   // Soon/expired states promote Extend to a primary visual treatment so it
   // grabs the staff member's attention on the busiest cards.
@@ -85,7 +88,14 @@ export function NdaCard({ entity, nda }: Props) {
   // View PDF rendered here (not via shared card) so it lines up with the
   // other entity-page actions on a single flex row.
   const hasActions =
-    canCopyLink || canCopyOrResend || canExtend || canViewPdf || canEditDeposit || canResendPaymentLink || canVoid
+    canCopyLink ||
+    canCopyOrResend ||
+    canExtend ||
+    canViewPdf ||
+    canEditDeposit ||
+    canResendPaymentLink ||
+    canSendAgreementPaymentPortal ||
+    canVoid
 
   return (
     <div className="rounded-xl border border-border/60 bg-card p-4 shadow-sm transition-colors hover:border-border">
@@ -149,6 +159,9 @@ export function NdaCard({ entity, nda }: Props) {
             </button>
           )}
           {canResendPaymentLink && <ResendPaymentLinkButton entity={entity} nda={nda} />}
+          {canSendAgreementPaymentPortal && (
+            <SendAgreementPaymentPortalButton entity={entity} nda={nda} />
+          )}
           {canEditDeposit && (
             <button
               type="button"

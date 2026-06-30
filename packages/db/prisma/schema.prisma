@@ -720,6 +720,7 @@ model Organization {
   smsLanguage                  Language @default(VI)
   missedCallTextBack           Boolean  @default(false)
   autoSendFormClientUploadLink Boolean  @default(false)
+  calculatorAgreementPaymentMode AgreementPaymentPortalMode @default(AUTO_SEND)
   defaultUploadLinkTemplateId  String? // Default SMS template for generic form auto-send
   defaultUploadLinkLanguage    Language @default(EN) // Default SMS language for upload-link automation
 
@@ -1508,6 +1509,12 @@ enum AgreementSource {
   CALCULATOR
 }
 
+enum AgreementPaymentPortalMode {
+  NONE
+  AUTO_SEND
+  STAFF_REVIEW
+}
+
 enum DepositStatus {
   PENDING
   PAID
@@ -1866,6 +1873,7 @@ model PaymentQuote {
   sentAt            DateTime? // set when the quote is sent to a client/lead
   sentByStaffId     String?
   sentByStaff       Staff?                  @relation("QuoteSentBy", fields: [sentByStaffId], references: [id], onDelete: SetNull)
+  agreement         Agreement?
   checkoutSessions  StripeCheckoutSession[]
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
@@ -2068,6 +2076,9 @@ model Agreement {
   internalNote   String?         @db.Text
   source         AgreementSource @default(MANUAL)
   sourceSnapshot Json?
+  paymentQuoteId String? @unique
+  paymentQuote   PaymentQuote? @relation(fields: [paymentQuoteId], references: [id], onDelete: SetNull)
+  paymentPortalMode AgreementPaymentPortalMode @default(NONE)
 
   // Tenancy
   // leadId is nullable + SetNull so agreements are preserved (linked to clientId) when a converted Lead is deleted.

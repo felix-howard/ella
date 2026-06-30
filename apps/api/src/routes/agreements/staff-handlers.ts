@@ -25,6 +25,7 @@ import {
   updateAgreementDraftForEntity,
   sendAgreementDraftForEntity,
   discardAgreementDraftForEntity,
+  sendAgreementPaymentPortalForEntity,
   stripAgreementToken,
   getDefaultHtmlForEntity,
   renderPreviewPdf,
@@ -121,6 +122,7 @@ staffRoute.post(
       ...editableAgreementFields(body),
       source: body.source,
       sourceSnapshot: body.sourceSnapshot,
+      calculatorQuote: body.calculatorQuote,
     })
     return c.json({ success: true, data: stripAgreementToken(data) }, 201)
   },
@@ -235,6 +237,7 @@ staffRoute.patch(
       ...editableAgreementFields(body),
       source: body.source,
       sourceSnapshot: body.sourceSnapshot,
+      calculatorQuote: body.calculatorQuote,
       expectedUpdatedAt: body.expectedUpdatedAt,
     })
     return c.json({ success: true, data: stripAgreementToken(data) })
@@ -258,8 +261,28 @@ staffRoute.post(
       staffId,
       ...editableAgreementFields(body),
       expectedUpdatedAt: body.expectedUpdatedAt,
+      paymentPortalMode: body.paymentPortalMode,
     })
     return c.json({ success: true, data: stripAgreementToken(result.agreement), url: result.url })
+  },
+)
+
+// POST /:leadId/agreements/:id/send-payment-portal — activate linked calculator quote after staff review.
+staffRoute.post(
+  '/:leadId/agreements/:id/send-payment-portal',
+  zValidator('param', leadAndAgreementIdParamSchema),
+  async (c) => {
+    const { orgId, staffId } = getAuth(c.get('user'))
+    const { leadId, id } = c.req.valid('param')
+    const { payToken: _payToken, ...result } = await sendAgreementPaymentPortalForEntity({
+      entityType: 'lead',
+      entityId: leadId,
+      agreementId: id,
+      orgId,
+      staffId,
+    })
+    void _payToken
+    return c.json(result)
   },
 )
 

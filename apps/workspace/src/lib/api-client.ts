@@ -861,6 +861,12 @@ export const api = {
           { method: 'POST', body: JSON.stringify(body), retries: 0 },
         ),
 
+      sendPaymentPortal: (clientId: string, agreementId: string) =>
+        request<AgreementPaymentPortalSendResult>(
+          `/clients/${clientId}/agreements/${agreementId}/send-payment-portal`,
+          { method: 'POST', retries: 0 },
+        ),
+
       discardDraft: (clientId: string, agreementId: string, body: DiscardAgreementDraftPayload) =>
         request<{ success: boolean; data: { id: string; status: 'DISCARDED' } }>(
           `/clients/${clientId}/agreements/${agreementId}/draft`,
@@ -871,6 +877,12 @@ export const api = {
         request<{ success: boolean; data: Agreement; url: string; rotated: boolean }>(
           `/clients/${clientId}/agreements/${agreementId}/resend`,
           { method: 'POST' },
+        ),
+
+      void: (clientId: string, agreementId: string, body: VoidAgreementPayload) =>
+        request<{ success: boolean; data: Agreement }>(
+          `/clients/${clientId}/agreements/${agreementId}/void`,
+          { method: 'POST', body: JSON.stringify(body), retries: 0 },
         ),
 
       extend: (clientId: string, agreementId: string, body: { days?: number } = {}) =>
@@ -942,6 +954,11 @@ export const api = {
       list: (clientId: string) =>
         request<{ success: boolean; data: ClientPayment[]; pastDue?: boolean }>(
           `/clients/${clientId}/payments`,
+        ),
+      reconcileReceipt: (clientId: string, paymentId: string) =>
+        request<{ success: boolean; refreshed: boolean; data: ClientPayment }>(
+          `/clients/${clientId}/payments/${paymentId}/reconcile`,
+          { method: 'POST', retries: 0 },
         ),
     },
 
@@ -1351,6 +1368,12 @@ export const api = {
       formData.append('caseId', data.caseId)
       if (data.content) formData.append('content', data.content)
       if (data.templateName) formData.append('templateName', data.templateName)
+      if (data.translation) {
+        formData.append('staffAuthoredContent', data.translation.sourceContent)
+        formData.append('staffAuthoredLanguage', data.translation.sourceLanguage)
+        formData.append('contentLanguage', data.translation.targetLanguage)
+        formData.append('translationEdited', String(data.translation.edited))
+      }
       data.images.forEach((image) => formData.append('images', image))
       return request<SendMessageResponse>('/messages/send-with-attachments', {
         method: 'POST',
@@ -1362,6 +1385,20 @@ export const api = {
     translate: (messageId: string, data: TranslateMessageInput = { targetLanguage: 'EN' }) =>
       request<TranslateMessageResponse>(`/messages/${messageId}/translate`, {
         method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+
+    translateCompose: (data: TranslateComposeInput) =>
+      request<TranslateComposeResponse>('/messages/compose-translation', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+
+    updateReplyMode: (caseId: string, data: UpdateReplyModeInput) =>
+      request<UpdateReplyModeResponse>(`/messages/${caseId}/reply-mode`, {
+        method: 'PATCH',
         body: JSON.stringify(data),
         retries: 0,
       }),
@@ -2057,13 +2094,12 @@ export const api = {
   // Leads management (admin-only)
   leads: {
     list: (params?: { page?: number; limit?: number; status?: string; search?: string; tag?: string; includeConverted?: boolean }) =>
-      request<{
-        success: boolean
-        data: Lead[]
-        pagination: { page: number; limit: number; total: number; totalPages: number }
-        selectableTotal: number
-        bulkSmsMaxRecipients: number
-      }>('/leads', { params }),
+      request<LeadListResponse>('/leads', { params }),
+
+    unreadSummary: async () => {
+      const response = await request<LeadListResponse>('/leads', { params: { page: 1, limit: 1 } })
+      return { totalUnread: response.totalUnreadMessages ?? 0 }
+    },
 
     create: (data: { firstName: string; lastName: string; phone: string; email?: string | null; notes?: string | null }) =>
       request<{ success: boolean; data: Lead }>('/leads/admin', { method: 'POST', body: JSON.stringify(data) }),
@@ -2142,6 +2178,12 @@ export const api = {
           { method: 'POST', body: JSON.stringify(body), retries: 0 },
         ),
 
+      sendPaymentPortal: (leadId: string, agreementId: string) =>
+        request<AgreementPaymentPortalSendResult>(
+          `/leads/${leadId}/agreements/${agreementId}/send-payment-portal`,
+          { method: 'POST', retries: 0 },
+        ),
+
       discardDraft: (leadId: string, agreementId: string, body: DiscardAgreementDraftPayload) =>
         request<{ success: boolean; data: { id: string; status: 'DISCARDED' } }>(
           `/leads/${leadId}/agreements/${agreementId}/draft`,
@@ -2150,6 +2192,12 @@ export const api = {
 
       resend: (leadId: string, agreementId: string) =>
         request<{ success: boolean; data: Agreement; url: string; rotated: boolean }>(`/leads/${leadId}/agreements/${agreementId}/resend`, { method: 'POST' }),
+
+      void: (leadId: string, agreementId: string, body: VoidAgreementPayload) =>
+        request<{ success: boolean; data: Agreement }>(
+          `/leads/${leadId}/agreements/${agreementId}/void`,
+          { method: 'POST', body: JSON.stringify(body), retries: 0 },
+        ),
 
       extend: (leadId: string, agreementId: string, body: { days?: number } = {}) =>
         request<{ success: boolean; data: Agreement }>(
@@ -2319,6 +2367,7 @@ export type TaxCaseStatus =
 export type TaxType = 'FORM_1040' | 'FORM_1120S' | 'FORM_1065'
 
 export type Language = 'VI' | 'EN'
+export type ReplyMode = 'DIRECT' | 'EN_TO_VI'
 
 export type LeadStatus = 'NEW' | 'SENT' | 'CONTACTED' | 'CONVERTED' | 'LOST'
 
@@ -2357,6 +2406,22 @@ export interface Lead {
   updatedAt: string
   smsSendLogs?: SmsSendLog[]
   latestSms?: LatestLeadSms | null
+  unreadMessageCount?: number
+  latestInboundMessage?: {
+    id: string
+    content: string
+    attachmentCount: number
+    createdAt: string
+  } | null
+}
+
+export interface LeadListResponse {
+  success: boolean
+  data: Lead[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
+  selectableTotal: number
+  bulkSmsMaxRecipients: number
+  totalUnreadMessages: number
 }
 
 export interface BulkSmsTargetPreview {
@@ -2392,6 +2457,8 @@ export type DepositStatus = NdaDepositStatus
 
 export type AgreementType = 'NDA' | 'ENGAGEMENT_LETTER' | 'SERVICE_AGREEMENT' | 'CONSENT_7216' | 'CUSTOM'
 export type AgreementSource = 'MANUAL' | 'CALCULATOR'
+export type AgreementPaymentPortalMode = 'NONE' | 'AUTO_SEND' | 'STAFF_REVIEW'
+export type AgreementPaymentPortalSendMode = Exclude<AgreementPaymentPortalMode, 'NONE'>
 /** Templates exclude built-in consent and CUSTOM (per-send unique content; rejects templateId). */
 export type AgreementTemplateType = Exclude<AgreementType, 'CONSENT_7216' | 'CUSTOM'>
 
@@ -2401,6 +2468,15 @@ export interface AgreementStaffSummary {
   email: string
 }
 
+export interface AgreementPaymentQuoteSummary {
+  id: string
+  status: string
+  payUrl?: string | null
+  sentAt: string | null
+  monthlyTotalCents: number
+  setupTotalCents: number
+}
+
 export interface Agreement {
   id: string
   type: AgreementType
@@ -2408,6 +2484,9 @@ export interface Agreement {
   internalNote: string | null
   source: AgreementSource
   sourceSnapshot: Record<string, unknown> | null
+  paymentQuoteId: string | null
+  paymentPortalMode: AgreementPaymentPortalMode
+  paymentQuote?: AgreementPaymentQuoteSummary | null
   // Null after the originating Lead is deleted; clientId still pins the agreement to its Client.
   leadId: string | null
   clientId: string | null
@@ -2439,6 +2518,10 @@ export interface Agreement {
   createdByUserId: string
   lastEditedByUserId: string | null
   sentByUserId: string | null
+  voidedAt: string | null
+  voidedByUserId: string | null
+  voidedBy?: AgreementStaffSummary | null
+  voidReason: string | null
   createdBy?: AgreementStaffSummary
   lastEditedBy?: AgreementStaffSummary | null
   sentBy?: AgreementStaffSummary | null
@@ -2498,9 +2581,18 @@ export interface CreateAgreementPayload {
   expiryDays?: number
 }
 
+export interface CalculatorAgreementQuotePayload {
+  pricingInput: PricingCalculatorInput
+  paymentPortalMode?: AgreementPaymentPortalSendMode
+  customerEmail?: string
+  customerName?: string
+  businessName?: string
+}
+
 export interface SaveAgreementDraftPayload extends CreateAgreementPayload {
   source?: AgreementSource
   sourceSnapshot?: Record<string, unknown>
+  calculatorQuote?: CalculatorAgreementQuotePayload
   expectedUpdatedAt?: string
 }
 
@@ -2510,10 +2602,22 @@ export interface UpdateAgreementDraftPayload extends SaveAgreementDraftPayload {
 
 export interface SendAgreementDraftPayload extends CreateAgreementPayload {
   expectedUpdatedAt: string
+  paymentPortalMode?: AgreementPaymentPortalSendMode
+}
+
+export interface AgreementPaymentPortalSendResult {
+  quoteId: string
+  payUrl: string
+  smsSent: boolean
+  smsSkippedReason?: SendQuoteResponse['smsSkippedReason'] | 'already_sent'
 }
 
 export interface DiscardAgreementDraftPayload {
   expectedUpdatedAt: string
+}
+
+export interface VoidAgreementPayload {
+  reason: string
 }
 
 export interface AgreementTemplate {
@@ -2569,6 +2673,7 @@ export type ActionType =
   | 'READY_FOR_ENTRY'
   | 'REMINDER_DUE'
   | 'CLIENT_REPLIED'
+  | 'LEAD_REPLIED'
 
 export type ActionPriority = 'URGENT' | 'HIGH' | 'NORMAL' | 'LOW'
 
@@ -3238,7 +3343,8 @@ export interface SignedUrlResponse {
 // Action types
 export interface Action {
   id: string
-  caseId: string
+  caseId: string | null
+  leadId?: string | null
   type: ActionType
   priority: ActionPriority
   title: string
@@ -3246,11 +3352,18 @@ export interface Action {
   isCompleted: boolean
   assignedToId: string | null
   createdAt: string
-  metadata?: Record<string, unknown> // JSON field for action-specific data
+  metadata?: Record<string, unknown> | null // JSON field for action-specific data
   taxCase?: {
     id: string
     client: { id: string; name: string }
-  }
+  } | null
+  lead?: {
+    id: string
+    firstName: string
+    lastName: string
+    businessName: string | null
+    status: LeadStatus
+  } | null
 }
 
 // Actions grouped by priority (API response)
@@ -3277,6 +3390,10 @@ export interface Message {
   channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
   direction: 'INBOUND' | 'OUTBOUND'
   content: string
+  contentLanguage?: Language | null
+  staffAuthoredContent?: string | null
+  staffAuthoredLanguage?: Language | null
+  translationEdited?: boolean
   reactions?: MessageReaction[]
   attachmentUrls?: string[]
   createdAt: string
@@ -3449,6 +3566,14 @@ export interface SendMessageInput {
   caseId: string
   content: string
   channel?: 'SMS' | 'PORTAL'
+  translation?: ComposeTranslationMetadata
+}
+
+export interface ComposeTranslationMetadata {
+  sourceContent: string
+  sourceLanguage: 'EN'
+  targetLanguage: 'VI'
+  edited: boolean
 }
 
 export interface SendMessageWithAttachmentsInput {
@@ -3456,6 +3581,7 @@ export interface SendMessageWithAttachmentsInput {
   content?: string
   templateName?: string
   images: File[]
+  translation?: ComposeTranslationMetadata
 }
 
 export interface TranslateMessageInput {
@@ -3469,12 +3595,36 @@ export interface TranslateMessageResponse {
   translatedText: string
 }
 
+export interface TranslateComposeInput {
+  caseId: string
+  sourceText: string
+  sourceLanguage: 'EN'
+  targetLanguage: 'VI'
+}
+
+export interface TranslateComposeResponse {
+  caseId: string
+  sourceLanguage: 'EN'
+  targetLanguage: 'VI'
+  translatedText: string
+}
+
+export interface UpdateReplyModeInput {
+  replyMode: ReplyMode
+}
+
+export interface UpdateReplyModeResponse {
+  caseId: string
+  replyMode: ReplyMode
+}
+
 // Messages response types
 export interface MessagesResponse {
   conversation: {
     id: string
     caseId: string
     unreadCount: number
+    replyMode?: ReplyMode
     lastMessageAt: string | null
     createdAt: string
     updatedAt: string
@@ -3518,6 +3668,7 @@ export interface Conversation {
   id: string
   caseId: string
   unreadCount: number
+  replyMode?: ReplyMode
   lastMessageAt: string | null
   createdAt: string
   updatedAt: string
@@ -3538,9 +3689,16 @@ export interface Conversation {
   lastMessage: {
     id: string
     content: string
+    contentLanguage?: Language | null
+    staffAuthoredContent?: string | null
+    staffAuthoredLanguage?: Language | null
+    translationEdited?: boolean
     channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
     direction: 'INBOUND' | 'OUTBOUND'
+    templateUsed?: string | null
+    twilioStatus?: string | null
     createdAt: string
+    updatedAt: string
     attachmentUrls?: string[]
     sentBy?: {
       id: string
@@ -4184,6 +4342,7 @@ export interface OrgSettings {
   smsLanguage: Language
   missedCallTextBack: boolean
   autoSendFormClientUploadLink: boolean
+  calculatorAgreementPaymentMode: AgreementPaymentPortalSendMode
   defaultUploadLinkTemplateId: UploadLinkTemplateId | null
   defaultUploadLinkLanguage: Language
   slug: string | null

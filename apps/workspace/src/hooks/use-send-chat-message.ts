@@ -9,12 +9,13 @@ import { api } from '../lib/api-client'
 import { toast } from '../stores/toast-store'
 import type { ChatContext } from '../types/chat-context'
 import { chatContextId } from '../types/chat-context'
-import type { Message } from '../lib/api-client'
+import type { ComposeTranslationMetadata, Message } from '../lib/api-client'
 
 export interface SendChatMessageVariables {
   content: string
   channel: 'SMS' | 'PORTAL'
   attachments?: File[]
+  translation?: ComposeTranslationMetadata
 }
 
 export interface UseSendChatMessageOptions {
@@ -43,9 +44,15 @@ export function useSendChatMessage(context: ChatContext, options: UseSendChatMes
             caseId: context.caseId,
             content: vars.content,
             images: vars.attachments,
+            translation: vars.translation,
           })
         }
-        return api.messages.send({ caseId: context.caseId, content: vars.content, channel: vars.channel })
+        return api.messages.send({
+          caseId: context.caseId,
+          content: vars.content,
+          channel: vars.channel,
+          translation: vars.translation,
+        })
       }
       if (vars.attachments && vars.attachments.length > 0) {
         throw new Error('Lead message attachments are not supported')
@@ -69,6 +76,10 @@ export function useSendChatMessage(context: ChatContext, options: UseSendChatMes
         channel: vars.channel,
         direction: 'OUTBOUND',
         content: vars.content,
+        contentLanguage: vars.translation?.targetLanguage,
+        staffAuthoredContent: vars.translation?.sourceContent,
+        staffAuthoredLanguage: vars.translation?.sourceLanguage,
+        translationEdited: vars.translation?.edited,
         attachmentUrls: previewUrls,
         createdAt: new Date().toISOString(),
         _optimistic: 'sending',
@@ -101,6 +112,11 @@ export function useSendChatMessage(context: ChatContext, options: UseSendChatMes
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) {
         queryClient.setQueryData(queryKey, ctx.previous)
+      } else if (ctx?.tempId) {
+        queryClient.setQueryData<MessagesPage>(queryKey, (old) => ({
+          ...(old ?? { messages: [] }),
+          messages: (old?.messages ?? []).filter((message) => message.id !== ctx.tempId),
+        }))
       }
       ctx?.previewUrls.forEach((url) => URL.revokeObjectURL(url))
       toast.error(t('chat.sendError'))

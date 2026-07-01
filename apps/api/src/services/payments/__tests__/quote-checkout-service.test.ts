@@ -408,6 +408,17 @@ describe('createQuoteCheckoutSession', () => {
     })
   })
 
+  it.each(['agreement_draft', 'agreement_pending_signature', 'agreement_signed_review'])(
+    'rejects unactivated agreement quote status %s',
+    async (status) => {
+      prismaMocks.paymentQuote.findUnique.mockResolvedValue(quoteRow({ status }))
+      await expect(createQuoteCheckoutSession('tok_abcdefghij')).rejects.toMatchObject({
+        code: 'NOT_PAYABLE',
+      })
+      expect(stripeMocks.sessionsCreate).not.toHaveBeenCalled()
+    },
+  )
+
   it('reuses an open session instead of minting a new one', async () => {
     prismaMocks.paymentQuote.findUnique.mockResolvedValue(quoteRow())
     prismaMocks.stripeCheckoutSession.findFirst.mockResolvedValue({

@@ -9,6 +9,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type * as ConfigModule from '../../../lib/config'
 
 vi.mock('../../../lib/db', () => {
   const prisma: any = {
@@ -39,6 +40,19 @@ vi.mock('../../storage', () => ({
   copyR2Object: vi.fn().mockResolvedValue({ key: 'copied' }),
   deleteFile: vi.fn().mockResolvedValue(true),
 }))
+
+vi.mock('../../../lib/config', async () => {
+  const actual = await vi.importActual<typeof ConfigModule>('../../../lib/config')
+  return {
+    config: {
+      ...actual.config,
+      twilio: {
+        ...actual.config.twilio,
+        phoneNumber: '+15550001111',
+      },
+    },
+  }
+})
 
 import type * as TokenServiceModule from '../token-service'
 
@@ -232,6 +246,29 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
       expect(created.title).toBe('Engagement Letter')
       expect(created.templateId).toBe('tpl-1')
       expect(created.customContentHtml).toContain('Engagement scope')
+    })
+
+    it('uses configured Twilio number when firmPhone is not stored', async () => {
+      mockLeadFindFirst.mockResolvedValueOnce(
+        leadWithOrg({
+          organization: { ...ORG_V2_FIELDS, firmPhone: null },
+        }) as any
+      )
+      mockTemplateFindFirst.mockResolvedValueOnce(dbTemplate() as any)
+      mockAgreementCreate.mockResolvedValueOnce(dbAgreement({ type: 'ENGAGEMENT_LETTER' }) as any)
+
+      await createAgreementForEntity({
+        entityType: 'lead',
+        entityId: 'lead-1',
+        orgId: 'org-1',
+        staffId: 'staff-1',
+        type: 'ENGAGEMENT_LETTER',
+        templateId: 'tpl-1',
+      })
+
+      const created = (mockAgreementCreate.mock.calls[0][0] as any).data
+      expect(created.type).toBe('ENGAGEMENT_LETTER')
+      expect(created.firmSignerEmail).toBe('felix@acme.test')
     })
 
     it('rejects with 404 when templateId does not exist for the org', async () => {

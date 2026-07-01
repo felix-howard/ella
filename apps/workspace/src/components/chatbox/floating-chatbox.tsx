@@ -5,7 +5,8 @@
  * Voice calling (Twilio SDK) available for case context only.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@ella/ui'
 import { ChatboxButton } from './chatbox-button'
 import { ChatboxHeader } from './chatbox-header'
@@ -20,6 +21,12 @@ import { useChatMessages } from '../../hooks/use-chat-messages'
 import { useSendChatMessage } from '../../hooks/use-send-chat-message'
 import { api } from '../../lib/api-client'
 import type { ChatContext } from '../../types/chat-context'
+import type {
+  ComposeTranslationMetadata,
+  Conversation,
+  MessagesResponse,
+  ReplyMode,
+} from '../../lib/api-client'
 
 export interface ChatboxHeaderDescriptor {
   /** Primary line, e.g., client or lead full name. */
@@ -44,6 +51,7 @@ export function FloatingChatbox({
   onUnreadChange,
 }: FloatingChatboxProps) {
   const { canViewPhone } = useOrgRole()
+  const queryClient = useQueryClient()
   const [isOpen, setIsOpen] = useState(false)
 
   // Subscribe to realtime events scoped to this context.
@@ -53,15 +61,75 @@ export function FloatingChatbox({
   // the call modal can render for both types without violating hook ordering.
   const { state: voiceState, actions: voiceActions } = useVoiceCallContext()
   const [showCallModal, setShowCallModal] = useState(false)
+  const [isReplyModeSaving, setIsReplyModeSaving] = useState(false)
+  const isReplyModeSavingRef = useRef(false)
 
-  const { messages, isLoading: isLoadingMessages } = useChatMessages(context, isOpen)
+  const {
+    messages,
+    conversation,
+    isLoading: isLoadingMessages,
+  } = useChatMessages(context, isOpen)
+  const [replyModeOverride, setReplyModeOverride] = useState<{
+    contextId: string
+    mode: ReplyMode
+  } | null>(null)
 
   const sendMessageMutation = useSendChatMessage(context, {
     onSent: () => onUnreadChange?.(),
   })
 
-  const handleSend = async (content: string, channel: 'SMS' | 'PORTAL', attachments?: File[]) => {
-    await sendMessageMutation.mutateAsync({ content, channel, attachments })
+  const replyModeContextId = context.type === 'case' ? context.caseId : null
+  const remoteReplyMode = context.type === 'case' ? conversation?.replyMode ?? 'DIRECT' : 'DIRECT'
+  const replyMode = replyModeOverride?.contextId === replyModeContextId
+    ? replyModeOverride.mode
+    : remoteReplyMode
+  const canRenderComposer = context.type !== 'case' || !isLoadingMessages
+
+  const handleReplyModeChange = useCallback(async (mode: ReplyMode) => {
+    if (context.type !== 'case') return
+    if (isReplyModeSavingRef.current || mode === replyMode) return
+
+    const previousMode = replyMode
+    const targetContextId = context.caseId
+    isReplyModeSavingRef.current = true
+    setIsReplyModeSaving(true)
+    setReplyModeOverride({ contextId: targetContextId, mode })
+
+    try {
+      const response = await api.messages.updateReplyMode(targetContextId, { replyMode: mode })
+      queryClient.setQueryData<MessagesResponse>(
+        ['messages', 'case', targetContextId],
+        (previous) => previous
+          ? {
+              ...previous,
+              conversation: { ...previous.conversation, replyMode: response.replyMode },
+            }
+          : previous
+      )
+      queryClient.setQueryData<Conversation>(
+        ['messages', 'conversation-summary', targetContextId],
+        (previous) => previous ? { ...previous, replyMode: response.replyMode } : previous
+      )
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      setReplyModeOverride(null)
+    } catch (error) {
+      setReplyModeOverride({ contextId: targetContextId, mode: previousMode })
+      if (import.meta.env.DEV) {
+        console.error('Failed to update reply mode:', error)
+      }
+    } finally {
+      isReplyModeSavingRef.current = false
+      setIsReplyModeSaving(false)
+    }
+  }, [context, queryClient, replyMode])
+
+  const handleSend = async (
+    content: string,
+    channel: 'SMS' | 'PORTAL',
+    attachments?: File[],
+    translation?: ComposeTranslationMetadata
+  ) => {
+    await sendMessageMutation.mutateAsync({ content, channel, attachments, translation })
   }
 
   const handleToggle = () => setIsOpen(!isOpen)
@@ -141,16 +209,22 @@ export function FloatingChatbox({
             className="flex-1 min-h-[320px] bg-background"
           />
 
-          <QuickActionsBar
-            onSend={handleSend}
-            isSending={sendMessageMutation.isPending}
-            clientName={headerProps.title}
-            clientPhone={phone}
-            clientId={caseClientId}
-            caseId={caseId}
-            context={context}
-            autoFocus
-          />
+          {canRenderComposer && (
+            <QuickActionsBar
+              onSend={handleSend}
+              isSending={sendMessageMutation.isPending}
+              clientName={headerProps.title}
+              clientPhone={phone}
+              clientId={caseClientId}
+              caseId={caseId}
+              context={context}
+              replyMode={replyMode}
+              onReplyModeChange={context.type === 'case' ? handleReplyModeChange : undefined}
+              isReplyModeSaving={isReplyModeSaving}
+              translationEnabled={context.type === 'case'}
+              autoFocus
+            />
+          )}
         </div>
       )}
 

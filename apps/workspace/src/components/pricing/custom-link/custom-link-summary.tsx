@@ -39,7 +39,8 @@ export function CustomLinkSummary({
 }: CustomLinkSummaryProps) {
   const recurringSuffix =
     recurringInterval === 'month' ? ' / mo' : recurringInterval === 'year' ? ' / yr' : ''
-  const recurringLabel = recurringInterval === 'year' ? 'Then yearly' : 'Then monthly'
+  const recurringLabel =
+    recurringInterval === 'year' ? 'Next year onward' : 'Next month onward'
 
   return (
     <section
@@ -96,7 +97,7 @@ export function CustomLinkSummary({
         <div className="space-y-2 rounded-lg border border-primary-light bg-primary-light/30 px-3 py-2">
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-xs font-medium text-foreground">
-              Due today
+              Due Today
               {validItemCount > 0
                 ? ` · ${validItemCount} item${validItemCount > 1 ? 's' : ''}`
                 : ''}
@@ -116,7 +117,7 @@ export function CustomLinkSummary({
           )}
         </div>
         <p className="text-[11px] text-muted-foreground">
-          One-time rows are charged today. Recurring rows are charged today, then renew on schedule.
+          One-time rows are charged today. Recurring rows are charged today and continue on schedule.
         </p>
         <p className="text-[11px] text-muted-foreground">
           Discounts are applied by Stripe at checkout.

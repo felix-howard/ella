@@ -7,7 +7,7 @@ import { getSupabaseUrl, getSupabaseHeaders, isSupabaseConfigured } from '../../
 import { prisma } from '../../lib/db'
 
 export interface MessageEventPayload {
-  eventType?: 'message.created' | 'message.status.updated' | 'conversation.read'
+  eventType?: 'message.created' | 'message.status.updated' | 'conversation.read' | 'lead.read'
   // Owner is polymorphic: either conversation (Client case) or lead.
   conversationId?: string
   caseId?: string
@@ -151,6 +151,39 @@ export async function publishConversationReadEvent(
     })
   } catch (error) {
     console.error('[Realtime] Failed to publish conversation read event:', error)
+  }
+}
+
+export async function publishLeadReadEvent(
+  leadId: string,
+  data: {
+    unreadCount: number
+    readAt: string
+  }
+): Promise<void> {
+  try {
+    const lead = await prisma.lead.findUnique({
+      where: { id: leadId },
+      include: {
+        organization: { select: { clerkOrgId: true } },
+      },
+    })
+
+    const clerkOrgId = lead?.organization?.clerkOrgId
+    if (!clerkOrgId) {
+      console.log(`[Realtime] No org found for lead ${leadId}`)
+      return
+    }
+
+    await publishMessageEvent(clerkOrgId, {
+      leadId,
+      eventType: 'lead.read',
+      unreadCount: data.unreadCount,
+      readAt: data.readAt,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (error) {
+    console.error('[Realtime] Failed to publish lead read event:', error)
   }
 }
 

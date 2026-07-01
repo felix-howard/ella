@@ -22,6 +22,7 @@ vi.mock('../../../lib/db', () => ({
 vi.mock('../../../services/storage', () => ({
   uploadFile: vi.fn().mockResolvedValue(undefined),
   getSignedDownloadUrl: vi.fn().mockResolvedValue('https://r2.test/signed/pdf'),
+  deleteFile: vi.fn().mockResolvedValue(true),
 }))
 
 vi.mock('../../../services/agreements/pdf-generator', () => ({

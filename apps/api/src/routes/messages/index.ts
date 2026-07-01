@@ -11,13 +11,16 @@ import {
   buildPaginationResponse,
 } from '../../lib/constants'
 import {
+  composeTranslationSchema,
+  type ComposeTranslationMetadataInput,
   sendMessageSchema,
   translateMessageSchema,
   listMessagesQuerySchema,
   listConversationsQuerySchema,
   markCaseMessagesReadSchema,
+  updateReplyModeSchema,
 } from './schemas'
-import { translateMessageToEnglish } from '../../services/ai'
+import { translateMessageToEnglish, translateReplyToVietnamese } from '../../services/ai'
 import {
   publishConversationReadEvent,
   publishMessageEventFromConversation,
@@ -41,6 +44,12 @@ import {
 import { ActivityRiskLevel, type MessageChannel, type MessageDirection } from '@ella/db'
 import { buildClientScopeFilter, isAdminOrManager } from '../../lib/org-scope'
 import { serializePhone } from '../../lib/phone-privacy'
+import {
+  canViewSensitiveMessageContent,
+  getSensitiveMessageRedactionKind,
+  serializeSensitiveMessageText,
+  type SensitiveMessageLike,
+} from '../../lib/sensitive-message-redaction'
 import { isBizWithGroup } from '../../lib/client-helpers'
 import { inngest } from '../../lib/inngest'
 import { rateLimiter } from '../../middleware/rate-limiter'
@@ -95,6 +104,22 @@ const messageTranslationRateLimit = rateLimiter({
   maxRequests: 10,
   windowMs: 60000,
 })
+const messageComposeTranslationRateLimit = rateLimiter({
+  keyPrefix: 'message-compose-translation',
+  maxRequests: 10,
+  windowMs: 60000,
+})
+
+type TranslationPersistenceData = {
+  contentLanguage?: 'VI'
+  staffAuthoredContent?: string
+  staffAuthoredLanguage?: 'EN'
+  translationEdited?: boolean
+}
+
+type MultipartTranslationDataResult =
+  | { ok: true; data: TranslationPersistenceData }
+  | { ok: false; error: string; message: string; status: 400 }
 
 type ScopedMessageCase =
   | { taxCase: { id: string; client: { clientType: string; clientGroupId: string | null } } }
@@ -106,10 +131,96 @@ function withoutAttachmentR2Keys<T extends object>(message: T): Omit<T, 'attachm
   return copy
 }
 
+function serializeCaseMessageForViewer<T extends SensitiveMessageLike & object>(
+  user: AuthVariables['user'],
+  message: T
+): Omit<T, 'attachmentR2Keys'> {
+  const publicMessage = withoutAttachmentR2Keys(message) as Omit<T, 'attachmentR2Keys'> & SensitiveMessageLike
+  return serializeSensitiveMessageText(user, publicMessage) as Omit<T, 'attachmentR2Keys'>
+}
+
 function getOptionalFormString(formData: FormData, key: string): string | null {
   const value = formData.get(key)
   if (value === null) return null
   return typeof value === 'string' ? value : null
+}
+
+function buildTranslationPersistenceData(
+  translation?: ComposeTranslationMetadataInput
+): TranslationPersistenceData {
+  if (!translation) return {}
+
+  return {
+    contentLanguage: translation.targetLanguage,
+    staffAuthoredContent: translation.sourceContent,
+    staffAuthoredLanguage: translation.sourceLanguage,
+    translationEdited: translation.edited,
+  }
+}
+
+function getMultipartTranslationData(formData: FormData): MultipartTranslationDataResult {
+  const staffAuthoredContent = getOptionalFormString(formData, 'staffAuthoredContent')
+  const staffAuthoredLanguage = getOptionalFormString(formData, 'staffAuthoredLanguage')
+  const contentLanguage = getOptionalFormString(formData, 'contentLanguage')
+  const translationEdited = getOptionalFormString(formData, 'translationEdited')
+
+  const fields = [
+    ['staffAuthoredContent', staffAuthoredContent],
+    ['staffAuthoredLanguage', staffAuthoredLanguage],
+    ['contentLanguage', contentLanguage],
+    ['translationEdited', translationEdited],
+  ] as const
+
+  for (const [fieldName, value] of fields) {
+    if (formData.has(fieldName) && value === null) {
+      return { ok: false, error: 'VALIDATION_ERROR', message: 'Invalid multipart field type', status: 400 }
+    }
+  }
+
+  const hasAnyTranslationField = fields.some(([, value]) => value !== null)
+  if (!hasAnyTranslationField) {
+    return { ok: true, data: {} }
+  }
+
+  if (fields.some(([, value]) => value === null)) {
+    return {
+      ok: false,
+      error: 'VALIDATION_ERROR',
+      message: 'All translation metadata fields are required',
+      status: 400,
+    }
+  }
+
+  if (!staffAuthoredContent!.trim()) {
+    return { ok: false, error: 'VALIDATION_ERROR', message: 'Source content is required', status: 400 }
+  }
+
+  if (staffAuthoredContent!.length > 1000) {
+    return {
+      ok: false,
+      error: 'VALIDATION_ERROR',
+      message: 'Source content must be 1000 characters or less',
+      status: 400,
+    }
+  }
+
+  if (staffAuthoredLanguage !== 'EN' || contentLanguage !== 'VI') {
+    return { ok: false, error: 'VALIDATION_ERROR', message: 'Invalid translation language', status: 400 }
+  }
+
+  if (translationEdited !== 'true' && translationEdited !== 'false') {
+    return { ok: false, error: 'VALIDATION_ERROR', message: 'Invalid translation edited value', status: 400 }
+  }
+
+  return {
+    ok: true,
+    data: {
+      contentLanguage: 'VI',
+      staffAuthoredContent: staffAuthoredContent!,
+      staffAuthoredLanguage: 'EN',
+      translationEdited: translationEdited === 'true',
+    },
+  }
 }
 
 async function cleanupUploadedMessageAttachments(keys: string[]): Promise<void> {
@@ -250,9 +361,16 @@ messagesRoute.get(
             select: {
               id: true,
               content: true,
+              contentLanguage: true,
+              staffAuthoredContent: true,
+              staffAuthoredLanguage: true,
+              translationEdited: true,
               channel: true,
               direction: true,
+              templateUsed: true,
+              twilioStatus: true,
               createdAt: true,
+              updatedAt: true,
               attachmentUrls: true,
               sentBy: {
                 select: { id: true, name: true, avatarUrl: true },
@@ -283,6 +401,7 @@ messagesRoute.get(
         id: conv.id,
         caseId: conv.caseId,
         unreadCount: conv.unreadCount,
+        replyMode: conv.replyMode,
         lastMessageAt: conv.lastMessageAt?.toISOString() || null,
         createdAt: conv.createdAt.toISOString(),
         updatedAt: conv.updatedAt.toISOString(),
@@ -301,8 +420,8 @@ messagesRoute.get(
           status: conv.taxCase.status,
         },
         lastMessage: conv.messages[0]
-          ? {
-              ...withoutAttachmentR2Keys(conv.messages[0]),
+          ? serializeCaseMessageForViewer(user, {
+              ...conv.messages[0],
               attachmentUrls: conv.messages[0].attachmentUrls?.length
                 ? Array.from(
                     { length: conv.messages[0].attachmentUrls.length },
@@ -317,7 +436,8 @@ messagesRoute.get(
                   }
                 : null,
               createdAt: conv.messages[0].createdAt.toISOString(),
-            }
+              updatedAt: conv.messages[0].updatedAt.toISOString(),
+            })
           : null,
       })),
       totalUnread: totalUnread._sum.unreadCount || 0,
@@ -449,6 +569,60 @@ messagesRoute.get('/media/:messageId/:index', async (c) => {
 })
 
 messagesRoute.post(
+  '/compose-translation',
+  messageComposeTranslationRateLimit,
+  zValidator('json', composeTranslationSchema),
+  async (c) => {
+    const { caseId, sourceText } = c.req.valid('json')
+    const user = c.get('user')
+
+    const caseCheck = await getScopedMessageCase(caseId, user)
+    if ('error' in caseCheck && caseCheck.error === 'NOT_FOUND') {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+    if ('error' in caseCheck && caseCheck.error === 'BUSINESS_CASE') {
+      console.warn(`[Messages] Blocked compose translation for business case ${caseId} — use individual's case`)
+      return c.json({ error: 'BUSINESS_CASE', message: 'Use the individual owner\'s case for messaging' }, 400)
+    }
+
+    const translation = await translateReplyToVietnamese(sourceText)
+    if (!translation.success) {
+      if (translation.error === 'AI_NOT_CONFIGURED') {
+        return c.json({
+          error: 'AI_NOT_CONFIGURED',
+          message: 'Translation service is not configured',
+        }, 503)
+      }
+
+      if (translation.error === 'EMPTY_MESSAGE' || translation.error === 'MESSAGE_TOO_LONG') {
+        return c.json({
+          error: translation.error,
+          message: translation.error === 'EMPTY_MESSAGE'
+            ? 'Message has no translatable text'
+            : 'Message content must be 1000 characters or less',
+        }, 400)
+      }
+
+      console.error('[Messages] Reply translation failed', {
+        caseId,
+        error: translation.error,
+      })
+      return c.json({
+        error: 'TRANSLATION_FAILED',
+        message: 'Unable to translate message',
+      }, 502)
+    }
+
+    return c.json({
+      caseId,
+      sourceLanguage: translation.sourceLanguage,
+      targetLanguage: translation.targetLanguage,
+      translatedText: translation.translatedText,
+    })
+  }
+)
+
+messagesRoute.post(
   '/:messageId/translate',
   messageTranslationRateLimit,
   zValidator('json', translateMessageSchema),
@@ -473,6 +647,8 @@ messagesRoute.post(
         id: true,
         content: true,
         channel: true,
+        direction: true,
+        templateUsed: true,
       },
     })
 
@@ -484,6 +660,13 @@ messagesRoute.post(
       return c.json({
         error: 'EMPTY_MESSAGE',
         message: 'Message has no translatable text',
+      }, 400)
+    }
+
+    if (!canViewSensitiveMessageContent(user) && getSensitiveMessageRedactionKind(message)) {
+      return c.json({
+        error: 'SENSITIVE_MESSAGE_REDACTED',
+        message: 'Message content is not available for translation',
       }, 400)
     }
 
@@ -526,6 +709,37 @@ messagesRoute.post(
       sourceLanguage: translation.sourceLanguage,
       targetLanguage: translation.targetLanguage,
       translatedText: translation.translatedText,
+    })
+  }
+)
+
+messagesRoute.patch(
+  '/:caseId/reply-mode',
+  zValidator('json', updateReplyModeSchema),
+  async (c) => {
+    const caseId = c.req.param('caseId')
+    const { replyMode } = c.req.valid('json')
+    const user = c.get('user')
+
+    const caseCheck = await getScopedMessageCase(caseId, user)
+    if ('error' in caseCheck && caseCheck.error === 'NOT_FOUND') {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+    if ('error' in caseCheck && caseCheck.error === 'BUSINESS_CASE') {
+      console.warn(`[Messages] Blocked reply mode update for business case ${caseId} — use individual's case`)
+      return c.json({ error: 'BUSINESS_CASE', message: 'Use the individual owner\'s case for messaging' }, 400)
+    }
+
+    const conversation = await prisma.conversation.upsert({
+      where: { caseId },
+      update: { replyMode },
+      create: { caseId, replyMode },
+      select: { caseId: true, replyMode: true },
+    })
+
+    return c.json({
+      caseId: conversation.caseId,
+      replyMode: conversation.replyMode,
     })
   }
 )
@@ -656,7 +870,7 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
       ? Array.from({ length: attachmentCount }, (_, i) => `/messages/media/${m.id}/${i}`)
       : m.attachmentUrls || []
 
-    return {
+    return serializeCaseMessageForViewer(user, {
       ...withoutAttachmentR2Keys(m),
       attachmentUrls: proxyUrls,
       sentBy: m.sentBy
@@ -664,7 +878,7 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
         : null,
       createdAt: m.createdAt.toISOString(),
       updatedAt: m.updatedAt.toISOString(),
-    }
+    })
   })
 
   return c.json({
@@ -680,8 +894,9 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
 
 // POST /messages/send - Send message to client
 messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => {
-  const { caseId, content, channel, templateName } = c.req.valid('json')
+  const { caseId, content, channel, templateName, translation } = c.req.valid('json')
   const user = c.get('user')
+  const translationData = buildTranslationPersistenceData(translation)
 
   // Verify case exists and belongs to user's org
   const taxCase = await prisma.taxCase.findFirst({
@@ -718,6 +933,7 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
       content,
       templateUsed: templateName,
       sentById: user.staffId,
+      ...translationData,
     },
     include: {
       sentBy: {
@@ -730,7 +946,7 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
   publishMessageEventFromConversation(conversation.id, {
     id: message.id,
     direction: 'OUTBOUND',
-    channel: channel as 'SMS' | 'PORTAL' | 'CALL',
+    channel: channel as 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL',
   }).catch(() => {})
 
   // Update conversation timestamp
@@ -861,6 +1077,7 @@ messagesRoute.post('/send-with-attachments', bodyLimit({ maxSize: MAX_MMS_REQUES
   const caseIdValue = getOptionalFormString(formData, 'caseId')
   const contentValue = getOptionalFormString(formData, 'content')
   const templateNameValue = getOptionalFormString(formData, 'templateName')
+  const translationData = getMultipartTranslationData(formData)
 
   if (
     caseIdValue === null ||
@@ -868,6 +1085,10 @@ messagesRoute.post('/send-with-attachments', bodyLimit({ maxSize: MAX_MMS_REQUES
     (formData.has('templateName') && templateNameValue === null)
   ) {
     return c.json({ error: 'VALIDATION_ERROR', message: 'Invalid multipart field type' }, 400)
+  }
+
+  if (!translationData.ok) {
+    return c.json({ error: translationData.error, message: translationData.message }, translationData.status)
   }
 
   const caseId = caseIdValue.trim()
@@ -963,6 +1184,7 @@ messagesRoute.post('/send-with-attachments', bodyLimit({ maxSize: MAX_MMS_REQUES
           content,
           templateUsed: templateName,
           sentById: user.staffId,
+          ...translationData.data,
           ...(attachmentUrls.length > 0 ? { attachmentUrls, attachmentR2Keys } : {}),
         },
         include: {

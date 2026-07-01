@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, Combobox, type ComboboxItem } from '@ella/ui'
+import { useQuery } from '@tanstack/react-query'
 import { FileText, UserPlus, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { PricingCalculatorInput, PricingCalculatorResult } from '@ella/shared/pricing'
+import { api } from '../../lib/api-client'
 import { CalculatorEngagementLetterModal } from './calculator-engagement-letter-modal'
 import {
   decodeRecipientId,
@@ -10,6 +13,7 @@ import {
 } from './use-recipient-search'
 import {
   createCalculatorEngagementLetterModalState,
+  getCalculatorPaymentModeLabelKey,
   getEngagementLetterDisabledReason,
   type CalculatorEngagementLetterModalState,
   type SelectedRecipient,
@@ -26,10 +30,15 @@ export function PricingEngagementLetterPanel({
   pricingResult,
   disabledReason,
 }: PricingEngagementLetterPanelProps) {
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<SelectedRecipient | null>(null)
   const [modal, setModal] = useState<CalculatorEngagementLetterModalState | null>(null)
   const { items, recipientByItemId, loading } = useRecipientSearch(query)
+  const orgSettingsQuery = useQuery({
+    queryKey: ['org-settings'],
+    queryFn: () => api.orgSettings.get(),
+  })
 
   const comboboxRef = useRef<HTMLInputElement>(null)
   const clearButtonRef = useRef<HTMLButtonElement>(null)
@@ -43,6 +52,8 @@ export function PricingEngagementLetterPanel({
   }, [selected])
 
   const actionDisabledReason = getEngagementLetterDisabledReason(disabledReason, selected)
+  const defaultPaymentMode =
+    orgSettingsQuery.data?.calculatorAgreementPaymentMode ?? 'STAFF_REVIEW'
 
   const handleSelect = (item: ComboboxItem) => {
     const metadata = recipientByItemId.get(item.id)
@@ -144,6 +155,11 @@ export function PricingEngagementLetterPanel({
 
         <p className="min-h-5 text-xs text-muted-foreground" role="status" aria-live="polite">
           {actionDisabledReason ?? 'Review and edit before previewing the PDF.'}
+        </p>
+        <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          {t('pricing.engagementLetterDraft.paymentModeDefaultLabel', {
+            mode: t(getCalculatorPaymentModeLabelKey(defaultPaymentMode)),
+          })}
         </p>
       </div>
 

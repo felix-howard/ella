@@ -10,13 +10,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { findManyMock, countMock } = vi.hoisted(() => ({
+const { findManyMock, countMock, queryRawMock } = vi.hoisted(() => ({
   findManyMock: vi.fn(),
   countMock: vi.fn(),
+  queryRawMock: vi.fn(),
 }))
 
 vi.mock('../../../lib/db', () => ({
   prisma: {
+    $queryRaw: queryRawMock,
     lead: {
       findMany: findManyMock,
       count: countMock,
@@ -68,6 +70,8 @@ beforeEach(() => {
   findManyMock.mockResolvedValue([])
   countMock.mockReset()
   countMock.mockResolvedValue(0)
+  queryRawMock.mockReset()
+  queryRawMock.mockResolvedValue([{ totalUnread: 0n }])
 })
 
 describe('GET /leads — CONVERTED filter', () => {
@@ -104,5 +108,39 @@ describe('GET /leads — CONVERTED filter', () => {
     expect(res.status).toBe(200)
     const where = findManyMock.mock.calls[0][0].where
     expect(where.status).toBe('NEW')
+  })
+
+  it('includes unread reply counts in the list response', async () => {
+    findManyMock.mockResolvedValue([
+      {
+        id: 'lead_1',
+        firstName: 'Andy',
+        lastName: 'Nguyen',
+        phone: '+15555550100',
+        email: null,
+        businessName: null,
+        status: 'NEW',
+        campaignTag: null,
+        tags: [],
+        notes: null,
+        createdAt: new Date('2026-06-28T00:00:00.000Z'),
+        convertedToId: null,
+        smsSendLogs: [],
+      },
+    ])
+    countMock.mockResolvedValue(1)
+    queryRawMock
+      .mockResolvedValueOnce([{ totalUnread: 3n }])
+      .mockResolvedValueOnce([{ leadId: 'lead_1', unreadCount: 2n }])
+
+    const res = await buildApp().request('/leads', { method: 'GET' })
+    const body = await res.json() as {
+      data: Array<{ unreadMessageCount: number }>
+      totalUnreadMessages: number
+    }
+
+    expect(res.status).toBe(200)
+    expect(body.totalUnreadMessages).toBe(3)
+    expect(body.data[0]?.unreadMessageCount).toBe(2)
   })
 })

@@ -1,6 +1,7 @@
-import type { AgreementSource, AgreementType, Prisma } from '@ella/db'
+import type { AgreementPaymentPortalMode, AgreementSource, AgreementType, Prisma } from '@ella/db'
 import { HTTPException } from 'hono/http-exception'
 import { prisma } from '../../lib/db'
+import { hasRequiredFirmContact } from '../../lib/firm-contact'
 import { generateAgreementToken, expiryDate, clampExpiryDays } from './token-service'
 import {
   sendAgreementInviteSmsBestEffort,
@@ -26,6 +27,13 @@ import {
   resolveAgreementTitle,
   snapshotFirmSide,
 } from './agreement-content-resolution'
+import {
+  assertCalculatorQuoteInputAllowed,
+  hydrateCalculatorAgreementQuote,
+  markAgreementQuotePendingSignature,
+  saveFrozenCalculatorAgreementQuoteForAgreement,
+  type CalculatorAgreementQuoteInput,
+} from '../payments/agreement-quote-service'
 
 interface DraftEditableInput {
   type?: AgreementType
@@ -49,11 +57,14 @@ export interface SaveAgreementDraftInput extends DraftBaseInput {
   source?: AgreementSource
   sourceSnapshot?: Record<string, unknown>
   expectedUpdatedAt?: string
+  calculatorQuote?: CalculatorAgreementQuoteInput
+  paymentPortalMode?: AgreementPaymentPortalMode
 }
 
 export interface SendAgreementDraftInput extends DraftBaseInput {
   agreementId: string
   expectedUpdatedAt: string
+  paymentPortalMode?: AgreementPaymentPortalMode
 }
 
 function expectedUpdatedAtDate(value?: string): Date | undefined {
@@ -131,6 +142,27 @@ function mergeDraftValues(
   }
 }
 
+async function saveCalculatorQuoteIfPresent(input: {
+  agreementId: string
+  entityType: EntityType
+  entity: Awaited<ReturnType<typeof loadEntityForV2Snapshot>>
+  orgId: string
+  staffId: string
+  calculatorQuote?: CalculatorAgreementQuoteInput
+  db: Pick<typeof prisma, 'agreement' | 'organization' | 'paymentQuote'>
+}) {
+  if (!input.calculatorQuote) return
+  await saveFrozenCalculatorAgreementQuoteForAgreement(
+    {
+      agreementId: input.agreementId,
+      quote: hydrateCalculatorAgreementQuote(input.calculatorQuote, input.entity),
+      recipient: { type: input.entityType, id: input.entity.id },
+    },
+    { organizationId: input.orgId, staffId: input.staffId },
+    input.db,
+  )
+}
+
 async function resolveDraftContentAndDeposit(input: {
   type: AgreementType
   orgId: string
@@ -170,6 +202,8 @@ async function loadSerializedAgreementResponse(
 
 export async function createAgreementDraftForEntity(input: SaveAgreementDraftInput) {
   const type = input.type ?? 'NDA'
+  const source = input.calculatorQuote ? 'CALCULATOR' : (input.source ?? 'MANUAL')
+  assertCalculatorQuoteInputAllowed({ type, source, calculatorQuote: input.calculatorQuote })
   const entity = await loadEntityWithOrg({
     entityType: input.entityType,
     entityId: input.entityId,
@@ -192,33 +226,53 @@ export async function createAgreementDraftForEntity(input: SaveAgreementDraftInp
     uploadedPdfKey: input.uploadedPdfKey,
     depositAmount: input.depositAmount,
   })
+  const quoteEntity = input.calculatorQuote
+    ? await loadEntityForV2Snapshot({
+        entityType: input.entityType,
+        entityId: entity.id,
+        orgId: input.orgId,
+      })
+    : null
 
-  const agreement = await prisma.agreement.create({
-    data: {
-      ...agreementScopeWhere(input.entityType, entity.id),
-      organizationId: input.orgId,
-      createdByUserId: input.staffId,
-      lastEditedByUserId: input.staffId,
-      type,
-      title: resolveAgreementTitle({ type, title: input.title }),
-      internalNote: input.internalNote?.trim() || null,
-      source: input.source ?? 'MANUAL',
-      sourceSnapshot: input.sourceSnapshot as Prisma.InputJsonValue | undefined,
-      templateId: resolved.templateId,
-      templateVersion: resolved.templateVersion,
-      customContentHtml: resolved.customContentHtml,
-      uploadedPdfKey: input.uploadedPdfKey ?? null,
-      status: 'DRAFT',
-      token: generateAgreementToken(),
-      expiresAt: null,
-      expiryDays: clampExpiryDays(input.expiryDays),
-      isActive: false,
-      depositAmount: deposit.depositAmount,
-      depositStatus: null,
-    },
-    include: agreementResponseInclude,
+  const agreement = await prisma.$transaction(async (tx) => {
+    const created = await tx.agreement.create({
+      data: {
+        ...agreementScopeWhere(input.entityType, entity.id),
+        organizationId: input.orgId,
+        createdByUserId: input.staffId,
+        lastEditedByUserId: input.staffId,
+        type,
+        title: resolveAgreementTitle({ type, title: input.title }),
+        internalNote: input.internalNote?.trim() || null,
+        source,
+        sourceSnapshot: input.sourceSnapshot as Prisma.InputJsonValue | undefined,
+        templateId: resolved.templateId,
+        templateVersion: resolved.templateVersion,
+        customContentHtml: resolved.customContentHtml,
+        uploadedPdfKey: input.uploadedPdfKey ?? null,
+        status: 'DRAFT',
+        token: generateAgreementToken(),
+        expiresAt: null,
+        expiryDays: clampExpiryDays(input.expiryDays),
+        isActive: false,
+        depositAmount: deposit.depositAmount,
+        depositStatus: null,
+      },
+      include: agreementResponseInclude,
+    })
+    if (!input.calculatorQuote) return serializeAgreementResponse(created)
+    await saveCalculatorQuoteIfPresent({
+      agreementId: created.id,
+      entityType: input.entityType,
+      entity: quoteEntity!,
+      orgId: input.orgId,
+      staffId: input.staffId,
+      calculatorQuote: input.calculatorQuote,
+      db: tx,
+    })
+    return loadSerializedAgreementResponse(created.id, 'Draft agreement not found', tx)
   })
-  return serializeAgreementResponse(agreement)
+  return agreement
 }
 
 export async function updateAgreementDraftForEntity(
@@ -227,6 +281,12 @@ export async function updateAgreementDraftForEntity(
   const draft = await loadDraftInScope(input)
   const expectedDate = assertFresh(draft, input.expectedUpdatedAt, true)!
   const merged = mergeDraftValues(draft, input)
+  const source = input.calculatorQuote ? 'CALCULATOR' : (input.source ?? draft.source)
+  assertCalculatorQuoteInputAllowed({
+    type: merged.type,
+    source,
+    calculatorQuote: input.calculatorQuote,
+  })
   const { resolved, deposit } = await resolveDraftContentAndDeposit({
     type: merged.type,
     orgId: input.orgId,
@@ -236,30 +296,51 @@ export async function updateAgreementDraftForEntity(
     uploadedPdfKey: merged.uploadedPdfKey,
     depositAmount: merged.depositAmount,
   })
+  const quoteEntity = input.calculatorQuote
+    ? await loadEntityForV2Snapshot({
+        entityType: input.entityType,
+        entityId: input.entityId,
+        orgId: input.orgId,
+      })
+    : null
 
-  const updated = await prisma.agreement.updateMany({
-    where: { ...draftScopeWhere(input), ...(expectedDate ? { updatedAt: expectedDate } : {}) },
-    data: {
-      type: merged.type,
-      title: merged.title,
-      internalNote: merged.internalNote,
-      ...(input.source ? { source: input.source } : {}),
-      ...(input.sourceSnapshot !== undefined
-        ? { sourceSnapshot: input.sourceSnapshot as Prisma.InputJsonValue }
-        : {}),
-      templateId: resolved.templateId,
-      templateVersion: resolved.templateVersion,
-      customContentHtml: resolved.customContentHtml,
-      uploadedPdfKey: merged.uploadedPdfKey ?? null,
-      expiryDays: clampExpiryDays(merged.expiryDays),
-      expiresAt: null,
-      isActive: false,
-      lastEditedByUserId: input.staffId,
-      depositAmount: deposit.depositAmount,
-      depositStatus: null,
-    },
+  await prisma.$transaction(async (tx) => {
+    const updated = await tx.agreement.updateMany({
+      where: { ...draftScopeWhere(input), ...(expectedDate ? { updatedAt: expectedDate } : {}) },
+      data: {
+        type: merged.type,
+        title: merged.title,
+        internalNote: merged.internalNote,
+        ...(input.source || input.calculatorQuote ? { source } : {}),
+        ...(input.sourceSnapshot !== undefined
+          ? { sourceSnapshot: input.sourceSnapshot as Prisma.InputJsonValue }
+          : {}),
+        templateId: resolved.templateId,
+        templateVersion: resolved.templateVersion,
+        customContentHtml: resolved.customContentHtml,
+        uploadedPdfKey: merged.uploadedPdfKey ?? null,
+        expiryDays: clampExpiryDays(merged.expiryDays),
+        expiresAt: null,
+        isActive: false,
+        lastEditedByUserId: input.staffId,
+        depositAmount: deposit.depositAmount,
+        depositStatus: null,
+      },
+    })
+    if (updated.count !== 1) throw new HTTPException(409, { message: 'Draft was updated by someone else' })
+
+    if (input.calculatorQuote) {
+      await saveCalculatorQuoteIfPresent({
+        agreementId: draft.id,
+        entityType: input.entityType,
+        entity: quoteEntity!,
+        orgId: input.orgId,
+        staffId: input.staffId,
+        calculatorQuote: input.calculatorQuote,
+        db: tx,
+      })
+    }
   })
-  if (updated.count !== 1) throw new HTTPException(409, { message: 'Draft was updated by someone else' })
 
   return loadSerializedAgreementResponse(draft.id, 'Draft agreement not found')
 }
@@ -338,9 +419,7 @@ export async function sendAgreementDraftForEntity(input: SendAgreementDraftInput
           ),
         orgContactOk:
           isUploadedPdf ||
-          Boolean(
-            v2Entity?.organization.firmPhone?.trim() && v2Entity.organization.firmEmail?.trim(),
-          ),
+          Boolean(v2Entity && hasRequiredFirmContact(v2Entity.organization)),
       })
     : null
 
@@ -389,6 +468,16 @@ export async function sendAgreementDraftForEntity(input: SendAgreementDraftInput
       })
       if (updated.count !== 1) {
         throw new HTTPException(409, { message: 'Draft was updated by someone else' })
+      }
+      if (draft.paymentQuoteId || input.paymentPortalMode) {
+        await markAgreementQuotePendingSignature(
+          {
+            agreementId: draft.id,
+            organizationId: input.orgId,
+            paymentPortalMode: input.paymentPortalMode,
+          },
+          tx,
+        )
       }
       return loadSerializedAgreementResponse(draft.id, 'Agreement not found', tx)
     })

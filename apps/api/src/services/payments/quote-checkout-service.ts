@@ -47,6 +47,11 @@ export class QuoteCheckoutError extends Error {
 // these. `active` = live subscription; `paid` = one-time charge captured.
 const PAID_STATUSES = ['paid', 'active'] as const
 const CANCELED_STATUSES = ['canceled'] as const
+const AGREEMENT_NOT_PAYABLE_STATUSES = [
+  'agreement_draft',
+  'agreement_pending_signature',
+  'agreement_signed_review',
+] as const
 
 let stripeClient: Stripe | null = null
 function getStripeClient(): Stripe {
@@ -180,6 +185,9 @@ export async function createQuoteCheckoutSession(
   if (isCanceledStatus(quote.status)) {
     throw new QuoteCheckoutError('NOT_PAYABLE', 'This quote has been canceled')
   }
+  if (isAgreementNotPayableStatus(quote.status)) {
+    throw new QuoteCheckoutError('NOT_PAYABLE', 'This agreement quote is not ready for payment')
+  }
 
   // Reuse a still-open Checkout Session if one exists rather than minting a new
   // one on every Pay click. Without this, repeat clicks would create multiple
@@ -304,6 +312,10 @@ function isPaidStatus(status: string): boolean {
 
 function isCanceledStatus(status: string): boolean {
   return (CANCELED_STATUSES as readonly string[]).includes(status)
+}
+
+function isAgreementNotPayableStatus(status: string): boolean {
+  return (AGREEMENT_NOT_PAYABLE_STATUSES as readonly string[]).includes(status)
 }
 
 /** Flatten the frozen CheckoutQuote snapshot into ordered monthly→yearly→setup display lines. */

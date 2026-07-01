@@ -23,6 +23,13 @@ describe('consent agreement wizard', () => {
     expect(markup).toContain('agreements.wizard.typeDescription.CONSENT_7216')
   })
 
+  it('hides service agreement from the staff send type picker', () => {
+    const markup = renderToStaticMarkup(<Step1TypePicker agreements={[]} onSelect={vi.fn()} />)
+
+    expect(markup).not.toContain('agreements.type.SERVICE_AGREEMENT')
+    expect(markup).not.toContain('agreements.wizard.typeDescription.SERVICE_AGREEMENT')
+  })
+
   it('keeps consent selectable when an active NDA blocks only NDA sends', () => {
     const agreements = [
       {

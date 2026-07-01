@@ -18,6 +18,7 @@ vi.mock('../../../lib/db', () => ({
 vi.mock('../../storage', () => ({
   uploadFile: vi.fn().mockResolvedValue(undefined),
   getSignedDownloadUrl: vi.fn().mockResolvedValue('https://r2.test/signed/pdf'),
+  deleteFile: vi.fn().mockResolvedValue(true),
 }))
 
 vi.mock('../pdf-generator', () => ({
@@ -32,18 +33,35 @@ vi.mock('../../payments/deposit-payment-service', () => ({
   createDepositPaymentForAgreement: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('../../payments/agreement-quote-service', () => ({
+  activateAgreementQuotePaymentPortal: vi.fn().mockResolvedValue({
+    quoteId: 'quote_1',
+    payToken: 'tok_pay',
+    payUrl: 'https://portal.test/quote/tok_pay',
+    smsSent: true,
+  }),
+  markAgreementQuoteSignedForReview: vi.fn().mockResolvedValue(undefined),
+}))
+
 import { prisma } from '../../../lib/db'
-import { uploadFile, getSignedDownloadUrl } from '../../storage'
+import { uploadFile, getSignedDownloadUrl, deleteFile } from '../../storage'
 import { generateSignedPdf } from '../pdf-generator'
 import { createDepositPaymentForAgreement } from '../../payments/deposit-payment-service'
+import {
+  activateAgreementQuotePaymentPortal,
+  markAgreementQuoteSignedForReview,
+} from '../../payments/agreement-quote-service'
 import { loadNdaByToken, toPublicView, signAgreement, signNda } from '../agreement-signing-service'
 
 const mockFindUnique = vi.mocked(prisma.agreement.findUnique)
 const mockUpdateMany = vi.mocked(prisma.agreement.updateMany)
 const mockUpload = vi.mocked(uploadFile)
 const mockGetSigned = vi.mocked(getSignedDownloadUrl)
+const mockDeleteFile = vi.mocked(deleteFile)
 const mockGenPdf = vi.mocked(generateSignedPdf)
 const mockCreateDepositPayment = vi.mocked(createDepositPaymentForAgreement)
+const mockActivateAgreementQuotePaymentPortal = vi.mocked(activateAgreementQuotePaymentPortal)
+const mockMarkAgreementQuoteSignedForReview = vi.mocked(markAgreementQuoteSignedForReview)
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 const VALID_PNG_DATA_URL =
@@ -66,6 +84,9 @@ function activeNda(overrides: Record<string, unknown> = {}) {
     uploadedPdfKey: null,
     depositAmount: '300.00',
     depositStatus: 'PENDING',
+    paymentQuoteId: null,
+    paymentPortalMode: 'NONE',
+    sentByUserId: null,
     expiresAt: new Date('2030-01-01T00:00:00Z'),
     createdAt: new Date('2026-04-23T00:00:00Z'),
     signedAt: null,
@@ -342,6 +363,114 @@ describe('signNda', () => {
         depositStatus: 'PENDING',
       })
     )
+    expect(mockActivateAgreementQuotePaymentPortal).not.toHaveBeenCalled()
+    expect(mockMarkAgreementQuoteSignedForReview).not.toHaveBeenCalled()
+  })
+
+  it('auto-activates a linked calculator quote after signing and returns payment portal details', async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      activeNda({
+        id: 'agreement-quote-auto',
+        type: 'ENGAGEMENT_LETTER',
+        title: '2026 Engagement Letter',
+        source: 'CALCULATOR',
+        paymentQuoteId: 'quote_1',
+        paymentPortalMode: 'AUTO_SEND',
+        sentByUserId: 'staff-sender',
+      }) as any,
+    )
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+
+    const result = await signAgreement(baseInput)
+
+    expect(mockActivateAgreementQuotePaymentPortal).toHaveBeenCalledWith({
+      agreementId: 'agreement-quote-auto',
+      orgId: 'org-1',
+      staffId: 'staff-sender',
+    })
+    expect(result).toMatchObject({
+      status: 'SIGNED',
+      paymentPortalUrl: 'https://portal.test/quote/tok_pay',
+      paymentPortalDelivery: {
+        mode: 'AUTO_SEND',
+        smsSent: true,
+      },
+    })
+  })
+
+  it('keeps signing successful when auto quote activation fails', async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      activeNda({
+        id: 'agreement-quote-auto',
+        type: 'ENGAGEMENT_LETTER',
+        title: '2026 Engagement Letter',
+        source: 'CALCULATOR',
+        paymentQuoteId: 'quote_1',
+        paymentPortalMode: 'AUTO_SEND',
+      }) as any,
+    )
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+    mockActivateAgreementQuotePaymentPortal.mockRejectedValueOnce(new Error('activation down'))
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    const result = await signAgreement(baseInput)
+
+    expect(result).toMatchObject({ status: 'SIGNED' })
+    expect(result).not.toHaveProperty('paymentPortalUrl')
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Post-sign quote activation failed'),
+      expect.any(Error),
+    )
+    errorSpy.mockRestore()
+  })
+
+  it('marks staff-review linked quotes without failing the signature response', async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      activeNda({
+        id: 'agreement-quote-review',
+        type: 'ENGAGEMENT_LETTER',
+        title: '2026 Engagement Letter',
+        source: 'CALCULATOR',
+        paymentQuoteId: 'quote_1',
+        paymentPortalMode: 'STAFF_REVIEW',
+      }) as any,
+    )
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+
+    const result = await signAgreement(baseInput)
+
+    expect(mockMarkAgreementQuoteSignedForReview).toHaveBeenCalledWith({
+      agreementId: 'agreement-quote-review',
+      organizationId: 'org-1',
+    })
+    expect(mockActivateAgreementQuotePaymentPortal).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ status: 'SIGNED' })
+    expect(result).not.toHaveProperty('paymentPortalUrl')
+  })
+
+  it('keeps signing successful when staff-review quote marking fails', async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      activeNda({
+        id: 'agreement-quote-review',
+        type: 'ENGAGEMENT_LETTER',
+        title: '2026 Engagement Letter',
+        source: 'CALCULATOR',
+        paymentQuoteId: 'quote_1',
+        paymentPortalMode: 'STAFF_REVIEW',
+      }) as any,
+    )
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+    mockMarkAgreementQuoteSignedForReview.mockRejectedValueOnce(new Error('review marker down'))
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    const result = await signAgreement(baseInput)
+
+    expect(result).toMatchObject({ status: 'SIGNED' })
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Post-sign quote review marker failed'),
+      expect.any(Error),
+    )
+    errorSpy.mockRestore()
   })
 
   it.each([
@@ -587,8 +716,27 @@ describe('signNda', () => {
     mockFindUnique.mockResolvedValueOnce(activeNda() as any)
     mockUpdateMany.mockResolvedValueOnce({ count: 0 } as any)
     await expect(signNda(baseInput)).rejects.toMatchObject({ status: 409 })
-    // Upload attempted but DB row unchanged — orphaned R2 object tolerated per service comment
     expect(mockUpload).toHaveBeenCalled()
+    expect(mockDeleteFile).toHaveBeenCalledTimes(2)
+    expect(mockDeleteFile).toHaveBeenNthCalledWith(1, mockUpload.mock.calls[0][0])
+    expect(mockDeleteFile).toHaveBeenNthCalledWith(2, mockUpload.mock.calls[1][0])
+  })
+
+  it('deletes generated artifacts when revoke wins a concurrent sign race', async () => {
+    mockFindUnique
+      .mockResolvedValueOnce(activeNda() as any)
+      .mockResolvedValueOnce(activeNda({ status: 'VOIDED', isActive: false }) as any)
+    mockUpdateMany.mockResolvedValueOnce({ count: 0 } as any)
+
+    await expect(signNda(baseInput)).rejects.toMatchObject({
+      status: 409,
+      code: 'AGREEMENT_VOIDED',
+    })
+
+    expect(mockUpload).toHaveBeenCalledTimes(2)
+    expect(mockDeleteFile).toHaveBeenCalledTimes(2)
+    expect(mockDeleteFile).toHaveBeenNthCalledWith(1, mockUpload.mock.calls[0][0])
+    expect(mockDeleteFile).toHaveBeenNthCalledWith(2, mockUpload.mock.calls[1][0])
   })
 
   it('rejects non-PNG signature data URL (400)', async () => {

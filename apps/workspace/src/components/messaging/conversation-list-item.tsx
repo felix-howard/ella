@@ -8,8 +8,8 @@ import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { Building2 } from 'lucide-react'
-import { getInitials, formatRelativeTime, sanitizeText, getAvatarColor } from '../../lib/formatters'
-import { parseTapbackReaction } from '../../lib/message-reactions'
+import { getInitials, formatRelativeTime, getAvatarColor } from '../../lib/formatters'
+import { getConversationMessagePreview, type PreviewTranslator } from './conversation-message-preview'
 import type { Conversation } from '../../lib/api-client'
 
 export interface ConversationListItemProps {
@@ -18,7 +18,6 @@ export interface ConversationListItemProps {
   /** When true, item is rendered inside a group container — adjusts margins */
   isGrouped?: boolean
 }
-
 
 export const ConversationListItem = memo(function ConversationListItem({
   conversation,
@@ -31,35 +30,12 @@ export const ConversationListItem = memo(function ConversationListItem({
   const hasUnread = unreadCount > 0
 
   const avatarColor = getAvatarColor(client.name)
-
-  // Truncate and sanitize last message
-  const getMessagePreview = () => {
-    if (!lastMessage) return t('messages.noMessages')
-    const tapback = lastMessage.direction === 'INBOUND' && lastMessage.channel === 'SMS'
-      ? parseTapbackReaction(lastMessage.content)
-      : null
-    if (tapback?.type === 'love') {
-      return t('messages.lovedMessage', 'Loved a message')
-    }
-    if (lastMessage.channel === 'CALL') {
-      // Translate call messages instead of showing hardcoded Vietnamese from DB
-      if (lastMessage.callStatus === 'completed' && lastMessage.recordingDuration) {
-        const mins = Math.floor(lastMessage.recordingDuration / 60)
-        const secs = lastMessage.recordingDuration % 60
-        return t('call.preview', { duration: `${mins}:${secs.toString().padStart(2, '0')}` })
-      }
-      if (lastMessage.callStatus === 'busy') return t('call.previewBusy')
-      if (lastMessage.callStatus === 'no-answer') return t('call.previewNoAnswer')
-      if (lastMessage.callStatus === 'failed' || lastMessage.callStatus === 'canceled') return t('call.previewFailed')
-      return t('call.previewDefault')
-    }
-    const text = sanitizeText(lastMessage.content)
-    if (!text && lastMessage.attachmentUrls?.length) {
-      return t('messages.imageAttachment', 'Sent a photo')
-    }
-    return text.slice(0, 60) + (text.length > 60 ? '...' : '')
+  const translatePreview: PreviewTranslator = (key, options) => {
+    if (typeof options === 'string') return t(key, options)
+    if (options) return t(key, options)
+    return t(key)
   }
-  const messagePreview = getMessagePreview()
+  const messagePreview = getConversationMessagePreview(lastMessage, translatePreview)
 
   return (
     <Link

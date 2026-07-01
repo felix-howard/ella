@@ -1,9 +1,260 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-27 ICT
+> **Last Updated:** 2026-06-30 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### Calculator Agreement Payment Link Phase 6
+**Status:** Complete
+
+**Changed:**
+- Added portal signing confirmation `Continue to payment` CTA when the signed agreement response includes an activated calculator quote URL.
+- Kept signed PDF download available, but secondary when a payment continuation is available.
+- Kept staff-review and legacy agreement confirmations free of payment CTA until staff sends the payment portal.
+- Broadened the portal signing result type for the payment-portal delivery contract and added focused portal confirmation regression coverage.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/agreements/__tests__/agreement-signing-service.test.ts src/routes/agreements/__tests__/agreement-draft-staff-routes.test.ts src/routes/clients/__tests__/agreements-staff-draft-routes.test.ts src/services/payments/__tests__/quote-checkout-service.test.ts src/routes/org-settings/__tests__/activity-logging.test.ts` passed, 5 files / 93 tests.
+- `pnpm -F @ella/workspace test -- src/components/pricing/__tests__/calculator-engagement-letter-modal.test.ts src/components/pricing/__tests__/calculator-engagement-letter-modal-component.test.tsx src/components/pricing/__tests__/pricing-engagement-letter-panel.test.tsx src/components/agreements/agreement-draft-payload.test.ts src/components/agreements/agreement-card-payment-portal.test.tsx src/components/agreements/use-send-agreement-payment-portal.test.tsx` passed, 6 files / 28 tests.
+- `pnpm -F @ella/portal test -- src/components/agreements/agreement-confirmation-panel.test.tsx src/components/agreements/agreement-error-panel.test.tsx src/components/agreements/agreement-error-mapping.test.ts src/lib/api-client.test.ts` passed, 4 files / 10 tests.
+- `pnpm -F @ella/api type-check` passed.
+- `pnpm -F @ella/workspace type-check` passed.
+- `pnpm -F @ella/portal type-check` passed.
+- `pnpm i18n:check` passed; Workspace 3168 keys and Portal 534 keys in parity.
+
+### Calculator Agreement Payment Link Phase 5
+**Status:** Complete
+
+**Changed:**
+- Added Workspace agreement-card status badges and actions for calculator-linked Engagement Letters pending staff-review payment portal send.
+- Added `Send payment portal` / `Copy payment link` behavior through the authorized client/lead agreement action endpoint, with agreement, message, and client-payment cache invalidation after mutation.
+- Kept generic agreement responses on the safe quote-summary contract: no raw `payToken` and no derived public `payUrl` in list/read responses.
+- Added regression tests for staff-review, sent, paid, manual, legacy, non-signed, and serializer token/link exposure cases.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- agreement-card payment-portal calculator-engagement-letter-modal-component` passed, 15 tests.
+- `pnpm -F @ella/api test -- agreement-response-serializer agreements-staff-draft-routes agreement-draft-staff-routes` passed, 13 tests.
+- `pnpm -F @ella/workspace type-check` passed.
+- `pnpm -F @ella/api type-check` passed.
+- `pnpm i18n:check` passed.
+- `pnpm -F @ella/workspace lint` passed with existing warnings only.
+- `pnpm -F @ella/api lint` passed with existing warning only.
+
+### Calculator Agreement Payment Link Phase 3
+**Status:** Complete
+
+**Changed:**
+- Added org-settings support for `calculatorAgreementPaymentMode` with `AUTO_SEND` and `STAFF_REVIEW`, so calculator agreement defaults now come from the org setting when drafts do not override them.
+- Extended agreement draft/send payloads with calculator quote data plus optional `paymentPortalMode` overrides, while keeping public agreement responses on the safe quote-summary contract.
+- Added signed-agreement `send-payment-portal` endpoints for client and lead calculator Engagement Letters pending staff review; manual activation is org/entity scoped, strips raw `payToken`, and returns `payUrl` plus SMS status.
+- Updated Workspace API client and Portal signing result types to match the new payment-portal response contract.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` passed.
+- `pnpm -F @ella/workspace type-check` passed.
+- `pnpm -F @ella/portal type-check` passed.
+- `pnpm -F @ella/api test -- org-settings agreement` passed, 31 files / 460 tests.
+- `git diff --check` passed.
+
+### Calculator Agreement Payment Link Phase 2
+**Status:** Complete
+
+**Changed:**
+- Added backend services to freeze calculator agreement quotes as linked `PaymentQuote` rows before signature, then activate the same quote after signing.
+- Integrated calculator quote freeze/pending-signature transitions into agreement draft send and direct agreement create paths.
+- Added post-sign behavior: `AUTO_SEND` activates the quote and returns a payment URL best-effort; `STAFF_REVIEW` marks the quote for staff approval without sending SMS.
+- Guarded public quote checkout from pre-sign/review statuses and kept signing successful when activation, SMS, or review marking fails.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` passed.
+- `pnpm -F @ella/api test -- agreement quote payment` passed, 46 files / 660 tests.
+- `git diff --check` passed.
+
+### Calculator Agreement Payment Link Phase 1
+**Status:** Complete
+
+**Changed:**
+- Added an Agreement ↔ PaymentQuote link plus `paymentPortalMode` on Agreement and `calculatorAgreementPaymentMode` on Organization to persist the calculator payment-portal state.
+- Updated the Agreement serializer and Workspace API Agreement type to return only a safe linked quote summary (`id`, `status`, `sentAt`, `monthlyTotalCents`, `setupTotalCents`) while keeping `payToken`, `payUrl`, `inputSnapshot`, and `resultSnapshot` server-only.
+- Created an additive Prisma migration for the new relation; it is not applied to the configured datasource yet.
+
+**Validation:**
+- Prisma validate, db/API/Workspace type-checks, targeted Workspace agreement tests, and targeted API client-agreement tests passed.
+
+### Manager Sensitive Message Redaction Phase 4
+**Status:** Complete
+
+**Changed:**
+- Closed the redaction feature with targeted API validation, API type-check, and documentation sync.
+- Confirmed Manager-facing case conversation previews, case thread history, and lead history responses redact automated payment/agreement content at read time; translation requests fail closed with `SENSITIVE_MESSAGE_REDACTED` before AI.
+- Confirmed ADMIN passthrough remains unchanged and no database migration or stored-message rewrite was introduced.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/lib/__tests__/sensitive-message-redaction.test.ts`
+- `pnpm -F @ella/api test -- src/routes/messages/__tests__/sensitive-message-redaction.test.ts src/routes/messages/__tests__/message-translation.test.ts`
+- `pnpm -F @ella/api test -- src/routes/leads/__tests__/messages.test.ts`
+- `pnpm -F @ella/api type-check`
+
+### Manager Sensitive Message Redaction Phase 3
+**Status:** Complete
+
+**Changed:**
+- Applied the shared sensitive-message redaction helper to lead message history API responses for non-admin viewers.
+- Kept ADMIN lead message content raw and left ordinary inbound/outbound lead messages unchanged.
+- Preserved lead attachment proxies, sender metadata, and the no-schema/no-backfill contract.
+
+**Validation:**
+- Lead route regression coverage now includes manager redaction, admin passthrough, and ordinary message preservation.
+
+### Manager Sensitive Message Redaction Phase 2
+**Status:** Complete
+
+**Changed:**
+- Added read-time redaction for outbound automated payment/agreement SMS content in client conversation previews and thread responses for non-admin viewers.
+- Kept ADMIN raw message behavior unchanged.
+- Blocked `POST /messages/:messageId/translate` with `SENSITIVE_MESSAGE_REDACTED` before AI when the message is already redacted.
+- Updated workspace API client message types to include `lastMessage.templateUsed`, `lastMessage.twilioStatus`, and `lastMessage.updatedAt`.
+
+**Validation:**
+- Phase-targeted API and workspace regression coverage was added for the redaction boundary and client contract.
+
+### Message Reply Translation Phase 4
+**Status:** Complete
+
+**Changed:**
+- Added Workspace `Show English` / `Hide English` toggle for outbound translated SMS bubbles with neutral source styling.
+- Kept inbound bubble translation separate from staff source display.
+- Updated conversation previews to use staff-authored English source for translated outbound text while preserving photo-only previews.
+- Tightened optimistic message matching so translated temporary messages are reconciled only with server copies that preserve source metadata.
+- Added focused workspace regression coverage for message bubbles, conversation previews, reply translation components, and optimistic merge.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- message-bubble conversation-list quick-actions-bar reply-translation optimistic-message-merge` pass, 28 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api test -- message-reply-translation message-translation` pass
+- `pnpm -F @ella/api type-check` pass
+
+### Message Reply Translation Phase 3
+**Status:** Complete
+
+**Changed:**
+- Added workspace composer UX for message reply translation in both the full Messages route and the floating case chatbox.
+- Let staff switch `Direct` or `EN -> VI` per case, with EN -> VI debouncing `POST /messages/compose-translation` into an editable Vietnamese SMS preview.
+- Blocked send while the preview is loading, stale, or errored, and kept lead chat direct-only.
+- Kept JSON and MMS send paths aligned so optimistic messages and API payloads preserve staff-authored English metadata (`staffAuthoredContent`, `staffAuthoredLanguage`, `translationEdited`).
+- Hardened composer state with single-flight reply-mode saves, mode-load gating before render, query-cache sync between the page and chatbox, and rollback for the first failed chatbox send.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- reply-translation quick-actions-bar use-reply-translation-preview` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with only existing unrelated warnings
+
+### Client Payment Receipt Refresh Action
+**Status:** Complete
+
+**Fixed:**
+- Replaced the dead-end paid payment `Receipt pending` chip with a `Refresh receipt` action in the client Payments tab.
+- Wired the action to the existing admin-only Stripe receipt reconcile endpoint and updates the row cache when receipt/invoice URLs become available.
+- Split payment row rendering into a focused component so the tab stays small and easier to maintain.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- client-payments-tab` pass, 4 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with 14 pre-existing unrelated warnings
+- `pnpm i18n:check` pass; workspace 3132 keys and portal 532 keys in parity
+- `pnpm -F @ella/workspace build` pass with pre-existing route-file and chunk-size warnings
+
+### Agreement Revocation
+**Status:** Complete
+
+**Changed:**
+- Added Agreement revocation for unsigned `SENT` and `EXPIRED` agreements, using existing `VOIDED` status instead of deleting rows.
+- Added `voidedAt`, `voidedByUserId`, and bounded `voidReason` audit fields with redacted activity logging.
+- Added lead/client staff revoke endpoints, Workspace revoke action/modal, and revoked metadata display.
+- Updated public signing links so revoked agreements show a sanitized revoked state and cannot expose or sign the original document.
+- Cleaned generated signature/PDF artifacts when revocation wins the final signing race.
+- Kept signed agreements immutable and drafts on the existing discard flow.
+
+**Validation:**
+- `pnpm -F @ella/db migrate status` pass; no pending migrations, non-blocking Prisma deprecation warnings only.
+- `pnpm -F @ella/api type-check` pass.
+- `pnpm -F @ella/api test -- src/routes/agreements/__tests__/public-handlers.test.ts src/routes/agreements/__tests__/staff-handlers.test.ts src/routes/clients/__tests__/agreements-staff-auth.test.ts src/routes/clients/__tests__/agreements-staff-draft-routes.test.ts src/services/agreements/__tests__/agreement-service.test.ts` pass, 121 tests.
+- `pnpm -F @ella/api test -- src/services/agreements/__tests__/agreement-signing-service.test.ts src/routes/agreements/__tests__/public-handlers.test.ts src/services/agreements/__tests__/agreement-signing-uploaded-pdf.test.ts src/routes/agreements/__tests__/backward-compat-aliases.test.ts` pass, 68 tests.
+- `pnpm -F @ella/workspace type-check` pass.
+- `pnpm -F @ella/workspace test -- src/components/agreements/agreement-card-revoke.test.tsx src/components/agreements/agreement-draft-editor-hooks.test.tsx src/components/agreements/agreement-draft-payload.test.ts src/components/agreements/agreement-void-modal.test.ts src/components/agreements/use-agreement-mutations-void.test.tsx` pass, 15 tests.
+- `pnpm -F @ella/portal type-check` pass.
+- `pnpm -F @ella/portal test -- src/components/agreements/agreement-error-mapping.test.ts src/components/agreements/agreement-error-panel.test.tsx src/lib/api-client.test.ts` pass, 6 tests.
+- `pnpm i18n:check` pass; workspace 3126 keys and portal 531 keys in parity.
+- Migration SQL reviewed as additive only: nullable columns, indexes, and nullable Staff FK.
+
+### Engagement Letter Firm Contact Twilio Fallback
+**Status:** Complete
+
+**Fixed:**
+- Treated configured Twilio inbound number as the effective firm phone when `Organization.firmPhone` is empty.
+- Fixed engagement-letter readiness so `Firm contact` no longer blocks send when the settings card shows the locked Twilio inbound number plus firm email.
+- Applied same fallback to direct send, draft send, default HTML/preview rendering, public view, and signed PDF contact lines.
+- Added regression coverage for readiness, direct engagement-letter send, and draft send with DB `firmPhone: null`.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/staff/__tests__/nda-readiness.test.ts src/services/agreements/__tests__/agreement-types.test.ts src/services/agreements/__tests__/agreement-service.test.ts` pass, 66 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass with 1 pre-existing `react-refresh/only-export-components` warning in `pdf-signature-page.tsx`
+
+### Lead Reply MMS and Visibility Final Validation
+**Status:** Complete with rollout QA pending
+
+**Changed:**
+- Completed final documentation sync for lead-owned messages, `LEAD_REPLIED` actions, lead MMS storage/proxy behavior, generic lead web push, and rollout/rollback expectations.
+- Kept lead conversations out of `/messages`; lead reply visibility remains in Leads nav/list/detail, Actions, lead activity, and generic push.
+- Fixed stale `bulk-sms.test.ts` Prisma mocks after `GET /leads` started using `$queryRaw`, and added the new `messages: []` fixture shape required by lead detail responses.
+
+**Validation:**
+- `pnpm -F @ella/db generate` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test` pass, 3182/3182 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test` pass
+- `pnpm lint` pass with existing `react-refresh/only-export-components` warnings
+- `pnpm build` pass with existing route-export and large-chunk warnings
+- Manual Twilio/R2/Web Push device QA not run in this session; keep the rollout checklist before production enablement.
+
+**Rollout Notes:**
+- Deploy DB migration `20260628031735_add_lead_reply_actions` before app code that creates `LEAD_REPLIED`.
+- API needs existing Twilio, R2, and Web Push VAPID env vars configured for full lead text/MMS/push behavior.
+- Safe rollback: leave migration in place, disable lead push fanout if push delivery misbehaves, and keep text/action persistence even if lead MMS storage is temporarily unavailable.
+
+### Lead Reply Visibility Phase 3
+**Status:** Complete
+
+**Changed:**
+- Surfaced lead replies in Workspace Leads nav/list/detail/action queue; `/messages` stays client-case only.
+- Extended `GET /leads` with per-lead `unreadMessageCount` and workspace `totalUnreadMessages` for list/detail badges.
+- Added `latestInboundMessage` metadata to lead detail responses for safe timeline copy without exposing raw bodies.
+- Published `lead.read` realtime events and invalidated lead detail/list/nav/action caches after lead reads.
+- Kept `LEAD_REPLIED` action previews stripped at the API boundary while preserving client reply previews, and continued serving lead MMS through the authenticated proxy URLs from the prior phase.
+
+**Validation:**
+- API/workspace type-checks passed
+- targeted API/workspace tests passed
+- i18n parity passed
+- git diff --check passed
+
+### Lead Reply Action Contracts
+**Status:** Complete
+
+**Changed:**
+- Added `ActionType.LEAD_REPLIED` and polymorphic Action ownership so exactly one of `caseId` or `leadId` is set, enforced by the DB XOR check.
+- Restricted lead-owned actions to same-org ADMIN and MANAGER users; case-owned actions keep existing client-scoped access.
+- Validated `assignedToId` against active same-org Staff on `PATCH /actions/:id`, preserved bounded client reply previews, and stripped lead reply previews from serialized/action metadata.
+- Updated Workspace action cards to deep-link `LEAD_REPLIED` items to `/leads/:leadId` and render generic reply styling for lead/client replies.
+- Added `ACTIVITY_ACTIONS.LEAD.MESSAGE_RECEIVED` for inbound lead reply tracking and generic lead-reply web-push payloads with no PII.
+
+**Validation:**
+- db/api/workspace type-checks passed
+- targeted web-push tests passed 12/12
+- migration applied; rollback-only synthetic lead-owned `LEAD_REPLIED` action probe succeeded
 
 ### Calculator Engagement Letter Send Button Fix
 **Status:** Complete
@@ -1166,7 +1417,7 @@
 
 **Changed:**
 - Moved custom-link billing interval selection from quote-level to per-line item.
-- Added `Due today` plus `Then monthly/yearly` summary so one-time setup and first recurring period are shown together.
+- Added `Due Today` plus `Next month/year onward` summary so one-time setup and first recurring period are shown together.
 - Grouped custom rows into recurring `items` plus one-time `oneTimeItems`, matching the existing Stripe backend contract.
 - Blocked mixed monthly + yearly rows in one link before submission; one-time + monthly/yearly remains supported.
 

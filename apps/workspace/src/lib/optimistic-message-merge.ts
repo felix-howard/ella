@@ -1,4 +1,5 @@
 import type { Message } from './api-client'
+import { isOutboundTranslatedSms } from './message-reply-translation'
 
 export const OPTIMISTIC_MATCH_WINDOW_MS = 60000
 export const SERVER_CLOCK_SKEW_MS = 5000
@@ -8,10 +9,41 @@ export type OptimisticMessage = Message & {
   _attachmentFiles?: File[]
 }
 
+function getReplyTranslationMatchData(message: Message | OptimisticMessage) {
+  if (!isOutboundTranslatedSms(message)) {
+    return {
+      contentLanguage: null,
+      staffAuthoredContent: null,
+      staffAuthoredLanguage: null,
+      translationEdited: null,
+    }
+  }
+
+  return {
+    contentLanguage: message.contentLanguage,
+    staffAuthoredContent: message.staffAuthoredContent?.trim() ?? null,
+    staffAuthoredLanguage: message.staffAuthoredLanguage,
+    translationEdited: Boolean(message.translationEdited),
+  }
+}
+
+function hasMatchingTranslationMetadata(optimistic: OptimisticMessage, message: Message): boolean {
+  const optimisticTranslation = getReplyTranslationMatchData(optimistic)
+  const messageTranslation = getReplyTranslationMatchData(message)
+
+  return (
+    optimisticTranslation.contentLanguage === messageTranslation.contentLanguage
+    && optimisticTranslation.staffAuthoredContent === messageTranslation.staffAuthoredContent
+    && optimisticTranslation.staffAuthoredLanguage === messageTranslation.staffAuthoredLanguage
+    && optimisticTranslation.translationEdited === messageTranslation.translationEdited
+  )
+}
+
 export function isLikelyServerCopy(optimistic: OptimisticMessage, message: Message): boolean {
   if (!optimistic.id.startsWith('temp-') || message.id.startsWith('temp-')) return false
   if (message.direction !== optimistic.direction || message.channel !== optimistic.channel) return false
   if (message.content !== optimistic.content) return false
+  if (!hasMatchingTranslationMetadata(optimistic, message)) return false
 
   const optimisticAttachmentCount = optimistic.attachmentUrls?.length ?? 0
   const messageAttachmentCount = message.attachmentUrls?.length ?? 0

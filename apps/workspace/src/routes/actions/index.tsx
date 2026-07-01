@@ -463,6 +463,10 @@ function CompletedActionItem({ action }: { action: Action }) {
   const { t } = useTranslation()
   const typeConfig = ACTION_TYPE_COLORS[action.type] || { bg: 'bg-muted', text: 'text-muted-foreground' }
   const typeLabel = ACTION_TYPE_LABELS[action.type] || action.type
+  const leadName = action.lead
+    ? action.lead.businessName || `${action.lead.firstName} ${action.lead.lastName}`.trim()
+    : null
+  const ownerName = action.taxCase?.client?.name || leadName || t('actions.unknownClient')
 
   return (
     <div className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors">
@@ -472,7 +476,7 @@ function CompletedActionItem({ action }: { action: Action }) {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground truncate">{action.title}</p>
         <p className="text-xs text-muted-foreground">
-          {typeLabel} • {action.taxCase?.client?.name || t('actions.unknownClient')}
+          {typeLabel} • {ownerName}
         </p>
       </div>
       <div className="text-right">

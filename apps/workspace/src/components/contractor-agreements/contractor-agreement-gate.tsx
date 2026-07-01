@@ -22,29 +22,23 @@ export function ContractorAgreementGate({ children }: ContractorAgreementGatePro
     error,
     refetch,
   } = useContractorAgreementStatus(shouldCheckStatus)
+  const checkingStatusLabel = t(
+    'contractorAgreement.checkingStatus',
+    'Checking contractor agreement status...',
+  )
 
   if (isLoaded && !isSignedIn) {
     return <>{children}</>
   }
 
-  if (!isLoaded) {
+  if (!isLoaded || isLoading) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
+      <div
+        className="min-h-screen bg-background flex items-center justify-center"
+        role="status"
+        aria-label={checkingStatusLabel}
+      >
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-sm text-muted-foreground">
-          {t('contractorAgreement.checkingStatus', 'Checking contractor agreement status...')}
-        </p>
-      </div>
-    )
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-sm text-muted-foreground">
-          {t('contractorAgreement.checkingStatus', 'Checking contractor agreement status...')}
-        </p>
       </div>
     )
   }

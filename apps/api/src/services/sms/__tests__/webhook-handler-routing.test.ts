@@ -142,9 +142,8 @@ describe('processIncomingMessage — routing priority (Phase 03)', () => {
     expect(vi.mocked(findLeadByPhone)).toHaveBeenCalledWith('+15551234567', 'org_1')
     expect(vi.mocked(processLeadInbound)).toHaveBeenCalledWith(
       matchedLead,
-      'lead inbound',
-      'SM_lead',
-      0
+      expect.objectContaining({ MessageSid: 'SM_lead', Body: 'lead inbound' }),
+      'lead inbound'
     )
     // Client-case conversation path NOT taken
     expect(vi.mocked(prisma.conversation.upsert)).not.toHaveBeenCalled()

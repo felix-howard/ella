@@ -26,11 +26,13 @@ import {
   updateDepositForEntity,
   getPresignedPdfUrlForEntity,
   resendAgreementForEntity,
+  voidAgreementForEntity,
   extendAgreementForEntity,
   createAgreementDraftForEntity,
   updateAgreementDraftForEntity,
   sendAgreementDraftForEntity,
   discardAgreementDraftForEntity,
+  sendAgreementPaymentPortalForEntity,
   stripAgreementToken,
   renderPreviewPdf,
   storeUploadedPdf,
@@ -44,7 +46,9 @@ import {
   previewAgreementBodySchema,
   updateDepositBodySchema,
   extendAgreementBodySchema,
+  voidAgreementBodySchema,
 } from '../agreements/schemas'
+import { getAuditRequestContext } from '../../services/activity-log'
 import {
   clientIdParamSchema,
   clientAndAgreementIdParamSchema,
@@ -123,6 +127,7 @@ clientsAgreementsStaffRoute.post(
       ...editableAgreementFields(body),
       source: body.source,
       sourceSnapshot: body.sourceSnapshot,
+      calculatorQuote: body.calculatorQuote,
     })
     return c.json({ success: true, data: stripAgreementToken(data) }, 201)
   },
@@ -222,6 +227,7 @@ clientsAgreementsStaffRoute.patch(
       ...editableAgreementFields(body),
       source: body.source,
       sourceSnapshot: body.sourceSnapshot,
+      calculatorQuote: body.calculatorQuote,
       expectedUpdatedAt: body.expectedUpdatedAt,
     })
     return c.json({ success: true, data: stripAgreementToken(data) })
@@ -246,8 +252,29 @@ clientsAgreementsStaffRoute.post(
       staffId,
       ...editableAgreementFields(body),
       expectedUpdatedAt: body.expectedUpdatedAt,
+      paymentPortalMode: body.paymentPortalMode,
     })
     return c.json({ success: true, data: stripAgreementToken(result.agreement), url: result.url })
+  },
+)
+
+// POST /:clientId/agreements/:id/send-payment-portal — activate linked calculator quote after staff review.
+clientsAgreementsStaffRoute.post(
+  '/:clientId/agreements/:id/send-payment-portal',
+  requireAdminOrManager,
+  zValidator('param', clientAndAgreementIdParamSchema),
+  async (c) => {
+    const { orgId, staffId } = getAuth(c.get('user'))
+    const { clientId, id } = c.req.valid('param')
+    const { payToken: _payToken, ...result } = await sendAgreementPaymentPortalForEntity({
+      entityType: 'client',
+      entityId: clientId,
+      agreementId: id,
+      orgId,
+      staffId,
+    })
+    void _payToken
+    return c.json(result)
   },
 )
 
@@ -334,6 +361,29 @@ clientsAgreementsStaffRoute.post(
       url: result.url,
       rotated: result.rotated,
     })
+  },
+)
+
+// POST /:clientId/agreements/:id/void — revoke an unsigned sent/expired agreement.
+clientsAgreementsStaffRoute.post(
+  '/:clientId/agreements/:id/void',
+  requireAdminOrManager,
+  zValidator('param', clientAndAgreementIdParamSchema),
+  zValidator('json', voidAgreementBodySchema),
+  async (c) => {
+    const { orgId, staffId } = getAuth(c.get('user'))
+    const { clientId, id } = c.req.valid('param')
+    const body = c.req.valid('json')
+    const data = await voidAgreementForEntity({
+      entityType: 'client',
+      entityId: clientId,
+      agreementId: id,
+      orgId,
+      staffId,
+      reason: body.reason,
+      request: getAuditRequestContext(c),
+    })
+    return c.json({ success: true, data: stripAgreementToken(data) })
   },
 )
 

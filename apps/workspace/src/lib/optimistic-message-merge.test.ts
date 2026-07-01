@@ -90,4 +90,43 @@ describe('optimistic message merge', () => {
 
     expect(merged.map((item) => item.id)).toEqual(['msg_committed'])
   })
+
+  it('matches direct optimistic sends when the server returns translationEdited false', () => {
+    const direct = optimistic({
+      content: 'hello',
+      translationEdited: undefined,
+    })
+    const serverCopy = message({
+      id: 'msg_direct',
+      content: 'hello',
+      translationEdited: false,
+    })
+
+    expect(isLikelyServerCopy(direct, serverCopy)).toBe(true)
+  })
+
+  it('matches translated optimistic messages only when staff source metadata matches', () => {
+    const translated = optimistic({
+      content: 'Em can anh/chi gui W-2 nam 2025.',
+      contentLanguage: 'VI',
+      staffAuthoredContent: 'Please send your 2025 W-2.',
+      staffAuthoredLanguage: 'EN',
+      translationEdited: true,
+    })
+    const matchingServerCopy = message({
+      id: 'msg_translated',
+      content: 'Em can anh/chi gui W-2 nam 2025.',
+      contentLanguage: 'VI',
+      staffAuthoredContent: 'Please send your 2025 W-2.',
+      staffAuthoredLanguage: 'EN',
+      translationEdited: true,
+    })
+    const directServerCopy = message({
+      id: 'msg_direct',
+      content: 'Em can anh/chi gui W-2 nam 2025.',
+    })
+
+    expect(isLikelyServerCopy(translated, matchingServerCopy)).toBe(true)
+    expect(isLikelyServerCopy(translated, directServerCopy)).toBe(false)
+  })
 })

@@ -1,8 +1,8 @@
 /**
  * Wizard Step 1 — Agreement type picker.
- * 5 cards (NDA, Engagement Letter, Service Agreement, Consent, Custom). Click selects
- * the type and advances the wizard. Card order matches the Agreement enum
- * declaration order (NDA first as the legacy default).
+ * 4 cards (NDA, Engagement Letter, Consent, Custom). Click selects the type
+ * and advances the wizard. Service Agreement remains a backend/template type
+ * but is intentionally hidden from the staff send flow.
  *
  * Per-type gates (Phase 07): only the NDA type carries the active-engagement
  * gate. If the entity has an outstanding NDA invite (SENT + isActive) or a
@@ -12,7 +12,7 @@
  */
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FileSignature, FileText, Briefcase, FileCheck, FilePlus } from 'lucide-react'
+import { FileSignature, FileText, FileCheck, FilePlus } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Agreement, AgreementType } from '../../../lib/api-client'
 
@@ -38,11 +38,6 @@ const OPTIONS: TypeOption[] = [
     type: 'ENGAGEMENT_LETTER',
     icon: FileText,
     tileClass: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-  },
-  {
-    type: 'SERVICE_AGREEMENT',
-    icon: Briefcase,
-    tileClass: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
   },
   {
     type: 'CONSENT_7216',

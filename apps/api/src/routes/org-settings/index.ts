@@ -11,6 +11,7 @@ import { sanitizeTextInput } from '../../lib/validation'
 import { isOrgAdmin } from '../../lib/org-scope'
 import { clerkClient } from '../../lib/clerk-client'
 import { config } from '../../lib/config'
+import { getEffectiveFirmPhone } from '../../lib/firm-contact'
 import { formatPhoneToE164, isValidPhoneNumber } from '../../services/sms'
 import { UPLOAD_LINK_TEMPLATE_IDS } from '../../services/sms/upload-link-template-resolver'
 import type { AuthVariables } from '../../middleware/auth'
@@ -19,10 +20,6 @@ import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '..
 
 const orgSettingsRoute = new Hono<{ Variables: AuthVariables }>()
 type RegistrationHeaderMode = 'DEFAULT' | 'CUSTOM' | 'HIDDEN'
-
-function getTwilioInboundNumber(fallbackPhone: string | null) {
-  return config.twilio.phoneNumber || fallbackPhone
-}
 
 async function getDeniedRequestChangedFields(request: Request) {
   try {
@@ -44,6 +41,7 @@ const updateOrgSettingsSchema = z.object({
   smsLanguage: z.enum(['VI', 'EN']).optional(),
   missedCallTextBack: z.boolean().optional(),
   autoSendFormClientUploadLink: z.boolean().optional(),
+  calculatorAgreementPaymentMode: z.enum(['AUTO_SEND', 'STAFF_REVIEW']).optional(),
   defaultUploadLinkTemplateId: z.enum(UPLOAD_LINK_TEMPLATE_IDS).nullable().optional(),
   defaultUploadLinkLanguage: z.enum(['VI', 'EN']).optional(),
   slug: z.string().min(2).max(50).regex(/^[a-z0-9-]+$/).optional().nullable(),
@@ -84,6 +82,7 @@ orgSettingsRoute.get('/', async (c) => {
       smsLanguage: true,
       missedCallTextBack: true,
       autoSendFormClientUploadLink: true,
+      calculatorAgreementPaymentMode: true,
       defaultUploadLinkTemplateId: true,
       defaultUploadLinkLanguage: true,
       slug: true,
@@ -111,6 +110,7 @@ orgSettingsRoute.get('/', async (c) => {
     smsLanguage: org.smsLanguage,
     missedCallTextBack: org.missedCallTextBack,
     autoSendFormClientUploadLink: org.autoSendFormClientUploadLink,
+    calculatorAgreementPaymentMode: org.calculatorAgreementPaymentMode,
     defaultUploadLinkTemplateId: org.defaultUploadLinkTemplateId,
     defaultUploadLinkLanguage: org.defaultUploadLinkLanguage,
     slug: org.slug,
@@ -121,7 +121,7 @@ orgSettingsRoute.get('/', async (c) => {
     governingState: org.governingState,
     governingCounty: org.governingCounty,
     firmPhone: org.firmPhone,
-    twilioInboundNumber: getTwilioInboundNumber(org.firmPhone),
+    twilioInboundNumber: getEffectiveFirmPhone(org.firmPhone),
     firmEmail: org.firmEmail,
     firmWebsite: org.firmWebsite,
   })
@@ -325,6 +325,7 @@ orgSettingsRoute.patch(
           smsLanguage: true,
           missedCallTextBack: true,
           autoSendFormClientUploadLink: true,
+          calculatorAgreementPaymentMode: true,
           defaultUploadLinkTemplateId: true,
           defaultUploadLinkLanguage: true,
           slug: true,
@@ -390,6 +391,7 @@ orgSettingsRoute.patch(
       smsLanguage: updated.smsLanguage,
       missedCallTextBack: updated.missedCallTextBack,
       autoSendFormClientUploadLink: updated.autoSendFormClientUploadLink,
+      calculatorAgreementPaymentMode: updated.calculatorAgreementPaymentMode,
       defaultUploadLinkTemplateId: updated.defaultUploadLinkTemplateId,
       defaultUploadLinkLanguage: updated.defaultUploadLinkLanguage,
       slug: updated.slug,
@@ -400,7 +402,7 @@ orgSettingsRoute.patch(
       governingState: updated.governingState,
       governingCounty: updated.governingCounty,
       firmPhone: updated.firmPhone,
-      twilioInboundNumber: getTwilioInboundNumber(updated.firmPhone),
+      twilioInboundNumber: getEffectiveFirmPhone(updated.firmPhone),
       firmEmail: updated.firmEmail,
       firmWebsite: updated.firmWebsite,
     })

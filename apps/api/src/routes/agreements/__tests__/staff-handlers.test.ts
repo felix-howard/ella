@@ -17,6 +17,12 @@ vi.mock('../../../lib/db', () => {
       updateMany: vi.fn(),
       deleteMany: vi.fn(),
     },
+    activityLog: {
+      create: vi.fn(),
+      createMany: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
+    },
     $executeRaw: vi.fn(),
     $transaction: vi.fn(async (fn: any) => fn(prisma)),
   }
@@ -630,6 +636,60 @@ describe('Staff NDA handlers', () => {
       mockNdaFindFirst.mockResolvedValueOnce(null)
       const res = await app.request('/leads/lead-1/agreements/nda-1/resend', { method: 'POST' })
       expect(res.status).toBe(404)
+    })
+  })
+
+  describe('POST /leads/:leadId/agreements/:id/void', () => {
+    it('voids a sent agreement and strips the token from the response', async () => {
+      mockNdaFindFirst
+        .mockResolvedValueOnce(nda({ status: 'SENT' }) as any)
+        .mockResolvedValueOnce(
+          nda({
+            status: 'VOIDED',
+            isActive: false,
+            voidedByUserId: 'staff-1',
+            voidReason: 'Sent wrong agreement',
+          }) as any,
+        )
+      mockNdaUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+
+      const res = await app.request('/leads/lead-1/agreements/nda-1/void', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'Sent wrong agreement' }),
+      })
+      const json = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(json.success).toBe(true)
+      expect(json.data.status).toBe('VOIDED')
+      expect(json.data.token).toBeUndefined()
+      expect(mockNdaUpdateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'nda-1',
+          leadId: 'lead-1',
+          organizationId: 'org-1',
+          status: { in: ['SENT', 'EXPIRED'] },
+        },
+        data: expect.objectContaining({
+          status: 'VOIDED',
+          isActive: false,
+          voidedByUserId: 'staff-1',
+          voidReason: 'Sent wrong agreement',
+        }),
+      })
+    })
+
+    it('rejects too-short void reasons before loading the agreement', async () => {
+      const res = await app.request('/leads/lead-1/agreements/nda-1/void', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'no' }),
+      })
+
+      expect(res.status).toBe(400)
+      expect(mockNdaFindFirst).not.toHaveBeenCalled()
+      expect(mockNdaUpdateMany).not.toHaveBeenCalled()
     })
   })
 })

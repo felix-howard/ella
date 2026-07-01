@@ -14,6 +14,7 @@ const {
   leadCountMock,
   leadUpdateManyMock,
   campaignFindUniqueMock,
+  queryRawMock,
   messageCreateMock,
   smsSendLogCreateMock,
   transactionMock,
@@ -28,6 +29,7 @@ const {
   leadCountMock: vi.fn(),
   leadUpdateManyMock: vi.fn(),
   campaignFindUniqueMock: vi.fn(),
+  queryRawMock: vi.fn(),
   messageCreateMock: vi.fn(),
   smsSendLogCreateMock: vi.fn(),
   transactionMock: vi.fn(),
@@ -39,6 +41,7 @@ const {
 
 vi.mock('../../../lib/db', () => ({
   prisma: {
+    $queryRaw: queryRawMock,
     organization: {
       findUnique: orgFindUniqueMock,
     },
@@ -149,6 +152,7 @@ beforeEach(() => {
   leadCountMock.mockResolvedValue(2)
   leadFindFirstMock.mockResolvedValue(null)
   campaignFindUniqueMock.mockResolvedValue(null)
+  queryRawMock.mockResolvedValue([{ totalUnread: 0n }])
   leadUpdateManyMock.mockResolvedValue({ count: 2 })
   sendSmsOnlyMock
     .mockResolvedValueOnce({ success: true, sid: 'SM_1', status: 'queued' })
@@ -520,6 +524,7 @@ describe('POST /leads/bulk-sms', () => {
         error: 'TWILIO_ERROR_21612: Cannot send to +15551234567',
         sentAt: new Date('2026-06-02T00:00:00.000Z'),
       }],
+      messages: [],
     })
 
     const res = await buildApp({

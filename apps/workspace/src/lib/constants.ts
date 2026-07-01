@@ -189,6 +189,7 @@ export const ACTION_TYPE_LABELS: Record<string, string> = translatedLabels({
   READY_FOR_ENTRY: 'actionType.readyForEntry',
   REMINDER_DUE: 'actionType.reminderDue',
   CLIENT_REPLIED: 'actionType.clientReplied',
+  LEAD_REPLIED: 'actionType.leadReplied',
 })
 
 // Action type colors
@@ -199,6 +200,7 @@ export const ACTION_TYPE_COLORS: Record<string, { bg: string; text: string; icon
   READY_FOR_ENTRY: { bg: 'bg-accent-light', text: 'text-accent', icon: 'FileText' },
   REMINDER_DUE: { bg: 'bg-warning-light', text: 'text-warning', icon: 'Bell' },
   CLIENT_REPLIED: { bg: 'bg-success/10', text: 'text-success', icon: 'MessageCircle' },
+  LEAD_REPLIED: { bg: 'bg-success/10', text: 'text-success', icon: 'MessageCircle' },
 }
 
 // Translated labels for ActionPriority

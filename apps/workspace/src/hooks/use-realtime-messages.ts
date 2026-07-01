@@ -5,6 +5,7 @@
  */
 import { useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
 import { useOrganization } from '@clerk/clerk-react'
 import { isSupabaseConfigured } from '../lib/supabase'
 import {
@@ -86,6 +87,26 @@ export function getConversationUnreadPatch(
   }
 }
 
+export function invalidateMessageEventQueries(
+  queryClient: Pick<QueryClient, 'invalidateQueries'>,
+  data: MessageEventPayload
+): void {
+  queryClient.invalidateQueries({ queryKey: ['conversations'] })
+  queryClient.invalidateQueries({ queryKey: ['unread-count'] })
+
+  if (data.caseId) {
+    queryClient.invalidateQueries({ queryKey: ['messages', 'case', data.caseId] })
+  }
+  if (data.leadId) {
+    queryClient.invalidateQueries({ queryKey: ['messages', 'lead', data.leadId] })
+    queryClient.invalidateQueries({ queryKey: ['unread-count', 'lead', data.leadId] })
+    queryClient.invalidateQueries({ queryKey: ['lead', data.leadId] })
+    queryClient.invalidateQueries({ queryKey: ['lead-unread-summary'] })
+    queryClient.invalidateQueries({ queryKey: ['leads'] })
+    queryClient.invalidateQueries({ queryKey: ['actions'] })
+  }
+}
+
 /**
  * Subscribe to realtime message events for current organization
  * On event: invalidates React Query caches + calls onEvent callback
@@ -164,17 +185,8 @@ export function useRealtimeMessages(options: UseRealtimeMessagesOptions = {}) {
         caseId,
       })
 
-      // Invalidate shared caches for server reconciliation.
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
-      queryClient.invalidateQueries({ queryKey: ['unread-count'] })
-
-      // Invalidate scoped message-list caches for whichever owner published.
-      if (data.caseId) {
-        queryClient.invalidateQueries({ queryKey: ['messages', 'case', data.caseId] })
-      }
-      if (data.leadId) {
-        queryClient.invalidateQueries({ queryKey: ['messages', 'lead', data.leadId] })
-      }
+      // Invalidate shared and owner-scoped caches for server reconciliation.
+      invalidateMessageEventQueries(queryClient, data)
 
       // Call onEvent callback (for manual-fetch components)
       onEventRef.current?.(data)

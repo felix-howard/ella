@@ -14,7 +14,9 @@ import type { MessageReaction } from '../../lib/message-reactions'
 import { fetchMediaBlobUrl } from '../../lib/api-client'
 import { AudioPlayer } from './audio-player'
 import { MessageTranslationPanel } from './message-translation-panel'
+import { StaffAuthoredSourcePanel } from './staff-authored-source-panel'
 import { isMessageTranslationEligible } from '../../lib/message-translation-eligibility'
+import { isOutboundTranslatedSms } from '../../lib/message-reply-translation'
 
 export interface MessageBubbleProps {
   message: Message & { _optimistic?: 'sending' | 'failed'; reactions?: MessageReaction[] }
@@ -118,6 +120,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
   const hasText = safeContent && safeContent.trim().length > 0
   const isImageOnly = hasAttachments && !hasText
   const canTranslate = isMessageTranslationEligible(message)
+  const hasStaffAuthoredSource = hasText && isOutboundTranslatedSms(message)
 
   // Parse SMS delivery status for outbound SMS messages
   const smsStatus = isOutbound && message.channel === 'SMS'
@@ -250,35 +253,40 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
     return (
       <div className="flex flex-col w-full items-end">
         <div className={cn('flex items-end gap-2 max-w-[75%]', isSending && 'opacity-70')}>
-          {/* Message bubble - light green, only text */}
-          <div className="relative overflow-visible rounded-[20px] rounded-br-[6px] bg-emerald-50 dark:bg-emerald-900/30">
-            {hasAttachments && (
-              <div className="flex flex-col overflow-hidden rounded-t-[20px]">
-                {message.attachmentUrls!.map((url, index) => (
-                  <MessageImage
-                    key={index}
-                    url={url}
-                    isOutbound
-                    isStandalone={false}
-                    onClick={() => onImageClick?.(message.id, index)}
+          <div className="flex min-w-0 flex-col items-end">
+            {/* Message bubble - light green, only text */}
+            <div className="relative overflow-visible rounded-[20px] rounded-br-[6px] bg-emerald-50 dark:bg-emerald-900/30">
+              {hasAttachments && (
+                <div className="flex flex-col overflow-hidden rounded-t-[20px]">
+                  {message.attachmentUrls!.map((url, index) => (
+                    <MessageImage
+                      key={index}
+                      url={url}
+                      isOutbound
+                      isStandalone={false}
+                      onClick={() => onImageClick?.(message.id, index)}
+                    />
+                  ))}
+                </div>
+              )}
+              <div className="relative px-3.5 py-2">
+                {hasText && (
+                  <p className={cn('text-[14px] leading-relaxed whitespace-pre-wrap break-words text-gray-700 dark:text-gray-200', canTranslate && 'pr-8')}>
+                    <LinkifiedText text={safeContent} isOutbound />
+                  </p>
+                )}
+                {hasLoveReaction && <MessageReactionBadge label="Loved" />}
+                {canTranslate && (
+                  <MessageTranslationPanel
+                    messageId={message.id}
+                    isOutbound={isOutbound}
                   />
-                ))}
+                )}
               </div>
-            )}
-            <div className="relative px-3.5 py-2">
-              {hasText && (
-                <p className={cn('text-[14px] leading-relaxed whitespace-pre-wrap break-words text-gray-700 dark:text-gray-200', canTranslate && 'pr-8')}>
-                  <LinkifiedText text={safeContent} isOutbound />
-                </p>
-              )}
-              {hasLoveReaction && <MessageReactionBadge label="Loved" />}
-              {canTranslate && (
-                <MessageTranslationPanel
-                  messageId={message.id}
-                  isOutbound={isOutbound}
-                />
-              )}
             </div>
+            {hasStaffAuthoredSource && (
+              <StaffAuthoredSourcePanel content={message.staffAuthoredContent} />
+            )}
           </div>
           {/* Staff avatar */}
           <StaffAvatar sentBy={message.sentBy} />

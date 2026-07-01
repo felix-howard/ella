@@ -1,20 +1,43 @@
-/**
- * Lead Inbound SMS Handler
- * Routes inbound SMS to a Lead (non-CONVERTED) by phone match.
- * Creates polymorphic Message(leadId, INBOUND, SMS) and publishes realtime event.
- *
- * v1 limitation: attachments (MMS) are dropped — brainstorm §9.
- */
-import type { Lead, MessageChannel, MessageDirection } from '@ella/db'
+import { ActivityRiskLevel, type Lead, type MessageChannel, type MessageDirection } from '@ella/db'
 import { prisma } from '../../lib/db'
-import { publishMessageEventFromLead } from '../realtime/message-publisher'
+import { logSystemActivity } from '../activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../activity-actions'
+import {
+  publishMessageEventFromConversation,
+  publishMessageEventFromLead,
+} from '../realtime/message-publisher'
+import { notifyClientMessagePushFromConversation, notifyLeadMessagePushFromLead } from '../web-push'
+import {
+  createConvertedLeadConversationMessage,
+  type ConvertedLeadInboundResult,
+} from './converted-lead-inbound-reroute'
+import { processLeadMmsMedia, type LeadMmsMediaResult } from './lead-mms-media-handler'
+import { acquireLeadReplyActionLock, coalesceLeadReplyAction } from './lead-reply-action-service'
+import type { TwilioIncomingMessage } from './webhook-handler'
 
 export interface LeadInboundResult {
   success: boolean
   messageId?: string
+  caseId?: string
   leadId?: string
+  actionCreated?: boolean
   error?: string
 }
+
+type PersistedInboundMessage =
+  | {
+      owner: 'lead'
+      message: {
+        id: string
+        createdAt: Date
+        direction: MessageDirection
+        channel: MessageChannel
+        isSystem?: boolean | null
+      }
+    }
+  | {
+      owner: 'conversation'
+    } & ConvertedLeadInboundResult
 
 /**
  * Find a Lead matching an inbound phone number.
@@ -42,41 +65,134 @@ export async function findLeadByPhone(fromPhone: string, organizationId?: string
   })
 }
 
+async function logLeadMessageReceivedActivity(
+  lead: Lead,
+  messageId: string,
+  mediaResult: LeadMmsMediaResult
+) {
+  await logSystemActivity({
+    organizationId: lead.organizationId,
+    category: ACTIVITY_CATEGORIES.LEAD,
+    targetType: ACTIVITY_TARGET_TYPES.MESSAGE,
+    targetId: messageId,
+    summary: 'Received lead message',
+    action: ACTIVITY_ACTIONS.LEAD.MESSAGE_RECEIVED,
+    riskLevel: ActivityRiskLevel.LOW,
+    metadata: {
+      leadId: lead.id,
+      messageId,
+      hasAttachment: mediaResult.attachmentUrls.length > 0,
+      attachmentCount: mediaResult.attachmentUrls.length,
+      mediaErrorCount: mediaResult.errors.length,
+    },
+  })
+}
+
 /**
- * Process inbound SMS routed to a Lead.
- * Creates Message(leadId) and publishes realtime event on the lead's org channel.
+ * Process inbound SMS/MMS routed to a Lead.
  * Assumes caller has already performed twilioSid idempotency check.
  */
 export async function processLeadInbound(
   lead: Lead,
+  incomingMsg: TwilioIncomingMessage,
   content: string,
-  twilioSid: string,
-  numMedia: number
 ): Promise<LeadInboundResult> {
-  if (numMedia > 0) {
-    console.warn(
-      `[LeadInbound] MMS to lead ${lead.id} not supported v1, dropping ${numMedia} attachment(s)`
-    )
-  }
+  const mediaResult = await processLeadMmsMedia(incomingMsg, lead)
 
-  const message = await prisma.message.create({
-    data: {
+  const persisted = await prisma.$transaction(async (tx): Promise<PersistedInboundMessage> => {
+    await acquireLeadReplyActionLock(tx, lead.id)
+
+    const currentLead = await tx.lead.findUnique({
+      where: { id: lead.id },
+      select: {
+        status: true,
+        convertedToId: true,
+      },
+    })
+
+    if (currentLead?.status === 'CONVERTED' && currentLead.convertedToId) {
+      const converted = await createConvertedLeadConversationMessage(tx, {
+        lead,
+        convertedToId: currentLead.convertedToId,
+        incomingMsg,
+        content,
+        mediaResult,
+      })
+      return { owner: 'conversation', ...converted }
+    }
+
+    const createdMessage = await tx.message.create({
+      data: {
+        leadId: lead.id,
+        channel: 'SMS' as MessageChannel,
+        direction: 'INBOUND' as MessageDirection,
+        content,
+        twilioSid: incomingMsg.MessageSid,
+        attachmentUrls: mediaResult.attachmentUrls,
+        attachmentR2Keys: mediaResult.attachmentR2Keys,
+      },
+    })
+
+    if (lead.status === 'NEW' || lead.status === 'SENT') {
+      await tx.lead.updateMany({
+        where: {
+          id: lead.id,
+          status: { in: ['NEW', 'SENT'] },
+        },
+        data: { status: 'CONTACTED' },
+      })
+    }
+
+    const unreadCount = await tx.message.count({
+      where: {
+        leadId: lead.id,
+        direction: 'INBOUND',
+        ...(lead.messagesLastReadAt
+          ? { createdAt: { gt: lead.messagesLastReadAt } }
+          : {}),
+      },
+    })
+
+    await coalesceLeadReplyAction(tx, {
       leadId: lead.id,
-      channel: 'SMS' as MessageChannel,
-      direction: 'INBOUND' as MessageDirection,
+      messageId: createdMessage.id,
+      messageCreatedAt: createdMessage.createdAt,
       content,
-      twilioSid,
-    },
+      mediaResult,
+      unreadCount,
+    })
+
+    return {
+      owner: 'lead',
+      message: createdMessage,
+    }
   })
 
-  // Non-blocking realtime broadcast — mirrors conversation publisher pattern
+  if (persisted.owner === 'conversation') {
+    publishMessageEventFromConversation(persisted.conversationId, {
+      id: persisted.message.id,
+      direction: 'INBOUND',
+      channel: 'SMS',
+    }).catch(() => {})
+    notifyClientMessagePushFromConversation(persisted.conversationId, persisted.message).catch(() => {})
+    console.log(`[LeadInbound] Converted lead reply ${persisted.message.id} recorded for case ${persisted.caseId}`)
+    return {
+      success: true,
+      messageId: persisted.message.id,
+      caseId: persisted.caseId,
+      actionCreated: true,
+    }
+  }
+
   publishMessageEventFromLead(lead.id, {
-    id: message.id,
+    id: persisted.message.id,
     direction: 'INBOUND',
     channel: 'SMS',
   }).catch(() => {})
+  notifyLeadMessagePushFromLead(lead.id, persisted.message).catch(() => {})
+  await logLeadMessageReceivedActivity(lead, persisted.message.id, mediaResult)
 
-  console.log(`[LeadInbound] Message ${message.id} recorded for lead ${lead.id}`)
+  console.log(`[LeadInbound] Message ${persisted.message.id} recorded for lead ${lead.id}`)
 
-  return { success: true, messageId: message.id, leadId: lead.id }
+  return { success: true, messageId: persisted.message.id, leadId: lead.id, actionCreated: true }
 }

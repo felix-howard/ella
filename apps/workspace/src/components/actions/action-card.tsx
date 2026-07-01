@@ -40,6 +40,27 @@ const ACTION_TYPE_ICONS: Record<ActionType, LucideIcon> = {
   READY_FOR_ENTRY: FileText,
   REMINDER_DUE: Bell,
   CLIENT_REPLIED: MessageCircle,
+  LEAD_REPLIED: MessageCircle,
+}
+
+function getLeadDisplayName(action: Action): string | null {
+  if (!action.lead) return null
+  const personalName = `${action.lead.firstName} ${action.lead.lastName}`.trim()
+  return action.lead.businessName || personalName || null
+}
+
+function getActionLink(action: Action): string {
+  const leadId = action.leadId || action.lead?.id
+  if (action.type === 'LEAD_REPLIED' && leadId) {
+    return `/leads/${leadId}`
+  }
+  if (action.type === 'CLIENT_REPLIED' && action.caseId) {
+    return `/messages/${action.caseId}`
+  }
+  if (action.caseId) {
+    return `/cases/${action.caseId}/verify`
+  }
+  return '/actions'
 }
 
 export function ActionCard({ action, onComplete }: ActionCardProps) {
@@ -54,12 +75,13 @@ export function ActionCard({ action, onComplete }: ActionCardProps) {
 
   // Generate link based on action type
   const isClientReplied = action.type === 'CLIENT_REPLIED'
-  const caseLink = isClientReplied
-    ? `/messages/${action.caseId}`
-    : `/cases/${action.caseId}/verify`
+  const isLeadReplied = action.type === 'LEAD_REPLIED'
+  const isMessageReply = isClientReplied || isLeadReplied
+  const actionLink = getActionLink(action)
+  const ownerName = action.taxCase?.client?.name || getLeadDisplayName(action)
 
-  // Get message preview from metadata for CLIENT_REPLIED actions
-  const messagePreview = isClientReplied && action.metadata?.preview
+  // Get message preview from metadata for reply actions
+  const messagePreview = isMessageReply && action.metadata?.preview
     ? String(action.metadata.preview)
     : null
 
@@ -69,8 +91,8 @@ export function ActionCard({ action, onComplete }: ActionCardProps) {
         'bg-card rounded-xl border p-4 hover:shadow-md transition-shadow',
         action.priority === 'URGENT' && 'border-error',
         action.priority === 'HIGH' && 'border-accent',
-        isClientReplied && 'border-l-4 border-l-success',
-        !action.priority && !isClientReplied && 'border-border'
+        isMessageReply && 'border-l-4 border-l-success',
+        !action.priority && !isMessageReply && 'border-border'
       )}
     >
       <div className="flex items-start gap-3">
@@ -78,10 +100,10 @@ export function ActionCard({ action, onComplete }: ActionCardProps) {
         <div
           className={cn(
             'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
-            isClientReplied ? 'bg-success/10' : (typeColors?.bg || 'bg-muted')
+            isMessageReply ? 'bg-success/10' : (typeColors?.bg || 'bg-muted')
           )}
         >
-          <Icon className={cn('w-5 h-5', isClientReplied ? 'text-success' : (typeColors?.text || 'text-muted-foreground'))} />
+          <Icon className={cn('w-5 h-5', isMessageReply ? 'text-success' : (typeColors?.text || 'text-muted-foreground'))} />
         </div>
 
         {/* Content */}
@@ -91,11 +113,11 @@ export function ActionCard({ action, onComplete }: ActionCardProps) {
             <span
               className={cn(
                 'text-xs font-medium px-2 py-0.5 rounded-full',
-                isClientReplied ? 'bg-success/10 text-success' : (priorityColors?.bg || 'bg-muted'),
-                !isClientReplied && (priorityColors?.text || 'text-muted-foreground')
+                isMessageReply ? 'bg-success/10 text-success' : (priorityColors?.bg || 'bg-muted'),
+                !isMessageReply && (priorityColors?.text || 'text-muted-foreground')
               )}
             >
-              {isClientReplied ? t('actionCard.new') : (ACTION_PRIORITY_LABELS[action.priority] || action.priority)}
+              {isMessageReply ? t('actionCard.new') : (ACTION_PRIORITY_LABELS[action.priority] || action.priority)}
             </span>
             {/* Type Label */}
             <span className="text-xs text-muted-foreground">
@@ -106,21 +128,21 @@ export function ActionCard({ action, onComplete }: ActionCardProps) {
           {/* Title */}
           <h3 className="font-medium text-foreground truncate">{action.title}</h3>
 
-          {/* Client name if available */}
-          {action.taxCase?.client && (
+          {/* Owner name if available */}
+          {ownerName && (
             <p className="text-sm text-muted-foreground mt-0.5">
-              {action.taxCase.client.name}
+              {ownerName}
             </p>
           )}
 
-          {/* Message preview for CLIENT_REPLIED */}
+          {/* Message preview for reply actions */}
           {messagePreview && (
             <p className="text-sm bg-muted/50 rounded p-2 mt-2 italic text-muted-foreground line-clamp-2">
               &ldquo;{messagePreview}&rdquo;
             </p>
           )}
 
-          {/* Description if available (and not CLIENT_REPLIED with preview) */}
+          {/* Description if available (and not a reply with preview) */}
           {action.description && !messagePreview && (
             <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
               {action.description}
@@ -149,22 +171,22 @@ export function ActionCard({ action, onComplete }: ActionCardProps) {
                 </button>
               )}
 
-              {/* View link - different label for CLIENT_REPLIED */}
+              {/* View link - different label for reply actions */}
               <Link
-                to={caseLink as '/'}
+                to={actionLink as '/'}
                 className={cn(
                   'flex items-center gap-1 text-xs font-medium px-2 py-1 rounded transition-colors',
-                  isClientReplied
+                  isMessageReply
                     ? 'text-success hover:text-success/80 hover:bg-success/10'
                     : 'text-muted-foreground hover:text-primary'
                 )}
-                aria-label={isClientReplied
+                aria-label={isMessageReply
                   ? t('actionCard.viewConversationFor', { title: action.title })
                   : `${actionsText.viewDetail}: ${action.title}`
                 }
               >
-                {isClientReplied && <MessageCircle className="w-3 h-3" aria-hidden="true" />}
-                <span>{isClientReplied ? t('actionCard.viewConversation') : actionsText.viewDetail}</span>
+                {isMessageReply && <MessageCircle className="w-3 h-3" aria-hidden="true" />}
+                <span>{isMessageReply ? t('actionCard.viewConversation') : actionsText.viewDetail}</span>
                 <ChevronRight className="w-3 h-3" aria-hidden="true" />
               </Link>
             </div>
@@ -180,6 +202,7 @@ export function ActionCardCompact({ action, onComplete }: ActionCardProps) {
   const typeColors = ACTION_TYPE_COLORS[action.type]
   const Icon = ACTION_TYPE_ICONS[action.type] || CheckCircle
   const { actions: actionsText } = UI_TEXT
+  const ownerName = action.taxCase?.client?.name || getLeadDisplayName(action)
 
   return (
     <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
@@ -194,9 +217,9 @@ export function ActionCardCompact({ action, onComplete }: ActionCardProps) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground truncate">{action.title}</p>
-        {action.taxCase?.client && (
+        {ownerName && (
           <p className="text-xs text-muted-foreground truncate">
-            {action.taxCase.client.name}
+            {ownerName}
           </p>
         )}
       </div>
@@ -212,4 +235,3 @@ export function ActionCardCompact({ action, onComplete }: ActionCardProps) {
     </div>
   )
 }
-

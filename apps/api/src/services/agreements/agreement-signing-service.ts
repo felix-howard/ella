@@ -6,16 +6,19 @@
  *   2. Decode signature PNG
  *   3. Upload PNG + PDF to R2 under NONCED keys (unique per attempt)
  *   4. Transactional DB update guarded by `WHERE status='SENT' AND isActive=true`
- *   5. If count==0 -> 409 (the other signer won the race, orphaned R2 objects
- *      stay at their nonced keys and are harmless — they'll be swept by R2
- *      lifecycle rules eventually; the canonical keys referenced by the DB
- *      row always belong to the winning attempt)
+ *   5. If count==0 -> best-effort delete generated artifacts, then 409
  */
 import { customAlphabet } from 'nanoid'
 import { HTTPException } from 'hono/http-exception'
-import type { Prisma } from '@ella/db'
+import type { AgreementStatus, Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
-import { uploadFile, getSignedDownloadUrl, fetchImageBuffer, fetchFileBuffer } from '../storage'
+import {
+  uploadFile,
+  getSignedDownloadUrl,
+  fetchImageBuffer,
+  fetchFileBuffer,
+  deleteFile,
+} from '../storage'
 import { isExpired } from './token-service'
 import { decodeSignaturePng } from '../../routes/agreements/helpers'
 import { generateSignedPdf } from './pdf-generator'
@@ -23,6 +26,7 @@ import { generateSignaturePagePdf } from './pdf-signature-page'
 import { appendPagesToPdf } from './pdf-merge'
 import { getTemplate } from '../../lib/agreements/template-registry'
 import type { TemplateSection } from '../../lib/agreements/types'
+import { getEffectiveFirmPhone } from '../../lib/firm-contact'
 import {
   composeAddressLine,
   composeContactLine,
@@ -33,10 +37,90 @@ import {
   type PostSignAgreementContext,
 } from './agreement-post-sign-notifications'
 import { createDepositPaymentForAgreement } from '../payments/deposit-payment-service'
+import {
+  activateAgreementQuotePaymentPortal,
+  markAgreementQuoteSignedForReview,
+  type AgreementQuoteActivationResult,
+} from '../payments/agreement-quote-service'
 
 const DOWNLOAD_TTL_SECONDS = 900 // 15 min
 const VIEW_PRESIGN_TTL_SECONDS = 900 // 15 min
 const generateAttemptNonce = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 10)
+const PUBLIC_AGREEMENT_TYPE_LABELS: Record<string, string> = {
+  NDA: 'NDA',
+  ENGAGEMENT_LETTER: 'Engagement Letter',
+  SERVICE_AGREEMENT: 'Service Agreement',
+  CONSENT_7216: 'Consent Agreement',
+  CUSTOM: 'agreement',
+}
+
+export type PublicAgreementAccessErrorCode =
+  | 'AGREEMENT_VOIDED'
+  | 'AGREEMENT_SIGNED'
+  | 'AGREEMENT_INACTIVE'
+
+export interface PublicAgreementAccessError {
+  error: PublicAgreementAccessErrorCode
+  message: string
+  documentLabel: string
+  status: 409
+}
+
+export class AgreementPublicAccessError extends Error {
+  readonly code: PublicAgreementAccessErrorCode
+  readonly documentLabel: string
+  readonly status: 409
+
+  constructor(error: PublicAgreementAccessError) {
+    super(error.message)
+    this.name = 'AgreementPublicAccessError'
+    this.code = error.error
+    this.documentLabel = error.documentLabel
+    this.status = error.status
+  }
+}
+
+function getPublicAgreementDocumentLabel(type: string | null | undefined): string {
+  return type ? (PUBLIC_AGREEMENT_TYPE_LABELS[type] ?? 'agreement') : 'agreement'
+}
+
+export function getPublicAgreementAccessError(input: {
+  status: AgreementStatus
+  isActive: boolean
+  type?: string | null
+}): PublicAgreementAccessError | null {
+  const documentLabel = getPublicAgreementDocumentLabel(input.type)
+
+  if (input.status === 'VOIDED') {
+    return {
+      error: 'AGREEMENT_VOIDED',
+      message: 'Agreement has been revoked',
+      documentLabel,
+      status: 409,
+    }
+  }
+  if (input.status === 'SIGNED') {
+    return {
+      error: 'AGREEMENT_SIGNED',
+      message: 'Agreement has already been signed',
+      documentLabel,
+      status: 409,
+    }
+  }
+  if (input.status !== 'SENT' || !input.isActive) {
+    return {
+      error: 'AGREEMENT_INACTIVE',
+      message: 'Agreement link is not active',
+      documentLabel,
+      status: 409,
+    }
+  }
+  return null
+}
+
+async function deleteGeneratedSigningArtifacts(keys: string[]) {
+  await Promise.all(keys.map((key) => deleteFile(key).catch(() => false)))
+}
 
 type RawLoadedAgreement = Prisma.AgreementGetPayload<{
   include: {
@@ -270,7 +354,7 @@ export async function toPublicView(agreement: LoadedAgreement): Promise<PublicAg
       ? await getSignedDownloadUrl(agreement.firmSignaturePngKey, VIEW_PRESIGN_TTL_SECONDS)
       : null
     const firmContact = composeContactLine({
-      phone: agreement.organization.firmPhone,
+      phone: getEffectiveFirmPhone(agreement.organization.firmPhone),
       email: agreement.organization.firmEmail,
       website: agreement.organization.firmWebsite,
     })
@@ -396,9 +480,8 @@ export async function signAgreement(input: SignAgreementInput) {
   const agreement = await loadAgreementByToken(input.token)
   if (!agreement) throw new HTTPException(404, { message: 'Agreement link not found' })
 
-  if (agreement.status !== 'SENT' || !agreement.isActive) {
-    throw new HTTPException(409, { message: 'Agreement is not available for signing' })
-  }
+  const accessError = getPublicAgreementAccessError(agreement)
+  if (accessError) throw new AgreementPublicAccessError(accessError)
   if (isExpired(agreement.expiresAt)) {
     throw new HTTPException(410, { message: 'Agreement link has expired' })
   }
@@ -465,7 +548,7 @@ export async function signAgreement(input: SignAgreementInput) {
       zip: agreement.organization.zip,
     })
     const firmContactLine = composeContactLine({
-      phone: agreement.organization.firmPhone,
+      phone: getEffectiveFirmPhone(agreement.organization.firmPhone),
       email: agreement.organization.firmEmail,
       website: agreement.organization.firmWebsite,
     })
@@ -584,6 +667,16 @@ export async function signAgreement(input: SignAgreementInput) {
   })
 
   if (result.count === 0) {
+    await deleteGeneratedSigningArtifacts([signaturePngKey, signedPdfKey])
+
+    const latest = await prisma.agreement.findUnique({
+      where: { id: agreement.id },
+      select: { status: true, isActive: true, type: true },
+    })
+    if (latest) {
+      const latestAccessError = getPublicAgreementAccessError(latest)
+      if (latestAccessError) throw new AgreementPublicAccessError(latestAccessError)
+    }
     throw new HTTPException(409, { message: 'Agreement was already signed' })
   }
 
@@ -601,12 +694,29 @@ export async function signAgreement(input: SignAgreementInput) {
     depositStatus: agreement.depositStatus,
     signer: agreement.signer,
   })
+  const paymentPortalResult = await runAgreementQuotePostSignSideEffect({
+    agreementId: agreement.id,
+    organizationId: agreement.organizationId,
+    staffId: agreement.sentByUserId ?? agreement.createdByUserId,
+    paymentPortalMode: agreement.paymentPortalMode,
+    paymentQuoteId: agreement.paymentQuoteId,
+  })
 
   const downloadUrl = await getSignedDownloadUrl(signedPdfKey, DOWNLOAD_TTL_SECONDS)
   return {
     status: 'SIGNED' as const,
     signedAt,
     downloadUrl,
+    ...(paymentPortalResult
+      ? {
+          paymentPortalUrl: paymentPortalResult.payUrl,
+          paymentPortalDelivery: {
+            mode: 'AUTO_SEND' as const,
+            smsSent: paymentPortalResult.smsSent,
+            smsSkippedReason: paymentPortalResult.smsSkippedReason,
+          },
+        }
+      : {}),
   }
 }
 
@@ -622,6 +732,45 @@ function runPostSignSideEffects(ctx: PostSignAgreementContext): void {
   createDepositPaymentForAgreement(ctx).catch((err) => {
     console.error(`[Agreement] Post-sign deposit payment hook failed for agreement=${ctx.id}:`, err)
   })
+}
+
+async function runAgreementQuotePostSignSideEffect(input: {
+  agreementId: string
+  organizationId: string
+  staffId: string | null
+  paymentPortalMode: string
+  paymentQuoteId: string | null
+}): Promise<AgreementQuoteActivationResult | null> {
+  if (!input.paymentQuoteId) return null
+  if (input.paymentPortalMode === 'STAFF_REVIEW') {
+    try {
+      await markAgreementQuoteSignedForReview({
+        agreementId: input.agreementId,
+        organizationId: input.organizationId,
+      })
+    } catch (err) {
+      console.error(
+        `[Agreement] Post-sign quote review marker failed for agreement=${input.agreementId}:`,
+        err,
+      )
+    }
+    return null
+  }
+  if (input.paymentPortalMode !== 'AUTO_SEND' || !input.staffId) return null
+
+  try {
+    return await activateAgreementQuotePaymentPortal({
+      agreementId: input.agreementId,
+      orgId: input.organizationId,
+      staffId: input.staffId,
+    })
+  } catch (err) {
+    console.error(
+      `[Agreement] Post-sign quote activation failed for agreement=${input.agreementId}:`,
+      err,
+    )
+    return null
+  }
 }
 
 /** Legacy alias retained for transitional callers + tests. */

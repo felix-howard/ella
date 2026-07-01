@@ -1,7 +1,7 @@
 /**
- * 3-step wizard for sending an agreement (NDA / Engagement Letter / Service
- * Agreement / Consent / Custom). Steps:
- *   1. Type picker — 5 cards
+ * 3-step wizard for sending an agreement (NDA / Engagement Letter / Consent /
+ * Custom). Steps:
+ *   1. Type picker — 4 cards
  *   2. Template picker — list filtered by type, "Start Blank" option.
  *      For NDA, a synthetic "Default NDA" card surfaces the built-in template
  *      so the picker step is consistent across editable types.
@@ -201,7 +201,7 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
         role="dialog"
         aria-modal="true"
         aria-labelledby="agreement-wizard-title"
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[10001] w-[calc(100vw-2rem)] max-w-6xl max-h-[92vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col"
+        className="fixed left-1/2 top-1/2 z-[10001] flex h-[min(760px,calc(100vh-2rem))] w-[calc(100vw-2rem)] max-w-6xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-3 min-w-0">
@@ -237,7 +237,7 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
           {step === 1 && <Step1TypePicker agreements={agreements} onSelect={handleTypeSelect} />}
           {step === 2 && type && (
             <Step2TemplatePicker type={type} onSelect={handleTemplateSelect} />

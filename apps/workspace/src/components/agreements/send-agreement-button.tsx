@@ -1,6 +1,6 @@
 /**
  * "Send Agreement" action button. Click opens the 3-step send wizard:
- *   1. Type picker (NDA / Engagement Letter / Service Agreement / Custom)
+ *   1. Type picker (NDA / Engagement Letter / Consent / Custom)
  *   2. Template picker (NDA auto-skips with built-in template)
  *   3. Content editor + metadata (title, deposit, internal note)
  *

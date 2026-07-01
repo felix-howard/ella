@@ -504,7 +504,7 @@ export function Step3ContentEditor({
   }
 
   return (
-    <div className="grid gap-5 xl:h-[calc(92vh-8rem)] xl:min-h-0 xl:overflow-hidden xl:grid-cols-[minmax(0,1fr)_400px]">
+    <div className="grid gap-5 xl:h-full xl:min-h-0 xl:overflow-hidden xl:grid-cols-[minmax(0,1fr)_400px]">
       <div className="min-w-0 space-y-4 xl:min-h-0 xl:overflow-y-auto xl:pr-2">
         <label className="block rounded-xl border border-border bg-card p-4 shadow-sm">
           <span className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">

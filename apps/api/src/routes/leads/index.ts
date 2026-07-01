@@ -4,7 +4,7 @@
  */
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
-import { ActivityRiskLevel, type Lead } from '@ella/db'
+import { ActivityRiskLevel, Prisma, type Lead } from '@ella/db'
 import { BULK_SMS_MAX_RECIPIENTS } from '@ella/shared/constants'
 import { prisma } from '../../lib/db'
 import { getPaginationParams, buildPaginationResponse } from '../../lib/constants'
@@ -55,6 +55,43 @@ function toSafeSmsError(error: string | null | undefined): string | null {
   const twilioCode = error.match(/TWILIO_ERROR_(\d+)/)?.[1] ?? error.match(/\b(\d{5})\b/)?.[1]
   if (twilioCode) return `SMS provider error ${twilioCode}`
   return 'SMS delivery failed'
+}
+
+function toSafeCount(value: bigint | number | null | undefined): number {
+  return Math.min(Number(value ?? 0), 9999)
+}
+
+async function getUnreadLeadMessageCounts(leadIds: string[]): Promise<Map<string, number>> {
+  if (leadIds.length === 0) return new Map()
+
+  const rows = await prisma.$queryRaw<Array<{ leadId: string; unreadCount: bigint }>>`
+    SELECT
+      l.id as "leadId",
+      COUNT(m.id) FILTER (
+        WHERE m.direction = 'INBOUND'
+          AND (l."messagesLastReadAt" IS NULL OR m."createdAt" > l."messagesLastReadAt")
+      ) as "unreadCount"
+    FROM "Lead" l
+    LEFT JOIN "Message" m ON m."leadId" = l.id
+    WHERE l.id IN (${Prisma.join(leadIds)})
+    GROUP BY l.id
+  `
+
+  return new Map(rows.map((row) => [row.leadId, toSafeCount(row.unreadCount)]))
+}
+
+async function getActiveLeadUnreadMessageTotal(organizationId: string): Promise<number> {
+  const rows = await prisma.$queryRaw<Array<{ totalUnread: bigint }>>`
+    SELECT COUNT(m.id) as "totalUnread"
+    FROM "Lead" l
+    INNER JOIN "Message" m ON m."leadId" = l.id
+    WHERE l."organizationId" = ${organizationId}
+      AND l.status != 'CONVERTED'
+      AND m.direction = 'INBOUND'
+      AND (l."messagesLastReadAt" IS NULL OR m."createdAt" > l."messagesLastReadAt")
+  `
+
+  return toSafeCount(rows[0]?.totalUnread)
 }
 
 // ============================================
@@ -220,7 +257,7 @@ leadsRoute.get(
     const where = buildLeadWhere({ organizationId: orgId, status, search, tag, includeConverted })
     const selectableWhere = buildSelectableLeadWhere({ organizationId: orgId, status, search, tag, includeConverted })
 
-    const [leads, total, selectableTotal] = await Promise.all([
+    const [leads, total, selectableTotal, totalUnreadMessages] = await Promise.all([
       prisma.lead.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -252,7 +289,10 @@ leadsRoute.get(
       }),
       prisma.lead.count({ where }),
       prisma.lead.count({ where: selectableWhere }),
+      getActiveLeadUnreadMessageTotal(orgId),
     ])
+
+    const unreadCounts = await getUnreadLeadMessageCounts(leads.map((lead) => lead.id))
 
     return c.json({
       success: true,
@@ -267,11 +307,13 @@ leadsRoute.get(
                 error: toSafeSmsError(smsSendLogs[0].error),
               }
             : null,
+          unreadMessageCount: unreadCounts.get(lead.id) ?? 0,
         }
       }),
       pagination: buildPaginationResponse(page, limit, total),
       selectableTotal,
       bulkSmsMaxRecipients: BULK_SMS_MAX_RECIPIENTS,
+      totalUnreadMessages,
     })
   }
 )
@@ -396,6 +438,18 @@ leadsRoute.get(
             sentAt: true,
           },
         },
+        messages: {
+          where: { direction: 'INBOUND' },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: {
+            id: true,
+            content: true,
+            attachmentUrls: true,
+            attachmentR2Keys: true,
+            createdAt: true,
+          },
+        },
       },
     })
 
@@ -413,23 +467,34 @@ leadsRoute.get(
       campaignName = campaign?.name || null
     }
 
+    const { smsSendLogs, messages, ...leadData } = lead
+    const latestInboundMessage = messages[0]
+      ? {
+          id: messages[0].id,
+          content: messages[0].content,
+          attachmentCount: messages[0].attachmentR2Keys?.length || messages[0].attachmentUrls.length,
+          createdAt: messages[0].createdAt.toISOString(),
+        }
+      : null
+
     return c.json({
       success: true,
       data: {
-        ...lead,
-        phone: serializePhone(user, lead.phone),
+        ...leadData,
+        phone: serializePhone(user, leadData.phone),
         campaignName,
-        smsSendLogs: lead.smsSendLogs.map((log) => ({
+        smsSendLogs: smsSendLogs.map((log) => ({
           ...log,
           error: toSafeSmsError(log.error),
         })),
-        latestSms: lead.smsSendLogs?.[0]
+        latestSms: smsSendLogs?.[0]
           ? {
-              status: lead.smsSendLogs[0].status,
-              error: toSafeSmsError(lead.smsSendLogs[0].error),
-              sentAt: lead.smsSendLogs[0].sentAt,
+              status: smsSendLogs[0].status,
+              error: toSafeSmsError(smsSendLogs[0].error),
+              sentAt: smsSendLogs[0].sentAt,
             }
           : null,
+        latestInboundMessage,
       },
     })
   }

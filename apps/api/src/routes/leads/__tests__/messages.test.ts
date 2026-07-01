@@ -16,10 +16,14 @@ vi.mock('../../../lib/db', () => ({
       updateMany: vi.fn(),
     },
     message: {
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
       create: vi.fn(),
       createMany: vi.fn(),
+    },
+    action: {
+      updateMany: vi.fn(),
     },
     smsSendLog: {
       findMany: vi.fn(),
@@ -36,12 +40,19 @@ vi.mock('../../../services/sms', () => ({
 
 vi.mock('../../../services/realtime/message-publisher', () => ({
   publishMessageEventFromLead: vi.fn().mockResolvedValue(undefined),
+  publishLeadReadEvent: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('../../../services/storage', () => ({
   resolveAvatarUrl: vi.fn(async (avatarUrl: string | null | undefined) =>
     avatarUrl ? `signed:${avatarUrl}` : null
   ),
+  getSignedDownloadUrl: vi.fn().mockResolvedValue('https://r2.example/signed'),
+  getSafeStorageReference: (key: string) => ({ objectType: key.split('/')[0], keyHash: 'hash' }),
+  getSafeStorageError: (error: unknown) => ({
+    message: error instanceof Error ? error.message : String(error),
+  }),
+  SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS: 900,
 }))
 
 vi.mock('../../../services/activity-log', () => ({
@@ -74,11 +85,18 @@ import type { AuthVariables } from '../../../middleware/auth'
 import { prisma } from '../../../lib/db'
 import { sendSmsOnly } from '../../../services/sms'
 import { logStaffActivity } from '../../../services/activity-log'
-import { resolveAvatarUrl } from '../../../services/storage'
+import { getSignedDownloadUrl, resolveAvatarUrl } from '../../../services/storage'
+import { publishLeadReadEvent } from '../../../services/realtime/message-publisher'
 import { leadMessagesRoute } from '../messages'
 
 const VALID_LEAD_CUID = 'cmnldqbqa0005gf6cuecae3x1'
 const OTHER_ORG_LEAD_CUID = 'cmnildqbqa0005gf6cuecae3x2'
+const NOW = new Date('2026-04-24T10:00:00Z')
+const QUOTE_LINK_CONTENT =
+  'Quote $7,000: https://my.ella.tax/quote/lead_quote Pay: https://my.ella.tax/pay/lead_pay'
+const AGREEMENT_LINK_CONTENT = 'Please sign: https://my.ella.tax/agreements/lead_agreement'
+const ORDINARY_OUTBOUND_CONTENT = 'Thanks for reaching out. We will follow up shortly.'
+const ORDINARY_INBOUND_CONTENT = 'Sounds good, thank you.'
 
 function buildApp(userOverride?: Record<string, unknown>) {
   const app = new Hono<{ Variables: AuthVariables }>()
@@ -102,12 +120,131 @@ function buildApp(userOverride?: Record<string, unknown>) {
   return app
 }
 
+function leadMessage(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'm1',
+    leadId: VALID_LEAD_CUID,
+    direction: 'OUTBOUND',
+    channel: 'SMS',
+    content: ORDINARY_OUTBOUND_CONTENT,
+    templateUsed: null,
+    staffAuthoredContent: null,
+    twilioStatus: 'sent',
+    attachmentUrls: [],
+    attachmentR2Keys: [],
+    createdAt: NOW,
+    updatedAt: NOW,
+    sentBy: null,
+    ...overrides,
+  }
+}
+
+function mockLeadMessages(messages: Array<Record<string, unknown>>) {
+  vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({ id: VALID_LEAD_CUID } as never)
+  vi.mocked(prisma.message.findMany).mockResolvedValueOnce(messages as never)
+  vi.mocked(prisma.message.count).mockResolvedValueOnce(messages.length)
+}
+
+function expectNoSensitiveLeadLeak(payload: unknown) {
+  const rawBody = JSON.stringify(payload)
+  expect(rawBody).not.toContain('/quote/')
+  expect(rawBody).not.toContain('/pay/')
+  expect(rawBody).not.toContain('/agreements/')
+  expect(rawBody).not.toContain('$7,000')
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(prisma.smsSendLog.findMany).mockResolvedValue([] as never)
+  vi.mocked(prisma.action.updateMany).mockResolvedValue({ count: 0 } as never)
 })
 
 describe('GET /leads/:id/messages', () => {
+  it('redacts manager automated payment and agreement lead messages', async () => {
+    mockLeadMessages([
+      leadMessage({
+        id: 'm_quote',
+        content: QUOTE_LINK_CONTENT,
+        templateUsed: 'quote_pay_link',
+        staffAuthoredContent: 'Please review the $7,000 quote and pay link.',
+      }),
+      leadMessage({
+        id: 'm_agreement',
+        content: AGREEMENT_LINK_CONTENT,
+        templateUsed: 'agreement_invite',
+      }),
+      leadMessage({
+        id: 'm_pay_url',
+        content: 'Pay here: https://my.ella.tax/pay/lead_pay_fallback',
+        templateUsed: null,
+      }),
+    ])
+
+    const res = await buildApp({ role: 'MANAGER', orgRole: 'org:member' })
+      .request(`/leads/${VALID_LEAD_CUID}/messages`)
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      messages: Array<{ content: string; staffAuthoredContent?: string | null; twilioStatus?: string }>
+    }
+    expect(body.messages.map((message) => message.content)).toEqual([
+      'A payment link was sent to the client.',
+      'An agreement link was sent to the client.',
+      'A payment link was sent to the client.',
+    ])
+    expect(body.messages[0]?.staffAuthoredContent).toBeNull()
+    expect(body.messages[0]?.twilioStatus).toBe('sent')
+    expectNoSensitiveLeadLeak(body)
+  })
+
+  it('keeps admin automated lead message content unchanged', async () => {
+    mockLeadMessages([
+      leadMessage({
+        id: 'm_quote',
+        content: QUOTE_LINK_CONTENT,
+        templateUsed: 'quote_pay_link',
+        staffAuthoredContent: 'Please review the $7,000 quote and pay link.',
+      }),
+      leadMessage({
+        id: 'm_agreement',
+        content: AGREEMENT_LINK_CONTENT,
+        templateUsed: 'agreement_invite',
+      }),
+    ])
+
+    const res = await buildApp({ role: 'ADMIN', orgRole: 'org:admin' })
+      .request(`/leads/${VALID_LEAD_CUID}/messages`)
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      messages: Array<{ content: string; staffAuthoredContent?: string | null }>
+    }
+    expect(body.messages[0]?.content).toBe(QUOTE_LINK_CONTENT)
+    expect(body.messages[0]?.staffAuthoredContent).toBe('Please review the $7,000 quote and pay link.')
+    expect(body.messages[1]?.content).toBe(AGREEMENT_LINK_CONTENT)
+  })
+
+  it('does not redact ordinary lead outbound or inbound messages for managers', async () => {
+    mockLeadMessages([
+      leadMessage({ id: 'm_outbound', content: ORDINARY_OUTBOUND_CONTENT }),
+      leadMessage({
+        id: 'm_inbound',
+        direction: 'INBOUND',
+        content: ORDINARY_INBOUND_CONTENT,
+      }),
+    ])
+
+    const res = await buildApp({ role: 'MANAGER', orgRole: 'org:member' })
+      .request(`/leads/${VALID_LEAD_CUID}/messages`)
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { messages: Array<{ content: string }> }
+    expect(body.messages.map((message) => message.content)).toEqual([
+      ORDINARY_OUTBOUND_CONTENT,
+      ORDINARY_INBOUND_CONTENT,
+    ])
+  })
+
   it('returns paginated messages for an org-owned lead', async () => {
     vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({ id: VALID_LEAD_CUID } as never)
     vi.mocked(prisma.message.findMany).mockResolvedValueOnce([
@@ -161,6 +298,36 @@ describe('GET /leads/:id/messages', () => {
     }
     expect(body.messages[0]?.sentBy?.avatarUrl).toBe('signed:avatars/staff_1/photo.jpg')
     expect(vi.mocked(resolveAvatarUrl)).toHaveBeenCalledWith('avatars/staff_1/photo.jpg')
+  })
+
+  it('returns lead MMS attachments as proxy URLs and hides R2 keys', async () => {
+    vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({ id: VALID_LEAD_CUID } as never)
+    vi.mocked(prisma.message.findMany).mockResolvedValueOnce([
+      {
+        id: 'm_mms',
+        leadId: VALID_LEAD_CUID,
+        direction: 'INBOUND',
+        channel: 'SMS',
+        content: '',
+        attachmentUrls: ['https://r2.example/signed'],
+        attachmentR2Keys: ['lead-message-attachments/org_1/lead_1/SM123/0.jpg'],
+        createdAt: new Date('2026-04-24T10:00:00Z'),
+        updatedAt: new Date('2026-04-24T10:00:00Z'),
+        sentBy: null,
+      },
+    ] as never)
+    vi.mocked(prisma.message.count).mockResolvedValueOnce(1)
+
+    const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/messages`)
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      messages: Array<{ attachmentUrls: string[]; attachmentR2Keys?: string[] }>
+    }
+    expect(body.messages[0]?.attachmentUrls).toEqual([
+      `/leads/${VALID_LEAD_CUID}/messages/media/m_mms/0`,
+    ])
+    expect(body.messages[0]).not.toHaveProperty('attachmentR2Keys')
   })
 
   it('backfills legacy SmsSendLog rows so prior bulk SMS appears in lead chat', async () => {
@@ -220,6 +387,51 @@ describe('GET /leads/:id/messages', () => {
     expect(res.status).toBe(404)
     const body = (await res.json()) as { error: string }
     expect(body.error).toBe('NOT_FOUND')
+  })
+})
+
+describe('GET /leads/:id/messages/media/:messageId/:index', () => {
+  it('proxies an org-scoped lead message attachment with private no-store headers', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(Buffer.from('image'), {
+      headers: { 'content-type': 'image/jpeg' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    vi.mocked(prisma.message.findFirst).mockResolvedValueOnce({
+      attachmentUrls: ['https://r2.example/signed'],
+      attachmentR2Keys: ['lead-message-attachments/org_1/lead_1/SM123/0.jpg'],
+    } as never)
+
+    const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/messages/media/m_mms/0`)
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toBe('private, no-store, max-age=0')
+    expect(res.headers.get('content-type')).toContain('image/jpeg')
+    expect(vi.mocked(prisma.message.findFirst)).toHaveBeenCalledWith({
+      where: {
+        id: 'm_mms',
+        leadId: VALID_LEAD_CUID,
+        lead: { organizationId: 'org_1' },
+      },
+      select: {
+        attachmentR2Keys: true,
+        attachmentUrls: true,
+      },
+    })
+    expect(getSignedDownloadUrl).toHaveBeenCalledWith(
+      'lead-message-attachments/org_1/lead_1/SM123/0.jpg',
+      900
+    )
+    expect(fetchMock).toHaveBeenCalledWith('https://r2.example/signed')
+    vi.unstubAllGlobals()
+  })
+
+  it('returns 404 for cross-org or missing lead message media', async () => {
+    vi.mocked(prisma.message.findFirst).mockResolvedValueOnce(null)
+
+    const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/messages/media/m_mms/0`)
+
+    expect(res.status).toBe(404)
+    expect(getSignedDownloadUrl).not.toHaveBeenCalled()
   })
 })
 
@@ -409,6 +621,10 @@ describe('POST /leads/:id/messages/read', () => {
       action: 'lead.message_read',
       metadata: expect.objectContaining({ markedMessageCount: 1 }),
     }))
+    expect(vi.mocked(publishLeadReadEvent)).toHaveBeenCalledWith(VALID_LEAD_CUID, {
+      unreadCount: 0,
+      readAt: body.readAt,
+    })
   })
 
   it('accepts past upTo as-is', async () => {
@@ -430,6 +646,10 @@ describe('POST /leads/:id/messages/read', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { readAt: string }
     expect(body.readAt).toBe(new Date(pastIso).toISOString())
+    expect(vi.mocked(publishLeadReadEvent)).toHaveBeenCalledWith(VALID_LEAD_CUID, {
+      unreadCount: 0,
+      readAt: new Date(pastIso).toISOString(),
+    })
   })
 
   it('returns 404 when lead not in org', async () => {
@@ -463,5 +683,53 @@ describe('POST /leads/:id/messages/read', () => {
     expect(res.status).toBe(200)
     expect(vi.mocked(prisma.lead.updateMany)).not.toHaveBeenCalled()
     expect(vi.mocked(logStaffActivity)).not.toHaveBeenCalled()
+    expect(vi.mocked(publishLeadReadEvent)).not.toHaveBeenCalled()
+  })
+
+  it('uses the stored newer read watermark for stale read requests before completing actions', async () => {
+    const storedReadAt = new Date('2026-04-24T10:00:00Z')
+    const staleReadAt = new Date('2026-04-24T08:00:00Z')
+    vi.mocked(prisma.lead.findFirst)
+      .mockResolvedValueOnce({
+        id: VALID_LEAD_CUID,
+        messagesLastReadAt: storedReadAt,
+      } as never)
+      .mockResolvedValueOnce({
+        messagesLastReadAt: storedReadAt,
+      } as never)
+    vi.mocked(prisma.message.count)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0)
+    vi.mocked(prisma.action.updateMany).mockResolvedValueOnce({ count: 1 } as never)
+
+    const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/messages/read`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ upTo: staleReadAt.toISOString() }),
+    })
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { readAt: string; unreadCount: number }
+    expect(body.readAt).toBe(storedReadAt.toISOString())
+    expect(body.unreadCount).toBe(0)
+    expect(vi.mocked(prisma.lead.updateMany)).not.toHaveBeenCalled()
+    expect(vi.mocked(prisma.message.count).mock.calls[1][0]).toEqual({
+      where: {
+        leadId: VALID_LEAD_CUID,
+        direction: 'INBOUND',
+        createdAt: { gt: storedReadAt },
+      },
+    })
+    expect(vi.mocked(prisma.action.updateMany)).toHaveBeenCalledWith({
+      where: {
+        leadId: VALID_LEAD_CUID,
+        type: 'LEAD_REPLIED',
+        isCompleted: false,
+      },
+      data: {
+        isCompleted: true,
+        completedAt: storedReadAt,
+      },
+    })
   })
 })

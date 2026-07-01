@@ -9,6 +9,8 @@ import { createMiddleware } from 'hono/factory'
 import { zValidator } from '@hono/zod-validator'
 import { checkRateLimit } from '../../middleware/rate-limiter'
 import {
+  AgreementPublicAccessError,
+  getPublicAgreementAccessError,
   loadAgreementByToken,
   toPublicView,
   signAgreement,
@@ -40,8 +42,17 @@ publicRoute.get(
     const { token } = c.req.valid('param')
     const agreement = await loadAgreementByToken(token)
     if (!agreement) throw new HTTPException(404, { message: 'Agreement link not found' })
-    if (agreement.status !== 'SENT' || !agreement.isActive) {
-      throw new HTTPException(409, { message: 'Agreement link is not active' })
+    const accessError = getPublicAgreementAccessError(agreement)
+    if (accessError) {
+      return c.json(
+        {
+          success: false,
+          error: accessError.error,
+          message: accessError.message,
+          documentLabel: accessError.documentLabel,
+        },
+        accessError.status,
+      )
     }
     return c.json({ success: true, data: await toPublicView(agreement) })
   },
@@ -56,21 +67,36 @@ publicRoute.post(
   async (c) => {
     const { token } = c.req.valid('param')
     const body = c.req.valid('json')
-    const result = await signAgreement({
-      token,
-      signerName: body.signerName,
-      signerTitle: body.signerTitle,
-      signaturePngDataUrl: body.signaturePngDataUrl,
-      ip: extractIp(c),
-      userAgent: extractUserAgent(c),
-      clientAuthRepName: body.clientAuthRepName,
-      clientAuthRepTitle: body.clientAuthRepTitle,
-      taxpayerName: body.taxpayerName,
-      businessName: body.businessName,
-      tinLastFour: body.tinLastFour,
-      consentSignerTitle: body.consentSignerTitle,
-    })
-    return c.json({ success: true, data: result })
+    try {
+      const result = await signAgreement({
+        token,
+        signerName: body.signerName,
+        signerTitle: body.signerTitle,
+        signaturePngDataUrl: body.signaturePngDataUrl,
+        ip: extractIp(c),
+        userAgent: extractUserAgent(c),
+        clientAuthRepName: body.clientAuthRepName,
+        clientAuthRepTitle: body.clientAuthRepTitle,
+        taxpayerName: body.taxpayerName,
+        businessName: body.businessName,
+        tinLastFour: body.tinLastFour,
+        consentSignerTitle: body.consentSignerTitle,
+      })
+      return c.json({ success: true, data: result })
+    } catch (error) {
+      if (error instanceof AgreementPublicAccessError) {
+        return c.json(
+          {
+            success: false,
+            error: error.code,
+            message: error.message,
+            documentLabel: error.documentLabel,
+          },
+          error.status,
+        )
+      }
+      throw error
+    }
   },
 )
 

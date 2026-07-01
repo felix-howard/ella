@@ -17,6 +17,7 @@ import type {
   AgreementType,
   CreateAgreementPayload,
   NdaDepositStatus,
+  VoidAgreementPayload,
 } from '../../lib/api-client'
 import type { EntityRef } from './types'
 
@@ -134,6 +135,26 @@ export function useExtendAgreement(entity: EntityRef) {
     },
     onError: (err: Error) => {
       toast.error(err.message || t('agreements.toast.extendFailed'))
+    },
+  })
+}
+
+export interface VoidAgreementMutationPayload extends VoidAgreementPayload {
+  agreementId: string
+}
+
+export function useVoidAgreement(entity: EntityRef) {
+  const { t } = useTranslation()
+  const invalidate = useInvalidateAgreements(entity)
+  return useMutation({
+    mutationFn: ({ agreementId, reason }: VoidAgreementMutationPayload) =>
+      agreementsApi(entity).void(entity.id, agreementId, { reason }),
+    onSuccess: () => {
+      toast.success(t('agreements.toast.revoked'))
+      invalidate()
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t('agreements.toast.revokeFailed'))
     },
   })
 }

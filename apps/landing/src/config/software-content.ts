@@ -67,8 +67,8 @@ export const beforeEllaItems = [
 
 export const afterEllaItems = [
   "One secure upload link per client",
-  "Tax records are classified quickly",
-  "OCR extracts key tax data for review",
+  "Tax records are organized for review",
+  "Key tax details are prepared for advisor review",
   "Notice deadlines and task queues are visible",
   "Files are organized by year, type, client, and tax issue",
 ] as const;

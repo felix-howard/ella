@@ -1,5 +1,5 @@
-import { CircleDollarSign, Pencil, Send, UserRound } from 'lucide-react'
-import { formatShortRelativeTime } from '../../lib/formatters'
+import { Ban, CircleDollarSign, Pencil, Send, UserRound } from 'lucide-react'
+import { formatFullDateTime, formatShortRelativeTime } from '../../lib/formatters'
 import type { Agreement, AgreementStaffSummary } from '../../lib/api-client'
 
 interface AgreementCardCollaborationMetadataProps {
@@ -33,6 +33,10 @@ export function AgreementCardCollaborationMetadata({
   const createdBy = staffLabel(agreement.createdBy)
   const lastEditedBy = staffLabel(agreement.lastEditedBy)
   const sentBy = staffLabel(agreement.sentBy)
+  const voidedBy = staffLabel(agreement.voidedBy)
+  const voidedAt = agreement.voidedAt
+    ? formatShortRelativeTime(agreement.voidedAt, language)
+    : null
   const plannedDeposit = agreement.status === 'DRAFT'
     ? formatUsdAmount(agreement.depositAmount)
     : null
@@ -67,6 +71,20 @@ export function AgreementCardCollaborationMetadata({
           <span className="truncate text-foreground">{sentBy}</span>
         </div>
       )}
+      {voidedAt && (
+        <div
+          className="flex items-center gap-2 min-w-0 text-destructive"
+          title={agreement.voidedAt ? formatFullDateTime(agreement.voidedAt) : undefined}
+        >
+          <Ban className="w-3.5 h-3.5 shrink-0" />
+          <span className="shrink-0 font-medium">{t('agreements.metadata.revoked')}</span>
+          <span className="truncate">
+            {voidedBy
+              ? t('agreements.metadata.actorWithTime', { name: voidedBy, time: voidedAt })
+              : voidedAt}
+          </span>
+        </div>
+      )}
       {plannedDeposit && (
         <div className="flex items-center gap-2 min-w-0">
           <CircleDollarSign className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
@@ -74,6 +92,15 @@ export function AgreementCardCollaborationMetadata({
             {t('agreements.draft.plannedDeposit')}
           </span>
           <span className="truncate text-foreground">{plannedDeposit}</span>
+        </div>
+      )}
+      {agreement.voidReason && (
+        <div className="flex items-start gap-2 min-w-0 rounded-lg bg-destructive/10 px-2.5 py-2 text-destructive sm:col-span-2 xl:col-span-3">
+          <Ban className="mt-0.5 w-3.5 h-3.5 shrink-0" />
+          <div className="min-w-0 whitespace-pre-wrap break-words">
+            <span className="font-medium">{t('agreements.metadata.revocationReason')}:</span>{' '}
+            {agreement.voidReason}
+          </div>
         </div>
       )}
     </>

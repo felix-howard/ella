@@ -48,6 +48,24 @@ export interface ResolvedRecipient {
 
 export type RecipientType = 'client' | 'lead'
 
+export type CalculatorQuoteSnapshotInput = Pick<
+  SendQuoteInput,
+  'pricingInput' | 'customerEmail' | 'customerName' | 'businessName'
+>
+
+/**
+ * Freeze the same calculator input shape across anonymous checkout, sent quote,
+ * and agreement-linked quote flows so portal checkout can rebuild uniformly.
+ */
+export function buildCalculatorQuoteInputSnapshot(input: CalculatorQuoteSnapshotInput) {
+  return {
+    pricingInput: input.pricingInput,
+    customerEmail: input.customerEmail,
+    customerName: input.customerName,
+    businessName: input.businessName,
+  }
+}
+
 /**
  * Send the pay-link SMS; never fail the send. `smsSent` reflects ACTUAL Twilio
  * delivery (not just "no exception") so the UI can offer a copy-link fallback

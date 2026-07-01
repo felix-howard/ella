@@ -41,10 +41,18 @@ interface ConversationReadEventPayload extends BaseMessageEventPayload {
   readAt: string
 }
 
+interface LeadReadEventPayload extends BaseMessageEventPayload {
+  eventType: 'lead.read'
+  leadId: string
+  unreadCount: number
+  readAt: string
+}
+
 export type MessageEventPayload =
   | MessageCreatedEventPayload
   | MessageStatusUpdatedEventPayload
   | ConversationReadEventPayload
+  | LeadReadEventPayload
 
 export type MessageEventType = NonNullable<MessageEventPayload['eventType']>
 export type MessageEventListener = (data: MessageEventPayload) => void

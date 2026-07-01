@@ -150,6 +150,7 @@ export const ACTION_TYPE_LABELS_EN: Record<string, string> = {
   READY_FOR_ENTRY: 'Ready for entry',
   REMINDER_DUE: 'Reminder due',
   CLIENT_REPLIED: 'Client replied',
+  LEAD_REPLIED: 'Lead replied',
 }
 
 // Vietnamese labels for ActionType
@@ -160,6 +161,7 @@ export const ACTION_TYPE_LABELS_VI: Record<string, string> = {
   READY_FOR_ENTRY: 'Sẵn sàng nhập liệu',
   REMINDER_DUE: 'Cần gửi nhắc nhở',
   CLIENT_REPLIED: 'Khách hàng trả lời',
+  LEAD_REPLIED: 'Khách tiềm năng trả lời',
 }
 
 export const ACTION_TYPE_LABELS = {

@@ -14,11 +14,21 @@ import { zValidator } from '@hono/zod-validator'
 import { ActivityRiskLevel } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { getPaginationParams, buildPaginationResponse } from '../../lib/constants'
+import {
+  serializeSensitiveMessageText,
+  type SensitiveMessageLike,
+} from '../../lib/sensitive-message-redaction'
 import { authMiddleware, requireAdminOrManager } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import { sendSmsOnly, isSmsEnabled } from '../../services/sms'
-import { publishMessageEventFromLead } from '../../services/realtime/message-publisher'
-import { resolveAvatarUrl } from '../../services/storage'
+import { publishLeadReadEvent, publishMessageEventFromLead } from '../../services/realtime/message-publisher'
+import {
+  getSafeStorageError,
+  getSafeStorageReference,
+  getSignedDownloadUrl,
+  resolveAvatarUrl,
+  SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS,
+} from '../../services/storage'
 import { leadIdParamSchema } from './schemas'
 import {
   sendLeadMessageSchema,
@@ -34,6 +44,36 @@ const leadMessagesRoute = new Hono<{ Variables: AuthVariables }>()
 // All lead-message routes require authenticated staff in an org.
 leadMessagesRoute.use('/:id/messages', authMiddleware, requireAdminOrManager)
 leadMessagesRoute.use('/:id/messages/*', authMiddleware, requireAdminOrManager)
+
+function withoutAttachmentR2Keys<T extends object>(message: T): Omit<T, 'attachmentR2Keys'> {
+  const copy = { ...message } as T & { attachmentR2Keys?: unknown }
+  delete copy.attachmentR2Keys
+  return copy
+}
+
+function serializeLeadMessageForViewer<T extends SensitiveMessageLike & object>(
+  user: AuthVariables['user'],
+  message: T
+): Omit<T, 'attachmentR2Keys'> {
+  const publicMessage = withoutAttachmentR2Keys(message) as Omit<T, 'attachmentR2Keys'> & SensitiveMessageLike
+  return serializeSensitiveMessageText(user, publicMessage) as Omit<T, 'attachmentR2Keys'>
+}
+
+function extractLeadMessageR2KeysFromUrls(urls: string[]): string[] {
+  const keys: string[] = []
+
+  for (const url of urls) {
+    try {
+      if (!url.includes('r2.cloudflarestorage.com')) continue
+      const key = new URL(url).pathname.substring(1)
+      if (key.startsWith('lead-message-attachments/')) keys.push(key)
+    } catch {
+      continue
+    }
+  }
+
+  return keys
+}
 
 async function backfillLeadMessagesFromSmsLogs(leadId: string, organizationId: string) {
   const smsLogs = await prisma.smsSendLog.findMany({
@@ -83,7 +123,8 @@ leadMessagesRoute.get(
   zValidator('param', leadIdParamSchema),
   zValidator('query', listLeadMessagesQuerySchema),
   async (c) => {
-    const { orgId } = getVerifiedAuth(c.get('user'))
+    const user = c.get('user')
+    const { orgId } = getVerifiedAuth(user)
     const { id } = c.req.valid('param')
     const { page, limit } = c.req.valid('query')
     const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
@@ -119,17 +160,118 @@ leadMessagesRoute.get(
       }
     }
 
-    return c.json({
-      messages: messages.map((m) => ({
+    const messagesWithProxyUrls = messages.map((m) => {
+      if ((!m.attachmentR2Keys || m.attachmentR2Keys.length === 0) &&
+          m.attachmentUrls && m.attachmentUrls.length > 0) {
+        const extractedKeys = extractLeadMessageR2KeysFromUrls(m.attachmentUrls)
+        if (extractedKeys.length > 0) {
+          prisma.message.update({
+            where: { id: m.id },
+            data: { attachmentR2Keys: extractedKeys },
+          }).catch((error) => {
+            console.error('[LeadMessages] Failed to repair lead attachment keys', {
+              messageId: m.id,
+              error: getSafeStorageError(error),
+            })
+          })
+          m.attachmentR2Keys = extractedKeys
+        }
+      }
+
+      const attachmentCount = m.attachmentR2Keys?.length || m.attachmentUrls?.length || 0
+      const attachmentUrls = attachmentCount > 0
+        ? Array.from({ length: attachmentCount }, (_, i) => `/leads/${id}/messages/media/${m.id}/${i}`)
+        : []
+
+      return serializeLeadMessageForViewer(user, {
         ...m,
+        attachmentUrls,
         sentBy: m.sentBy
           ? { id: m.sentBy.id, name: m.sentBy.name, avatarUrl: avatarCache.get(m.sentBy.id) ?? null }
           : null,
         createdAt: m.createdAt.toISOString(),
         updatedAt: m.updatedAt.toISOString(),
-      })),
+      })
+    })
+
+    return c.json({
+      messages: messagesWithProxyUrls,
       pagination: buildPaginationResponse(safePage, safeLimit, total),
     })
+  }
+)
+
+// GET /leads/:id/messages/media/:messageId/:index - Proxy lead MMS attachments
+leadMessagesRoute.get(
+  '/:id/messages/media/:messageId/:index',
+  zValidator('param', leadIdParamSchema),
+  async (c) => {
+    const { orgId } = getVerifiedAuth(c.get('user'))
+    const { id } = c.req.valid('param')
+    const messageId = c.req.param('messageId')
+    const index = Number.parseInt(c.req.param('index'), 10)
+
+    if (Number.isNaN(index) || index < 0) {
+      return c.json({ error: 'INVALID_INDEX', message: 'Invalid attachment index' }, 400)
+    }
+
+    const message = await prisma.message.findFirst({
+      where: {
+        id: messageId,
+        leadId: id,
+        lead: { organizationId: orgId },
+      },
+      select: {
+        attachmentR2Keys: true,
+        attachmentUrls: true,
+      },
+    })
+
+    if (!message) {
+      return c.json({ error: 'NOT_FOUND', message: 'Message not found' }, 404)
+    }
+
+    let r2Key = message.attachmentR2Keys?.[index]
+    if (!r2Key && message.attachmentUrls?.[index]) {
+      r2Key = extractLeadMessageR2KeysFromUrls([message.attachmentUrls[index]])[0]
+    }
+
+    if (!r2Key) {
+      return c.json({ error: 'NO_ATTACHMENT', message: 'Attachment not found at index' }, 404)
+    }
+
+    try {
+      const signedUrl = await getSignedDownloadUrl(r2Key, SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS)
+      if (!signedUrl) {
+        return c.json({ error: 'FETCH_ERROR', message: 'Failed to fetch file from storage' }, 500)
+      }
+
+      const response = await fetch(signedUrl)
+      if (!response.ok) {
+        console.error('[LeadMessages] R2 fetch failed', {
+          object: getSafeStorageReference(r2Key),
+          messageId,
+          status: response.status,
+        })
+        return c.json({ error: 'FETCH_ERROR', message: 'Failed to fetch file from storage' }, 500)
+      }
+
+      const arrayBuffer = await response.arrayBuffer()
+      return new Response(arrayBuffer, {
+        headers: {
+          'Content-Type': response.headers.get('content-type') || 'image/jpeg',
+          'Cache-Control': 'private, no-store, max-age=0',
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
+      })
+    } catch (error) {
+      console.error('[LeadMessages] Failed to proxy media', {
+        messageId,
+        error: getSafeStorageError(error),
+      })
+      return c.json({ error: 'PROXY_ERROR', message: 'Failed to serve attachment' }, 500)
+    }
   }
 )
 
@@ -336,13 +478,41 @@ leadMessagesRoute.post(
       })
       : { count: 0 }
 
+    let effectiveReadAt = readAt
+    if (updateResult.count === 0) {
+      const currentLead = await prisma.lead.findFirst({
+        where: { id, organizationId: orgId },
+        select: { messagesLastReadAt: true },
+      })
+      if (
+        currentLead?.messagesLastReadAt &&
+        currentLead.messagesLastReadAt.getTime() > effectiveReadAt.getTime()
+      ) {
+        effectiveReadAt = currentLead.messagesLastReadAt
+      }
+    }
+
     const unreadCount = await prisma.message.count({
       where: {
         leadId: id,
         direction: 'INBOUND',
-        createdAt: { gt: readAt },
+        createdAt: { gt: effectiveReadAt },
       },
     })
+
+    const completedActions = unreadCount === 0
+      ? await prisma.action.updateMany({
+        where: {
+          leadId: id,
+          type: 'LEAD_REPLIED',
+          isCompleted: false,
+        },
+        data: {
+          isCompleted: true,
+          completedAt: effectiveReadAt,
+        },
+      })
+      : { count: 0 }
 
     if (markedMessageCount > 0 && updateResult.count > 0) {
       await logStaffActivity({
@@ -356,15 +526,23 @@ leadMessagesRoute.post(
         riskLevel: ActivityRiskLevel.LOW,
         metadata: {
           leadId: id,
-          readAt: readAt.toISOString(),
+          readAt: effectiveReadAt.toISOString(),
           markedMessageCount,
           unreadCount,
+          completedLeadReplyActions: completedActions.count,
         },
         request: getAuditRequestContext(c),
       })
     }
 
-    return c.json({ leadId: id, unreadCount, readAt: readAt.toISOString() })
+    if (updateResult.count > 0 || completedActions.count > 0) {
+      publishLeadReadEvent(id, {
+        unreadCount,
+        readAt: effectiveReadAt.toISOString(),
+      }).catch(() => {})
+    }
+
+    return c.json({ leadId: id, unreadCount, readAt: effectiveReadAt.toISOString() })
   }
 )
 

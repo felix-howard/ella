@@ -1,5 +1,6 @@
 import type { ComboboxItem } from '@ella/ui'
 import type { PricingCalculatorInput, PricingCalculatorResult } from '@ella/shared/pricing'
+import type { AgreementPaymentPortalSendMode } from '../../lib/api-client'
 import type { RecipientSearchMetadata } from './use-recipient-search'
 import {
   buildCalculatorEngagementLetterDraftSeed,
@@ -51,4 +52,12 @@ export function createCalculatorEngagementLetterModalState(
       pricingResult,
     }),
   }
+}
+
+export function getCalculatorPaymentModeLabelKey(
+  mode: AgreementPaymentPortalSendMode,
+): string {
+  return mode === 'AUTO_SEND'
+    ? 'settings.calculatorPaymentAutoSend'
+    : 'settings.calculatorPaymentStaffReview'
 }

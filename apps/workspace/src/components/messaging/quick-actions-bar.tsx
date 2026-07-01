@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { Send, Link2, ChevronDown, Home, Briefcase, FileText, User, ImagePlus } from 'lucide-react'
 import { stripHtmlTags } from '../../lib/formatters'
-import { api } from '../../lib/api-client'
+import { api, type ComposeTranslationMetadata, type ReplyMode } from '../../lib/api-client'
 import {
   ALLOWED_MESSAGE_IMAGE_TYPES,
   MAX_MESSAGE_IMAGE_COUNT,
@@ -33,11 +33,24 @@ import type { ChatContext } from '../../types/chat-context'
 import { getQuickTemplates } from '../../lib/chat-quick-templates'
 import { ChatTemplateDropdown } from './chat-template-dropdown'
 import { AttachmentPreviewStrip, type ComposerAttachment } from './attachment-preview-strip'
+import { shouldSendMessageWithKeyboard } from './quick-actions-bar-keyboard'
+import { ReplyTranslationModeToggle } from './reply-translation-mode-toggle'
+import { ReplyTranslationPreview } from './reply-translation-preview'
+import {
+  buildReplyTranslationMetadata,
+  getReplyTranslationSendBlockReason,
+  useReplyTranslationPreview,
+} from '../../hooks/use-reply-translation-preview'
 
 const ACCEPTED_MESSAGE_IMAGE_TYPES = ALLOWED_MESSAGE_IMAGE_TYPES.join(',')
 
 export interface QuickActionsBarProps {
-  onSend: (message: string, channel: 'SMS' | 'PORTAL', attachments?: File[]) => void | Promise<void>
+  onSend: (
+    message: string,
+    channel: 'SMS' | 'PORTAL',
+    attachments?: File[],
+    translation?: ComposeTranslationMetadata
+  ) => void | Promise<void>
   isSending?: boolean
   disabled?: boolean
   clientName?: string
@@ -52,6 +65,10 @@ export interface QuickActionsBarProps {
    * Absent → behaves identically to legacy case-only callers.
    */
   context?: ChatContext
+  replyMode?: ReplyMode
+  onReplyModeChange?: (mode: ReplyMode) => void | Promise<void>
+  isReplyModeSaving?: boolean
+  translationEnabled?: boolean
 }
 
 export function QuickActionsBar({
@@ -65,6 +82,10 @@ export function QuickActionsBar({
   defaultChannel: _defaultChannel = 'SMS',
   autoFocus,
   context,
+  replyMode = 'DIRECT',
+  onReplyModeChange,
+  isReplyModeSaving,
+  translationEnabled = true,
 }: QuickActionsBarProps) {
   const isLeadContext = context?.type === 'lead'
   const leadTemplates = isLeadContext ? getQuickTemplates(context) : []
@@ -80,6 +101,17 @@ export function QuickActionsBar({
   const attachmentsRef = useRef<ComposerAttachment[]>([])
   const dropdownTriggerRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const isReplyTranslationEnabled = Boolean(
+    translationEnabled
+    && !isLeadContext
+    && caseId
+    && replyMode === 'EN_TO_VI'
+  )
+  const replyTranslation = useReplyTranslationPreview({
+    enabled: isReplyTranslationEnabled,
+    caseId,
+    sourceText: message,
+  })
 
   // Fetch schedule E, C, and shared docs data for link availability
   const { magicLink: scheduleELink } = useScheduleE({ caseId, enabled: !!caseId })
@@ -237,10 +269,33 @@ export function QuickActionsBar({
 
   // Handle send - sanitize input before sending (always SMS)
   const handleSend = async () => {
-    const trimmed = stripHtmlTags(message).trim()
-    if ((!trimmed && attachments.length === 0) || isSending || disabled) return
+    const sourceContent = stripHtmlTags(message).trim()
+    const translationBlockReason = getReplyTranslationSendBlockReason({
+      enabled: isReplyTranslationEnabled,
+      sourceText: sourceContent,
+      translatedText: replyTranslation.translatedText,
+      sourceTextForPreview: replyTranslation.sourceTextForPreview,
+      isLoading: replyTranslation.isLoading,
+      error: replyTranslation.error,
+    })
+    if (translationBlockReason || isReplyModeSaving || isSending || disabled) return
+
+    const finalContent = isReplyTranslationEnabled && sourceContent
+      ? stripHtmlTags(replyTranslation.translatedText).trim()
+      : sourceContent
+    if ((!finalContent && attachments.length === 0) || isReplyModeSaving || isSending || disabled) return
+
+    const translationMetadata = isReplyTranslationEnabled && sourceContent
+      ? buildReplyTranslationMetadata(sourceContent, replyTranslation.isEdited)
+      : undefined
 
     const previousMessage = message
+    const previousTranslation = {
+      translatedText: replyTranslation.translatedText,
+      sourceTextForPreview: replyTranslation.sourceTextForPreview,
+      isEdited: replyTranslation.isEdited,
+      error: replyTranslation.error,
+    }
     const attachmentFiles = attachments.map((attachment) => attachment.file)
 
     setMessage('')
@@ -250,9 +305,11 @@ export function QuickActionsBar({
     }
 
     try {
-      await onSend(trimmed, 'SMS', attachmentFiles)
+      await onSend(finalContent, 'SMS', attachmentFiles, translationMetadata)
+      replyTranslation.reset()
     } catch {
       setMessage(previousMessage)
+      replyTranslation.restoreSnapshot(previousTranslation)
       setAttachments(() =>
         attachmentFiles.map((file) => ({
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -295,15 +352,26 @@ export function QuickActionsBar({
 
   // Handle keyboard shortcuts
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Send on Enter (without Shift)
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (shouldSendMessageWithKeyboard(e)) {
       e.preventDefault()
       handleSend()
     }
   }
 
   const canAttachImages = !isLeadContext
-  const canSend = (message.trim().length > 0 || attachments.length > 0) && !isSending && !disabled
+  const trimmedMessage = stripHtmlTags(message).trim()
+  const translationBlockReason = getReplyTranslationSendBlockReason({
+    enabled: isReplyTranslationEnabled,
+    sourceText: trimmedMessage,
+    translatedText: replyTranslation.translatedText,
+    sourceTextForPreview: replyTranslation.sourceTextForPreview,
+    isLoading: replyTranslation.isLoading,
+    error: replyTranslation.error,
+  })
+  const canSend = (
+    trimmedMessage.length > 0
+    || attachments.length > 0
+  ) && !translationBlockReason && !isReplyModeSaving && !isSending && !disabled
 
   // Insert text from a chat template into the composer.
   const handleTemplateInsert = (text: string) => {
@@ -378,6 +446,14 @@ export function QuickActionsBar({
 
   return (
     <div className="bg-card px-3 py-2.5 shadow-[0_-1px_4px_-1px_rgba(0,0,0,0.04)]">
+        {translationEnabled && !isLeadContext && caseId && onReplyModeChange && (
+          <ReplyTranslationModeToggle
+            replyMode={replyMode}
+            disabled={disabled || isSending || isReplyModeSaving}
+            onReplyModeChange={onReplyModeChange}
+          />
+        )}
+
         <AttachmentPreviewStrip
           attachments={attachments}
           error={attachmentError}
@@ -385,6 +461,19 @@ export function QuickActionsBar({
           selectedLabel={t('messages.attachmentSelectedCount', { count: attachments.length })}
           onRemove={removeAttachment}
         />
+
+        {isReplyTranslationEnabled && trimmedMessage.length > 0 && (
+          <ReplyTranslationPreview
+            value={replyTranslation.translatedText}
+            disabled={disabled || isSending}
+            isLoading={replyTranslation.isLoading}
+            isEdited={replyTranslation.isEdited}
+            isStale={replyTranslation.isStale}
+            error={replyTranslation.error}
+            onChange={replyTranslation.setTranslatedText}
+            onRegenerate={replyTranslation.regenerate}
+          />
+        )}
 
         {/* Input area - vertically centered */}
         <div className="flex items-center gap-2">
@@ -476,9 +565,15 @@ export function QuickActionsBar({
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              placeholder={t('messages.inputPlaceholder')}
+              enterKeyHint="enter"
+              placeholder={t(
+                isReplyTranslationEnabled
+                  ? 'messages.inputPlaceholderEnglish'
+                  : 'messages.inputPlaceholder'
+              )}
               disabled={disabled || isSending}
               rows={1}
+              maxLength={1000}
               className={cn(
                 'w-full px-3.5 py-2 rounded-xl bg-muted/50 border border-transparent',
                 'resize-none overflow-hidden',

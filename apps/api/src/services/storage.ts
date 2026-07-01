@@ -41,7 +41,7 @@ const isR2Configured =
   process.env.R2_SECRET_ACCESS_KEY
 
 const STORAGE_PATH_PATTERN =
-  /\b(?:avatars|client-avatars|cases|terms|agreements|staff-signatures|staff-files|contractor-agreements|raw-images|portal|message-attachments)\/[^\s"'<>]+/g
+  /\b(?:avatars|client-avatars|cases|terms|agreements|staff-signatures|staff-files|contractor-agreements|raw-images|portal|message-attachments|lead-message-attachments)\/[^\s"'<>]+/g
 const URL_PATTERN = /https?:\/\/[^\s"'<>]+/g
 
 export function getSafeStorageReference(key: string): {

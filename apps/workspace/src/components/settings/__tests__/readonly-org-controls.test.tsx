@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FirmInfoCard } from '../firm-info-card'
 import { OrgSlugEditor } from '../org-slug-editor'
 import { MissedCallTextBackCard } from '../settings-general-tab'
+import { CalculatorPaymentAfterSignatureCard } from '../calculator-payment-after-signature-card'
 
 const mocks = vi.hoisted(() => ({
   canManageOrganizationSettings: false,
@@ -30,6 +31,7 @@ vi.mock('@tanstack/react-query', () => ({
       name: 'Ella Tax',
       slug: mocks.orgSlug,
       missedCallTextBack: mocks.missedCallTextBack,
+      calculatorAgreementPaymentMode: 'AUTO_SEND',
       autoSendFormClientUploadLink: true,
       defaultUploadLinkTemplateId: null,
       defaultUploadLinkLanguage: 'EN',
@@ -90,5 +92,15 @@ describe('readonly organization controls', () => {
     expect(markup).toContain('role="switch"')
     expect(markup).toContain('disabled=""')
     expect(markup).toContain('settings.missedCallTextBackAdminOnly')
+  })
+
+  it('shows calculator payment automation as readonly for non-admins', () => {
+    const markup = renderToStaticMarkup(<CalculatorPaymentAfterSignatureCard />)
+
+    expect(markup).toContain('settings.calculatorPaymentAfterSignature')
+    expect(markup).toContain('settings.adminOnly')
+    expect(markup).toContain('disabled=""')
+    expect(markup).toContain('settings.calculatorPaymentAutoSend')
+    expect(markup).toContain('settings.calculatorPaymentStaffReview')
   })
 })

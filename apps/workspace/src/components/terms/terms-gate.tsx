@@ -16,31 +16,22 @@ export function TermsGate({ children }: TermsGateProps) {
   const { user } = useUser()
   const shouldCheckStatus = isLoaded && !!isSignedIn
   const { data: status, isLoading, isError, error, refetch } = useTermsStatus(shouldCheckStatus)
+  const checkingStatusLabel = t('terms.checkingStatus', 'Checking terms status...')
 
   // Not signed in - skip gate (login page needs to render)
   if (isLoaded && !isSignedIn) {
     return <>{children}</>
   }
 
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-sm text-muted-foreground">
-          {t('terms.checkingStatus', 'Checking terms status...')}
-        </p>
-      </div>
-    )
-  }
-
   // Loading status (includes active retries - show spinner while webhook processes)
-  if (isLoading) {
+  if (!isLoaded || isLoading) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
+      <div
+        className="min-h-screen bg-background flex items-center justify-center"
+        role="status"
+        aria-label={checkingStatusLabel}
+      >
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-sm text-muted-foreground">
-          {t('terms.checkingStatus', 'Checking terms status...')}
-        </p>
       </div>
     )
   }

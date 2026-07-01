@@ -14,7 +14,6 @@ import { FileText, Loader2, Lock, ShieldCheck } from 'lucide-react'
 import { EllaLogoLight, EllaLogoDark } from '@ella/ui'
 import {
   portalApi,
-  ApiError,
   type AgreementPublicView,
   type AgreementSignResult,
 } from '../../lib/api-client'
@@ -24,6 +23,13 @@ import { AgreementSignForm, type AgreementSignSubmission } from './agreement-sig
 import { AgreementConfirmationPanel } from './agreement-confirmation-panel'
 import { AgreementErrorPanel, type AgreementErrorCode } from './agreement-error-panel'
 import { toast } from '../../lib/toast-store'
+import {
+  deriveStatusError,
+  getAgreementDocumentLabel,
+  getAgreementErrorDocumentLabel,
+  mapLoadError,
+  mapSignError,
+} from './agreement-error-mapping'
 
 // Lazy-load the full PDF.js viewer (vertical scroll, fit-to-width, zoom) only
 // when an uploaded PDF needs rendering — keeps the worker bundle out of the
@@ -31,32 +37,6 @@ import { toast } from '../../lib/toast-store'
 const PdfViewer = lazy(() => import('../pdf-viewer/index'))
 
 type PageState = 'loading' | 'ready' | 'submitting' | 'confirmed' | 'error'
-
-function mapLoadError(err: unknown): AgreementErrorCode {
-  if (!(err instanceof ApiError)) return 'server'
-  if (err.status === 404) return 'invalid'
-  if (err.status === 410) return 'expired'
-  if (err.status === 409) return 'signed'
-  if (err.status === 429) return 'rate_limited'
-  return 'server'
-}
-
-function mapSignError(err: unknown): AgreementErrorCode {
-  if (!(err instanceof ApiError)) return 'server'
-  if (err.status === 409) return 'signed'
-  if (err.status === 410) return 'expired'
-  if (err.status === 429) return 'rate_limited'
-  if (err.status === 404) return 'invalid'
-  return 'server'
-}
-
-function deriveStatusError(view: AgreementPublicView): AgreementErrorCode | null {
-  if (view.expired) return 'expired'
-  if (view.status === 'SIGNED') return 'signed'
-  if (view.status === 'VOIDED') return 'voided'
-  if (view.status !== 'SENT') return 'invalid'
-  return null
-}
 
 interface AgreementSignPageProps {
   token: string
@@ -68,6 +48,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
   const [state, setState] = useState<PageState>('loading')
   const [view, setView] = useState<AgreementPublicView | null>(null)
   const [errorCode, setErrorCode] = useState<AgreementErrorCode | null>(null)
+  const [errorDocumentLabel, setErrorDocumentLabel] = useState<string | null>(null)
   const [reachedBottom, setReachedBottom] = useState(false)
   const [signed, setSigned] = useState<AgreementSignResult | null>(null)
 
@@ -88,14 +69,17 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
         setView(data)
         if (statusError) {
           setErrorCode(statusError)
+          setErrorDocumentLabel(getAgreementDocumentLabel(data))
           setState('error')
         } else {
           setErrorCode(null)
+          setErrorDocumentLabel(null)
           setState('ready')
         }
       } catch (err) {
         if (!mounted) return
         setErrorCode(mapLoadError(err))
+        setErrorDocumentLabel(getAgreementErrorDocumentLabel(err) ?? null)
         setState('error')
       }
     }
@@ -117,6 +101,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
       } catch (err) {
         const code = mapSignError(err)
         setErrorCode(code)
+        setErrorDocumentLabel(getAgreementErrorDocumentLabel(err) ?? getAgreementDocumentLabel(view))
         // Transient errors (server/rate limit) return the user to the ready
         // state so their signature + typed name aren't lost. Surface via toast.
         if (code === 'server' || code === 'rate_limited') {
@@ -129,7 +114,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
         submittingRef.current = false
       }
     },
-    [token, t]
+    [token, t, view]
   )
 
   const handleReachBottom = useCallback(() => setReachedBottom(true), [])
@@ -175,6 +160,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
         {state === 'error' && (
           <AgreementErrorPanel
             code={errorCode ?? 'server'}
+            documentLabel={errorDocumentLabel ?? undefined}
             onRetry={
               errorCode === 'server' || errorCode === 'rate_limited' ? handleRetry : undefined
             }
@@ -260,7 +246,9 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
           <AgreementConfirmationPanel
             signedAt={signed.signedAt}
             downloadUrl={signed.downloadUrl}
+            paymentPortalUrl={signed.paymentPortalUrl}
             orgName={view.orgName}
+            documentLabel={getAgreementDocumentLabel(view)}
           />
         )}
       </main>

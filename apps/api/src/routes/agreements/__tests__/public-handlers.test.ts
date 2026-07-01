@@ -17,6 +17,7 @@ vi.mock('../../../lib/db', () => ({
 vi.mock('../../../services/storage', () => ({
   uploadFile: vi.fn().mockResolvedValue(undefined),
   getSignedDownloadUrl: vi.fn().mockResolvedValue('https://r2.test/signed/pdf'),
+  deleteFile: vi.fn().mockResolvedValue(true),
 }))
 
 vi.mock('../../../services/agreements/pdf-generator', () => ({
@@ -54,7 +55,9 @@ function activeNda(token: string, overrides: Record<string, unknown> = {}) {
     organizationId: 'org-1',
     token,
     status: 'SENT',
+    type: 'NDA',
     isActive: true,
+    title: null,
     templateVersion: 'v1',
     depositAmount: '300.00',
     expiresAt: new Date('2030-01-01T00:00:00Z'),
@@ -75,6 +78,10 @@ function signBody(overrides: Record<string, unknown> = {}) {
     agreementChecked: true,
     ...overrides,
   }
+}
+
+function expectPublicErrorResponseSanitized(json: Record<string, unknown>) {
+  expect(Object.keys(json).sort()).toEqual(['documentLabel', 'error', 'message', 'success'])
 }
 
 describe('Public NDA handlers', () => {
@@ -106,21 +113,70 @@ describe('Public NDA handlers', () => {
     })
 
     it.each([
-      { label: 'draft active', status: 'DRAFT', isActive: true },
-      { label: 'draft inactive', status: 'DRAFT', isActive: false },
-      { label: 'sent inactive', status: 'SENT', isActive: false },
-      { label: 'signed active', status: 'SIGNED', isActive: true },
-      { label: 'voided active', status: 'VOIDED', isActive: true },
-    ])('returns 409 for non-public token: $label', async ({ label, status, isActive }) => {
+      {
+        label: 'draft active',
+        status: 'DRAFT',
+        isActive: true,
+        error: 'AGREEMENT_INACTIVE',
+      },
+      {
+        label: 'draft inactive',
+        status: 'DRAFT',
+        isActive: false,
+        error: 'AGREEMENT_INACTIVE',
+      },
+      {
+        label: 'sent inactive',
+        status: 'SENT',
+        isActive: false,
+        error: 'AGREEMENT_INACTIVE',
+      },
+      {
+        label: 'signed active',
+        status: 'SIGNED',
+        isActive: true,
+        error: 'AGREEMENT_SIGNED',
+      },
+      {
+        label: 'voided active',
+        status: 'VOIDED',
+        isActive: true,
+        error: 'AGREEMENT_VOIDED',
+      },
+    ])('returns 409 for non-public token: $label', async ({ label, status, isActive, error }) => {
       const token = freshToken(`view-${label}`)
       mockFindUnique.mockResolvedValueOnce(
         activeNda(token, { status, isActive }) as any
       )
 
       const res = await app.request(`/public/nda/${token}`)
+      const json = await res.json()
 
       expect(res.status).toBe(409)
-      await expect(res.text()).resolves.toContain('Agreement link is not active')
+      expect(json).toMatchObject({ success: false, error })
+      expectPublicErrorResponseSanitized(json)
+    })
+
+    it('returns a type-aware document label for an already-signed engagement letter', async () => {
+      const token = freshToken('view-signed-engagement-letter')
+      mockFindUnique.mockResolvedValueOnce(
+        activeNda(token, {
+          status: 'SIGNED',
+          type: 'ENGAGEMENT_LETTER',
+          title: 'Custom 2026 Services Scope',
+        }) as any
+      )
+
+      const res = await app.request(`/public/nda/${token}`)
+      const json = await res.json()
+
+      expect(res.status).toBe(409)
+      expect(json).toMatchObject({
+        success: false,
+        error: 'AGREEMENT_SIGNED',
+        documentLabel: 'Engagement Letter',
+      })
+      expectPublicErrorResponseSanitized(json)
     })
 
     it('still returns view with expired=true when expiry past (UI shows error)', async () => {
@@ -231,6 +287,27 @@ describe('Public NDA handlers', () => {
       expect(res.status).toBe(409)
     })
 
+    it('returns AGREEMENT_VOIDED when void wins a concurrent sign race', async () => {
+      const token = freshToken('sign-race-voided')
+      mockFindUnique
+        .mockResolvedValueOnce(activeNda(token) as any)
+        .mockResolvedValueOnce(
+          activeNda(token, { status: 'VOIDED', isActive: false }) as any
+        )
+      mockUpdateMany.mockResolvedValueOnce({ count: 0 } as any)
+
+      const res = await postSign(token, signBody())
+      const json = await res.json()
+
+      expect(res.status).toBe(409)
+      expect(json).toMatchObject({
+        success: false,
+        error: 'AGREEMENT_VOIDED',
+        message: 'Agreement has been revoked',
+      })
+      expectPublicErrorResponseSanitized(json)
+    })
+
     it('returns 410 when NDA expired', async () => {
       const token = freshToken('sign-expired')
       mockFindUnique.mockResolvedValueOnce(
@@ -246,6 +323,26 @@ describe('Public NDA handlers', () => {
       mockFindUnique.mockResolvedValueOnce(activeNda(token, { status: 'SIGNED' }) as any)
       const res = await postSign(token, signBody())
       expect(res.status).toBe(409)
+      await expect(res.json()).resolves.toMatchObject({ error: 'AGREEMENT_SIGNED' })
+    })
+
+    it('returns AGREEMENT_VOIDED when signing a voided token', async () => {
+      const token = freshToken('sign-voided')
+      mockFindUnique.mockResolvedValueOnce(
+        activeNda(token, { status: 'VOIDED', isActive: false }) as any
+      )
+
+      const res = await postSign(token, signBody())
+      const json = await res.json()
+
+      expect(res.status).toBe(409)
+      expect(json).toMatchObject({
+        success: false,
+        error: 'AGREEMENT_VOIDED',
+        message: 'Agreement has been revoked',
+      })
+      expectPublicErrorResponseSanitized(json)
+      expect(mockUpdateMany).not.toHaveBeenCalled()
     })
 
     it('returns 404 for unknown token', async () => {

@@ -316,6 +316,7 @@ enum ActionType {
   READY_FOR_ENTRY
   REMINDER_DUE
   CLIENT_REPLIED
+  LEAD_REPLIED
 }
 
 enum ActionPriority {
@@ -347,6 +348,11 @@ enum StaffRole {
 enum Language {
   VI
   EN
+}
+
+enum ConversationReplyMode {
+  DIRECT
+  EN_TO_VI
 }
 
 enum SubscriptionType {
@@ -517,6 +523,7 @@ model Staff {
   agreementsCreated              Agreement[]                     @relation("AgreementCreatedBy")
   agreementsLastEdited           Agreement[]                     @relation("AgreementLastEditedBy")
   agreementsSent                 Agreement[]                     @relation("AgreementSentBy")
+  agreementsVoided               Agreement[]                     @relation("AgreementVoidedBy")
   agreementTemplatesCreated      AgreementTemplate[]             @relation("AgreementTemplateCreatedBy")
   createdPaymentQuotes           PaymentQuote[]                  @relation("PaymentQuoteCreatedBy")
   sentQuotes                     PaymentQuote[]                  @relation("QuoteSentBy")
@@ -713,6 +720,7 @@ model Organization {
   smsLanguage                  Language @default(VI)
   missedCallTextBack           Boolean  @default(false)
   autoSendFormClientUploadLink Boolean  @default(false)
+  calculatorAgreementPaymentMode AgreementPaymentPortalMode @default(AUTO_SEND)
   defaultUploadLinkTemplateId  String? // Default SMS template for generic form auto-send
   defaultUploadLinkLanguage    Language @default(EN) // Default SMS language for upload-link automation
 
@@ -1240,7 +1248,8 @@ model Conversation {
   messages Message[]
 
   lastMessageAt DateTime?
-  unreadCount   Int       @default(0)
+  unreadCount   Int                   @default(0)
+  replyMode     ConversationReplyMode @default(DIRECT)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1257,10 +1266,14 @@ model Message {
   leadId String?
   lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-  channel   MessageChannel
-  direction MessageDirection
-  content   String           @db.VarChar(5000) // M3: Limit message length for security
-  reactions Json             @default("[]") // SMS Tapback reactions displayed on the original message
+  channel               MessageChannel
+  direction             MessageDirection
+  content               String           @db.VarChar(5000) // M3: Limit message length for security
+  contentLanguage       Language?
+  staffAuthoredContent  String?          @db.VarChar(5000)
+  staffAuthoredLanguage Language?
+  translationEdited     Boolean          @default(false)
+  reactions             Json             @default("[]") // SMS Tapback reactions displayed on the original message
 
   twilioSid    String? @unique
   twilioStatus String?
@@ -1335,9 +1348,11 @@ model MagicLink {
 }
 
 model Action {
-  id      String  @id @default(cuid())
-  caseId  String
-  taxCase TaxCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  id      String   @id @default(cuid())
+  caseId  String?
+  taxCase TaxCase? @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  leadId  String?
+  lead    Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   type     ActionType
   priority ActionPriority @default(NORMAL)
@@ -1358,6 +1373,8 @@ model Action {
   updatedAt DateTime @updatedAt
 
   @@index([caseId])
+  @@index([leadId])
+  @@index([leadId, type, isCompleted])
   @@index([type])
   @@index([priority])
   @@index([isCompleted])
@@ -1490,6 +1507,12 @@ enum AgreementStatus {
 enum AgreementSource {
   MANUAL
   CALCULATOR
+}
+
+enum AgreementPaymentPortalMode {
+  NONE
+  AUTO_SEND
+  STAFF_REVIEW
 }
 
 enum DepositStatus {
@@ -1801,6 +1824,7 @@ model Lead {
   smsSendLogs   SmsSendLog[]
   agreements    Agreement[]
   messages      Message[]
+  actions       Action[]
   paymentQuotes PaymentQuote[]
   payments      Payment[]
 
@@ -1849,6 +1873,7 @@ model PaymentQuote {
   sentAt            DateTime? // set when the quote is sent to a client/lead
   sentByStaffId     String?
   sentByStaff       Staff?                  @relation("QuoteSentBy", fields: [sentByStaffId], references: [id], onDelete: SetNull)
+  agreement         Agreement?
   checkoutSessions  StripeCheckoutSession[]
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
@@ -2051,6 +2076,9 @@ model Agreement {
   internalNote   String?         @db.Text
   source         AgreementSource @default(MANUAL)
   sourceSnapshot Json?
+  paymentQuoteId String? @unique
+  paymentQuote   PaymentQuote? @relation(fields: [paymentQuoteId], references: [id], onDelete: SetNull)
+  paymentPortalMode AgreementPaymentPortalMode @default(NONE)
 
   // Tenancy
   // leadId is nullable + SetNull so agreements are preserved (linked to clientId) when a converted Lead is deleted.
@@ -2123,6 +2151,10 @@ model Agreement {
   lastEditedBy       Staff?  @relation("AgreementLastEditedBy", fields: [lastEditedByUserId], references: [id], onDelete: SetNull)
   sentByUserId       String?
   sentBy             Staff?  @relation("AgreementSentBy", fields: [sentByUserId], references: [id], onDelete: SetNull)
+  voidedAt           DateTime?
+  voidedByUserId     String?
+  voidedBy           Staff?  @relation("AgreementVoidedBy", fields: [voidedByUserId], references: [id], onDelete: SetNull)
+  voidReason         String? @db.VarChar(500)
 
   payments Payment[]
 
@@ -2139,6 +2171,8 @@ model Agreement {
   @@index([organizationId, status])
   @@index([organizationId, type])
   @@index([templateId])
+  @@index([voidedByUserId])
+  @@index([voidedAt])
 }
 
 model AgreementTemplate {

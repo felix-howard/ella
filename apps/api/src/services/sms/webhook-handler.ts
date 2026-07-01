@@ -262,8 +262,7 @@ export async function processIncomingMessage(
   // Priority 2 routing: no client case, but a lead matches → Lead branch.
   // Client case takes priority (handled below in existing flow).
   if (!hasClientCase && lead) {
-    const numMedia = parseInt(incomingMsg.NumMedia || '0', 10)
-    return await processLeadInbound(lead, content, twilioSid, numMedia)
+    return await processLeadInbound(lead, incomingMsg, content)
   }
 
   // Track whether this is an unknown caller (new number not in our system)

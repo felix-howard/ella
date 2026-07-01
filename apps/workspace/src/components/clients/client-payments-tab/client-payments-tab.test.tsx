@@ -12,6 +12,12 @@ const testState = vi.hoisted(() => ({
   },
 }))
 
+const reconcileState = vi.hoisted(() => ({
+  mutate: vi.fn(),
+  isPending: false,
+  variables: undefined as string | undefined,
+}))
+
 vi.mock('react-i18next', () => ({
   initReactI18next: {
     type: '3rdParty',
@@ -26,6 +32,9 @@ vi.mock('react-i18next', () => ({
         'payments.payLinkCopied': 'Pay link copied',
         'payments.receiptAction': 'Receipt',
         'payments.receiptPending': 'Receipt pending',
+        'payments.refreshReceipt': 'Refresh receipt',
+        'payments.refreshingReceipt': 'Refreshing',
+        'payments.refreshReceiptAria': 'Refresh payment receipt from Stripe',
         'payments.openReceiptAria': 'Open payment receipt in a new tab',
         'payments.requestedOn': 'Requested',
         'payments.paidOn': 'Paid',
@@ -56,6 +65,10 @@ vi.mock('../../../lib/clipboard', () => ({
 
 vi.mock('./use-client-payments', () => ({
   useClientPayments: () => testState.query,
+}))
+
+vi.mock('./use-reconcile-payment-receipt', () => ({
+  useReconcilePaymentReceipt: () => reconcileState,
 }))
 
 function buildPayment(overrides: Partial<ClientPayment>): ClientPayment {
@@ -114,7 +127,7 @@ describe('ClientPaymentsTab', () => {
     expect(markup).toContain('Paid with Visa')
   })
 
-  it('shows receipt pending for paid rows missing receipt artifacts', () => {
+  it('shows refresh receipt action for paid rows missing receipt artifacts', () => {
     testState.query = {
       isLoading: false,
       isError: false,
@@ -126,7 +139,8 @@ describe('ClientPaymentsTab', () => {
 
     const markup = renderToStaticMarkup(<ClientPaymentsTab clientId="client_1" />)
 
-    expect(markup).toContain('Receipt pending')
+    expect(markup).toContain('Refresh receipt')
+    expect(markup).toContain('aria-label="Refresh payment receipt from Stripe"')
     expect(markup).not.toContain('href="https://invoice.stripe.com')
   })
 
@@ -173,6 +187,6 @@ describe('ClientPaymentsTab', () => {
     const markup = renderToStaticMarkup(<ClientPaymentsTab clientId="client_1" />)
 
     expect(markup).toContain('Copy pay link')
-    expect(markup).not.toContain('Receipt pending')
+    expect(markup).not.toContain('Refresh receipt')
   })
 })

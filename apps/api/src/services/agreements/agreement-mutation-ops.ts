@@ -8,7 +8,7 @@
  * (depositStatus is non-null). Otherwise, callers receive 409.
  */
 import { HTTPException } from 'hono/http-exception'
-import type { AgreementStatus, Prisma } from '@ella/db'
+import { ActivityRiskLevel, type AgreementStatus, type Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { generateAgreementToken, expiryDate, isExpired, clampExpiryDays } from './token-service'
 import {
@@ -19,8 +19,20 @@ import { assertDepositTransition, type DepositStatus } from '../../routes/agreem
 import { type EntityType } from './entity-loader'
 import { buildAgreementUrl, agreementScopeWhere } from './agreement-shared'
 import { assertNoActiveNdaEngagement, lockAgreementEntity } from './agreement-content-resolution'
+import {
+  ACTIVITY_ACTIONS,
+  ACTIVITY_CATEGORIES,
+  ACTIVITY_TARGET_TYPES,
+} from '../activity-actions'
+import { logStaffActivity, type AuditRequestContext } from '../activity-log'
+import {
+  agreementResponseInclude,
+  serializeAgreementResponse,
+} from './agreement-response-serializer'
+import { activateAgreementQuotePaymentPortal } from '../payments/agreement-quote-service'
 
 const LINK_MUTATION_STATUSES: AgreementStatus[] = ['SENT', 'EXPIRED']
+const VOIDABLE_AGREEMENT_STATUSES: AgreementStatus[] = ['SENT', 'EXPIRED']
 
 function assertAgreementAllowsLinkRefresh(status: AgreementStatus) {
   if (status === 'DRAFT') {
@@ -45,6 +57,18 @@ function linkMutationWhere(input: {
     ...agreementScopeWhere(input.entityType, input.entityId),
     organizationId: input.orgId,
     status: { in: LINK_MUTATION_STATUSES },
+  }
+}
+
+function assertAgreementAllowsVoid(status: AgreementStatus) {
+  if (status === 'DRAFT') {
+    throw new HTTPException(409, { message: 'Draft agreement must use the discard draft flow' })
+  }
+  if (status === 'SIGNED') {
+    throw new HTTPException(409, { message: 'Signed agreement cannot be voided' })
+  }
+  if (status === 'VOIDED') {
+    throw new HTTPException(409, { message: 'Agreement is already voided' })
   }
 }
 
@@ -236,6 +260,96 @@ export async function resendAgreementForEntity(input: {
 /** Legacy alias retained for transitional callers + tests. */
 export const resendNdaForEntity = resendAgreementForEntity
 
+export async function voidAgreementForEntity(input: {
+  entityType: EntityType
+  entityId: string
+  agreementId: string
+  orgId: string
+  staffId: string
+  reason: string
+  request?: AuditRequestContext
+}) {
+  const reason = input.reason.trim()
+  const agreement = await prisma.agreement.findFirst({
+    where: {
+      id: input.agreementId,
+      ...agreementScopeWhere(input.entityType, input.entityId),
+      organizationId: input.orgId,
+    },
+    select: { id: true, status: true, title: true, type: true },
+  })
+  if (!agreement) throw new HTTPException(404, { message: 'Agreement not found' })
+  assertAgreementAllowsVoid(agreement.status)
+
+  const voidedAt = new Date()
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.agreement.updateMany({
+      where: {
+        id: input.agreementId,
+        ...agreementScopeWhere(input.entityType, input.entityId),
+        organizationId: input.orgId,
+        status: { in: VOIDABLE_AGREEMENT_STATUSES },
+      },
+      data: {
+        status: 'VOIDED',
+        isActive: false,
+        voidedAt,
+        voidedByUserId: input.staffId,
+        voidReason: reason,
+      },
+    })
+
+    if (result.count !== 1) {
+      const latest = await tx.agreement.findFirst({
+        where: {
+          id: input.agreementId,
+          ...agreementScopeWhere(input.entityType, input.entityId),
+          organizationId: input.orgId,
+        },
+        select: { status: true },
+      })
+      if (!latest) throw new HTTPException(404, { message: 'Agreement not found' })
+      assertAgreementAllowsVoid(latest.status)
+      throw new HTTPException(409, { message: 'Agreement is no longer available for voiding' })
+    }
+
+    return tx.agreement.findFirst({
+      where: {
+        id: input.agreementId,
+        ...agreementScopeWhere(input.entityType, input.entityId),
+        organizationId: input.orgId,
+      },
+      include: agreementResponseInclude,
+    })
+  })
+  if (!updated) throw new HTTPException(404, { message: 'Agreement not found' })
+
+  await logStaffActivity({
+    organizationId: input.orgId,
+    actorStaffId: input.staffId,
+    action: ACTIVITY_ACTIONS.AGREEMENT.VOIDED,
+    category: ACTIVITY_CATEGORIES.AGREEMENT,
+    targetType: ACTIVITY_TARGET_TYPES.AGREEMENT,
+    targetId: updated.id,
+    targetLabel: updated.title,
+    summary: `Revoked agreement ${updated.title}`,
+    riskLevel: ActivityRiskLevel.MEDIUM,
+    metadata: {
+      agreementId: updated.id,
+      agreementType: updated.type,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      previousStatus: agreement.status,
+      nextStatus: 'VOIDED',
+      reasonProvided: reason.length > 0,
+      reasonLength: reason.length,
+    },
+    request: input.request,
+  })
+
+  return serializeAgreementResponse(updated)
+}
+
 /**
  * Push the link's expiry forward without rotating the token or sending SMS.
  * Optionally updates `expiryDays` so future resends keep the new duration.
@@ -286,4 +400,21 @@ export async function extendAgreementForEntity(input: {
   })
   if (!updated) throw new HTTPException(404, { message: 'Agreement not found' })
   return updated
+}
+
+export async function sendAgreementPaymentPortalForEntity(input: {
+  entityType: EntityType
+  entityId: string
+  agreementId: string
+  orgId: string
+  staffId: string
+}) {
+  return activateAgreementQuotePaymentPortal({
+    agreementId: input.agreementId,
+    orgId: input.orgId,
+    staffId: input.staffId,
+    entityType: input.entityType,
+    entityId: input.entityId,
+    requireStaffReviewMode: true,
+  })
 }

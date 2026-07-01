@@ -2,7 +2,14 @@ import type {
   PricingCalculatorInput,
   PricingCalculatorResult,
 } from '@ella/shared/pricing'
-import type { Agreement, AgreementSource, AgreementType } from '../../lib/api-client'
+import type {
+  Agreement,
+  AgreementPaymentPortalMode,
+  AgreementPaymentPortalSendMode,
+  AgreementSource,
+  AgreementType,
+  CalculatorAgreementQuotePayload,
+} from '../../lib/api-client'
 import {
   emptyStep3Draft,
   type Step3Draft,
@@ -18,6 +25,7 @@ interface CalculatorEngagementLetterDraftSeedInput {
   recipient: CalculatorDraftRecipient
   pricingInput: PricingCalculatorInput
   pricingResult: PricingCalculatorResult
+  paymentPortalMode?: AgreementPaymentPortalSendMode
   preparedAt?: Date
 }
 
@@ -32,7 +40,9 @@ export interface CalculatorEngagementLetterDraftSeed {
     setupTotal: number
     monthlyTotal: number
     tierLabel: string
+    paymentPortalMode: AgreementPaymentPortalSendMode
   }
+  calculatorQuote: Pick<CalculatorAgreementQuotePayload, 'pricingInput'>
   draft: Step3Draft
 }
 
@@ -50,6 +60,7 @@ export function buildCalculatorEngagementLetterDraftSeed({
   recipient,
   pricingInput,
   pricingResult,
+  paymentPortalMode = 'AUTO_SEND',
   preparedAt = new Date(),
 }: CalculatorEngagementLetterDraftSeedInput): CalculatorEngagementLetterDraftSeed {
   const contentHtml = buildCalculatorEngagementLetterHtml({
@@ -69,6 +80,10 @@ export function buildCalculatorEngagementLetterDraftSeed({
       setupTotal: pricingResult.setupDisplayTotal,
       monthlyTotal: pricingResult.monthlyTotal,
       tierLabel: pricingResult.tierLabel,
+      paymentPortalMode,
+    },
+    calculatorQuote: {
+      pricingInput,
     },
     draft: createCalculatorEngagementLetterDraft(contentHtml),
   }
@@ -89,9 +104,27 @@ export function findNewestCalculatorAgreementDraft(
 export function getCalculatorDraftEditorSourceSnapshot(
   selectedDraft: Agreement | null,
   draftSeed: CalculatorEngagementLetterDraftSeed,
+  paymentPortalMode = draftSeed.sourceSnapshot.paymentPortalMode,
 ): Record<string, unknown> | undefined {
   if (selectedDraft) return selectedDraft.sourceSnapshot ?? undefined
-  return draftSeed.sourceSnapshot
+  return {
+    ...draftSeed.sourceSnapshot,
+    paymentPortalMode,
+  }
+}
+
+export function getCalculatorSourceSnapshotPaymentPortalMode(
+  snapshot: Record<string, unknown> | null | undefined,
+): AgreementPaymentPortalSendMode | null {
+  const mode = snapshot?.paymentPortalMode
+  return mode === 'AUTO_SEND' || mode === 'STAFF_REVIEW' ? mode : null
+}
+
+export function resolveCalculatorPaymentPortalMode(
+  mode: AgreementPaymentPortalMode | null | undefined,
+  fallback: AgreementPaymentPortalSendMode,
+): AgreementPaymentPortalSendMode {
+  return mode === 'STAFF_REVIEW' || mode === 'AUTO_SEND' ? mode : fallback
 }
 
 export function shouldResolveCalculatorDraftEntry(

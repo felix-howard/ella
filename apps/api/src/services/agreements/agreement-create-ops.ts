@@ -15,12 +15,13 @@
  *  - depositAmount supplied → status seeded to PENDING (legacy NDA semantics)
  *  - depositAmount null → no deposit fields set; row carries no deposit lifecycle
  */
-import type { Prisma, AgreementType } from '@ella/db'
+import type { AgreementPaymentPortalMode, AgreementSource, Prisma, AgreementType } from '@ella/db'
 import { HTTPException } from 'hono/http-exception'
 import { sanitizeAgreementHtml } from '../../lib/agreements/sanitize-html'
 import { findAgreementPlaceholders } from '../../lib/agreements/placeholders'
 import { renderDefaultAgreementHtml } from '../../lib/agreements/render-default-html'
 import { currentTemplate, defaultTemplateForType } from '../../lib/agreements/template-registry'
+import { getEffectiveFirmPhone, hasRequiredFirmContact } from '../../lib/firm-contact'
 import { generateAgreementToken, expiryDate, clampExpiryDays } from './token-service'
 import {
   sendAgreementInviteSmsBestEffort,
@@ -53,6 +54,13 @@ import {
   snapshotFirmSide,
 } from './agreement-content-resolution'
 import { prisma } from '../../lib/db'
+import {
+  assertCalculatorQuoteInputAllowed,
+  hydrateCalculatorAgreementQuote,
+  markAgreementQuotePendingSignature,
+  saveFrozenCalculatorAgreementQuoteForAgreement,
+  type CalculatorAgreementQuoteInput,
+} from '../payments/agreement-quote-service'
 
 // 1×1 transparent PNG. Used as a placeholder pngBuffer for preview renders so
 // `generateSignedPdf` doesn't blow up on Buffer access; the `mode: 'preview'`
@@ -87,10 +95,16 @@ interface CreateAgreementInput {
   internalNote?: string | null
   /** Link validity in days. Clamped to [MIN_EXPIRY_DAYS, MAX_EXPIRY_DAYS]. Defaults to 30. */
   expiryDays?: number | null
+  source?: AgreementSource
+  sourceSnapshot?: Record<string, unknown>
+  calculatorQuote?: CalculatorAgreementQuoteInput
+  paymentPortalMode?: AgreementPaymentPortalMode
 }
 
 export async function createAgreementForEntity(input: CreateAgreementInput) {
   const type = input.type ?? 'NDA'
+  const source = input.calculatorQuote ? 'CALCULATOR' : (input.source ?? 'MANUAL')
+  assertCalculatorQuoteInputAllowed({ type, source, calculatorQuote: input.calculatorQuote })
   if (type === 'CONSENT_7216' && input.uploadedPdfKey) {
     throw new HTTPException(422, {
       message: 'CONSENT_7216 uses the built-in consent document',
@@ -160,7 +174,7 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
         Boolean(v2.organization.governingState?.trim() && v2.organization.governingCounty?.trim()),
       orgContactOk:
         isUploadedPdf ||
-        Boolean(v2.organization.firmPhone?.trim() && v2.organization.firmEmail?.trim()),
+        hasRequiredFirmContact(v2.organization),
     })
   }
 
@@ -184,7 +198,7 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
           tx,
         )
       }
-      return tx.agreement.create({
+      const created = await tx.agreement.create({
         data: {
           ...agreementScopeWhere(input.entityType, entity.id),
           organizationId: input.orgId,
@@ -192,6 +206,8 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
           type,
           title,
           internalNote: trimmedNote,
+          source,
+          sourceSnapshot: input.sourceSnapshot as Prisma.InputJsonValue | undefined,
           templateId,
           templateVersion,
           customContentHtml,
@@ -206,6 +222,27 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
           ...(firmSnapshot ?? {}),
         },
       })
+      if (input.calculatorQuote) {
+        const quoteEntity = entity as Awaited<ReturnType<typeof loadEntityForV2Snapshot>>
+        await saveFrozenCalculatorAgreementQuoteForAgreement(
+          {
+            agreementId: created.id,
+            quote: hydrateCalculatorAgreementQuote(input.calculatorQuote, quoteEntity),
+            recipient: { type: input.entityType, id: entity.id },
+          },
+          { organizationId: input.orgId, staffId: input.staffId },
+          tx,
+        )
+        await markAgreementQuotePendingSignature(
+          {
+            agreementId: created.id,
+            organizationId: input.orgId,
+            paymentPortalMode: input.paymentPortalMode ?? input.calculatorQuote.paymentPortalMode,
+          },
+          tx,
+        )
+      }
+      return created
     })
   } catch (error) {
     await cleanupFirmSignatureSnapshot(firmSnapshot)
@@ -281,7 +318,7 @@ export async function getDefaultHtmlForEntity(input: {
       governingState: entity.organization.governingState,
       governingCounty: entity.organization.governingCounty,
       firmAddress,
-      firmPhone: entity.organization.firmPhone,
+      firmPhone: getEffectiveFirmPhone(entity.organization.firmPhone),
       firmEmail: entity.organization.firmEmail,
       firmWebsite: entity.organization.firmWebsite,
     },
@@ -348,7 +385,7 @@ export async function renderPreviewPdf(input: {
     leadBusinessName: v2Entity.leadBusinessName,
   })
   const firmContact = composeContactLine({
-    phone: v2Entity.organization.firmPhone,
+    phone: getEffectiveFirmPhone(v2Entity.organization.firmPhone),
     email: v2Entity.organization.firmEmail,
     website: v2Entity.organization.firmWebsite,
   })

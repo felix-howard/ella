@@ -4,6 +4,7 @@
  * sidebar (status, tags, danger zone). Includes floating chatbox for SMS.
  */
 import { useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { LeadDetailHeader } from './lead-detail-header'
 import { LeadInfoGrid } from './lead-info-grid'
@@ -22,6 +23,7 @@ interface Props {
 
 export function LeadDetailPage({ lead }: Props) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const {
     unreadCount,
     isLoading: isUnreadLoading,
@@ -30,8 +32,14 @@ export function LeadDetailPage({ lead }: Props) {
 
   // Debounce refetch so the server has time to commit before we poll.
   const handleUnreadChange = useCallback(() => {
-    setTimeout(() => refetchUnread(), 500)
-  }, [refetchUnread])
+    setTimeout(() => {
+      refetchUnread()
+      queryClient.invalidateQueries({ queryKey: ['lead', lead.id] })
+      queryClient.invalidateQueries({ queryKey: ['lead-unread-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['actions'] })
+    }, 500)
+  }, [lead.id, queryClient, refetchUnread])
 
   const fullName = `${lead.firstName} ${lead.lastName}`.trim()
 

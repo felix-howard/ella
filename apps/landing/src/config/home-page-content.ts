@@ -71,9 +71,9 @@ export const homeHowItWorksSteps = [
   },
   {
     step: "2",
-    title: "AI Classifies & Renames",
+    title: "Organized for Advisor Review",
     description:
-      "Ella classifies the document, extracts data, and renames it: '2024_W2_Employer_ClientName.pdf'.",
+      "Ella organizes the upload, confirms key details, and labels the record clearly for advisor review.",
   },
   {
     step: "3",

@@ -6,10 +6,9 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
 import { listActionsQuerySchema, updateActionSchema } from './schemas'
-import type { ActionType, ActionPriority } from '@ella/db'
-import { buildClientScopeFilter } from '../../lib/org-scope'
-import { serializePhone } from '../../lib/phone-privacy'
+import type { ActionType, ActionPriority, Prisma } from '@ella/db'
 import type { AuthVariables } from '../../middleware/auth'
+import { actionInclude, buildActionOwnerScope, serializeAction } from './action-route-helpers'
 
 const actionsRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -18,10 +17,7 @@ actionsRoute.get('/', zValidator('query', listActionsQuerySchema), async (c) => 
   const { type, priority, assignedToId, isCompleted } = c.req.valid('query')
   const user = c.get('user')
 
-  // Scope actions through taxCase -> client relation
-  const where: Record<string, unknown> = {
-    taxCase: { client: buildClientScopeFilter(user) },
-  }
+  const where: Prisma.ActionWhereInput = buildActionOwnerScope(user)
   if (type) where.type = type as ActionType
   if (priority) where.priority = priority as ActionPriority
   if (assignedToId !== undefined) {
@@ -37,14 +33,7 @@ actionsRoute.get('/', zValidator('query', listActionsQuerySchema), async (c) => 
   const actions = await prisma.action.findMany({
     where,
     orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
-    include: {
-      taxCase: {
-        include: {
-          client: { select: { id: true, name: true, phone: true } },
-        },
-      },
-      assignedTo: { select: { id: true, name: true, email: true } },
-    },
+    include: actionInclude,
   })
 
   // Group by priority
@@ -63,16 +52,7 @@ actionsRoute.get('/', zValidator('query', listActionsQuerySchema), async (c) => 
     low: grouped.low.length,
   }
 
-  const formatActions = (list: typeof actions) =>
-    list.map((a) => ({
-      ...a,
-      taxCase: {
-        ...a.taxCase,
-        client: { ...a.taxCase.client, phone: serializePhone(user, a.taxCase.client.phone) },
-      },
-      createdAt: a.createdAt.toISOString(),
-      updatedAt: a.updatedAt.toISOString(),
-    }))
+  const formatActions = (list: typeof actions) => list.map((a) => serializeAction(user, a))
 
   return c.json({
     urgent: formatActions(grouped.urgent),
@@ -89,7 +69,7 @@ actionsRoute.get('/:id', async (c) => {
   const user = c.get('user')
 
   const action = await prisma.action.findFirst({
-    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+    where: { id, ...buildActionOwnerScope(user) },
     include: {
       taxCase: {
         include: {
@@ -97,7 +77,16 @@ actionsRoute.get('/:id', async (c) => {
           checklistItems: { include: { template: true } },
         },
       },
-      assignedTo: true,
+      lead: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          businessName: true,
+          status: true,
+        },
+      },
+      assignedTo: { select: { id: true, name: true, email: true } },
     },
   })
 
@@ -105,15 +94,7 @@ actionsRoute.get('/:id', async (c) => {
     return c.json({ error: 'NOT_FOUND', message: 'Action not found' }, 404)
   }
 
-  return c.json({
-    ...action,
-    taxCase: {
-      ...action.taxCase,
-      client: { ...action.taxCase.client, phone: serializePhone(user, action.taxCase.client.phone) },
-    },
-    createdAt: action.createdAt.toISOString(),
-    updatedAt: action.updatedAt.toISOString(),
-  })
+  return c.json(serializeAction(user, action))
 })
 
 // PATCH /actions/:id - Update action (assign, complete)
@@ -124,7 +105,7 @@ actionsRoute.patch('/:id', zValidator('json', updateActionSchema), async (c) => 
 
   // Verify access before update (org-scoped)
   const existing = await prisma.action.findFirst({
-    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+    where: { id, ...buildActionOwnerScope(user) },
     select: { id: true },
   })
   if (!existing) {
@@ -134,7 +115,21 @@ actionsRoute.patch('/:id', zValidator('json', updateActionSchema), async (c) => 
   const updateData: Record<string, unknown> = {}
 
   if (assignedToId !== undefined) {
-    updateData.assignedToId = assignedToId
+    const nextAssignedToId = assignedToId || null
+    if (nextAssignedToId) {
+      const assignedStaff = await prisma.staff.findFirst({
+        where: {
+          id: nextAssignedToId,
+          organizationId: user.organizationId,
+          isActive: true,
+        },
+        select: { id: true },
+      })
+      if (!assignedStaff) {
+        return c.json({ error: 'INVALID_ASSIGNEE', message: 'Assigned staff not found' }, 400)
+      }
+    }
+    updateData.assignedToId = nextAssignedToId
   }
 
   if (isCompleted !== undefined) {
@@ -149,19 +144,10 @@ actionsRoute.patch('/:id', zValidator('json', updateActionSchema), async (c) => 
   const action = await prisma.action.update({
     where: { id },
     data: updateData,
-    include: {
-      taxCase: {
-        include: { client: { select: { id: true, name: true } } },
-      },
-      assignedTo: { select: { id: true, name: true } },
-    },
+    include: actionInclude,
   })
 
-  return c.json({
-    ...action,
-    createdAt: action.createdAt.toISOString(),
-    updatedAt: action.updatedAt.toISOString(),
-  })
+  return c.json(serializeAction(user, action))
 })
 
 export { actionsRoute }

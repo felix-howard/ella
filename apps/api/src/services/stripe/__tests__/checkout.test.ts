@@ -106,6 +106,10 @@ describe('Stripe checkout session params', () => {
     expect(params.line_items?.[0]?.price_data?.product_data?.name).toBe(BOOKKEEPING_SERVICE_LABEL)
     expect(params.line_items?.[1]?.price_data?.unit_amount).toBe(140000)
     expect(params.customer_email).toBe('client@example.com')
+    expect(params.custom_text?.submit).toEqual({
+      message:
+        'By subscribing, you authorize ELLA TAX SERVICES LLC to charge you according to the terms and conditions in the engagement letter.',
+    })
     expect(params.metadata).toMatchObject({ quoteId: quote.quoteId, source: 'pricing_calculator' })
   })
 
@@ -451,6 +455,7 @@ describe('buildCheckoutSessionParams — generalized line items + coupons', () =
       { quoteId: 'quote_one_time' }
     )
     expect(params.mode).toBe('payment')
+    expect(params.custom_text).toBeUndefined()
   })
 
   it('uses a Stripe Customer id instead of customer_email when provided', () => {

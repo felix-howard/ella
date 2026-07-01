@@ -87,7 +87,9 @@ describe('org settings activity logging', () => {
       smsLanguage: 'EN',
       missedCallTextBack: true,
       autoSendFormClientUploadLink: false,
+      calculatorAgreementPaymentMode: 'AUTO_SEND',
       defaultUploadLinkTemplateId: null,
+      defaultUploadLinkLanguage: 'EN',
       slug: 'firm',
       address: null,
       city: null,
@@ -105,7 +107,9 @@ describe('org settings activity logging', () => {
       smsLanguage: 'EN',
       missedCallTextBack: true,
       autoSendFormClientUploadLink: false,
+      calculatorAgreementPaymentMode: 'AUTO_SEND',
       defaultUploadLinkTemplateId: null,
+      defaultUploadLinkLanguage: 'EN',
       slug: 'firm',
       clerkOrgId: 'clerk_org_1',
       address: null,
@@ -127,6 +131,89 @@ describe('org settings activity logging', () => {
     expect(await res.json()).toEqual(expect.objectContaining({
       firmPhone: '+18786780999',
       twilioInboundNumber: '+15550001111',
+    }))
+  })
+
+  it('returns calculator agreement payment mode from GET', async () => {
+    const res = await createApp().request('/org-settings')
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual(expect.objectContaining({
+      calculatorAgreementPaymentMode: 'AUTO_SEND',
+    }))
+  })
+
+  it('updates calculator agreement payment mode as an admin-only setting', async () => {
+    vi.mocked(prisma.organization.update).mockResolvedValueOnce({
+      name: 'Firm',
+      registrationHeaderMode: 'DEFAULT',
+      registrationTitle: null,
+      registrationSubtitle: null,
+      smsLanguage: 'EN',
+      missedCallTextBack: true,
+      autoSendFormClientUploadLink: false,
+      calculatorAgreementPaymentMode: 'STAFF_REVIEW',
+      defaultUploadLinkTemplateId: null,
+      defaultUploadLinkLanguage: 'EN',
+      slug: 'firm',
+      clerkOrgId: 'clerk_org_1',
+      address: null,
+      city: null,
+      state: null,
+      zip: null,
+      governingState: null,
+      governingCounty: null,
+      firmPhone: null,
+      firmEmail: 'private@example.com',
+      firmWebsite: null,
+    } as never)
+
+    const res = await createApp().request('/org-settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ calculatorAgreementPaymentMode: 'STAFF_REVIEW' }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual(expect.objectContaining({
+      calculatorAgreementPaymentMode: 'STAFF_REVIEW',
+    }))
+    expect(prisma.organization.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ calculatorAgreementPaymentMode: 'STAFF_REVIEW' }),
+    }))
+    expect(logStaffActivity).toHaveBeenCalledWith(expect.objectContaining({
+      metadata: { changedFields: ['calculatorAgreementPaymentMode'] },
+    }))
+  })
+
+  it('rejects invalid calculator agreement payment modes', async () => {
+    const res = await createApp().request('/org-settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ calculatorAgreementPaymentMode: 'NONE' }),
+    })
+
+    expect(res.status).toBe(400)
+    expect(prisma.organization.update).not.toHaveBeenCalled()
+  })
+
+  it('denies non-admin calculator agreement payment mode updates', async () => {
+    const res = await createApp('MANAGER').request('/org-settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ calculatorAgreementPaymentMode: 'STAFF_REVIEW' }),
+    })
+
+    expect(res.status).toBe(403)
+    expect(prisma.organization.update).not.toHaveBeenCalled()
+    expect(logStaffActivity).toHaveBeenCalledWith(expect.objectContaining({
+      actorStaffId: 'staff_manager',
+      riskLevel: 'HIGH',
+      metadata: {
+        result: 'denied',
+        reason: 'non_admin_org_settings_update',
+        changedFields: ['calculatorAgreementPaymentMode'],
+      },
     }))
   })
 

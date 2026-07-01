@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ChangeEvent } from 'react'
 import { Button, Select } from '@ella/ui'
 import { FileText, Loader2, Save } from 'lucide-react'
 import type { PaymentTemplatePayload, PaymentTemplateSummary } from '../../../../lib/api-client'
@@ -27,10 +27,13 @@ export function PaymentTemplatePanel({
   const templatePayload = useMemo(() => draftsToTemplatePayload(items), [items])
   const saveDisabled = Boolean(disabledReason) || !templatePayload || createTemplate.isPending
 
-  const handleLoad = () => {
-    if (!selectedTemplate) return
-    onLoadTemplate(selectedTemplate.template)
-    toast.success('Template loaded. You can edit before sending.')
+  const handleTemplateChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextSelectedId = event.target.value
+    setSelectedId(nextSelectedId)
+    const template = templates.find((template) => template.id === nextSelectedId)
+    if (!template) return
+    onLoadTemplate(template.template)
+    toast.success(`${template.name} loaded. You can edit before sending.`)
   }
 
   const handleSave = async (input: { name: string; description?: string }) => {
@@ -46,39 +49,24 @@ export function PaymentTemplatePanel({
       className="rounded-lg border border-border bg-card p-4"
       aria-labelledby="payment-templates-title"
     >
-      <header>
-        <h2
-          id="payment-templates-title"
-          className="flex items-center gap-2 text-sm font-semibold text-foreground"
-        >
-          <FileText className="h-4 w-4 text-primary" />
-          Payment templates
-        </h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Load shared team line items, or save the current rows for later.
-        </p>
-      </header>
-
-      <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-        <Select
-          value={selectedId}
-          onChange={(event) => setSelectedId(event.target.value)}
-          disabled={loading || templates.length === 0}
-          placeholder={loading ? 'Loading templates...' : 'Use template...'}
-          options={templates.map(templateOption)}
-          aria-label="Use payment template"
-        />
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2
+            id="payment-templates-title"
+            className="flex items-center gap-2 text-sm font-semibold text-foreground"
+          >
+            <FileText className="h-4 w-4 text-primary" />
+            Payment templates
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Choose a saved setup to replace the rows below, or save the current rows for reuse.
+          </p>
+        </div>
         <Button
           type="button"
           variant="outline"
-          onClick={handleLoad}
-          disabled={!selectedTemplate || loading}
-        >
-          Load
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
+          size="sm"
+          className="w-full sm:w-auto"
           onClick={() => setSaveOpen(true)}
           disabled={saveDisabled}
         >
@@ -89,6 +77,17 @@ export function PaymentTemplatePanel({
           )}
           Save as template
         </Button>
+      </header>
+
+      <div className="mt-3">
+        <Select
+          value={selectedId}
+          onChange={handleTemplateChange}
+          disabled={loading || templates.length === 0}
+          placeholder={loading ? 'Loading templates...' : 'Choose template to load...'}
+          options={templates.map(templateOption)}
+          aria-label="Choose a payment template to load"
+        />
       </div>
 
       <p className="mt-2 min-h-4 text-xs text-muted-foreground" role="status">
@@ -99,7 +98,7 @@ export function PaymentTemplatePanel({
         ) : templates.length === 0 && !loading ? (
           'No templates saved yet.'
         ) : (
-          disabledReason ?? ''
+          disabledReason ?? 'Selecting a template replaces the current line items.'
         )}
       </p>
 
@@ -123,7 +122,7 @@ function templateOption(template: PaymentTemplateSummary) {
 function TemplateSummary({ template }: { template: PaymentTemplateSummary }) {
   return (
     <>
-      {template.name}: {template.itemCount} item{template.itemCount === 1 ? '' : 's'} -{' '}
+      Loaded {template.name}: {template.itemCount} item{template.itemCount === 1 ? '' : 's'} -{' '}
       {formatCents(template.totalCents)}
     </>
   )

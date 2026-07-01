@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { CalculatorPaymentAfterSignatureCard } from './calculator-payment-after-signature-card'
 import { FirmInfoCard } from './firm-info-card'
 import { MissedCallTextBackCard } from './settings-general-tab'
 import { SettingsFormLinksTab } from './settings-form-links-tab'
@@ -23,6 +24,7 @@ export function SettingsOrganizationTab() {
         badge={scopeBadge}
       />
       <FirmInfoCard />
+      <CalculatorPaymentAfterSignatureCard />
       <SettingsFormLinksTab />
       <MissedCallTextBackCard />
     </div>

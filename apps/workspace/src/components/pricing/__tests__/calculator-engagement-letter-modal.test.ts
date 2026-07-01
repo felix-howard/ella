@@ -6,8 +6,10 @@ import {
   createCalculatorEngagementLetterDraft,
   findNewestCalculatorAgreementDraft,
   getCalculatorDraftEditorSourceSnapshot,
+  getCalculatorSourceSnapshotPaymentPortalMode,
   isCalculatorDraftEntryDecisionPending,
   isCalculatorDraftLookupFailureWithoutDraft,
+  resolveCalculatorPaymentPortalMode,
   shouldResolveCalculatorDraftEntry,
 } from '../calculator-engagement-letter-modal-helpers'
 
@@ -19,6 +21,9 @@ function agreement(overrides: Partial<Agreement>): Agreement {
     internalNote: null,
     source: 'CALCULATOR',
     sourceSnapshot: null,
+    paymentQuoteId: null,
+    paymentPortalMode: 'NONE',
+    paymentQuote: null,
     leadId: null,
     clientId: 'client_1',
     organizationId: 'org_1',
@@ -46,6 +51,9 @@ function agreement(overrides: Partial<Agreement>): Agreement {
     createdByUserId: 'staff_1',
     lastEditedByUserId: 'staff_1',
     sentByUserId: null,
+    voidedAt: null,
+    voidedByUserId: null,
+    voidReason: null,
     createdAt: '2026-06-25T09:00:00.000Z',
     updatedAt: '2026-06-25T09:00:00.000Z',
     ...overrides,
@@ -84,7 +92,9 @@ describe('calculator engagement letter modal helpers', () => {
         setupTotal: pricingResult.setupDisplayTotal,
         monthlyTotal: pricingResult.monthlyTotal,
         tierLabel: pricingResult.tierLabel,
+        paymentPortalMode: 'AUTO_SEND',
       },
+      calculatorQuote: { pricingInput },
     })
     expect(seed.sourceSnapshot).not.toHaveProperty('pricingInput')
     expect(seed.sourceSnapshot).not.toHaveProperty('pricingResult')
@@ -138,9 +148,20 @@ describe('calculator engagement letter modal helpers', () => {
         draftSeed,
       ),
     ).toBeUndefined()
-    expect(getCalculatorDraftEditorSourceSnapshot(null, draftSeed)).toBe(
+    expect(getCalculatorDraftEditorSourceSnapshot(null, draftSeed)).toEqual(
       draftSeed.sourceSnapshot,
     )
+  })
+
+  it('resolves calculator payment mode from saved draft and snapshot safely', () => {
+    expect(getCalculatorSourceSnapshotPaymentPortalMode({
+      paymentPortalMode: 'STAFF_REVIEW',
+    })).toBe('STAFF_REVIEW')
+    expect(getCalculatorSourceSnapshotPaymentPortalMode({
+      paymentPortalMode: 'NONE',
+    })).toBeNull()
+    expect(resolveCalculatorPaymentPortalMode('NONE', 'STAFF_REVIEW')).toBe('STAFF_REVIEW')
+    expect(resolveCalculatorPaymentPortalMode('AUTO_SEND', 'STAFF_REVIEW')).toBe('AUTO_SEND')
   })
 
   it('freezes the entry draft decision after an initial no-draft lookup', () => {

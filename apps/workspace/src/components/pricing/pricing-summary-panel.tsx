@@ -40,7 +40,7 @@ export function PricingSummaryPanel({ result }: PricingSummaryPanelProps) {
       </div>
 
       <dl className="mt-6 divide-y divide-border rounded-lg border border-border/70">
-        <TotalRow label="Due today" value={dueToday} strong />
+        <TotalRow label="Due Today" value={dueToday} strong />
         <TotalRow label="Next month onward" value={result.monthlyTotal} />
       </dl>
     </section>

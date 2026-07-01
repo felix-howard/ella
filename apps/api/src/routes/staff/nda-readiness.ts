@@ -10,6 +10,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../../lib/db'
+import { hasRequiredFirmContact } from '../../lib/firm-contact'
 import type { AuthVariables } from '../../middleware/auth'
 
 export type NdaReadinessMissing = 'signature' | 'title' | 'orgAddress' | 'orgGoverningLaw' | 'orgContact'
@@ -65,7 +66,7 @@ ndaReadinessRoute.get('/', zValidator('query', readinessQuerySchema), async (c) 
   if (type === 'NDA' && (!org.governingState?.trim() || !org.governingCounty?.trim())) {
     missing.push('orgGoverningLaw')
   }
-  if (type === 'ENGAGEMENT_LETTER' && (!org.firmPhone?.trim() || !org.firmEmail?.trim())) {
+  if (type === 'ENGAGEMENT_LETTER' && !hasRequiredFirmContact(org)) {
     missing.push('orgContact')
   }
 

@@ -22,6 +22,7 @@ export const sendableQuoteInclude = {
       notes: true,
       status: true,
       convertedToId: true,
+      messagesLastReadAt: true,
     },
   },
 } as const

@@ -23,6 +23,7 @@ const ICON_BY_TYPE: Record<TimelineEventType, LucideIcon> = {
   converted: Award,
   status: RefreshCw,
   sms: MessageCircle,
+  'lead-reply': MessageCircle,
 }
 
 interface Props {

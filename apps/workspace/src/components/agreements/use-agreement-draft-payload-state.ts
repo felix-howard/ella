@@ -3,6 +3,7 @@ import type {
   Agreement,
   AgreementSource,
   AgreementType,
+  CalculatorAgreementQuotePayload,
   SaveAgreementDraftPayload,
 } from '../../lib/api-client'
 import { buildSaveAgreementDraftPayload } from './agreement-draft-payload'
@@ -20,6 +21,7 @@ interface UseAgreementDraftPayloadStateInput {
   templateId: string | null
   source: AgreementSource
   sourceSnapshot?: Record<string, unknown>
+  calculatorQuote?: CalculatorAgreementQuotePayload
 }
 
 interface UseAgreementDraftPayloadStateResult {
@@ -52,8 +54,12 @@ export function useAgreementDraftPayloadState({
   templateId,
   source,
   sourceSnapshot,
+  calculatorQuote,
 }: UseAgreementDraftPayloadStateInput): UseAgreementDraftPayloadStateResult {
   const effectiveTemplateId = savedAgreement?.templateId ?? templateId
+  const shouldSendCalculatorQuote = Boolean(
+    calculatorQuote && (!savedAgreement || !savedAgreement.paymentQuoteId),
+  )
   const autosaveResolved = useMemo(
     () => (savedResolved ? mergeResolvedFromDraft(draft, savedResolved, fallbackTitle) : null),
     [draft, fallbackTitle, savedResolved],
@@ -67,9 +73,18 @@ export function useAgreementDraftPayloadState({
             resolved: autosaveResolved,
             source,
             sourceSnapshot,
+            calculatorQuote: shouldSendCalculatorQuote ? calculatorQuote : undefined,
           })
         : null,
-    [autosaveResolved, effectiveTemplateId, source, sourceSnapshot, type],
+    [
+      autosaveResolved,
+      calculatorQuote,
+      effectiveTemplateId,
+      shouldSendCalculatorQuote,
+      source,
+      sourceSnapshot,
+      type,
+    ],
   )
 
   return { effectiveTemplateId, autosaveResolved, autosavePayload }

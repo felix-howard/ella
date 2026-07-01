@@ -11,6 +11,7 @@ export const actionTypeEnum = z.enum([
   'READY_FOR_ENTRY',
   'REMINDER_DUE',
   'CLIENT_REPLIED',
+  'LEAD_REPLIED',
 ])
 
 // Action priority enum

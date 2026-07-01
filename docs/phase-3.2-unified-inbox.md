@@ -14,7 +14,7 @@ Phase 3.2 implements a unified message inbox for workspace staff, allowing centr
 
 **Route:** `apps/api/src/routes/messages/index.ts`
 
-#### Endpoints (5 new/enhanced)
+#### Endpoints (7 new/enhanced)
 
 1. **GET /messages/conversations** - List all conversations
    - Returns paginated list of conversations
@@ -34,6 +34,7 @@ Phase 3.2 implements a unified message inbox for workspace staff, allowing centr
    - Updates conversation timestamp & case lastContactAt
    - Sends SMS if channel is SMS and Twilio enabled
    - Supports channels: SMS, PORTAL, SYSTEM
+   - Supports optional reply-translation metadata so staff can send the Vietnamese SMS body while preserving staff-only English source text for Workspace history
    - Returns sent confirmation + SMS status
 
 4. **POST /messages/remind/:caseId** - Send missing docs reminder
@@ -49,6 +50,17 @@ Phase 3.2 implements a unified message inbox for workspace staff, allowing centr
    - Supports case messages only; lead messages, call messages, system messages, and empty/image-only messages are not translated
    - Does not persist translations or write message bodies/translations into activity logs
    - Workspace-only surface; no lead or client portal translation UI
+
+6. **POST /messages/compose-translation** - Preview English-to-Vietnamese staff replies
+   - Accepts staff English draft text for a case conversation
+   - Uses Gemini to return an editable Vietnamese SMS preview
+   - Does not persist preview text until staff sends
+   - Rate limited separately from bubble-level message translation
+
+7. **PATCH /messages/:caseId/reply-mode** - Persist conversation reply mode
+   - Stores `Conversation.replyMode` as `DIRECT` or `EN_TO_VI`
+   - Case-scoped and org-scoped; grouped business cases are blocked
+   - Default remains `DIRECT`; does not use `Client.language`
 
 #### Database Patterns
 
@@ -132,6 +144,9 @@ if (conversation.unreadCount > 0) {
 - Unread badges on conversation items
 - Optimistic message updates
 - Bubble-level English translation for inbound/outbound case text messages. Vietnamese-looking text gets a prominent action; other text keeps a visible fallback action for short/no-diacritic messages.
+- Staff reply translation workflow: case conversations can switch `Direct` or `EN -> VI`, preview/edit the Vietnamese SMS, send the Vietnamese body, and later reveal the private English source with `Show English` / `Hide English` on outbound translated SMS bubbles. The source panel only appears when full outbound SMS translation metadata is present; direct, partial, portal, and image-only messages never surface it.
+- Conversation list previews use staff-authored English source for translated outbound text so Workspace stays readable; attachment-only previews still show the photo fallback.
+- Optimistic merges keep `staffAuthoredContent`, `staffAuthoredLanguage`, and `translationEdited` intact when temp translated sends reconcile with the server copy.
 - Silent refresh (non-blocking background updates)
 
 ### State Management

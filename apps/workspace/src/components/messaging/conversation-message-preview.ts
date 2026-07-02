@@ -1,7 +1,7 @@
 import { sanitizeText } from '../../lib/formatters'
 import { isOutboundTranslatedSms } from '../../lib/message-reply-translation'
 import { parseTapbackReaction } from '../../lib/message-reactions'
-import type { Conversation } from '../../lib/api-client'
+import type { Conversation, Message } from '../../lib/api-client'
 
 export type PreviewTranslator = (
   key: string,
@@ -9,7 +9,7 @@ export type PreviewTranslator = (
 ) => string
 
 export function getConversationMessagePreview(
-  lastMessage: Conversation['lastMessage'],
+  lastMessage: Conversation['lastMessage'] | Message | null,
   t: PreviewTranslator
 ): string {
   if (!lastMessage) return t('messages.noMessages')

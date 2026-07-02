@@ -566,6 +566,7 @@ export function QuickActionsBar({
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               enterKeyHint="enter"
+              aria-label={t('messages.inputPlaceholder')}
               placeholder={t(
                 isReplyTranslationEnabled
                   ? 'messages.inputPlaceholderEnglish'

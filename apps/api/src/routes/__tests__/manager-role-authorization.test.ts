@@ -27,6 +27,8 @@ vi.mock('../../lib/db', () => ({
     organization: { upsert: vi.fn() },
     client: { findMany: vi.fn(), count: vi.fn(), findFirst: vi.fn() },
     lead: { findMany: vi.fn(), count: vi.fn() },
+    message: { findMany: vi.fn(), createMany: vi.fn() },
+    smsSendLog: { findMany: vi.fn() },
     intakeQuestion: { findMany: vi.fn() },
     $queryRaw: vi.fn(),
   },
@@ -60,6 +62,7 @@ import { clientsRoute } from '../clients'
 import { adminRoute } from '../admin'
 import { teamRoute } from '../team'
 import { leadsRoute } from '../leads'
+import { leadMessagesRoute } from '../leads/messages'
 import { staffRoute } from '../staff'
 
 // Test app mirrors app.ts mounting (leads applies authMiddleware inline)
@@ -73,6 +76,7 @@ app.route('/admin', adminRoute)
 app.route('/team', teamRoute)
 app.route('/staff', staffRoute)
 app.route('/leads', leadsRoute)
+app.route('/leads', leadMessagesRoute)
 
 const FULL_PHONE = '+14155551234'
 const SIBLING_PHONE = '+14155559876'
@@ -179,6 +183,8 @@ beforeEach(() => {
   vi.mocked(prisma.client.count).mockResolvedValue(1 as never)
   vi.mocked(prisma.lead.findMany).mockResolvedValue([mockLeadRow()] as never)
   vi.mocked(prisma.lead.count).mockResolvedValue(1 as never)
+  vi.mocked(prisma.smsSendLog.findMany).mockResolvedValue([] as never)
+  vi.mocked(prisma.message.findMany).mockResolvedValue([] as never)
   vi.mocked(prisma.intakeQuestion.findMany).mockResolvedValue([] as never)
   vi.mocked(prisma.$queryRaw).mockResolvedValue([] as never)
 })
@@ -232,6 +238,41 @@ describe('MANAGER permission matrix (route integration)', () => {
     it('GET /leads → 200', async () => {
       const res = await app.request('/leads')
       expect(res.status).toBe(200)
+    })
+
+    it('GET /leads/messages/conversations → 200', async () => {
+      const now = new Date('2026-04-24T10:00:00Z')
+      vi.mocked(prisma.$queryRaw)
+        .mockResolvedValueOnce([] as never)
+        .mockResolvedValueOnce([{ leadId: 'lead_1', lastMessageAt: now }] as never)
+        .mockResolvedValueOnce([{ total: 1n }] as never)
+        .mockResolvedValueOnce([{ leadId: 'lead_1', unreadCount: 1n }] as never)
+        .mockResolvedValueOnce([{ totalUnread: 1n }] as never)
+      vi.mocked(prisma.lead.findMany).mockResolvedValueOnce([
+        {
+          ...mockLeadRow(),
+          messages: [{
+            id: 'message_1',
+            leadId: 'lead_1',
+            direction: 'INBOUND',
+            channel: 'SMS',
+            content: 'hello',
+            templateUsed: null,
+            staffAuthoredContent: null,
+            attachmentUrls: [],
+            attachmentR2Keys: [],
+            createdAt: now,
+            updatedAt: now,
+            sentBy: null,
+          }],
+        },
+      ] as never)
+
+      const res = await app.request('/leads/messages/conversations')
+      const body = await res.json() as { conversations: Array<{ leadId: string }> }
+
+      expect(res.status).toBe(200)
+      expect(body.conversations[0]?.leadId).toBe('lead_1')
     })
   })
 
@@ -345,6 +386,11 @@ describe('MANAGER permission matrix (route integration)', () => {
 
     it('GET /leads → 403', async () => {
       const res = await app.request('/leads')
+      expect(res.status).toBe(403)
+    })
+
+    it('GET /leads/messages/conversations → 403', async () => {
+      const res = await app.request('/leads/messages/conversations')
       expect(res.status).toBe(403)
     })
 

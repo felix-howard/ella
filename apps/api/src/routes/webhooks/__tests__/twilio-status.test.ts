@@ -63,9 +63,13 @@ vi.mock('../../../services/voice', () => voiceMocks)
 
 vi.mock('../../../services/realtime/message-publisher', () => ({
   publishMessageEventFromConversation: vi.fn(() => Promise.resolve()),
+  publishMessageEventFromLead: vi.fn(() => Promise.resolve()),
 }))
 
-import { publishMessageEventFromConversation } from '../../../services/realtime/message-publisher'
+import {
+  publishMessageEventFromConversation,
+  publishMessageEventFromLead,
+} from '../../../services/realtime/message-publisher'
 import { twilioWebhookRoute } from '../twilio'
 
 function createApp() {
@@ -102,6 +106,7 @@ describe('Twilio SMS status webhook', () => {
     prismaMocks.message.findFirst.mockResolvedValue({
       id: 'msg_1',
       conversationId: 'conv_1',
+      leadId: null,
       direction: 'OUTBOUND',
       channel: 'SMS',
     })
@@ -147,6 +152,7 @@ describe('Twilio SMS status webhook', () => {
     prismaMocks.message.findFirst.mockResolvedValueOnce({
       id: 'msg_1',
       conversationId: 'conv_1',
+      leadId: null,
       direction: 'OUTBOUND',
       channel: 'SMS',
     })
@@ -219,6 +225,31 @@ describe('Twilio SMS status webhook', () => {
     await expect(res.json()).resolves.toMatchObject({
       received: true,
       processed: true,
+    })
+    expect(publishMessageEventFromConversation).not.toHaveBeenCalled()
+  })
+
+  it('publishes lead-owned message status updates to lead realtime listeners', async () => {
+    prismaMocks.message.findFirst.mockResolvedValueOnce({
+      id: 'msg_lead_1',
+      conversationId: null,
+      leadId: 'lead_1',
+      direction: 'OUTBOUND',
+      channel: 'SMS',
+    })
+
+    const res = await postStatus({ MessageStatus: 'delivered' })
+
+    expect(res.status).toBe(200)
+    await vi.waitFor(() => {
+      expect(publishMessageEventFromLead).toHaveBeenCalledWith('lead_1', {
+        id: 'msg_lead_1',
+        direction: 'OUTBOUND',
+        channel: 'SMS',
+        eventType: 'message.status.updated',
+        twilioStatus: 'delivered',
+        twilioErrorCode: null,
+      })
     })
     expect(publishMessageEventFromConversation).not.toHaveBeenCalled()
   })

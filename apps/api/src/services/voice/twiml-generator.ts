@@ -110,6 +110,13 @@ export interface TwimlVoicemailOptions {
   finishOnKey?: string
 }
 
+export interface TwimlUnknownCallerGateOptions {
+  /** Webhook URL that receives the pressed digit. */
+  actionUrl: string
+  /** Seconds to wait for one DTMF digit. */
+  timeout?: number
+}
+
 // ============================================
 // INCOMING CALL TWIML GENERATORS
 // ============================================
@@ -120,7 +127,13 @@ export interface TwimlVoicemailOptions {
  * Includes recording settings for inbound call recordings
  */
 export function generateIncomingTwiml(options: TwimlIncomingOptions): string {
-  const { staffIdentities, timeout, dialCompleteUrl, record = true, recordingStatusCallback } = options
+  const {
+    staffIdentities,
+    timeout,
+    dialCompleteUrl,
+    record = true,
+    recordingStatusCallback,
+  } = options
 
   // Build Dial attributes
   const dialAttrs: string[] = [
@@ -151,6 +164,25 @@ export function generateIncomingTwiml(options: TwimlIncomingOptions): string {
   <Dial ${dialAttrs.join(' ')}>
 ${clientNouns}
   </Dial>
+</Response>`
+}
+
+export function generateUnknownCallerGateTwiml(options: TwimlUnknownCallerGateOptions): string {
+  const timeout = options.timeout ?? 5
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather input="dtmf" numDigits="1" timeout="${timeout}" action="${escapeXml(options.actionUrl)}" method="POST">
+    <Say voice="Polly.Joanna" language="en-US">Please press 1 to connect your call.</Say>
+  </Gather>
+  <Hangup />
+</Response>`
+}
+
+export function generateInvalidGateTwiml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Hangup />
 </Response>`
 }
 

@@ -21,10 +21,13 @@ export {
 // TwiML generator - incoming calls
 export {
   generateIncomingTwiml,
+  generateUnknownCallerGateTwiml,
+  generateInvalidGateTwiml,
   generateNoStaffTwiml,
   generateVoicemailTwiml,
   generateVoicemailCompleteTwiml,
   type TwimlIncomingOptions,
+  type TwimlUnknownCallerGateOptions,
   type TwimlVoicemailOptions,
 } from './twiml-generator'
 
@@ -33,8 +36,17 @@ export {
   findConversationByPhone,
   createPlaceholderConversation,
   recordMissedInboundCall,
+  recordRingingInboundCall,
+  recordVoicemailInboundCall,
   formatVoicemailDuration,
   isValidE164Phone,
   sanitizePhone,
   sanitizeRecordingDuration,
 } from './voicemail-helpers'
+
+// Lead call helpers
+export {
+  createLeadInboundCallMessage,
+  updateLeadCallMessageBySid,
+  upsertLeadMissedCallMessage,
+} from './lead-call-helpers'

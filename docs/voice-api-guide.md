@@ -1,12 +1,12 @@
 # Voice API & Recording Playback Guide
 
-**Last Updated:** 2026-01-22
-**Status:** Phase 02 Complete (Incoming Call Routing)
+**Last Updated:** 2026-07-02
+**Status:** Phase 02 Complete (Incoming Call Routing + Unknown Call Gate)
 **Architecture Version:** 8.4.0
 
 ## Overview
 
-Complete voice calling system: browser-based outbound calls (Phase 01-02) + incoming call routing to staff browsers (Phase 02) + recording playback (Phase 03). Backend manages Twilio integration, frontend handles user interaction. All UI Vietnamese-first with secure proxy for recording access. Incoming calls ring multiple staff browsers or route to voicemail if no staff online.
+Complete voice calling system: browser-based outbound calls (Phase 01-02) + incoming call routing to staff browsers (Phase 02) + recording playback (Phase 03). Backend manages Twilio integration, frontend handles user interaction. All UI Vietnamese-first with secure proxy for recording access. Incoming calls from known clients and leads ring staff browsers directly, while unknown callers must press 1 before staff ring or placeholder client creation.
 
 ## Backend Architecture
 
@@ -24,7 +24,7 @@ Complete voice calling system: browser-based outbound calls (Phase 01-02) + inco
 - XML response for Twilio call routing
 - **Outbound:** Includes recording config: `<Record>` with CallSid callback
 - **Incoming:** Rings multiple staff browser clients via `<Client>` nouns (max 10, parallel)
-- **Voicemail:** Vietnamese prompts with `<Say>` (Google Wavenet-A voice) + `<Record>` (120s max)
+- **Incoming no-answer:** English `<Say>` prompts with Polly.Joanna + `<Hangup>`; no incoming voicemail `<Record>` while voicemail recording is disabled
 - Status callback for call completion webhook
 
 ### Voice Routes (`apps/api/src/routes/voice/index.ts`)
@@ -99,29 +99,42 @@ Authentication: Twilio credentials used server-side (never exposed to client)
 - Input: From (caller phone), To (Twilio number), CallSid
 - Flow:
   1. Resolve organization from called Twilio number
-  2. Lookup customer by phone number within resolved organization
-  3. Get online eligible staff via StaffPresence.isOnline=true
-  4. If no staff online: Return no-staff hangup/missed-call TwiML
-  5. If staff online: Create INBOUND call message with status='ringing', return TwiML to ring staff browsers
+  2. Lookup client first, then non-converted lead by caller phone
+  3. Known client: ring eligible client staff directly and keep conversation-owned CALL history
+  4. Known lead: ring admins/managers directly and keep lead-owned CALL history
+  5. Unknown caller: return press-1 `<Gather>` and exit before staff lookup or placeholder creation
 - Returns: TwiML with `<Dial>` containing `<Client>` nouns for staff device IDs (max 10 parallel)
 - Staff device format: "staff_{staffId}" (from StaffPresence.deviceId)
 - Ring timeout: 30 seconds (RING_TIMEOUT_SECONDS constant)
+
+**POST /webhooks/twilio/voice/unknown-gate**
+- Triggered: Twilio callback after unknown caller press-1 prompt
+- Input: Digits, From, To/calledNumber, CallSid
+- Flow:
+  1. If Digits is not `1`: return hangup TwiML, create nothing
+  2. Validate caller phone and resolve organization again from called number
+  3. Get online staff via StaffPresence.isOnline=true
+  4. If no staff online: create missed-call conversation record and return no-staff hangup TwiML without SMS textback
+  5. If staff online: create placeholder conversation/call record and ring staff browsers
+- Signature validation remains required in production
 
 **POST /webhooks/twilio/voice/dial-complete** (Phase 02 NEW)
 - Triggered: After ring timeout or call answer/end
 - Input: DialCallStatus (completed|answered|no-answer|busy|failed), CallSid
 - Flow:
   1. If status='completed|answered': Call was answered, return empty TwiML
-  2. Otherwise: Route to voicemail, return voicemail TwiML
-- Updates: Message callStatus to call status or voicemail message content
+  2. Otherwise: update the existing lead-owned or conversation-owned call message by CallSid
+  3. Return no-answer hangup TwiML
+- Updates: Message callStatus to the terminal call status and missed-call content
 - Signature validation (HMAC)
 
 **POST /webhooks/twilio/voice/voicemail-recording** (Phase 02 NEW)
 - Triggered: Voicemail recording completion (after customer speaks)
 - Input: RecordingSid, RecordingUrl, CallSid, RecordingDuration
 - Flow:
-  1. Find Message by CallSid
+  1. Find lead-owned or conversation-owned Message by CallSid
   2. Store RecordingUrl + RecordingDuration + update callStatus='voicemail'
+  3. If no message exists for an approved unknown caller, create one in the caller conversation
 - Updates: Message.recordingUrl, recordingDuration, callStatus
 - Returns: JSON acknowledgment { received: true, processed: true }
 - Signature validation (HMAC)
@@ -183,37 +196,35 @@ function generateIncomingTwiml(options: TwimlIncomingOptions): string
 - timeout triggers dial-complete webhook if no answer
 - Parallel dial: All staff browsers ring simultaneously
 
-### generateNoStaffTwiml() - Voicemail (No Staff Online)
+### generateNoStaffTwiml() - No Staff Online
 
-**Purpose:** Play message + record voicemail when no staff available
+**Purpose:** Play an unavailable message and hang up when no staff are available. Incoming voicemail recording is currently disabled.
 
 **Signature:**
 ```typescript
 function generateNoStaffTwiml(options: TwimlVoicemailOptions): string
   interface TwimlVoicemailOptions {
-    voicemailCallbackUrl: string
+    voicemailCallbackUrl: string  // accepted for compatibility; unused while voicemail is disabled
     maxLength?: number        // Max seconds (default 120)
   }
 ```
 
-**Vietnamese Messages:**
-- Say: "Xin chào, hiện không có nhân viên trực. Xin vui lòng để lại tin nhắn sau tiếng bíp."
-- After recording: "Không nhận được tin nhắn. Tạm biệt."
-- Voice: Google Translate text-to-speech (vi-VN-Wavenet-A)
+**Messages:**
+- Say: "Hello, no staff members are currently available. Please call back later. Thank you."
+- Voice: Polly.Joanna
 
-### generateVoicemailTwiml() - Voicemail (Dial Timeout)
+### generateVoicemailTwiml() - No Answer (Dial Timeout)
 
-**Purpose:** Play message + record voicemail after ring timeout
+**Purpose:** Play an unavailable message and hang up after ring timeout. Incoming voicemail recording is currently disabled.
 
 **Signature:**
 ```typescript
 function generateVoicemailTwiml(options: TwimlVoicemailOptions): string
 ```
 
-**Vietnamese Messages:**
-- Say: "Nhân viên của chúng tôi hiện không thể nhận cuộc gọi. Xin vui lòng để lại tin nhắn sau tiếng bíp."
-- After recording: "Không nhận được tin nhắn. Tạm biệt."
-- Same voice engine as generateNoStaffTwiml()
+**Messages:**
+- Say: "Our staff cannot take your call right now. Please call back later. Thank you."
+- Voice: Polly.Joanna
 
 **Differences:**
 - generateNoStaffTwiml: Used when no staff online at call arrival
@@ -339,7 +350,8 @@ ${API_BASE_URL}/voice/recordings/:recordingSid/audio
 
 **Call-Related Fields:**
 - `channel: 'CALL'` - Message channel type
-- `direction: 'OUTBOUND'` - Call direction
+- `direction: 'OUTBOUND' | 'INBOUND'` - Call direction
+- `conversationId` or `leadId` - Inbound calls belong to either a client conversation or lead thread
 - `callSid: String?` - Twilio CallSid (set by webhook)
 - `recordingUrl: String?` - Twilio CDN URL (set by recording webhook)
 - `recordingDuration: Int?` - Duration in seconds (set by recording webhook)
@@ -375,10 +387,11 @@ ${API_BASE_URL}/voice/recordings/:recordingSid/audio
 
 **Incoming Call Flow:**
 1. Customer calls Twilio number → `/webhooks/twilio/voice/incoming` triggered
-2. Webhook queries: `StaffPresence.findMany({ where: { isOnline: true } })`
-3. Builds staff device IDs: `["staff_123", "staff_456"]`
-4. Passes to `generateIncomingTwiml()` to ring all online staff browsers
-5. First staff to answer connects; others' rings stop (answerOnBridge="true")
+2. Webhook resolves the organization from the called Twilio number and looks up client first, then active lead
+3. Known client: ring eligible client staff and preserve conversation-owned CALL history
+4. Known lead: ring admins/managers and preserve lead-owned CALL history
+5. Unknown caller: return `<Gather>` asking for `1`; only `/webhooks/twilio/voice/unknown-gate` with `Digits=1` may create the placeholder/ring staff
+6. First staff to answer connects; others' rings stop (answerOnBridge="true")
 
 ## Security
 
@@ -485,6 +498,18 @@ ${API_BASE_URL}/voice/recordings/:recordingSid/audio
 - Format validation: Invalid RecordingSid rejected
 - Error recovery: Network failures handled gracefully
 
+## Rollout QA
+
+Before production rollout, verify these against the deployed API URL configured in Twilio:
+
+- Twilio Voice webhook still targets `/webhooks/twilio/voice/incoming`.
+- `TWILIO_WEBHOOK_BASE_URL` exactly matches the public deployed API host used by Twilio signature validation.
+- Unknown caller does not press `1`: no staff ring and no `New Caller` placeholder.
+- Unknown caller presses `1`: staff rings, or if no staff answer/are online, the placeholder missed-call hangup flow works.
+- Known lead caller: no prompt, staff rings, and Lead Messages stores missed-call state or recording state when available.
+- Known client caller: existing client Messages call behavior still works.
+- Monitor API logs for Twilio signature failures and repeated non-`1` gate callbacks after deploy.
+
 ## Troubleshooting
 
 ### Recording Not Playing
@@ -563,18 +588,18 @@ ${API_BASE_URL}/voice/recordings/:recordingSid/audio
 - Recording webhook uses transaction for find + update
 
 **Call Routing Logic:**
-1. Incoming call → lookup customer by phone (From)
-2. Get online staff (StaffPresence.isOnline=true)
-3. If online: Ring all staff browsers (parallel dial, max 10)
-4. If offline: Go directly to voicemail
-5. After 30s timeout: Update call status + route to voicemail
-6. Recording webhook: Store voicemail URL + duration
+1. Incoming call → resolve organization by called number and lookup client, then active lead by caller phone
+2. Known client → ring eligible client staff, persist conversation-owned call history
+3. Known lead → ring admins/managers, persist lead-owned call history
+4. Unknown caller → ask for `1` with `<Gather>` before staff lookup or placeholder creation
+5. Approved unknown caller → create placeholder conversation/call record, ring staff, or return no-staff hangup TwiML
+6. After 30s timeout: update call status + return no-answer hangup TwiML
+7. Recording webhook: store recording URL + duration on the lead-owned or conversation-owned message when Twilio sends a recording callback
 
-**Vietnamese Voicemail Messages:**
-- Google Wavenet-A voice (high quality, natural)
-- Beep notification before recording
-- Timeout confirmation message
-- All messages in vi-VN locale
+**Incoming No-Answer Messages:**
+- Polly.Joanna voice
+- No incoming voicemail `<Record>` is emitted while voicemail recording is disabled
+- Caller hears a short unavailable message, then the call hangs up
 
 ## Next Steps
 

@@ -6,7 +6,7 @@
 
 ## Overview
 
-Phase 3.2 implements a unified message inbox for workspace staff, allowing centralized management of all client conversations across SMS, portal, and system channels. The feature uses a split-view layout with real-time polling for live updates.
+Phase 3.2 implements a unified message inbox for workspace staff, allowing centralized management of all client conversations across SMS, portal, and system channels. Lead conversations remain separate under `/leads/messages/conversations`. The feature uses a split-view layout with real-time polling for live updates.
 
 ## Architecture
 
@@ -16,7 +16,7 @@ Phase 3.2 implements a unified message inbox for workspace staff, allowing centr
 
 #### Endpoints (7 new/enhanced)
 
-1. **GET /messages/conversations** - List all conversations
+1. **GET /messages/conversations** - List client/case conversations
    - Returns paginated list of conversations
    - Includes last message preview, unread counts, client info
    - Filters: `unreadOnly` (boolean), pagination (page, limit)
@@ -154,7 +154,7 @@ if (conversation.unreadCount > 0) {
 **Store:** `apps/workspace/src/lib/api-client.ts`
 
 - Centralized API client with type-safe methods
-- Methods: `messages.listConversations()`, `messages.list()`, `messages.send()`
+- Methods: `messages.listConversations()`, `messages.list()`, `messages.send()`; lead conversations use `leads.messages.listConversations()`
 - Returns typed responses matching database schema
 
 ## UI/UX Design

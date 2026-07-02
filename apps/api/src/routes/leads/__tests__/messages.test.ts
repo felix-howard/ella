@@ -13,6 +13,7 @@ vi.mock('../../../lib/db', () => ({
   prisma: {
     lead: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       updateMany: vi.fn(),
     },
     message: {
@@ -21,6 +22,7 @@ vi.mock('../../../lib/db', () => ({
       count: vi.fn(),
       create: vi.fn(),
       createMany: vi.fn(),
+      update: vi.fn(),
     },
     action: {
       updateMany: vi.fn(),
@@ -30,6 +32,7 @@ vi.mock('../../../lib/db', () => ({
       create: vi.fn(),
     },
     $transaction: vi.fn(),
+    $queryRaw: vi.fn(),
   },
 }))
 
@@ -155,8 +158,330 @@ function expectNoSensitiveLeadLeak(payload: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(prisma.$queryRaw).mockReset()
   vi.mocked(prisma.smsSendLog.findMany).mockResolvedValue([] as never)
   vi.mocked(prisma.action.updateMany).mockResolvedValue({ count: 0 } as never)
+  vi.mocked(prisma.lead.findMany).mockResolvedValue([] as never)
+  vi.mocked(prisma.$queryRaw).mockResolvedValue([] as never)
+})
+
+describe('GET /leads/messages/conversations', () => {
+  function getRawQueryText(callIndex: number): string {
+    return vi.mocked(prisma.$queryRaw).mock.calls[callIndex]
+      .map((part) => {
+        if (Array.isArray(part)) return part.join('')
+        if (part && typeof part === 'object' && 'strings' in part) {
+          return Array.from((part as { strings: string[] }).strings).join('')
+        }
+        return String(part)
+      })
+      .join('')
+  }
+
+  function mockConversationQueries(input: {
+    backfillRows?: Array<{
+      leadId: string
+      message: string
+      status: string
+      twilioSid: string | null
+      error: string | null
+      sentById: string
+      sentAt: Date
+    }>
+    rows?: Array<{ leadId: string; lastMessageAt: Date }>
+    total?: bigint
+    unreadRows?: Array<{ leadId: string; unreadCount: bigint }>
+    totalUnread?: bigint
+  } = {}) {
+    vi.mocked(prisma.$queryRaw)
+      .mockResolvedValueOnce((input.backfillRows ?? []) as never)
+      .mockResolvedValueOnce((input.rows ?? [{ leadId: VALID_LEAD_CUID, lastMessageAt: NOW }]) as never)
+      .mockResolvedValueOnce([{ total: input.total ?? 1n }] as never)
+      .mockResolvedValueOnce((input.unreadRows ?? [{ leadId: VALID_LEAD_CUID, unreadCount: 2n }]) as never)
+      .mockResolvedValueOnce([{ totalUnread: input.totalUnread ?? 3n }] as never)
+  }
+
+  function mockConversationLead(messageOverrides: Record<string, unknown> = {}) {
+    vi.mocked(prisma.lead.findMany).mockResolvedValueOnce([
+      {
+        id: VALID_LEAD_CUID,
+        firstName: 'Andy',
+        lastName: 'Nguyen',
+        phone: '+15551234567',
+        status: 'NEW',
+        campaignTag: 'tax-fair',
+        tags: ['tax-fair'],
+        messages: [leadMessage(messageOverrides)],
+      },
+    ] as never)
+  }
+
+  it('returns org-scoped active lead conversations with unread totals and CALL fields', async () => {
+    mockConversationQueries()
+    mockConversationLead({
+      id: 'm_call',
+      channel: 'CALL',
+      direction: 'INBOUND',
+      content: 'Incoming call',
+      callSid: 'CA123',
+      recordingUrl: 'https://api.twilio.com/recordings/RE123.mp3',
+      recordingDuration: 42,
+      callStatus: 'completed',
+    })
+
+    const res = await buildApp().request('/leads/messages/conversations?page=1&limit=10&unreadOnly=true')
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      conversations: Array<{
+        unreadCount: number
+        lead: { id: string; name: string; phone: string; campaignTag: string | null; tags: string[] }
+        lastMessage: {
+          channel: string
+          callSid?: string
+          recordingUrl?: string
+          recordingDuration?: number
+          callStatus?: string
+          attachmentR2Keys?: string[]
+        } | null
+      }>
+      totalUnread: number
+      pagination: { total: number; page: number; limit: number; totalPages: number }
+    }
+
+    expect(body.totalUnread).toBe(3)
+    expect(body.pagination).toEqual({ page: 1, limit: 10, total: 1, totalPages: 1 })
+    expect(body.conversations[0]?.unreadCount).toBe(2)
+    expect(body.conversations[0]?.lead).toMatchObject({
+      id: VALID_LEAD_CUID,
+      name: 'Andy Nguyen',
+      phone: '+15551234567',
+      campaignTag: 'tax-fair',
+      tags: ['tax-fair'],
+    })
+    expect(body.conversations[0]?.lastMessage).toMatchObject({
+      channel: 'CALL',
+      callSid: 'CA123',
+      recordingUrl: 'https://api.twilio.com/recordings/RE123.mp3',
+      recordingDuration: 42,
+      callStatus: 'completed',
+    })
+    expect(body.conversations[0]?.lastMessage).not.toHaveProperty('attachmentR2Keys')
+    expect(vi.mocked(prisma.lead.findMany)).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        id: { in: [VALID_LEAD_CUID] },
+        organizationId: 'org_1',
+        status: { not: 'CONVERTED' },
+      },
+    }))
+    const pageQuery = getRawQueryText(1)
+    const countQuery = getRawQueryText(2)
+    for (const sql of [pageQuery, countQuery]) {
+      expect(sql).toContain('INNER JOIN "Message" m ON m."leadId" = l.id')
+      expect(sql).toContain('WHERE l."organizationId" =')
+      expect(sql).toContain("AND l.status != 'CONVERTED'")
+      expect(sql).toContain('HAVING COUNT(m.id) FILTER')
+    }
+    expect(pageQuery).toContain('ORDER BY MAX(m."createdAt") DESC, l.id ASC')
+    expect(pageQuery).toContain('OFFSET')
+    expect(pageQuery).toContain('LIMIT')
+  })
+
+  it('redacts manager last-message content and returns only lead media proxy URLs', async () => {
+    mockConversationQueries()
+    mockConversationLead({
+      id: 'm_quote',
+      content: QUOTE_LINK_CONTENT,
+      templateUsed: 'quote_pay_link',
+      staffAuthoredContent: 'Please review the $7,000 quote and pay link.',
+      attachmentUrls: ['https://r2.example/signed'],
+      attachmentR2Keys: ['lead-message-attachments/org_1/lead_1/SM123/0.jpg'],
+    })
+
+    const res = await buildApp({ role: 'MANAGER', orgRole: 'org:member' })
+      .request('/leads/messages/conversations')
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      conversations: Array<{
+        lastMessage: {
+          content: string
+          staffAuthoredContent?: string | null
+          attachmentUrls?: string[]
+          attachmentR2Keys?: string[]
+        } | null
+      }>
+    }
+
+    expect(body.conversations[0]?.lastMessage?.content).toBe('A payment link was sent to the client.')
+    expect(body.conversations[0]?.lastMessage?.staffAuthoredContent).toBeNull()
+    expect(body.conversations[0]?.lastMessage?.attachmentUrls).toEqual([
+      `/leads/${VALID_LEAD_CUID}/messages/media/m_quote/0`,
+    ])
+    expect(body.conversations[0]?.lastMessage).not.toHaveProperty('attachmentR2Keys')
+    expectNoSensitiveLeadLeak(body)
+  })
+
+  it('normalizes lead call preview content so managers never receive raw caller phones', async () => {
+    mockConversationQueries()
+    mockConversationLead({
+      id: 'm_call_phone',
+      channel: 'CALL',
+      direction: 'INBOUND',
+      content: 'Incoming call from +15551112222',
+      callStatus: 'ringing',
+    })
+
+    const res = await buildApp({ role: 'MANAGER', orgRole: 'org:member' })
+      .request('/leads/messages/conversations')
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      conversations: Array<{ lastMessage: { content: string } | null }>
+    }
+    expect(body.conversations[0]?.lastMessage?.content).toBe('Incoming call')
+    expect(JSON.stringify(body)).not.toContain('+15551112222')
+  })
+
+  it('returns an empty page without loading lead rows when no conversations match', async () => {
+    mockConversationQueries({
+      rows: [],
+      total: 0n,
+      unreadRows: [],
+      totalUnread: 0n,
+    })
+
+    const res = await buildApp().request('/leads/messages/conversations')
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      conversations: unknown[]
+      totalUnread: number
+      pagination: { total: number }
+    }
+    expect(body.conversations).toEqual([])
+    expect(body.totalUnread).toBe(0)
+    expect(body.pagination.total).toBe(0)
+    expect(vi.mocked(prisma.lead.findMany)).not.toHaveBeenCalled()
+  })
+
+  it('backfills active-org legacy SmsSendLog rows before listing conversations', async () => {
+    const sentAt = new Date('2026-04-24T09:55:00Z')
+    const legacyBackfillRow = {
+      leadId: VALID_LEAD_CUID,
+      message: 'legacy bulk sms',
+      status: 'SENT',
+      twilioSid: 'SM_LEGACY',
+      error: null,
+      sentById: 'staff_1',
+      sentAt,
+    }
+    vi.mocked(prisma.$queryRaw)
+      .mockResolvedValueOnce([legacyBackfillRow] as never)
+      .mockResolvedValueOnce([{ leadId: VALID_LEAD_CUID, lastMessageAt: sentAt }] as never)
+      .mockResolvedValueOnce([{ total: 1n }] as never)
+      .mockResolvedValueOnce([{ leadId: VALID_LEAD_CUID, unreadCount: 0n }] as never)
+      .mockResolvedValueOnce([{ totalUnread: 0n }] as never)
+    mockConversationLead({ id: 'm_legacy', content: 'legacy bulk sms', createdAt: sentAt, updatedAt: sentAt })
+
+    const res = await buildApp().request('/leads/messages/conversations')
+
+    expect(res.status).toBe(200)
+    const backfillQuery = getRawQueryText(0)
+    expect(backfillQuery).toContain('FROM "SmsSendLog" s')
+    expect(backfillQuery).toContain('INNER JOIN "Lead" l ON l.id = s."leadId"')
+    expect(backfillQuery).toContain('LEFT JOIN "Message" existing ON existing."twilioSid" = s."twilioSid"')
+    expect(backfillQuery).toContain('WHERE s."organizationId" =')
+    expect(backfillQuery).toContain("AND l.status != 'CONVERTED'")
+    expect(backfillQuery).toContain('AND existing.id IS NULL')
+    expect(backfillQuery).toContain('LIMIT')
+    expect(vi.mocked(prisma.message.createMany)).toHaveBeenCalledWith({
+      data: [{
+        leadId: VALID_LEAD_CUID,
+        channel: 'SMS',
+        direction: 'OUTBOUND',
+        content: 'legacy bulk sms',
+        twilioSid: 'SM_LEGACY',
+        twilioStatus: 'sent',
+        sentById: 'staff_1',
+        createdAt: sentAt,
+      }],
+      skipDuplicates: true,
+    })
+  })
+
+  it('preserves undelivered legacy SmsSendLog status during conversation backfill', async () => {
+    const sentAt = new Date('2026-04-24T09:55:00Z')
+    vi.mocked(prisma.$queryRaw)
+      .mockResolvedValueOnce([{
+        leadId: VALID_LEAD_CUID,
+        message: 'legacy failed sms',
+        status: 'UNDELIVERED',
+        twilioSid: 'SM_UNDELIVERED',
+        error: 'Carrier rejected message',
+        sentById: 'staff_1',
+        sentAt,
+      }] as never)
+      .mockResolvedValueOnce([{ leadId: VALID_LEAD_CUID, lastMessageAt: sentAt }] as never)
+      .mockResolvedValueOnce([{ total: 1n }] as never)
+      .mockResolvedValueOnce([{ leadId: VALID_LEAD_CUID, unreadCount: 0n }] as never)
+      .mockResolvedValueOnce([{ totalUnread: 0n }] as never)
+    mockConversationLead({ id: 'm_legacy', content: 'legacy failed sms', twilioStatus: 'undelivered' })
+
+    const res = await buildApp().request('/leads/messages/conversations')
+
+    expect(res.status).toBe(200)
+    expect(vi.mocked(prisma.message.createMany)).toHaveBeenCalledWith({
+      data: [{
+        leadId: VALID_LEAD_CUID,
+        channel: 'SMS',
+        direction: 'OUTBOUND',
+        content: 'legacy failed sms',
+        twilioSid: 'SM_UNDELIVERED',
+        twilioStatus: 'undelivered',
+        sentById: 'staff_1',
+        createdAt: sentAt,
+      }],
+      skipDuplicates: true,
+    })
+  })
+
+  it('sanitizes failed legacy SmsSendLog errors during conversation backfill', async () => {
+    const sentAt = new Date('2026-04-24T09:55:00Z')
+    vi.mocked(prisma.$queryRaw)
+      .mockResolvedValueOnce([{
+        leadId: VALID_LEAD_CUID,
+        message: 'legacy failed sms',
+        status: 'FAILED',
+        twilioSid: 'SM_FAILED',
+        error: 'TWILIO_ERROR_21211: Invalid To +15551112222',
+        sentById: 'staff_1',
+        sentAt,
+      }] as never)
+      .mockResolvedValueOnce([{ leadId: VALID_LEAD_CUID, lastMessageAt: sentAt }] as never)
+      .mockResolvedValueOnce([{ total: 1n }] as never)
+      .mockResolvedValueOnce([{ leadId: VALID_LEAD_CUID, unreadCount: 0n }] as never)
+      .mockResolvedValueOnce([{ totalUnread: 0n }] as never)
+    mockConversationLead({ id: 'm_legacy', content: 'legacy failed sms', twilioStatus: 'ERROR: SMS provider error 21211' })
+
+    const res = await buildApp().request('/leads/messages/conversations')
+
+    expect(res.status).toBe(200)
+    expect(vi.mocked(prisma.message.createMany)).toHaveBeenCalledWith({
+      data: [{
+        leadId: VALID_LEAD_CUID,
+        channel: 'SMS',
+        direction: 'OUTBOUND',
+        content: 'legacy failed sms',
+        twilioSid: 'SM_FAILED',
+        twilioStatus: 'ERROR: SMS provider error 21211',
+        sentById: 'staff_1',
+        createdAt: sentAt,
+      }],
+      skipDuplicates: true,
+    })
+    expect(JSON.stringify(vi.mocked(prisma.message.createMany).mock.calls[0][0])).not.toContain('+15551112222')
+  })
 })
 
 describe('GET /leads/:id/messages', () => {
@@ -245,6 +570,26 @@ describe('GET /leads/:id/messages', () => {
     ])
   })
 
+  it('normalizes lead call detail content so managers never receive raw caller phones', async () => {
+    mockLeadMessages([
+      leadMessage({
+        id: 'm_call_phone',
+        direction: 'INBOUND',
+        channel: 'CALL',
+        content: 'Incoming call from +15551112222',
+        callStatus: 'no-answer',
+      }),
+    ])
+
+    const res = await buildApp({ role: 'MANAGER', orgRole: 'org:member' })
+      .request(`/leads/${VALID_LEAD_CUID}/messages`)
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { messages: Array<{ content: string }> }
+    expect(body.messages[0]?.content).toBe('Missed call')
+    expect(JSON.stringify(body)).not.toContain('+15551112222')
+  })
+
   it('returns paginated messages for an org-owned lead', async () => {
     vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({ id: VALID_LEAD_CUID } as never)
     vi.mocked(prisma.message.findMany).mockResolvedValueOnce([
@@ -272,6 +617,41 @@ describe('GET /leads/:id/messages', () => {
       where: { id: VALID_LEAD_CUID, organizationId: 'org_1' },
       select: { id: true },
     })
+  })
+
+  it('returns the latest message window in chronological display order', async () => {
+    vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({ id: VALID_LEAD_CUID } as never)
+    vi.mocked(prisma.message.findMany).mockResolvedValueOnce([
+      leadMessage({
+        id: 'm51',
+        content: 'newest',
+        createdAt: new Date('2026-04-24T10:51:00Z'),
+        updatedAt: new Date('2026-04-24T10:51:00Z'),
+      }),
+      leadMessage({
+        id: 'm50',
+        content: 'older',
+        createdAt: new Date('2026-04-24T10:50:00Z'),
+        updatedAt: new Date('2026-04-24T10:50:00Z'),
+      }),
+    ] as never)
+    vi.mocked(prisma.message.count).mockResolvedValueOnce(51)
+
+    const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/messages?latest=true&limit=50`)
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      messages: Array<{ id: string }>
+      pagination: { page: number; limit: number; total: number; totalPages: number }
+    }
+    expect(body.messages.map((message) => message.id)).toEqual(['m50', 'm51'])
+    expect(body.pagination).toEqual({ page: 2, limit: 50, total: 51, totalPages: 2 })
+    expect(vi.mocked(prisma.message.findMany)).toHaveBeenCalledWith(expect.objectContaining({
+      where: { leadId: VALID_LEAD_CUID },
+      take: 50,
+      orderBy: { createdAt: 'desc' },
+    }))
+    expect(vi.mocked(prisma.message.findMany).mock.calls[0][0]).not.toHaveProperty('skip')
   })
 
   it('resolves staff avatar R2 keys before returning lead chat messages', async () => {
@@ -335,6 +715,7 @@ describe('GET /leads/:id/messages', () => {
     vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({ id: VALID_LEAD_CUID } as never)
     vi.mocked(prisma.smsSendLog.findMany).mockResolvedValueOnce([
       {
+        leadId: VALID_LEAD_CUID,
         message: 'legacy bulk sms',
         status: 'SENT',
         twilioSid: 'SM_LEGACY',
@@ -379,6 +760,101 @@ describe('GET /leads/:id/messages', () => {
       }],
       skipDuplicates: true,
     })
+  })
+
+  it('preserves undelivered legacy SmsSendLog status during detail backfill', async () => {
+    const sentAt = new Date('2026-04-24T09:55:00Z')
+    vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({ id: VALID_LEAD_CUID } as never)
+    vi.mocked(prisma.smsSendLog.findMany).mockResolvedValueOnce([
+      {
+        leadId: VALID_LEAD_CUID,
+        message: 'legacy failed sms',
+        status: 'UNDELIVERED',
+        twilioSid: 'SM_UNDELIVERED',
+        error: 'Carrier rejected message',
+        sentById: 'staff_1',
+        sentAt,
+      },
+    ] as never)
+    vi.mocked(prisma.message.findMany)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        leadMessage({
+          id: 'm_undelivered',
+          content: 'legacy failed sms',
+          twilioSid: 'SM_UNDELIVERED',
+          twilioStatus: 'undelivered',
+          createdAt: sentAt,
+          updatedAt: sentAt,
+        }),
+      ] as never)
+    vi.mocked(prisma.message.createMany).mockResolvedValueOnce({ count: 1 } as never)
+    vi.mocked(prisma.message.count).mockResolvedValueOnce(1)
+
+    const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/messages`)
+
+    expect(res.status).toBe(200)
+    expect(vi.mocked(prisma.message.createMany)).toHaveBeenCalledWith({
+      data: [{
+        leadId: VALID_LEAD_CUID,
+        channel: 'SMS',
+        direction: 'OUTBOUND',
+        content: 'legacy failed sms',
+        twilioSid: 'SM_UNDELIVERED',
+        twilioStatus: 'undelivered',
+        sentById: 'staff_1',
+        createdAt: sentAt,
+      }],
+      skipDuplicates: true,
+    })
+  })
+
+  it('sanitizes failed legacy SmsSendLog errors during detail backfill', async () => {
+    const sentAt = new Date('2026-04-24T09:55:00Z')
+    vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({ id: VALID_LEAD_CUID } as never)
+    vi.mocked(prisma.smsSendLog.findMany).mockResolvedValueOnce([
+      {
+        leadId: VALID_LEAD_CUID,
+        message: 'legacy failed sms',
+        status: 'FAILED',
+        twilioSid: 'SM_FAILED',
+        error: 'TWILIO_ERROR_21211: Invalid To +15551112222',
+        sentById: 'staff_1',
+        sentAt,
+      },
+    ] as never)
+    vi.mocked(prisma.message.findMany)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        leadMessage({
+          id: 'm_failed',
+          content: 'legacy failed sms',
+          twilioSid: 'SM_FAILED',
+          twilioStatus: 'ERROR: SMS provider error 21211',
+          createdAt: sentAt,
+          updatedAt: sentAt,
+        }),
+      ] as never)
+    vi.mocked(prisma.message.createMany).mockResolvedValueOnce({ count: 1 } as never)
+    vi.mocked(prisma.message.count).mockResolvedValueOnce(1)
+
+    const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/messages`)
+
+    expect(res.status).toBe(200)
+    expect(vi.mocked(prisma.message.createMany)).toHaveBeenCalledWith({
+      data: [{
+        leadId: VALID_LEAD_CUID,
+        channel: 'SMS',
+        direction: 'OUTBOUND',
+        content: 'legacy failed sms',
+        twilioSid: 'SM_FAILED',
+        twilioStatus: 'ERROR: SMS provider error 21211',
+        sentById: 'staff_1',
+        createdAt: sentAt,
+      }],
+      skipDuplicates: true,
+    })
+    expect(JSON.stringify(vi.mocked(prisma.message.createMany).mock.calls[0][0])).not.toContain('+15551112222')
   })
 
   it('cross-org access returns 404 (not 403) — matrix row 9', async () => {
@@ -499,20 +975,20 @@ describe('POST /leads/:id/messages/send', () => {
     })
   })
 
-  it('persists Message with ERROR status when Twilio send fails (no rollback — staff-visible failure)', async () => {
+  it('persists Message with safe ERROR status when Twilio send fails (no rollback — staff-visible failure)', async () => {
     vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({
       id: VALID_LEAD_CUID,
       phone: '+15551234567',
     } as never)
     vi.mocked(sendSmsOnly).mockResolvedValueOnce({
       success: false,
-      error: 'TWILIO_RATE_LIMIT',
+      error: 'TWILIO_ERROR_21211: Invalid To +15551234567',
     } as never)
     vi.mocked(prisma.$transaction).mockResolvedValueOnce([
       {
         id: 'm_failed',
         leadId: VALID_LEAD_CUID,
-        twilioStatus: 'ERROR: TWILIO_RATE_LIMIT',
+        twilioStatus: 'ERROR: SMS provider error 21211',
         twilioSid: null,
         createdAt: new Date('2026-04-24T10:02:00Z'),
         updatedAt: new Date('2026-04-24T10:02:00Z'),
@@ -528,20 +1004,23 @@ describe('POST /leads/:id/messages/send', () => {
     expect(res.status).toBe(201)
     const body = (await res.json()) as { sent: boolean; error?: string }
     expect(body.sent).toBe(false)
-    expect(body.error).toBe('TWILIO_RATE_LIMIT')
+    expect(body.error).toBe('SMS provider error 21211')
+    expect(JSON.stringify(body)).not.toContain('+15551234567')
     // Message row STILL created — staff sees the failed attempt in the thread.
     expect(vi.mocked(prisma.message.create).mock.calls[0][0]).toMatchObject({
       data: expect.objectContaining({
-        twilioStatus: 'ERROR: TWILIO_RATE_LIMIT',
+        twilioStatus: 'ERROR: SMS provider error 21211',
         twilioSid: null,
       }),
     })
     expect(vi.mocked(prisma.smsSendLog.create).mock.calls[0][0]).toMatchObject({
       data: expect.objectContaining({
         status: 'FAILED',
-        error: 'TWILIO_RATE_LIMIT',
+        error: 'SMS provider error 21211',
       }),
     })
+    expect(JSON.stringify(vi.mocked(prisma.message.create).mock.calls[0][0])).not.toContain('+15551234567')
+    expect(JSON.stringify(vi.mocked(prisma.smsSendLog.create).mock.calls[0][0])).not.toContain('+15551234567')
   })
 
   it('cross-org send returns 404', async () => {

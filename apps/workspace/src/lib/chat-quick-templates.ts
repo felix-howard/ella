@@ -26,8 +26,8 @@ const LEAD_TEMPLATES: QuickTemplate[] = [
   {
     key: 'lead-send-nda',
     icon: 'file-text',
-    labelKey: 'chat.templates.sendNdaLink',
-    text: 'Please review and sign the NDA: ',
+    labelKey: 'chat.templates.ndaReminder',
+    text: 'Please let me know if you are ready for us to send the NDA.',
   },
   {
     key: 'lead-follow-up',

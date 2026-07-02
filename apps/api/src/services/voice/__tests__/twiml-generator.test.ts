@@ -6,6 +6,8 @@ import { describe, it, expect } from 'vitest'
 import {
   generateTwimlVoiceResponse,
   generateEmptyTwimlResponse,
+  generateUnknownCallerGateTwiml,
+  generateInvalidGateTwiml,
   type TwimlVoiceOptions,
 } from '../twiml-generator'
 
@@ -38,6 +40,40 @@ describe('TwiML Voice Response Generator', () => {
     it('should have proper XML declaration', () => {
       const result = generateEmptyTwimlResponse()
       expect(result).toMatch(/^<\?xml version="1\.0" encoding="UTF-8"\?>/)
+    })
+  })
+
+  describe('unknown caller gate TwiML', () => {
+    it('generates a one-digit DTMF gather with action callback', () => {
+      const result = generateUnknownCallerGateTwiml({
+        actionUrl:
+          'https://api.example.test/webhooks/twilio/voice/unknown-gate?calledNumber=%2B15550000001',
+      })
+
+      expect(result).toContain('<Gather')
+      expect(result).toContain('input="dtmf"')
+      expect(result).toContain('numDigits="1"')
+      expect(result).toContain('timeout="5"')
+      expect(result).toContain('method="POST"')
+      expect(result).toContain('<Hangup />')
+    })
+
+    it('escapes XML special characters in the gate action URL', () => {
+      const result = generateUnknownCallerGateTwiml({
+        actionUrl: 'https://example.test/gate?called=<bad>&name="test"',
+      })
+
+      expect(result).toContain('&lt;bad&gt;')
+      expect(result).toContain('&amp;name=')
+      expect(result).toContain('&quot;test&quot;')
+    })
+
+    it('hangs up invalid gate attempts without dialing', () => {
+      const result = generateInvalidGateTwiml()
+
+      expect(result).toContain('<Response>')
+      expect(result).toContain('<Hangup />')
+      expect(result).not.toContain('<Dial')
     })
   })
 

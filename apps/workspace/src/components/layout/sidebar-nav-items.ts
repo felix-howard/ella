@@ -2,6 +2,7 @@ import {
   KeyRound,
   LayoutDashboard,
   Megaphone,
+  MessageCircle,
   MessageSquare,
   Settings,
   Users,
@@ -19,6 +20,7 @@ const BASE_NAV_ITEMS = [
 // Visible to ADMIN + MANAGER (client/lead management tier)
 const MANAGEMENT_NAV_ITEMS = [
   { path: '/leads', i18nKey: 'nav.leads', icon: Megaphone },
+  { path: '/lead-messages', i18nKey: 'nav.leadMessages', icon: MessageCircle },
 ] as const satisfies readonly NavItem[]
 
 // Visible to ADMIN only (payment links and payment history)

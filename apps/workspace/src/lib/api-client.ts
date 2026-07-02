@@ -2258,8 +2258,18 @@ export const api = {
 
     // Two-way Staff ↔ Lead SMS (polymorphic Message.leadId)
     messages: {
+      listConversations: (params?: { page?: number; limit?: number; unreadOnly?: boolean }) =>
+        request<LeadConversationsResponse>('/leads/messages/conversations', { params }),
+
       list: (leadId: string, params?: { page?: number; limit?: number }) =>
         request<LeadMessagesResponse>(`/leads/${leadId}/messages`, { params }),
+
+      listLatest: async (leadId: string, params?: { limit?: number }) => {
+        const limit = params?.limit ?? 50
+        return request<LeadMessagesResponse>(`/leads/${leadId}/messages`, {
+          params: { page: 1, limit, latest: true },
+        })
+      },
 
       send: (leadId: string, data: { content: string; channel?: 'SMS' }) =>
         request<LeadMessageSendResponse>(`/leads/${leadId}/messages/send`, {
@@ -3661,6 +3671,34 @@ export interface LeadMessageSendResponse {
   sent: boolean
   smsEnabled: boolean
   error?: string
+}
+
+export interface LeadConversation {
+  leadId: string
+  unreadCount: number
+  lastMessageAt: string | null
+  lead: {
+    id: string
+    firstName: string
+    lastName: string
+    name: string
+    phone: string
+    status: LeadStatus
+    campaignTag: string | null
+    tags: string[]
+  }
+  lastMessage: Message | null
+}
+
+export interface LeadConversationsResponse {
+  conversations: LeadConversation[]
+  totalUnread: number
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
 }
 
 // Conversation type for unified inbox

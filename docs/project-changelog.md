@@ -5,6 +5,25 @@
 
 ---
 
+### Lead Messages and Unknown Call Gate Final Validation
+**Status:** Complete with production Twilio QA pending
+
+**Changed:**
+- Added final docs for the unknown voice caller press-1 gate: known clients keep client/case call behavior, known leads bypass the gate and persist lead-owned CALL history, and unknown callers create no placeholder unless they press `1`.
+- Documented the dedicated Workspace `/lead-messages` inbox and kept `/messages` client/case-only.
+- Added rollout QA checks for Twilio webhook URL, `TWILIO_WEBHOOK_BASE_URL`, signature failures, non-`1` gate callbacks, known lead calls, known client calls, and approved unknown callers.
+- Fixed review findings before finalizing: lead CALL serializers now normalize call content so old raw-phone rows cannot leak to managers, lead history supports a backend `latest=true` window to avoid partial-page truncation, legacy `UNDELIVERED` SMS backfills no longer look sent, and failed legacy/live SMS provider errors are sanitized before manager-visible `twilioStatus` or API response fields.
+- Confirmed no database migration or destructive DB action was needed.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/webhooks/__tests__/twilio-voice-incoming.test.ts` pass, 23 tests
+- `pnpm -F @ella/api test -- src/routes/leads/__tests__/messages.test.ts src/services/sms/__tests__/lead-inbound-handler.test.ts` pass, 40 tests
+- `pnpm -F @ella/workspace test -- messages realtime lead` pass, 23 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass; workspace 3183 keys and portal 534 keys in parity
+- Manual production-like Twilio call QA not run locally; keep as deploy rollout step.
+
 ### Calculator Agreement Payment Link Phase 6
 **Status:** Complete
 
@@ -206,8 +225,9 @@
 **Status:** Complete with rollout QA pending
 
 **Changed:**
-- Completed final documentation sync for lead-owned messages, `LEAD_REPLIED` actions, lead MMS storage/proxy behavior, generic lead web push, and rollout/rollback expectations.
-- Kept lead conversations out of `/messages`; lead reply visibility remains in Leads nav/list/detail, Actions, lead activity, and generic push.
+- Completed final documentation sync for lead-owned messages, the new `GET /leads/messages/conversations` inbox summaries, `LEAD_REPLIED` actions, lead MMS storage/proxy behavior, generic lead web push, and rollout/rollback expectations.
+- Added bounded legacy lead SMS backfill: up to 500 missing lead Message rows per request are repaired from `SmsSendLog` via anti-join on `Message.twilioSid` before the inbox query returns.
+- Kept lead conversations out of `/messages`; lead reply visibility remains in Leads nav/list/detail, the lead inbox route, Actions, lead activity, and generic push.
 - Fixed stale `bulk-sms.test.ts` Prisma mocks after `GET /leads` started using `$queryRaw`, and added the new `messages: []` fixture shape required by lead detail responses.
 
 **Validation:**

@@ -17,6 +17,7 @@ export type NavItemPath =
   | '/'
   | '/clients'
   | '/messages'
+  | '/lead-messages'
   | '/leads'
   | '/pricing-calculator'
   | '/company-vault'
@@ -100,9 +101,9 @@ export function SidebarContent({
           const isActive = item.path === '/' ? currentPath === '/' : currentPath.startsWith(item.path)
           const Icon = item.icon
           const isMessages = item.path === '/messages'
-          const isLeads = item.path === '/leads'
-          const badgeCount = isMessages ? unreadCount : isLeads ? leadUnreadCount : 0
-          const badgeLabel = isLeads ? 'sidebar.unreadLeadReplies' : 'sidebar.unreadMessages'
+          const isLeadMessages = item.path === '/lead-messages'
+          const badgeCount = isMessages ? unreadCount : isLeadMessages ? leadUnreadCount : 0
+          const badgeLabel = isLeadMessages ? 'sidebar.unreadLeadReplies' : 'sidebar.unreadMessages'
           const showBadge = badgeCount > 0
 
           return (
@@ -122,7 +123,7 @@ export function SidebarContent({
                 <span
                   className={cn(
                     'bg-destructive text-white text-xs font-medium rounded-full min-w-[18px] h-[18px] flex items-center justify-center',
-                    isLeads && 'bg-success',
+                    isLeadMessages && 'bg-success',
                     isCollapsedDesktop ? 'absolute top-0.5 right-0.5 px-1' : 'ml-auto px-1.5'
                   )}
                   aria-label={t(badgeLabel, { count: badgeCount })}

@@ -134,6 +134,30 @@ const DOC_TYPE_FIELD_GROUPS_DATA: Record<string, Array<{ key: string; labelKey: 
       fields: ['bankName', 'routingNumber', 'accountNumber'],
     },
   ],
+  CREDIT_CARD_STATEMENT: [
+    {
+      key: 'statement',
+      labelKey: 'fieldGroup.statementSummary',
+      icon: CreditCard,
+      fields: [
+        'issuerName',
+        'accountHolderName',
+        'accountNumber',
+        'statementPeriodStart',
+        'statementPeriodEnd',
+        'previousBalance',
+        'payments',
+        'purchases',
+        'credits',
+        'fees',
+        'interestCharged',
+        'endingBalance',
+        'minimumPaymentDue',
+        'paymentDueDate',
+        'creditLimit',
+      ],
+    },
+  ],
   FORM_1040: [
     {
       key: 'taxpayer',

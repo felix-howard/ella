@@ -110,6 +110,7 @@ enum DocType {
 
   // Business Documents
   BANK_STATEMENT
+  CREDIT_CARD_STATEMENT
   PROFIT_LOSS_STATEMENT
   BALANCE_SHEET
   BUSINESS_LICENSE
@@ -385,6 +386,7 @@ enum EngagementStatus {
 enum DocCategory {
   IDENTITY // Giay to tuy than: SSN, DL, PASSPORT
   INCOME // Thu nhap: W2, all 1099 variants, K-1
+  BANK_CARD_STATEMENTS // Bank/card statements for bookkeeping
   TAX_RETURNS // Khai thue: 1040 family, state returns, transcripts
   EXPENSE // Chi phi: RECEIPT, INVOICE
   ASSET // Tai san: property, vehicle docs

@@ -19,6 +19,7 @@ import {
   Minus,
   User,
   Coins,
+  CreditCard,
   Building2,
   Paperclip,
   type LucideIcon,
@@ -28,6 +29,7 @@ import {
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
   User,
   Coins,
+  CreditCard,
   FileText,
   Building2,
   Paperclip,

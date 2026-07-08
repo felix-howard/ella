@@ -1,9 +1,30 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-30 ICT
+> **Last Updated:** 2026-07-08 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### Bank/Card Statements Category
+**Status:** Complete
+
+**Changed:**
+- Added first-class `BANK_CARD_STATEMENTS` document category displayed as `Bank/Card Statements` in Workspace Files.
+- Added `CREDIT_CARD_STATEMENT` doc type and routed `BANK_STATEMENT`, `CREDIT_CARD_STATEMENT`, and `FOREIGN_BANK_STATEMENT` into the new category for new uploads and manual classification.
+- Added dedicated credit-card statement OCR prompt/validation/field labels for summary-level bookkeeping fields.
+- Fixed manual reclassification checklist bookkeeping so the previous checklist item is marked missing when its last linked image moves away.
+- Kept true income docs in `INCOME` and intentionally did not backfill existing `RawImage.category` rows.
+
+**Validation:**
+- Migration `20260707160411_add_bank_card_statements_category` reviewed as additive enum SQL only; no `UPDATE`, `DELETE`, `DROP`, or backfill.
+- `pnpm -F @ella/db generate`, `pnpm -F @ella/db type-check`, `pnpm -F @ella/api type-check`, `pnpm -F @ella/workspace type-check`, `pnpm -F @ella/portal type-check`, `pnpm i18n:check`, `pnpm type-check`, and `git diff --check` pass.
+- Targeted API tests pass: classifier prompts, document classifier, OCR extractor, OCR validation/index, OCR pipeline, docs manual classification route, Workspace `/images` classification/category routes, and classify-document job.
+- Targeted Workspace tests pass: document taxonomy UI and verification modal PDF regression.
+
+**Rollout Notes:**
+- Deploy DB migration before API/workspace code that writes `BANK_CARD_STATEMENTS`.
+- Existing files stay in their current folders unless staff manually moves or reclassifies them.
+- Manual sample upload smoke with real Gemini/R2/dev servers remains rollout QA.
 
 ### Lead Messages and Unknown Call Gate Final Validation
 **Status:** Complete with production Twilio QA pending

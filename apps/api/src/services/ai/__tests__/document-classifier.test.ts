@@ -148,6 +148,24 @@ describe('classifyDocument', () => {
     expect(result.alternativeTypes?.length).toBeGreaterThan(0)
   })
 
+  it('routes credit card statements to bank/card statements category', async () => {
+    mockAnalyzeImage.mockResolvedValueOnce({
+      success: true,
+      data: {
+        docType: 'CREDIT_CARD_STATEMENT',
+        confidence: 0.9,
+        reasoning: 'Monthly card statement with balance, minimum payment, and due date',
+      },
+    })
+
+    const buffer = createTestImageBuffer()
+    const result = await classifyDocument(buffer, 'image/jpeg')
+
+    expect(result.success).toBe(true)
+    expect(result.docType).toBe('CREDIT_CARD_STATEMENT')
+    expect(result.category).toBe('BANK_CARD_STATEMENTS')
+  })
+
   it('tracks processing time', async () => {
     mockAnalyzeImage.mockResolvedValueOnce({
       success: true,
@@ -233,6 +251,10 @@ describe('requiresOcrExtraction', () => {
     expect(requiresOcrExtraction('FORM_1099_INT')).toBe(true)
     expect(requiresOcrExtraction('FORM_1099_NEC')).toBe(true)
     expect(requiresOcrExtraction('FORM_1099_R')).toBe(true)
+  })
+
+  it('returns true for credit card statements', () => {
+    expect(requiresOcrExtraction('CREDIT_CARD_STATEMENT')).toBe(true)
   })
 
   it('returns true for ID documents', () => {

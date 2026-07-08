@@ -13,6 +13,7 @@
 export type DocCategory =
   | 'IDENTITY'
   | 'INCOME'
+  | 'BANK_CARD_STATEMENTS'
   | 'TAX_RETURNS'
   | 'EXPENSE'
   | 'ASSET'
@@ -87,6 +88,7 @@ export type DocType =
   | 'FORM_8332'
   // Business Documents
   | 'BANK_STATEMENT'
+  | 'CREDIT_CARD_STATEMENT'
   | 'PROFIT_LOSS_STATEMENT'
   | 'BALANCE_SHEET'
   | 'BUSINESS_LICENSE'
@@ -399,8 +401,12 @@ export const DOC_TYPE_TO_CATEGORY: Record<DocType, DocCategory> = {
   FORM_8995: 'TAX_RETURNS',
   FORM_8995_A: 'TAX_RETURNS',
 
+  // BANK_CARD_STATEMENTS - Bank/card statements for bookkeeping
+  BANK_STATEMENT: 'BANK_CARD_STATEMENTS',
+  CREDIT_CARD_STATEMENT: 'BANK_CARD_STATEMENTS',
+  FOREIGN_BANK_STATEMENT: 'BANK_CARD_STATEMENTS',
+
   // OTHER - Business documents and miscellaneous
-  BANK_STATEMENT: 'OTHER',
   PROFIT_LOSS_STATEMENT: 'OTHER',
   BALANCE_SHEET: 'OTHER',
   BUSINESS_LICENSE: 'OTHER',
@@ -417,7 +423,6 @@ export const DOC_TYPE_TO_CATEGORY: Record<DocType, DocCategory> = {
   SALES_TAX_REPORT: 'OTHER',
   PRIOR_YEAR_RETURN: 'OTHER',
   IRS_NOTICE: 'OTHER',
-  FOREIGN_BANK_STATEMENT: 'OTHER',
   FOREIGN_TAX_STATEMENT: 'OTHER',
   FBAR_SUPPORT_DOCS: 'OTHER',
   FORM_8938: 'OTHER',
@@ -451,6 +456,7 @@ export function getCategoryFromDocType(docType: DocType | string | null | undefi
 export const CATEGORY_LABELS: Record<DocCategory, string> = {
   IDENTITY: 'Giấy tờ tùy thân',
   INCOME: 'Thu nhập',
+  BANK_CARD_STATEMENTS: 'Bank/Card Statements',
   TAX_RETURNS: 'Khai Thuế',
   EXPENSE: 'Chi phí',
   ASSET: 'Tài sản',
@@ -465,6 +471,7 @@ export const CATEGORY_LABELS: Record<DocCategory, string> = {
 export const CATEGORY_ORDER: DocCategory[] = [
   'IDENTITY',
   'INCOME',
+  'BANK_CARD_STATEMENTS',
   'TAX_RETURNS',
   'EXPENSE',
   'ASSET',

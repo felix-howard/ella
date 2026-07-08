@@ -159,13 +159,14 @@ async function extractFromImage(
     }
   }
 
-  const isValid = validateExtractedData(docType, result.data)
-  const confidence = calculateConfidence(result.data, docType)
+  const extractedData = sanitizeExtractedData(docType, result.data)
+  const isValid = validateExtractedData(docType, extractedData)
+  const confidence = calculateConfidence(extractedData, docType)
 
   return {
     success: true,
     docType,
-    extractedData: result.data,
+    extractedData,
     confidence,
     isValid,
     fieldLabels: getFieldLabels(docType),
@@ -205,19 +206,64 @@ async function extractFromPdf(
     }
   }
 
-  const isValid = validateExtractedData(docType, result.data)
-  const confidence = calculateConfidence(result.data, docType)
+  const extractedData = sanitizeExtractedData(docType, result.data)
+  const isValid = validateExtractedData(docType, extractedData)
+  const confidence = calculateConfidence(extractedData, docType)
 
   return {
     success: true,
     docType,
-    extractedData: result.data,
+    extractedData,
     confidence,
     isValid,
     fieldLabels: getFieldLabels(docType),
     pageCount: 1, // Gemini processes entire PDF at once
     processingTimeMs: Date.now() - startTime,
   }
+}
+
+function sanitizeExtractedData(
+  docType: string,
+  data: Record<string, unknown>
+): Record<string, unknown> {
+  if (docType !== 'CREDIT_CARD_STATEMENT') return data
+
+  return sanitizeCreditCardStatementData(data)
+}
+
+function sanitizeCreditCardStatementData(data: Record<string, unknown>): Record<string, unknown> {
+  return {
+    issuerName: data.issuerName ?? null,
+    accountHolderName: data.accountHolderName ?? null,
+    accountNumber: sanitizeAccountNumber(data.accountNumber),
+    statementPeriodStart: data.statementPeriodStart ?? null,
+    statementPeriodEnd: data.statementPeriodEnd ?? null,
+    previousBalance: data.previousBalance ?? null,
+    payments: data.payments ?? null,
+    purchases: data.purchases ?? null,
+    credits: data.credits ?? null,
+    fees: data.fees ?? null,
+    interestCharged: data.interestCharged ?? null,
+    endingBalance: data.endingBalance ?? null,
+    minimumPaymentDue: data.minimumPaymentDue ?? null,
+    paymentDueDate: data.paymentDueDate ?? null,
+    creditLimit: data.creditLimit ?? null,
+  }
+}
+
+function sanitizeAccountNumber(value: unknown): string | null {
+  if (typeof value === 'string') return maskCardNumber(value)
+  if (typeof value === 'number' && Number.isFinite(value)) return maskCardNumber(String(value))
+  if (typeof value === 'bigint') return maskCardNumber(String(value))
+  return null
+}
+
+function maskCardNumber(value: string): string {
+  const digits = value.replace(/\D/g, '')
+  if (digits.length >= 13 && digits.length <= 19) {
+    return `****${digits.slice(-4)}`
+  }
+  return value
 }
 
 /**
@@ -246,6 +292,7 @@ function calculateConfidence(data: Record<string, unknown>, docType: string): nu
     SCHEDULE_D: ['netShortTermGainLoss', 'netLongTermGainLoss', 'totalCapitalGainLoss'],
     SCHEDULE_E: ['totalNetRentalIncome', 'totalScheduleEIncome', 'combinedIncome'],
     BANK_STATEMENT: ['bankName', 'accountNumber', 'beginningBalance', 'endingBalance'],
+    CREDIT_CARD_STATEMENT: ['issuerName', 'accountNumber', 'endingBalance', 'minimumPaymentDue'],
     SSN_CARD: ['fullName', 'ssn'],
     DRIVER_LICENSE: ['fullName', 'licenseNumber', 'expirationDate'],
     FORM_1040: ['adjustedGrossIncome', 'totalTax', 'taxableIncome', 'taxpayerSSN'],

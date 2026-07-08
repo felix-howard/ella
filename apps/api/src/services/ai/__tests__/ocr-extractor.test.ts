@@ -323,6 +323,67 @@ describe('extractDocumentData - New Document Types', () => {
       expect(result.docType).toBe('BANK_STATEMENT')
       expect(result.extractedData?.bankName).toBe('Chase Bank')
     })
+
+    it('extracts CREDIT_CARD_STATEMENT data successfully', async () => {
+      mockGetPrompt.mockReturnValue('Extract credit card statement data...')
+      const mockCreditCardData = {
+        issuerName: 'Chase',
+        accountHolderName: 'ABC Nail Salon LLC',
+        accountNumber: 4111111111111234,
+        cardNumber: '4111111111111234',
+        statementPeriodStart: '01/01/2024',
+        statementPeriodEnd: '01/31/2024',
+        previousBalance: 1200,
+        payments: 1000,
+        purchases: 2450.75,
+        credits: 125,
+        fees: 39,
+        interestCharged: 18.42,
+        endingBalance: 2583.17,
+        minimumPaymentDue: 75,
+        paymentDueDate: '02/25/2024',
+        creditLimit: 10000,
+      }
+      mockAnalyzeImage.mockResolvedValueOnce({ success: true, data: mockCreditCardData })
+
+      const result = await extractDocumentData(createTestImageBuffer(), 'image/jpeg', 'CREDIT_CARD_STATEMENT')
+
+      expect(result.success).toBe(true)
+      expect(result.docType).toBe('CREDIT_CARD_STATEMENT')
+      expect(result.extractedData?.issuerName).toBe('Chase')
+      expect(result.extractedData?.accountNumber).toBe('****1234')
+      expect(result.extractedData).not.toHaveProperty('cardNumber')
+    })
+
+    it('masks numeric CREDIT_CARD_STATEMENT account numbers from PDF extraction', async () => {
+      mockGetPrompt.mockReturnValue('Extract credit card statement data...')
+      mockAnalyzeImage.mockResolvedValueOnce({
+        success: true,
+        data: {
+          issuerName: 'Chase',
+          accountHolderName: 'ABC Nail Salon LLC',
+          accountNumber: 4111111111111234,
+          statementPeriodStart: '01/01/2024',
+          statementPeriodEnd: '01/31/2024',
+          previousBalance: 1200,
+          payments: 1000,
+          purchases: 2450.75,
+          credits: 125,
+          fees: 39,
+          interestCharged: 18.42,
+          endingBalance: 2583.17,
+          minimumPaymentDue: 75,
+          paymentDueDate: '02/25/2024',
+          creditLimit: 10000,
+        },
+      })
+
+      const result = await extractDocumentData(Buffer.from('%PDF-test'), 'application/pdf', 'CREDIT_CARD_STATEMENT')
+
+      expect(result.success).toBe(true)
+      expect(result.docType).toBe('CREDIT_CARD_STATEMENT')
+      expect(result.extractedData?.accountNumber).toBe('****1234')
+    })
   })
 
   describe('Phase 3 - Priority 2 OCR Types', () => {

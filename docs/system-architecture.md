@@ -535,7 +535,7 @@ Organization (root entity)
 - **StaffFile** - org-scoped staff upload record for personal documents and invoices. Fields: organizationId, staffId, uploadedByStaffId, kind (PERSONAL_DOCUMENT|INVOICE), title, category, originalFilename, mimeType, fileSize, r2Key (unique), checksumSha256, invoiceYear, invoiceMonth, invoiceStatus, replacedById, isActive, reviewedByStaffId, reviewedAt, paidAt, adminNote, deletedAt, deletedByStaffId. Contract: invoice rows require invoiceYear/invoiceMonth/invoiceStatus and invoiceMonth 1-12; personal documents must not carry invoice metadata or paidAt. Indexes: organizationId+staffId+kind, organizationId+kind+invoiceYear+invoiceMonth. Storage keys use `staff-files/{org}/{staff}/documents/{uuid}.{ext}` or `staff-files/{org}/{staff}/invoices/{yyyy-mm}/{uuid}.{ext}` and storage logs redact `staff-files/...` keys.
 - **FilingBatch** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). taxYear, status (PENDING|SUBMITTED|PROCESSING|ACCEPTED|PARTIALLY_ACCEPTED|REJECTED), TaxBandits submission tracking (taxbanditsSubmissionId, submittedAt, acceptedAt, rejectedAt, rejectionReason), form counts (totalForms, acceptedForms, rejectedForms), e-file settings (tinCheckEnabled, uspsEnabled, eDeliveryEnabled).
 - **ContractorIntakeToken** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). Public intake form token for contractors. token (unique), taxYear, isActive (default true), expiresAt (optional TTL). Indexes: token (unique), clientId+isActive.
-- **RawImage** - Classification states, AI confidence, perceptual hash, re-upload tracking, relationships to documentViews, documentGroupId FK (Phase 2/3 multi-page grouping), pageNumber (Phase 3 page order detection), aiMetadata JSON (Phase 1 metadata extraction: taxpayerName, ssn4, pageMarker with currentPage/totalPages, continuationMarker). Phase 01 Entity Routing: entityConfidence (AI confidence 0-1 for entity detection), routedFromCaseId (audit trail for docs re-routed to correct ClientGroup member, indexed for fast lookups)
+- **RawImage** - Classification states, AI confidence, category, perceptual hash, re-upload tracking, relationships to documentViews, documentGroupId FK (Phase 2/3 multi-page grouping), pageNumber (Phase 3 page order detection), aiMetadata JSON (Phase 1 metadata extraction: taxpayerName, ssn4, pageMarker with currentPage/totalPages, continuationMarker). `BANK_CARD_STATEMENTS` is a first-class category for new bank, credit-card, and foreign-bank statement uploads; existing rows are not backfilled. Phase 01 Entity Routing: entityConfidence (AI confidence 0-1 for entity detection), routedFromCaseId (audit trail for docs re-routed to correct ClientGroup member, indexed for fast lookups)
 - **DocumentView** - Staff document view tracking (staffId + rawImageId unique composite). Tracks which staff members viewed which RawImage documents with timestamp (viewedAt). Enables per-CPA "new upload" badge calculations and document engagement metrics.
 - **DocumentGroup** - Phase 2/3 multi-page document grouping: baseName (base filename), documentType (identified type), pageCount (pages in group), confidence (AI confidence), images relation (array of RawImages). Indexes: caseId, caseId+createdAt. Phase 3 Enhancement: sortDocumentsByPageMarker() orders docs by extracted pageMarker.currentPage with fallback to upload order. validatePageSequence() checks for gaps and duplicates in page ordering.
 - **DigitalDoc** - OCR extracted fields
@@ -1476,6 +1476,7 @@ Frontend Hook (useOrgRole)
 - Retry logic: 3 attempts, exponential backoff
 - Batch processing: 3 concurrent images
 - Classification: Multi-class tax form detection (180+ types)
+- Bank/card statement category contract: `BANK_STATEMENT`, `CREDIT_CARD_STATEMENT`, and `FOREIGN_BANK_STATEMENT` map to `BANK_CARD_STATEMENTS`; W-2, 1099, K-1, retirement, and other true income docs remain `INCOME`.
 - OCR: ~120 document types via map-based routing (O(1) lookup)
   - Phase 1: Generic fallback extractor (handles any document type)
   - Phase 2: 16 additional 1099 variants (1099-B/C/S/SA/Q/A/OID/LTC/PATR/CAP/H/LS/QA/SB + RRB variants)
@@ -1510,7 +1511,7 @@ apps/api/src/services/ai/
 ├── prompts/
 │   ├── classify.ts - Classification + SmartRename prompts
 │   ├── address-parser.ts - US address parsing (structured extraction for contractors)
-│   └── ocr/ - 49 form-specific extraction prompts: form-1040.ts, schedules 1-8812 (2,3,a,b,c,d,e,8812,eic,f,h,j,r,se), 1099 variants (25+), w2, k-1, bank-statement, ssn-dl, generic-extractor.ts (fallback)
+│   └── ocr/ - 50 form-specific extraction prompts: form-1040.ts, schedules 1-8812 (2,3,a,b,c,d,e,8812,eic,f,h,j,r,se), 1099 variants (25+), w2, k-1, bank-statement, credit-card-statement, ssn-dl, generic-extractor.ts (fallback)
 └── __tests__/ (Phase 10 Testing)
     ├── 1099-variants.test.ts - 8 tests for Form 1099 variants
     ├── k1-health-education.test.ts - 8 tests for K-1 and health forms

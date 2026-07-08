@@ -130,7 +130,14 @@ describe('getClassificationPrompt', () => {
 
     it('lists business documents', () => {
       expect(prompt).toContain('BANK_STATEMENT')
+      expect(prompt).toContain('CREDIT_CARD_STATEMENT')
       expect(prompt).toContain('SCHEDULE_K1')
+    })
+
+    it('distinguishes credit card statements from 1099-K and bank statements', () => {
+      expect(prompt).toContain('FORM_1099_K vs CREDIT_CARD_STATEMENT')
+      expect(prompt).toContain('CREDIT_CARD_STATEMENT vs BANK_STATEMENT')
+      expect(prompt).toContain('minimum payment')
     })
   })
 
@@ -360,6 +367,7 @@ describe('SUPPORTED_DOC_TYPES', () => {
 
   it('includes all required business documents', () => {
     expect(SUPPORTED_DOC_TYPES).toContain('BANK_STATEMENT')
+    expect(SUPPORTED_DOC_TYPES).toContain('CREDIT_CARD_STATEMENT')
     expect(SUPPORTED_DOC_TYPES).toContain('PROFIT_LOSS_STATEMENT')
     expect(SUPPORTED_DOC_TYPES).toContain('BUSINESS_LICENSE')
     expect(SUPPORTED_DOC_TYPES).toContain('EIN_LETTER')

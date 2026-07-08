@@ -10,19 +10,19 @@ import {
   getFieldLabels,
 } from '../../prompts/ocr'
 
+const SUPPORTED_OCR_TYPES = [
+  'W2', 'FORM_1099_INT', 'FORM_1099_NEC', 'FORM_1099_K',
+  'FORM_1099_DIV', 'FORM_1099_R', 'FORM_1099_SSA', 'FORM_1099_G',
+  'FORM_1099_MISC', 'FORM_1098', 'FORM_1098_T', 'FORM_1095_A',
+  'SCHEDULE_K1', 'BANK_STATEMENT', 'CREDIT_CARD_STATEMENT', 'SSN_CARD', 'DRIVER_LICENSE',
+]
+
 // =============================================================================
 // getOcrPromptForDocType TESTS
 // =============================================================================
 describe('getOcrPromptForDocType', () => {
   it('returns prompt for all supported doc types', () => {
-    const supportedTypes = [
-      'W2', 'FORM_1099_INT', 'FORM_1099_NEC', 'FORM_1099_K',
-      'FORM_1099_DIV', 'FORM_1099_R', 'FORM_1099_SSA', 'FORM_1099_G',
-      'FORM_1099_MISC', 'FORM_1098', 'FORM_1098_T', 'FORM_1095_A',
-      'SCHEDULE_K1', 'BANK_STATEMENT', 'SSN_CARD', 'DRIVER_LICENSE',
-    ]
-
-    for (const docType of supportedTypes) {
+    for (const docType of SUPPORTED_OCR_TYPES) {
       const prompt = getOcrPromptForDocType(docType)
       expect(prompt).not.toBeNull()
       expect(typeof prompt).toBe('string')
@@ -43,14 +43,7 @@ describe('getOcrPromptForDocType', () => {
 // =============================================================================
 describe('supportsOcrExtraction', () => {
   it('returns true for all OCR-supported types', () => {
-    const supportedTypes = [
-      'W2', 'FORM_1099_INT', 'FORM_1099_NEC', 'FORM_1099_K',
-      'FORM_1099_DIV', 'FORM_1099_R', 'FORM_1099_SSA', 'FORM_1099_G',
-      'FORM_1099_MISC', 'FORM_1098', 'FORM_1098_T', 'FORM_1095_A',
-      'SCHEDULE_K1', 'BANK_STATEMENT', 'SSN_CARD', 'DRIVER_LICENSE',
-    ]
-
-    for (const docType of supportedTypes) {
+    for (const docType of SUPPORTED_OCR_TYPES) {
       expect(supportsOcrExtraction(docType)).toBe(true)
     }
   })
@@ -101,6 +94,66 @@ describe('validateExtractedData', () => {
     expect(validateExtractedData('FORM_1099_K', valid1099K)).toBe(true)
   })
 
+  it('validates credit card statement data correctly', () => {
+    const validCreditCardStatement = {
+      issuerName: 'Chase',
+      accountHolderName: 'ABC Nail Salon LLC',
+      accountNumber: '****1234',
+      statementPeriodStart: '01/01/2024',
+      statementPeriodEnd: '01/31/2024',
+      previousBalance: 1200,
+      payments: 1000,
+      purchases: 2450.75,
+      credits: 125,
+      fees: 39,
+      interestCharged: 18.42,
+      endingBalance: 2583.17,
+      minimumPaymentDue: 75,
+      paymentDueDate: '02/25/2024',
+      creditLimit: 10000,
+    }
+
+    expect(validateExtractedData('CREDIT_CARD_STATEMENT', validCreditCardStatement)).toBe(true)
+    expect(validateExtractedData('CREDIT_CARD_STATEMENT', {})).toBe(false)
+  })
+
+  it('rejects unmasked or malformed credit card statement data', () => {
+    const validBase = {
+      issuerName: 'Chase',
+      accountHolderName: 'ABC Nail Salon LLC',
+      accountNumber: '****1234',
+      statementPeriodStart: '01/01/2024',
+      statementPeriodEnd: '01/31/2024',
+      previousBalance: 1200,
+      payments: 1000,
+      purchases: 2450.75,
+      credits: 125,
+      fees: 39,
+      interestCharged: 18.42,
+      endingBalance: 2583.17,
+      minimumPaymentDue: 75,
+      paymentDueDate: '02/25/2024',
+      creditLimit: 10000,
+    }
+
+    expect(validateExtractedData('CREDIT_CARD_STATEMENT', {
+      ...validBase,
+      accountNumber: '4111111111111234',
+    })).toBe(false)
+    expect(validateExtractedData('CREDIT_CARD_STATEMENT', {
+      ...validBase,
+      accountNumber: 4111111111111234,
+    })).toBe(false)
+    expect(validateExtractedData('CREDIT_CARD_STATEMENT', {
+      ...validBase,
+      issuerName: ['Chase'],
+    })).toBe(false)
+    expect(validateExtractedData('CREDIT_CARD_STATEMENT', {
+      ...validBase,
+      endingBalance: Number.NaN,
+    })).toBe(false)
+  })
+
   it('validates with generic fallback for unknown doc types', () => {
     // Generic validator requires documentType + non-empty extractedFields
     const validGeneric = {
@@ -121,14 +174,7 @@ describe('validateExtractedData', () => {
 // =============================================================================
 describe('getFieldLabels', () => {
   it('returns Vietnamese labels for all supported types', () => {
-    const supportedTypes = [
-      'W2', 'FORM_1099_INT', 'FORM_1099_NEC', 'FORM_1099_K',
-      'FORM_1099_DIV', 'FORM_1099_R', 'FORM_1099_SSA', 'FORM_1099_G',
-      'FORM_1099_MISC', 'FORM_1098', 'FORM_1098_T', 'FORM_1095_A',
-      'SCHEDULE_K1', 'BANK_STATEMENT', 'SSN_CARD', 'DRIVER_LICENSE',
-    ]
-
-    for (const docType of supportedTypes) {
+    for (const docType of SUPPORTED_OCR_TYPES) {
       const labels = getFieldLabels(docType)
       expect(labels).toBeDefined()
       expect(typeof labels).toBe('object')

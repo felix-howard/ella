@@ -79,6 +79,8 @@ export const DOC_TYPE_LABELS: Record<string, string> = translatedLabels({
   FORM_1099_G: 'docType.form1099G',
   FORM_1099_SSA: 'docType.form1099Ssa',
   BANK_STATEMENT: 'docType.bankStatement',
+  CREDIT_CARD_STATEMENT: 'docType.creditCardStatement',
+  FOREIGN_BANK_STATEMENT: 'docType.foreignBankStatement',
   PROFIT_LOSS_STATEMENT: 'docType.profitLossStatement',
   BUSINESS_LICENSE: 'docType.businessLicense',
   EIN_LETTER: 'docType.einLetter',
@@ -108,13 +110,17 @@ const DOC_TYPE_CATEGORIES_DATA: Record<string, { labelKey: string; docTypes: str
     labelKey: 'docCategory.income',
     docTypes: ['W2', 'FORM_1099_INT', 'FORM_1099_DIV', 'FORM_1099_NEC', 'FORM_1099_MISC', 'FORM_1099_K', 'FORM_1099_R', 'FORM_1099_G', 'FORM_1099_SSA'],
   },
+  bankCardStatements: {
+    labelKey: 'docCategory.bankCardStatements',
+    docTypes: ['BANK_STATEMENT', 'CREDIT_CARD_STATEMENT', 'FOREIGN_BANK_STATEMENT'],
+  },
   deductions: {
     labelKey: 'docCategory.deductions',
     docTypes: ['FORM_1098', 'FORM_1098_T', 'RECEIPT', 'DAYCARE_RECEIPT'],
   },
   business: {
     labelKey: 'docCategory.business',
-    docTypes: ['PROFIT_LOSS_STATEMENT', 'BUSINESS_LICENSE', 'EIN_LETTER', 'BANK_STATEMENT'],
+    docTypes: ['PROFIT_LOSS_STATEMENT', 'BUSINESS_LICENSE', 'EIN_LETTER'],
   },
   other: {
     labelKey: 'docCategory.other',

@@ -99,6 +99,7 @@ export const CHECKLIST_STATUS_DISPLAY = new Proxy({} as ChecklistStatusDisplayTy
 export const CATEGORY_STYLES = {
   personal: { icon: 'User', color: 'text-emerald-600', bgColor: 'bg-transparent', borderColor: 'border-emerald-500/20' },
   income: { icon: 'Coins', color: 'text-emerald-600', bgColor: 'bg-transparent', borderColor: 'border-emerald-500/20' },
+  bankCardStatements: { icon: 'CreditCard', color: 'text-emerald-600', bgColor: 'bg-transparent', borderColor: 'border-emerald-500/20' },
   deductions: { icon: 'FileText', color: 'text-emerald-600', bgColor: 'bg-transparent', borderColor: 'border-emerald-500/20' },
   business: { icon: 'Building2', color: 'text-emerald-600', bgColor: 'bg-transparent', borderColor: 'border-emerald-500/20' },
   other: { icon: 'Paperclip', color: 'text-emerald-600', bgColor: 'bg-transparent', borderColor: 'border-emerald-500/20' },

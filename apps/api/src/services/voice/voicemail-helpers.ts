@@ -10,7 +10,7 @@ import { findOrCreateEngagement } from '../engagement-helpers'
 type TransactionClient = Prisma.TransactionClient
 type ConversationReference = { id: string }
 
-const MISSED_CALL_STATUSES = new Set(['no-answer', 'busy', 'failed', 'canceled'])
+const MISSED_CALL_STATUSES = new Set(['no-answer', 'busy', 'failed', 'canceled', 'voicemail'])
 
 // ============================================
 // VALIDATION HELPERS
@@ -63,10 +63,16 @@ function buildClientPhoneWhere(
   return {
     phone: { in: phoneCandidates },
     clientType: 'INDIVIDUAL',
-    ...(organizationId
-      ? { OR: [{ organizationId }, { organizationId: null }] }
-      : {}),
+    ...(organizationId ? { OR: [{ organizationId }, { organizationId: null }] } : {}),
   }
+}
+
+async function acquireCallSidLock(tx: TransactionClient, callSid?: string | null): Promise<void> {
+  if (!callSid?.trim()) return
+
+  await tx.$executeRaw`
+    SELECT pg_advisory_xact_lock(hashtext('ella_voice_call_sid'), hashtext(${callSid}))
+  `
 }
 
 /**
@@ -76,10 +82,7 @@ function buildClientPhoneWhere(
  * @param maxDuration - Maximum allowed duration in seconds
  * @returns Sanitized duration in seconds
  */
-export function sanitizeRecordingDuration(
-  raw: string | undefined,
-  maxDuration: number
-): number {
+export function sanitizeRecordingDuration(raw: string | undefined, maxDuration: number): number {
   const parsed = parseInt(raw || '0', 10)
   if (isNaN(parsed) || parsed < 0) return 0
   return Math.min(parsed, maxDuration)
@@ -138,6 +141,104 @@ export async function findConversationByPhone(
   return { id: client.taxCases[0].conversation.id }
 }
 
+async function findConversationByPhoneInTx(
+  tx: TransactionClient,
+  phone: string,
+  organizationId?: string | null
+): Promise<ConversationReference | null> {
+  if (!isValidE164Phone(phone)) {
+    return null
+  }
+
+  const client = await tx.client.findFirst({
+    where: buildClientPhoneWhere(phone, organizationId),
+    include: {
+      taxCases: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        include: { conversation: true },
+      },
+    },
+  })
+
+  if (!client?.taxCases[0]?.conversation) {
+    return null
+  }
+
+  return { id: client.taxCases[0].conversation.id }
+}
+
+async function createPlaceholderConversationInTx(
+  tx: TransactionClient,
+  phone: string,
+  organizationId?: string | null,
+  source?: 'INCOMING_SMS' | 'INCOMING_CALL'
+): Promise<ConversationReference> {
+  let client = await tx.client.findFirst({
+    where: buildClientPhoneWhere(phone, organizationId),
+    include: {
+      taxCases: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        include: { conversation: true },
+      },
+    },
+  })
+
+  if (client) {
+    if (organizationId && !client.organizationId) {
+      await tx.client.update({
+        where: { id: client.id },
+        data: { organizationId },
+      })
+    }
+  } else {
+    client = await tx.client.create({
+      data: {
+        firstName: 'New Caller',
+        lastName: ' ',
+        name: 'New Caller',
+        phone,
+        language: 'VI',
+        clientType: 'INDIVIDUAL',
+        ...(source ? { source } : {}),
+        ...(organizationId ? { organizationId } : {}),
+      },
+      include: {
+        taxCases: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: { conversation: true },
+        },
+      },
+    })
+  }
+
+  if (client.taxCases[0]?.conversation) {
+    return client.taxCases[0].conversation
+  }
+
+  const currentYear = new Date().getFullYear() - 1
+  const { engagementId } = await findOrCreateEngagement(tx, client.id, currentYear, null)
+
+  const taxCase = await tx.taxCase.create({
+    data: {
+      clientId: client.id,
+      taxYear: currentYear,
+      engagementId,
+      taxTypes: ['FORM_1040'],
+      status: 'INTAKE',
+    },
+  })
+
+  return await tx.conversation.create({
+    data: {
+      caseId: taxCase.id,
+      lastMessageAt: new Date(),
+    },
+  })
+}
+
 /**
  * Create placeholder client, tax case, and conversation for unknown caller
  * Used when voicemail is received from a number not in the system
@@ -151,95 +252,19 @@ export async function createPlaceholderConversation(
   organizationId?: string | null,
   source?: 'INCOMING_SMS' | 'INCOMING_CALL'
 ): Promise<ConversationReference> {
-  const result = await prisma.$transaction(async (tx: TransactionClient) => {
-    // Find existing individual client by phone, or create placeholder
-    let client = await tx.client.findFirst({
-      where: buildClientPhoneWhere(phone, organizationId),
-      include: {
-        taxCases: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-          include: { conversation: true },
-        },
-      },
-    })
-
-    if (client) {
-      // If client exists without org, associate with org now
-      if (organizationId && !client.organizationId) {
-        await tx.client.update({
-          where: { id: client.id },
-          data: { organizationId },
-        })
-      }
-    } else {
-      client = await tx.client.create({
-        data: {
-          firstName: 'New Caller',
-          lastName: ' ',
-          name: 'New Caller',
-          phone,
-          language: 'VI',
-          clientType: 'INDIVIDUAL',
-          ...(source ? { source } : {}),
-          ...(organizationId ? { organizationId } : {}),
-        },
-        include: {
-          taxCases: {
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-            include: { conversation: true },
-          },
-        },
-      })
-    }
-
-    // If client already has a conversation, return it
-    if (client.taxCases[0]?.conversation) {
-      return client.taxCases[0].conversation
-    }
-
-    // Create tax case for previous year (e.g., texting in 2026 → tax year 2025)
-    const currentYear = new Date().getFullYear() - 1
-
-    // Find or create engagement for this client + year
-    const { engagementId } = await findOrCreateEngagement(
-      tx,
-      client.id,
-      currentYear,
-      null // No profile available in voicemail context
-    )
-
-    const taxCase = await tx.taxCase.create({
-      data: {
-        clientId: client.id,
-        taxYear: currentYear,
-        engagementId,
-        taxTypes: ['FORM_1040'], // Default to individual return
-        status: 'INTAKE',
-      },
-    })
-
-    // Create conversation for the case
-    const conversation = await tx.conversation.create({
-      data: {
-        caseId: taxCase.id,
-        lastMessageAt: new Date(),
-      },
-    })
-
-    return conversation
-  })
+  const result = await prisma.$transaction((tx: TransactionClient) =>
+    createPlaceholderConversationInTx(tx, phone, organizationId, source)
+  )
 
   return { id: result.id }
 }
 
 function getMissedCallContent(status: string): string {
   const messages: Record<string, string> = {
-    'busy': 'Missed call - Busy',
+    busy: 'Missed call - Busy',
     'no-answer': 'Missed call',
-    'failed': 'Missed call - Failed',
-    'canceled': 'Missed call - Canceled',
+    failed: 'Missed call - Failed',
+    canceled: 'Missed call - Canceled',
   }
   return messages[status] || 'Missed call'
 }
@@ -257,26 +282,21 @@ export async function recordMissedInboundCall(input: {
 
   const callStatus = input.callStatus || 'no-answer'
   const content = input.content?.trim() || getMissedCallContent(callStatus)
-  let conversation = await findConversationByPhone(input.callerPhone, input.organizationId)
-
-  if (!conversation) {
-    conversation = await createPlaceholderConversation(input.callerPhone, input.organizationId, 'INCOMING_CALL')
-  }
-
-  const conversationId = conversation.id
 
   return await prisma.$transaction(async (tx: TransactionClient) => {
+    await acquireCallSidLock(tx, input.callSid)
+
     const existingMessage = input.callSid
       ? await tx.message.findFirst({
           where: {
             callSid: input.callSid,
-            conversationId,
+            conversationId: { not: null },
           },
-          select: { id: true, callStatus: true },
+          select: { id: true, callStatus: true, conversationId: true },
         })
       : null
 
-    if (existingMessage) {
+    if (existingMessage?.conversationId) {
       const shouldIncrementUnread = !MISSED_CALL_STATUSES.has(existingMessage.callStatus || '')
       const updated = await tx.message.update({
         where: { id: existingMessage.id },
@@ -284,15 +304,32 @@ export async function recordMissedInboundCall(input: {
       })
 
       await tx.conversation.update({
-        where: { id: conversationId },
+        where: { id: existingMessage.conversationId },
         data: {
           lastMessageAt: new Date(),
           ...(shouldIncrementUnread ? { unreadCount: { increment: 1 } } : {}),
         },
       })
 
-      return { id: updated.id, conversationId }
+      return { id: updated.id, conversationId: existingMessage.conversationId }
     }
+
+    let conversation = await findConversationByPhoneInTx(
+      tx,
+      input.callerPhone,
+      input.organizationId
+    )
+
+    if (!conversation) {
+      conversation = await createPlaceholderConversationInTx(
+        tx,
+        input.callerPhone,
+        input.organizationId,
+        'INCOMING_CALL'
+      )
+    }
+
+    const conversationId = conversation.id
 
     const message = await tx.message.create({
       data: {
@@ -315,5 +352,151 @@ export async function recordMissedInboundCall(input: {
     })
 
     return { id: message.id, conversationId }
+  })
+}
+
+export async function recordRingingInboundCall(input: {
+  callerPhone: string
+  organizationId?: string | null
+  callSid: string
+}): Promise<{ id: string; conversationId: string } | null> {
+  if (!input.organizationId || !isValidE164Phone(input.callerPhone) || !input.callSid.trim()) {
+    return null
+  }
+
+  return await prisma.$transaction(async (tx: TransactionClient) => {
+    await acquireCallSidLock(tx, input.callSid)
+
+    const existingMessage = await tx.message.findFirst({
+      where: {
+        callSid: input.callSid,
+        conversationId: { not: null },
+      },
+      select: { id: true, conversationId: true },
+    })
+
+    if (existingMessage?.conversationId) {
+      return { id: existingMessage.id, conversationId: existingMessage.conversationId }
+    }
+
+    let conversation = await findConversationByPhoneInTx(
+      tx,
+      input.callerPhone,
+      input.organizationId
+    )
+
+    if (!conversation) {
+      conversation = await createPlaceholderConversationInTx(
+        tx,
+        input.callerPhone,
+        input.organizationId,
+        'INCOMING_CALL'
+      )
+    }
+
+    const message = await tx.message.create({
+      data: {
+        conversationId: conversation.id,
+        channel: 'CALL',
+        direction: 'INBOUND',
+        content: 'Incoming call',
+        isSystem: false,
+        callSid: input.callSid,
+        callStatus: 'ringing',
+      },
+    })
+
+    await tx.conversation.update({
+      where: { id: conversation.id },
+      data: { lastMessageAt: new Date() },
+    })
+
+    return { id: message.id, conversationId: conversation.id }
+  })
+}
+
+export async function recordVoicemailInboundCall(input: {
+  callerPhone: string
+  organizationId?: string | null
+  callSid: string
+  recordingUrl: string
+  recordingDuration: number
+}): Promise<{ id: string; conversationId: string; created: boolean } | null> {
+  if (!input.organizationId || !isValidE164Phone(input.callerPhone) || !input.callSid.trim()) {
+    return null
+  }
+
+  return await prisma.$transaction(async (tx: TransactionClient) => {
+    await acquireCallSidLock(tx, input.callSid)
+
+    const existingMessage = await tx.message.findFirst({
+      where: {
+        callSid: input.callSid,
+        conversationId: { not: null },
+      },
+      select: { id: true, callStatus: true, conversationId: true },
+    })
+
+    if (existingMessage?.conversationId) {
+      const shouldIncrementUnread = !MISSED_CALL_STATUSES.has(existingMessage.callStatus || '')
+      const updated = await tx.message.update({
+        where: { id: existingMessage.id },
+        data: {
+          recordingUrl: `${input.recordingUrl}.mp3`,
+          recordingDuration: input.recordingDuration,
+          content: `Voicemail (${formatVoicemailDuration(input.recordingDuration)})`,
+          callStatus: 'voicemail',
+        },
+      })
+
+      await tx.conversation.update({
+        where: { id: existingMessage.conversationId },
+        data: {
+          lastMessageAt: new Date(),
+          ...(shouldIncrementUnread ? { unreadCount: { increment: 1 } } : {}),
+        },
+      })
+
+      return { id: updated.id, conversationId: existingMessage.conversationId, created: false }
+    }
+
+    let conversation = await findConversationByPhoneInTx(
+      tx,
+      input.callerPhone,
+      input.organizationId
+    )
+
+    if (!conversation) {
+      conversation = await createPlaceholderConversationInTx(
+        tx,
+        input.callerPhone,
+        input.organizationId,
+        'INCOMING_CALL'
+      )
+    }
+
+    const message = await tx.message.create({
+      data: {
+        conversationId: conversation.id,
+        channel: 'CALL',
+        direction: 'INBOUND',
+        content: `Voicemail (${formatVoicemailDuration(input.recordingDuration)})`,
+        isSystem: false,
+        callSid: input.callSid,
+        recordingUrl: `${input.recordingUrl}.mp3`,
+        recordingDuration: input.recordingDuration,
+        callStatus: 'voicemail',
+      },
+    })
+
+    await tx.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        lastMessageAt: new Date(),
+        unreadCount: { increment: 1 },
+      },
+    })
+
+    return { id: message.id, conversationId: conversation.id, created: true }
   })
 }

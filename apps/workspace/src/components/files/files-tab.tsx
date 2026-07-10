@@ -272,6 +272,7 @@ export function FilesTab({
       ASSET: [],
       EDUCATION: [],
       HEALTHCARE: [],
+      BANK_CARD_STATEMENTS: [],
       OTHER: [],
     }
 

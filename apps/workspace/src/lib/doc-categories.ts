@@ -1,6 +1,6 @@
 /**
  * Document categories for Files Tab
- * 7 categories matching DocCategory enum from database
+ * Categories matching DocCategory enum from database
  */
 
 import {
@@ -10,13 +10,23 @@ import {
   Home,
   GraduationCap,
   Heart,
+  CreditCard,
   File,
   FileText,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import i18n from './i18n'
 
-export type DocCategoryKey = 'IDENTITY' | 'INCOME' | 'TAX_RETURNS' | 'EXPENSE' | 'ASSET' | 'EDUCATION' | 'HEALTHCARE' | 'OTHER'
+export type DocCategoryKey =
+  | 'IDENTITY'
+  | 'INCOME'
+  | 'TAX_RETURNS'
+  | 'EXPENSE'
+  | 'ASSET'
+  | 'EDUCATION'
+  | 'HEALTHCARE'
+  | 'BANK_CARD_STATEMENTS'
+  | 'OTHER'
 
 export interface DocCategoryConfig {
   label: string
@@ -76,6 +86,13 @@ const DOC_CATEGORIES_DATA: Record<DocCategoryKey, { labelKey: string; icon: Luci
     textColor: 'text-red-600',
     borderColor: 'border-red-500/20',
   },
+  BANK_CARD_STATEMENTS: {
+    labelKey: 'docCategory.bankCardStatements',
+    icon: CreditCard,
+    bgColor: 'bg-cyan-500/10',
+    textColor: 'text-cyan-600',
+    borderColor: 'border-cyan-500/20',
+  },
   OTHER: {
     labelKey: 'docCategory.other',
     icon: File,
@@ -114,6 +131,7 @@ export const DOC_CATEGORIES: Record<DocCategoryKey, DocCategoryConfig> = new Pro
 export const CATEGORY_ORDER: DocCategoryKey[] = [
   'IDENTITY',
   'INCOME',
+  'BANK_CARD_STATEMENTS',
   'TAX_RETURNS',
   'EXPENSE',
   'ASSET',

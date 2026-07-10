@@ -12,6 +12,7 @@ import { getSsnCardExtractionPrompt as _getSsnCardPrompt, validateSsnCardData as
 import { get1099KExtractionPrompt as _get1099KPrompt, validate1099KData as _validate1099K, FORM_1099_K_FIELD_LABELS_VI as _1099KLabels } from './1099-k'
 import { getScheduleK1ExtractionPrompt as _getK1Prompt, validateScheduleK1Data as _validateK1, SCHEDULE_K1_FIELD_LABELS_VI as _K1Labels } from './k-1'
 import { getBankStatementExtractionPrompt as _getBankStatementPrompt, validateBankStatementData as _validateBankStatement, BANK_STATEMENT_FIELD_LABELS_VI as _BankStatementLabels } from './bank-statement'
+import { getCreditCardStatementExtractionPrompt as _getCreditCardStatementPrompt, validateCreditCardStatementData as _validateCreditCardStatement, CREDIT_CARD_STATEMENT_FIELD_LABELS_VI as _CreditCardStatementLabels } from './credit-card-statement'
 import { get1099DivExtractionPrompt as _get1099DivPrompt, validate1099DivData as _validate1099Div, FORM_1099_DIV_FIELD_LABELS_VI as _1099DivLabels } from './1099-div'
 import { get1099RExtractionPrompt as _get1099RPrompt, validate1099RData as _validate1099R, FORM_1099_R_FIELD_LABELS_VI as _1099RLabels } from './1099-r'
 import { getSsa1099ExtractionPrompt as _getSsa1099Prompt, validateSsa1099Data as _validateSsa1099, FORM_SSA_1099_FIELD_LABELS_VI as _Ssa1099Labels } from './1099-ssa'
@@ -163,6 +164,8 @@ export { getScheduleK1ExtractionPrompt, validateScheduleK1Data, SCHEDULE_K1_FIEL
 export type { ScheduleK1ExtractedData } from './k-1'
 export { getBankStatementExtractionPrompt, validateBankStatementData, BANK_STATEMENT_FIELD_LABELS_VI } from './bank-statement'
 export type { BankStatementExtractedData } from './bank-statement'
+export { getCreditCardStatementExtractionPrompt, validateCreditCardStatementData, CREDIT_CARD_STATEMENT_FIELD_LABELS_VI } from './credit-card-statement'
+export type { CreditCardStatementExtractedData } from './credit-card-statement'
 export { get1099DivExtractionPrompt, validate1099DivData, FORM_1099_DIV_FIELD_LABELS_VI } from './1099-div'
 export type { Form1099DivExtractedData } from './1099-div'
 export { get1099RExtractionPrompt, validate1099RData, FORM_1099_R_FIELD_LABELS_VI } from './1099-r'
@@ -220,6 +223,7 @@ export type OcrDocType =
   | 'SCHEDULE_D'
   | 'SCHEDULE_E'
   | 'BANK_STATEMENT'
+  | 'CREDIT_CARD_STATEMENT'
   | 'SSN_CARD'
   | 'DRIVER_LICENSE'
   | 'FORM_1040'
@@ -353,6 +357,7 @@ const promptGetters: Record<string, () => string> = {
   FORM_1099_MISC: _get1099MiscPrompt,
   SCHEDULE_K1: _getK1Prompt,
   BANK_STATEMENT: _getBankStatementPrompt,
+  CREDIT_CARD_STATEMENT: _getCreditCardStatementPrompt,
   SSN_CARD: _getSsnCardPrompt,
   DRIVER_LICENSE: _getDLPrompt,
   FORM_1040: _getForm1040Prompt,
@@ -489,6 +494,7 @@ const validators: Record<string, (data: unknown) => boolean> = {
   FORM_1099_MISC: _validate1099Misc,
   SCHEDULE_K1: _validateK1,
   BANK_STATEMENT: _validateBankStatement,
+  CREDIT_CARD_STATEMENT: _validateCreditCardStatement,
   SSN_CARD: _validateSsnCard,
   DRIVER_LICENSE: _validateDL,
   FORM_1040: _validateForm1040,
@@ -625,6 +631,7 @@ const labelMaps: Record<string, Record<string, string>> = {
   FORM_1099_MISC: _1099MiscLabels,
   SCHEDULE_K1: _K1Labels,
   BANK_STATEMENT: _BankStatementLabels,
+  CREDIT_CARD_STATEMENT: _CreditCardStatementLabels,
   SSN_CARD: _SsnCardLabels,
   DRIVER_LICENSE: _DLLabels,
   FORM_1040: _Form1040Labels,

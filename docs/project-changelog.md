@@ -1,9 +1,74 @@
 # Project Changelog
 
-> **Last Updated:** 2026-06-30 ICT
+> **Last Updated:** 2026-07-10 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### Client Service Log Tab
+**Status:** Complete
+
+**Changed:**
+- Added staff-only `Services` tab on client detail for individual and business clients.
+- Added org-scoped `ClientServiceLog` CRUD under `/clients/:id/service-logs` with service/status enums, tax year, service date, optional custom service name, internal note, staff attribution, and soft delete.
+- Added Workspace quick-add, active/waiting summary, chronological history, edit/delete modal, EN/VI copy, and URL-safe `?tab=services` routing.
+- ActivityLog entries use `CLIENT_SERVICE_LOG` targets and redacted metadata; service note bodies and custom note text are not persisted in activity metadata.
+- Portal remains unchanged; service logs are internal Workspace-only records.
+
+**Validation:**
+- `pnpm -F @ella/db type-check` pass.
+- `pnpm -F @ella/api type-check` pass.
+- `pnpm -F @ella/api test -- client-service-logs` pass, 17 tests.
+- `pnpm -F @ella/workspace type-check` pass.
+- `pnpm -F @ella/workspace test -- client-detail-tabs` pass, 5 tests.
+- `pnpm -F @ella/workspace test -- client-services-tab` pass, 7 tests.
+- `pnpm i18n:check` pass; workspace 3247 keys and portal 536 keys in parity.
+- `pnpm type-check` pass across 8 packages.
+- `git diff --check` pass.
+
+**Rollout Notes:**
+- Apply the `ClientServiceLog` migrations before deploying API/workspace code.
+- Do not squash or edit the existing service-log migrations after application. If an environment has applied only the first service-log migration and has already inserted service-log rows, verify staff ids match the row organization before applying the tenant-scoped staff FK migration.
+
+### Bank/Card Statements Category
+**Status:** Complete
+
+**Changed:**
+- Added first-class `BANK_CARD_STATEMENTS` document category displayed as `Bank/Card Statements` in Workspace Files.
+- Added `CREDIT_CARD_STATEMENT` doc type and routed `BANK_STATEMENT`, `CREDIT_CARD_STATEMENT`, and `FOREIGN_BANK_STATEMENT` into the new category for new uploads and manual classification.
+- Added dedicated credit-card statement OCR prompt/validation/field labels for summary-level bookkeeping fields.
+- Fixed manual reclassification checklist bookkeeping so the previous checklist item is marked missing when its last linked image moves away.
+- Kept true income docs in `INCOME` and intentionally did not backfill existing `RawImage.category` rows.
+
+**Validation:**
+- Migration `20260707160411_add_bank_card_statements_category` reviewed as additive enum SQL only; no `UPDATE`, `DELETE`, `DROP`, or backfill.
+- `pnpm -F @ella/db generate`, `pnpm -F @ella/db type-check`, `pnpm -F @ella/api type-check`, `pnpm -F @ella/workspace type-check`, `pnpm -F @ella/portal type-check`, `pnpm i18n:check`, `pnpm type-check`, and `git diff --check` pass.
+- Targeted API tests pass: classifier prompts, document classifier, OCR extractor, OCR validation/index, OCR pipeline, docs manual classification route, Workspace `/images` classification/category routes, and classify-document job.
+- Targeted Workspace tests pass: document taxonomy UI and verification modal PDF regression.
+
+**Rollout Notes:**
+- Deploy DB migration before API/workspace code that writes `BANK_CARD_STATEMENTS`.
+- Existing files stay in their current folders unless staff manually moves or reclassifies them.
+- Manual sample upload smoke with real Gemini/R2/dev servers remains rollout QA.
+
+### Lead Messages and Unknown Call Gate Final Validation
+**Status:** Complete with production Twilio QA pending
+
+**Changed:**
+- Added final docs for the unknown voice caller press-1 gate: known clients keep client/case call behavior, known leads bypass the gate and persist lead-owned CALL history, and unknown callers create no placeholder unless they press `1`.
+- Documented the dedicated Workspace `/lead-messages` inbox and kept `/messages` client/case-only.
+- Added rollout QA checks for Twilio webhook URL, `TWILIO_WEBHOOK_BASE_URL`, signature failures, non-`1` gate callbacks, known lead calls, known client calls, and approved unknown callers.
+- Fixed review findings before finalizing: lead CALL serializers now normalize call content so old raw-phone rows cannot leak to managers, lead history supports a backend `latest=true` window to avoid partial-page truncation, legacy `UNDELIVERED` SMS backfills no longer look sent, and failed legacy/live SMS provider errors are sanitized before manager-visible `twilioStatus` or API response fields.
+- Confirmed no database migration or destructive DB action was needed.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/webhooks/__tests__/twilio-voice-incoming.test.ts` pass, 23 tests
+- `pnpm -F @ella/api test -- src/routes/leads/__tests__/messages.test.ts src/services/sms/__tests__/lead-inbound-handler.test.ts` pass, 40 tests
+- `pnpm -F @ella/workspace test -- messages realtime lead` pass, 23 tests
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm i18n:check` pass; workspace 3183 keys and portal 534 keys in parity
+- Manual production-like Twilio call QA not run locally; keep as deploy rollout step.
 
 ### Calculator Agreement Payment Link Phase 6
 **Status:** Complete
@@ -206,8 +271,9 @@
 **Status:** Complete with rollout QA pending
 
 **Changed:**
-- Completed final documentation sync for lead-owned messages, `LEAD_REPLIED` actions, lead MMS storage/proxy behavior, generic lead web push, and rollout/rollback expectations.
-- Kept lead conversations out of `/messages`; lead reply visibility remains in Leads nav/list/detail, Actions, lead activity, and generic push.
+- Completed final documentation sync for lead-owned messages, the new `GET /leads/messages/conversations` inbox summaries, `LEAD_REPLIED` actions, lead MMS storage/proxy behavior, generic lead web push, and rollout/rollback expectations.
+- Added bounded legacy lead SMS backfill: up to 500 missing lead Message rows per request are repaired from `SmsSendLog` via anti-join on `Message.twilioSid` before the inbox query returns.
+- Kept lead conversations out of `/messages`; lead reply visibility remains in Leads nav/list/detail, the lead inbox route, Actions, lead activity, and generic push.
 - Fixed stale `bulk-sms.test.ts` Prisma mocks after `GET /leads` started using `$queryRaw`, and added the new `messages: []` fixture shape required by lead detail responses.
 
 **Validation:**

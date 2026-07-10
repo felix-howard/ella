@@ -56,13 +56,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Apps:**
 - `apps/landing/` - Public-facing Astro site for Ella Tax Services LLC, with home, services, password-gated pricing calculator, get-started, why Ella, about, privacy, terms, and tax-advisory pages. Shared service primitives cover page heroes, service cards, process steps, trust strips, contact bands, FAQs, contact forms, and stats. `/try-now` redirects to `/get-started`, and `/features` redirects to `/services`.
 - `apps/portal/` - Client magic link upload portal
-- `apps/workspace/` - Staff dashboard with team management, multi-manager client UI, and an admin-only pricing calculator/payment-link flow
+- `apps/workspace/` - Staff dashboard with team management, multi-manager client UI, client service ledger, and an admin-only pricing calculator/payment-link flow
 
 **Key Pages (Workspace):**
 - `/` - Dashboard with stats & quick actions
 - `/clients` - Client list with Kanban/list views and a compact multi-manager Managed By column
 - `/clients/new` - Multi-path client creation wizard (Phase 12: INDIVIDUAL | BUSINESS | INDIVIDUAL_WITH_BUSINESS). INDIVIDUAL_WITH_BUSINESS path includes accordion UI for managing up to 10 business entities per individual client, with per-business validation, add/remove, and batch submit to create ClientGroup (Phase 2 multi-business enhancement)
-- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Schedule C, Schedule E, Draft Return. Overview includes the admin multi-select manager editor and read-only fallback. Tab layout varies by clientType (Phase 15)
+- `/clients/:id` - Client detail with tabbed sections, including a staff-only Services tab for the internal service ledger. Overview includes the admin multi-select manager editor and read-only fallback. Tab layout varies by clientType and persists in the URL query string (Phase 15)
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations; conversation lists surface `replyMode` and last-message metadata, use staff-authored English source for translated outbound previews, and the reply composer translation UI lives in both the full case conversation page and the floating case chatbox. Translated outbound case SMS bubbles expose a Workspace-only `Show English` source toggle. Non-admin workspace previews and thread responses redact outbound automated payment/agreement SMS content; ADMIN keeps raw content. Lead chat stays direct-only.
 - `/actions` - Action queue with priority filtering, client/lead reply cards, and lead deep links
@@ -284,6 +284,8 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Lead Messages and MMS:**
 - Lead conversations are separate from the client/case inbox. Lead messages use `Message.leadId`; case messages use `Message.conversationId`.
+- `GET /leads/messages/conversations` returns lead inbox summaries for active non-CONVERTED leads with lead-owned message history. Supports `page`, `limit`, and `unreadOnly`; sorts by latest message/call; returns `{ conversations, totalUnread, pagination }`; redacts sensitive outbound payment/agreement SMS for non-admin viewers; strips `attachmentR2Keys`; and backfills up to 500 missing lead Message rows per request from `SmsSendLog` via anti-join on `Message.twilioSid`.
+- Workspace renders lead conversations under `/lead-messages` and `/lead-messages/:leadId`. The client `/messages` route remains case-only.
 - `GET /leads/:id/messages` returns lead-scoped chat history with proxy attachment URLs only. It strips `attachmentR2Keys` and repairs legacy R2 keys from known lead attachment URLs when possible.
 - `GET /leads/:id/messages/media/:messageId/:index` proxies lead MMS through org-scoped auth. Anonymous and cross-org requests return not-found/unauthorized instead of signed storage URLs.
 - Inbound Twilio lead MMS stores objects under `lead-message-attachments/{orgId}/{leadId}/{twilioSid}/{index}.{ext}`. Lead MMS never creates `RawImage` rows and never enters document classification.
@@ -419,7 +421,8 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - Reduces code duplication between /clients and /businesses routes during transition.
 
 **Messages & Voice (12):**
-- `GET /messages/conversations` - List conversations (org-scoped) with `replyMode` and last-message metadata; workspace-facing previews redact outbound automated payment/agreement content for non-admin viewers
+- `GET /messages/conversations` - List case conversations (org-scoped) with `replyMode` and last-message metadata; workspace-facing previews redact outbound automated payment/agreement content for non-admin viewers
+- `GET /leads/messages/conversations` - Lead inbox summaries (org-scoped, admin/manager only) for active non-CONVERTED leads; supports `page`, `limit`, `unreadOnly`, returns `{ conversations, totalUnread, pagination }`, strips `attachmentR2Keys`, redacts outbound automated payment/agreement content for non-admin viewers, and backfills missing lead Message rows from `SmsSendLog`
 - `POST /messages/compose-translation` - EN-to-VI reply draft translation for staff composition
 - `POST /messages/:messageId/translate` - EN translation for a case message. Returns 400 `SENSITIVE_MESSAGE_REDACTED` before AI for redacted outbound automated payment/agreement messages; ADMIN keeps raw content.
 - `PATCH /messages/:caseId/reply-mode` - Persist conversation reply mode (`DIRECT` or `EN_TO_VI`)
@@ -457,7 +460,8 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /webhooks/twilio/status` - Twilio SMS delivery status updates (queued, sent, delivered, undelivered, failed). Updates `Message.twilioStatus` + `SmsSendLog.status/error`, persists failed/undelivered details for `latestSms`, and uses an atomic transaction to update Lead status (`NEW`/`SENT` → `CONTACTED`) on confirmed delivery when a matching `SmsSendLog` exists.
 - `POST /webhooks/twilio/voice` - Twilio outbound call connection. Resolves DB-backed destination from `messageId`/`caseId` before dialing, so masked workspace phones are never needed by the browser. Falls back to a valid legacy `To` parameter for older clients. Returns TwiML for recording setup.
 - `POST /webhooks/twilio/voice/recording` - Twilio outbound call recording completion. Stores recording URL + duration in Message
-- `POST /webhooks/twilio/voice/incoming` - Twilio incoming call from customer. Resolves exactly one active org from called number, routes known callers to linked client managers plus org-wide ADMIN/MANAGER staff, routes unknown callers to online ADMIN/MANAGER/STAFF in the resolved org, and uses no-staff hangup/missed-call handling if org cannot be resolved, org mapping is ambiguous, or no eligible staff are online. There is no global single-org fallback. Voice callbacks carry called-number context and require resolved org context before missed-call textback or placeholder persistence.
+- `POST /webhooks/twilio/voice/incoming` - Twilio incoming call from customer. Resolves exactly one active org from called number, routes known clients to linked client managers plus org-wide ADMIN/MANAGER staff, routes known leads directly to ADMIN/MANAGER staff with lead-owned CALL history, and sends unknown callers to the press-1 gate before staff lookup or placeholder creation. There is no global single-org fallback. Voice callbacks carry called-number context and require resolved org context before missed-call textback or placeholder persistence.
+- `POST /webhooks/twilio/voice/unknown-gate` - Twilio callback for unknown voice callers. Only `Digits=1` can continue; other responses hang up and create no client/case/message data. Approved unknown callers then use the existing unknown-caller placeholder/voicemail flow.
 - `POST /webhooks/twilio/voice/status` - Twilio call status updates (terminal states). Updates Message.callStatus + content
 - `POST /webhooks/twilio/voice/dial-complete` - Twilio dial completion (after ring timeout). Returns missed-call/no-staff hangup TwiML when unanswered
 - `POST /webhooks/twilio/voice/voicemail-recording` - Twilio voicemail recording completion. Creates voicemail message for known/unknown callers, increments conversation.unreadCount
@@ -513,6 +517,7 @@ Organization (root entity)
 - **Staff** - organizationId FK, clerkId (unique), role (ADMIN|MANAGER|STAFF|CPA), notifyOnUpload (default: true), isContractorAgent (default: false), title, signaturePngKey, formSlug (auto-generated six-digit unique slug per org for public form routing, editable by staff/admin). Notification preferences for client upload alerts and contractor-agent compliance.
 - **WebPushSubscription** - org/staff-scoped browser push subscription. Fields: organizationId, staffId, endpoint (unique), p256dh, auth, enabled, userAgent, deviceLabel, lastSeenAt, lastSentAt, failureCount, failedAt, createdAt, updatedAt. Used only for Workspace PWA notifications; invalid provider endpoints are disabled automatically.
 - **Client** - organizationId FK, managedById FK (legacy primary manager during rollout; `ClientManager` is canonical), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form), clientType (enum: INDIVIDUAL|BUSINESS, default INDIVIDUAL). For clientType=BUSINESS: businessType (BusinessType enum, required), einEncrypted (encrypted, required), businessAddress, businessCity, businessState, businessZip (all required). Database stores einEncrypted; API returns einMasked (XX-XXX####). clientGroupId FK (optional, links related clients like individual+business or partnerships). Relations: contractors, filingBatches, intakeTokens (all BUSINESS-type specific).
+- **ClientServiceLog** - org/client-scoped internal service ledger for Workspace staff. Fields: organizationId, clientId, serviceType, customServiceName, status, taxYear, serviceDate, note, createdById, updatedById, deletedAt, deletedById, createdAt, updatedAt. Staff relations are tenant-scoped through organizationId. Service logs soft-delete through `deletedAt` and never expose Portal routes. ActivityLog entries use `CLIENT_SERVICE_LOG` target metadata without note bodies.
 - **ClientManager** - tenant-scoped canonical join row between Client and Staff. Backfilled from legacy managedById, unique on `[clientId, staffId]`, with org-scoped guards and tenant-scoped foreign keys.
 - **ClientGroup** - organizationId FK (optional, org-scoped grouping), name (group name), clients array relation. Phase 01 Entity Separation: new entity enables flexible grouping of related clients (e.g., family businesses, partnerships, multi-entity tax arrangements). Indexed on organizationId for fast group lookups.
 - **Business** - REMOVED in Phase 15. Business model deleted from schema. All business information now stored directly on Client(clientType=BUSINESS) records.
@@ -531,7 +536,7 @@ Organization (root entity)
 - **StaffFile** - org-scoped staff upload record for personal documents and invoices. Fields: organizationId, staffId, uploadedByStaffId, kind (PERSONAL_DOCUMENT|INVOICE), title, category, originalFilename, mimeType, fileSize, r2Key (unique), checksumSha256, invoiceYear, invoiceMonth, invoiceStatus, replacedById, isActive, reviewedByStaffId, reviewedAt, paidAt, adminNote, deletedAt, deletedByStaffId. Contract: invoice rows require invoiceYear/invoiceMonth/invoiceStatus and invoiceMonth 1-12; personal documents must not carry invoice metadata or paidAt. Indexes: organizationId+staffId+kind, organizationId+kind+invoiceYear+invoiceMonth. Storage keys use `staff-files/{org}/{staff}/documents/{uuid}.{ext}` or `staff-files/{org}/{staff}/invoices/{yyyy-mm}/{uuid}.{ext}` and storage logs redact `staff-files/...` keys.
 - **FilingBatch** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). taxYear, status (PENDING|SUBMITTED|PROCESSING|ACCEPTED|PARTIALLY_ACCEPTED|REJECTED), TaxBandits submission tracking (taxbanditsSubmissionId, submittedAt, acceptedAt, rejectedAt, rejectionReason), form counts (totalForms, acceptedForms, rejectedForms), e-file settings (tinCheckEnabled, uspsEnabled, eDeliveryEnabled).
 - **ContractorIntakeToken** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). Public intake form token for contractors. token (unique), taxYear, isActive (default true), expiresAt (optional TTL). Indexes: token (unique), clientId+isActive.
-- **RawImage** - Classification states, AI confidence, perceptual hash, re-upload tracking, relationships to documentViews, documentGroupId FK (Phase 2/3 multi-page grouping), pageNumber (Phase 3 page order detection), aiMetadata JSON (Phase 1 metadata extraction: taxpayerName, ssn4, pageMarker with currentPage/totalPages, continuationMarker). Phase 01 Entity Routing: entityConfidence (AI confidence 0-1 for entity detection), routedFromCaseId (audit trail for docs re-routed to correct ClientGroup member, indexed for fast lookups)
+- **RawImage** - Classification states, AI confidence, category, perceptual hash, re-upload tracking, relationships to documentViews, documentGroupId FK (Phase 2/3 multi-page grouping), pageNumber (Phase 3 page order detection), aiMetadata JSON (Phase 1 metadata extraction: taxpayerName, ssn4, pageMarker with currentPage/totalPages, continuationMarker). `BANK_CARD_STATEMENTS` is a first-class category for new bank, credit-card, and foreign-bank statement uploads; existing rows are not backfilled. Phase 01 Entity Routing: entityConfidence (AI confidence 0-1 for entity detection), routedFromCaseId (audit trail for docs re-routed to correct ClientGroup member, indexed for fast lookups)
 - **DocumentView** - Staff document view tracking (staffId + rawImageId unique composite). Tracks which staff members viewed which RawImage documents with timestamp (viewedAt). Enables per-CPA "new upload" badge calculations and document engagement metrics.
 - **DocumentGroup** - Phase 2/3 multi-page document grouping: baseName (base filename), documentType (identified type), pageCount (pages in group), confidence (AI confidence), images relation (array of RawImages). Indexes: caseId, caseId+createdAt. Phase 3 Enhancement: sortDocumentsByPageMarker() orders docs by extracted pageMarker.currentPage with fallback to upload order. validatePageSequence() checks for gaps and duplicates in page ordering.
 - **DigitalDoc** - OCR extracted fields
@@ -1472,6 +1477,7 @@ Frontend Hook (useOrgRole)
 - Retry logic: 3 attempts, exponential backoff
 - Batch processing: 3 concurrent images
 - Classification: Multi-class tax form detection (180+ types)
+- Bank/card statement category contract: `BANK_STATEMENT`, `CREDIT_CARD_STATEMENT`, and `FOREIGN_BANK_STATEMENT` map to `BANK_CARD_STATEMENTS`; W-2, 1099, K-1, retirement, and other true income docs remain `INCOME`.
 - OCR: ~120 document types via map-based routing (O(1) lookup)
   - Phase 1: Generic fallback extractor (handles any document type)
   - Phase 2: 16 additional 1099 variants (1099-B/C/S/SA/Q/A/OID/LTC/PATR/CAP/H/LS/QA/SB + RRB variants)
@@ -1506,7 +1512,7 @@ apps/api/src/services/ai/
 ├── prompts/
 │   ├── classify.ts - Classification + SmartRename prompts
 │   ├── address-parser.ts - US address parsing (structured extraction for contractors)
-│   └── ocr/ - 49 form-specific extraction prompts: form-1040.ts, schedules 1-8812 (2,3,a,b,c,d,e,8812,eic,f,h,j,r,se), 1099 variants (25+), w2, k-1, bank-statement, ssn-dl, generic-extractor.ts (fallback)
+│   └── ocr/ - 50 form-specific extraction prompts: form-1040.ts, schedules 1-8812 (2,3,a,b,c,d,e,8812,eic,f,h,j,r,se), 1099 variants (25+), w2, k-1, bank-statement, credit-card-statement, ssn-dl, generic-extractor.ts (fallback)
 └── __tests__/ (Phase 10 Testing)
     ├── 1099-variants.test.ts - 8 tests for Form 1099 variants
     ├── k1-health-education.test.ts - 8 tests for K-1 and health forms
@@ -2601,10 +2607,10 @@ React/TanStack Router public checkout flow. Validates token → displays amount 
 
 **Twilio Integration:**
 - VoiceGrant tokens for browser calling
-- TwiML webhooks: incoming call, dial complete, voicemail recording
+- TwiML webhooks: incoming call, unknown-caller press-1 gate, dial complete, voicemail recording
 - Phone presence tracking (staff online/offline)
 - Automatic call recording + transcription
-- SMS delivery for client onboarding
+- SMS delivery for client onboarding and lead messaging
 
 **Message Channels:**
 - SMS: Twilio integration

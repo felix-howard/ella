@@ -797,6 +797,37 @@ export const api = {
     getActivity: (id: string) =>
       request<{ data: ClientActivity[] }>(`/clients/${id}/activity`),
 
+    // Client service logs — internal staff ledger for services performed.
+    serviceLogs: {
+      list: (
+        clientId: string,
+        params?: { limit?: number; status?: ClientServiceStatus | ClientServiceStatus[] }
+      ) =>
+        request<{ data: ClientServiceLog[] }>(`/clients/${clientId}/service-logs`, {
+          params: {
+            limit: params?.limit,
+            status: Array.isArray(params?.status) ? params.status.join(',') : params?.status,
+          },
+        }),
+
+      create: (clientId: string, body: CreateClientServiceLogInput) =>
+        request<{ data: ClientServiceLog }>(`/clients/${clientId}/service-logs`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }),
+
+      update: (clientId: string, serviceLogId: string, body: UpdateClientServiceLogInput) =>
+        request<{ data: ClientServiceLog }>(`/clients/${clientId}/service-logs/${serviceLogId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(body),
+        }),
+
+      delete: (clientId: string, serviceLogId: string) =>
+        request<{ success: boolean; data: ClientServiceLog }>(`/clients/${clientId}/service-logs/${serviceLogId}`, {
+          method: 'DELETE',
+        }),
+    },
+
     // Update client notes
     updateNotes: (id: string, notes: string) =>
       request<{ notes: string; notesUpdatedAt: string | null }>(`/clients/${id}/notes`, {
@@ -2258,8 +2289,18 @@ export const api = {
 
     // Two-way Staff ↔ Lead SMS (polymorphic Message.leadId)
     messages: {
+      listConversations: (params?: { page?: number; limit?: number; unreadOnly?: boolean }) =>
+        request<LeadConversationsResponse>('/leads/messages/conversations', { params }),
+
       list: (leadId: string, params?: { page?: number; limit?: number }) =>
         request<LeadMessagesResponse>(`/leads/${leadId}/messages`, { params }),
+
+      listLatest: async (leadId: string, params?: { limit?: number }) => {
+        const limit = params?.limit ?? 50
+        return request<LeadMessagesResponse>(`/leads/${leadId}/messages`, {
+          params: { page: 1, limit, latest: true },
+        })
+      },
 
       send: (leadId: string, data: { content: string; channel?: 'SMS' }) =>
         request<LeadMessageSendResponse>(`/leads/${leadId}/messages/send`, {
@@ -2939,6 +2980,62 @@ export interface StaffAssignableMember extends StaffManagerSummary {
   formSlug: string | null
 }
 
+export type ClientServiceType =
+  | 'INDIVIDUAL_TAX_RETURN'
+  | 'BUSINESS_TAX_RETURN'
+  | 'BOOKKEEPING'
+  | 'PAYROLL'
+  | 'TAX_PLANNING'
+  | 'IRS_NOTICE'
+  | 'AMENDMENT'
+  | 'FORM_1099_FILING'
+  | 'CONSULTATION'
+  | 'OTHER'
+
+export type ClientServiceStatus =
+  | 'ACTIVE'
+  | 'WAITING_ON_CLIENT'
+  | 'COMPLETED'
+  | 'CANCELLED'
+
+export interface ClientServiceLogStaff {
+  id: string
+  name: string | null
+  avatarUrl: string | null
+}
+
+export interface ClientServiceLog {
+  id: string
+  clientId: string
+  serviceType: ClientServiceType
+  customServiceName: string | null
+  status: ClientServiceStatus
+  taxYear: number | null
+  serviceDate: string
+  note: string | null
+  createdBy: ClientServiceLogStaff | null
+  updatedBy: ClientServiceLogStaff | null
+  createdAt: string
+  updatedAt: string
+}
+
+interface ClientServiceLogInputFields {
+  customServiceName?: string | null
+  status?: ClientServiceStatus
+  taxYear?: number | null
+  serviceDate?: string
+  note?: string | null
+}
+
+export interface CreateClientServiceLogInput extends ClientServiceLogInputFields {
+  serviceType: ClientServiceType
+  serviceDate: string
+}
+
+export interface UpdateClientServiceLogInput extends ClientServiceLogInputFields {
+  serviceType?: ClientServiceType
+}
+
 // Client with computed status and action counts for list view
 export interface ClientWithActions {
   id: string
@@ -3234,7 +3331,7 @@ export interface ChecklistResponse {
 }
 
 // Document category enum (matches DocCategory in Prisma schema)
-export type DocCategory = 'IDENTITY' | 'INCOME' | 'TAX_RETURNS' | 'EXPENSE' | 'ASSET' | 'EDUCATION' | 'HEALTHCARE' | 'OTHER'
+export type DocCategory = 'IDENTITY' | 'INCOME' | 'TAX_RETURNS' | 'EXPENSE' | 'ASSET' | 'EDUCATION' | 'HEALTHCARE' | 'BANK_CARD_STATEMENTS' | 'OTHER'
 
 // Image & Document types
 export interface RawImage {
@@ -3661,6 +3758,34 @@ export interface LeadMessageSendResponse {
   sent: boolean
   smsEnabled: boolean
   error?: string
+}
+
+export interface LeadConversation {
+  leadId: string
+  unreadCount: number
+  lastMessageAt: string | null
+  lead: {
+    id: string
+    firstName: string
+    lastName: string
+    name: string
+    phone: string
+    status: LeadStatus
+    campaignTag: string | null
+    tags: string[]
+  }
+  lastMessage: Message | null
+}
+
+export interface LeadConversationsResponse {
+  conversations: LeadConversation[]
+  totalUnread: number
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
 }
 
 // Conversation type for unified inbox

@@ -454,13 +454,31 @@ const docTypeLibrary: DocTypeLibrarySeed[] = [
     sortOrder: 80,
   },
   {
+    code: 'CREDIT_CARD_STATEMENT',
+    labelVi: 'Sao ke the tin dung',
+    labelEn: 'Credit Card Statement',
+    category: 'business',
+    aliases: ['card statement', 'credit card stmt', 'monthly card statement'],
+    keywords: [
+      'credit card',
+      'card statement',
+      'purchases',
+      'payments',
+      'minimum payment',
+      'payment due',
+      'card balance',
+      'bookkeeping',
+    ],
+    sortOrder: 81,
+  },
+  {
     code: 'PROFIT_LOSS_STATEMENT',
     labelVi: 'Bao cao lai lo',
     labelEn: 'Profit & Loss Statement',
     category: 'business',
     aliases: ['p&l', 'income statement', 'pl statement'],
     keywords: ['profit', 'loss', 'income', 'expenses', 'revenue', 'net income'],
-    sortOrder: 81,
+    sortOrder: 82,
   },
   {
     code: 'BALANCE_SHEET',
@@ -469,7 +487,7 @@ const docTypeLibrary: DocTypeLibrarySeed[] = [
     category: 'business',
     aliases: ['statement of financial position'],
     keywords: ['balance sheet', 'assets', 'liabilities', 'equity', 'financial position'],
-    sortOrder: 82,
+    sortOrder: 83,
   },
   {
     code: 'BUSINESS_LICENSE',
@@ -478,7 +496,7 @@ const docTypeLibrary: DocTypeLibrarySeed[] = [
     category: 'business',
     aliases: ['license', 'permit'],
     keywords: ['business license', 'permit', 'city', 'county', 'registration'],
-    sortOrder: 83,
+    sortOrder: 84,
   },
   {
     code: 'EIN_LETTER',
@@ -489,7 +507,7 @@ const docTypeLibrary: DocTypeLibrarySeed[] = [
     category: 'business',
     aliases: ['ein confirmation', 'cp575', 'ss-4 confirmation'],
     keywords: ['ein', 'employer identification', 'cp575', 'irs', 'ss-4'],
-    sortOrder: 84,
+    sortOrder: 85,
   },
   {
     code: 'ARTICLES_OF_INCORPORATION',
@@ -498,7 +516,7 @@ const docTypeLibrary: DocTypeLibrarySeed[] = [
     category: 'business',
     aliases: ['articles', 'certificate of incorporation', 'corp papers'],
     keywords: ['articles', 'incorporation', 'corporation', 'secretary of state'],
-    sortOrder: 85,
+    sortOrder: 86,
   },
   {
     code: 'OPERATING_AGREEMENT',
@@ -507,7 +525,7 @@ const docTypeLibrary: DocTypeLibrarySeed[] = [
     category: 'business',
     aliases: ['llc agreement', 'partnership agreement', 'bylaws'],
     keywords: ['operating agreement', 'llc', 'partnership', 'members', 'ownership'],
-    sortOrder: 86,
+    sortOrder: 87,
   },
   {
     code: 'PAYROLL_REPORT',
@@ -516,7 +534,7 @@ const docTypeLibrary: DocTypeLibrarySeed[] = [
     category: 'business',
     aliases: ['941', 'payroll summary', 'w-3'],
     keywords: ['payroll', '941', 'wages', 'withholding', 'fica', 'w-3'],
-    sortOrder: 87,
+    sortOrder: 88,
   },
   {
     code: 'DEPRECIATION_SCHEDULE',
@@ -525,7 +543,7 @@ const docTypeLibrary: DocTypeLibrarySeed[] = [
     category: 'business',
     aliases: ['asset depreciation', 'fixed asset schedule'],
     keywords: ['depreciation', 'assets', 'macrs', '179', 'basis', 'accumulated'],
-    sortOrder: 88,
+    sortOrder: 89,
   },
   {
     code: 'VEHICLE_MILEAGE_LOG',
@@ -534,7 +552,7 @@ const docTypeLibrary: DocTypeLibrarySeed[] = [
     category: 'business',
     aliases: ['mileage log', 'car log', 'auto log'],
     keywords: ['mileage', 'vehicle', 'business use', 'miles', 'odometer'],
-    sortOrder: 89,
+    sortOrder: 90,
   },
   {
     code: 'RECEIPT',
@@ -543,7 +561,7 @@ const docTypeLibrary: DocTypeLibrarySeed[] = [
     category: 'business',
     aliases: ['expense receipt', 'purchase receipt'],
     keywords: ['receipt', 'purchase', 'expense', 'payment'],
-    sortOrder: 90,
+    sortOrder: 91,
   },
 
   // ============================================

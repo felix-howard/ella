@@ -148,6 +148,25 @@ const BUSINESS_FIELDS: Record<string, string> = {
   businessAddress: 'Business Address',
 }
 
+// Credit card statement fields
+const CREDIT_CARD_STATEMENT_FIELDS: Record<string, string> = {
+  issuerName: 'Issuer Name',
+  accountHolderName: 'Account Holder',
+  accountNumber: 'Account Number',
+  statementPeriodStart: 'Statement Period Start',
+  statementPeriodEnd: 'Statement Period End',
+  previousBalance: 'Previous Balance',
+  payments: 'Payments',
+  purchases: 'Purchases',
+  credits: 'Credits / Adjustments',
+  fees: 'Fees',
+  interestCharged: 'Interest Charged',
+  endingBalance: 'Statement Balance',
+  minimumPaymentDue: 'Minimum Payment Due',
+  paymentDueDate: 'Payment Due Date',
+  creditLimit: 'Credit Limit',
+}
+
 // 1098 form fields (mortgage interest)
 const FORM_1098_FIELDS: Record<string, string> = {
   lenderName: 'Lender Name',
@@ -203,6 +222,7 @@ export const DOC_TYPE_FIELD_LABELS: Record<string, Record<string, string>> = {
   BIRTH_CERTIFICATE: IDENTITY_FIELDS,
   BUSINESS_LICENSE: BUSINESS_FIELDS,
   EIN_LETTER: BUSINESS_FIELDS,
+  CREDIT_CARD_STATEMENT: CREDIT_CARD_STATEMENT_FIELDS,
 }
 
 /**
@@ -222,6 +242,7 @@ export const FIELD_LABELS: Record<string, string> = {
   ...FORM_1099_SSA_FIELDS,
   ...IDENTITY_FIELDS,
   ...BUSINESS_FIELDS,
+  ...CREDIT_CARD_STATEMENT_FIELDS,
   ...FORM_1098_FIELDS,
   ...FORM_1098_T_FIELDS,
 }

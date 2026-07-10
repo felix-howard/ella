@@ -24,7 +24,8 @@ import {
   getGroupImages,
 } from '../../services/ai'
 import { getSignedDownloadUrl } from '../../services/storage'
-import type { DocType, DigitalDocStatus, ChecklistItemStatus } from '@ella/db'
+import { Prisma, type DocType, type DigitalDocStatus, type ChecklistItemStatus } from '@ella/db'
+import { getCategoryFromDocType } from '@ella/shared'
 import { isValidDocField } from '../../lib/validation'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import type { AuthVariables } from '../../middleware/auth'
@@ -60,6 +61,8 @@ docsRoute.post('/:id/classify', zValidator('json', classifyDocSchema), async (c)
   const id = c.req.param('id')
   const { docType } = c.req.valid('json')
   const user = c.get('user')
+  const classifiedType = docType as DocType
+  const category = getCategoryFromDocType(classifiedType)
 
   // Find the raw image (org-scoped)
   const rawImage = await prisma.rawImage.findFirst({
@@ -74,58 +77,88 @@ docsRoute.post('/:id/classify', zValidator('json', classifyDocSchema), async (c)
     )
   }
 
-  // Update raw image with classification
-  const updatedRawImage = await prisma.rawImage.update({
-    where: { id },
-    data: {
-      classifiedType: docType as DocType,
-      status: 'CLASSIFIED',
-      aiConfidence: 1.0, // Manual classification = 100% confidence
-    },
-  })
-
   // Find matching checklist item and link
   const checklistItem = await prisma.checklistItem.findFirst({
     where: {
       caseId: rawImage.caseId,
-      template: { docType: docType as DocType },
+      template: { docType: classifiedType },
     },
   })
 
-  if (checklistItem) {
-    await prisma.rawImage.update({
+  const { updatedRawImage, digitalDoc } = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
+      SELECT id FROM "RawImage" WHERE id = ${id} FOR UPDATE
+    `)
+
+    const currentRawImage = await tx.rawImage.findUnique({
+      where: { id },
+      select: { checklistItemId: true },
+    })
+
+    if (!currentRawImage) {
+      throw new Error('Raw image disappeared during manual classification')
+    }
+
+    const nextChecklistItemId = checklistItem?.id ?? null
+    const linkChanged = currentRawImage.checklistItemId !== nextChecklistItemId
+
+    if (linkChanged && currentRawImage.checklistItemId) {
+      await tx.checklistItem.updateMany({
+        where: {
+          id: currentRawImage.checklistItemId,
+          receivedCount: { gt: 0 },
+        },
+        data: { receivedCount: { decrement: 1 } },
+      })
+      await tx.checklistItem.updateMany({
+        where: {
+          id: currentRawImage.checklistItemId,
+          receivedCount: { lte: 0 },
+        },
+        data: { status: 'MISSING' as ChecklistItemStatus },
+      })
+    }
+
+    if (linkChanged && checklistItem) {
+      await tx.checklistItem.update({
+        where: { id: checklistItem.id },
+        data: {
+          status: 'HAS_RAW' as ChecklistItemStatus,
+          receivedCount: { increment: 1 },
+        },
+      })
+    }
+
+    const updatedRawImage = await tx.rawImage.update({
       where: { id },
       data: {
-        checklistItemId: checklistItem.id,
-        status: 'LINKED',
+        classifiedType,
+        category,
+        status: checklistItem ? 'LINKED' : 'CLASSIFIED',
+        checklistItemId: nextChecklistItemId,
+        aiConfidence: 1.0, // Manual classification = 100% confidence
       },
     })
 
-    // Update checklist item status
-    await prisma.checklistItem.update({
-      where: { id: checklistItem.id },
-      data: {
-        status: 'HAS_RAW' as ChecklistItemStatus,
-        receivedCount: { increment: 1 },
+    // Create placeholder digital doc (OCR will populate extractedData later)
+    const digitalDoc = await tx.digitalDoc.upsert({
+      where: { rawImageId: id },
+      update: {
+        docType: classifiedType,
+        status: 'PENDING',
+        checklistItemId: nextChecklistItemId,
+      },
+      create: {
+        caseId: rawImage.caseId,
+        rawImageId: id,
+        docType: classifiedType,
+        status: 'PENDING',
+        extractedData: {},
+        checklistItemId: checklistItem?.id,
       },
     })
-  }
 
-  // Create placeholder digital doc (OCR will populate extractedData later)
-  const digitalDoc = await prisma.digitalDoc.upsert({
-    where: { rawImageId: id },
-    update: {
-      docType: docType as DocType,
-      status: 'PENDING',
-    },
-    create: {
-      caseId: rawImage.caseId,
-      rawImageId: id,
-      docType: docType as DocType,
-      status: 'PENDING',
-      extractedData: {},
-      checklistItemId: checklistItem?.id,
-    },
+    return { updatedRawImage, digitalDoc }
   })
 
   return c.json({

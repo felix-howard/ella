@@ -33,7 +33,7 @@ interface ManualClassificationModalProps {
 }
 
 // All supported document types for manual classification
-const SUPPORTED_DOC_TYPES = [
+export const SUPPORTED_DOC_TYPES = [
   'SSN_CARD',
   'DRIVER_LICENSE',
   'W2',
@@ -46,6 +46,8 @@ const SUPPORTED_DOC_TYPES = [
   'FORM_1099_G',
   'FORM_1099_SSA',
   'BANK_STATEMENT',
+  'CREDIT_CARD_STATEMENT',
+  'FOREIGN_BANK_STATEMENT',
   'PROFIT_LOSS_STATEMENT',
   'BUSINESS_LICENSE',
   'EIN_LETTER',

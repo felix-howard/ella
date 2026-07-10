@@ -14,6 +14,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PricingCalculatorRouteImport } from './routes/pricing-calculator'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LeadMessagesRouteImport } from './routes/lead-messages'
 import { Route as CompanyVaultRouteImport } from './routes/company-vault'
 import { Route as AutoLoginRouteImport } from './routes/auto-login'
 import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
@@ -21,10 +22,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as TeamIndexRouteImport } from './routes/team/index'
 import { Route as MessagesIndexRouteImport } from './routes/messages/index'
 import { Route as LeadsIndexRouteImport } from './routes/leads/index'
+import { Route as LeadMessagesIndexRouteImport } from './routes/lead-messages/index'
 import { Route as ClientsIndexRouteImport } from './routes/clients/index'
 import { Route as ActionsIndexRouteImport } from './routes/actions/index'
 import { Route as MessagesCaseIdRouteImport } from './routes/messages/$caseId'
 import { Route as LeadsLeadIdRouteImport } from './routes/leads/$leadId'
+import { Route as LeadMessagesLeadIdRouteImport } from './routes/lead-messages/$leadId'
 import { Route as ClientsNewRouteImport } from './routes/clients/new'
 import { Route as ClientsClientIdRouteImport } from './routes/clients/$clientId'
 import { Route as TeamProfileStaffIdRouteImport } from './routes/team/profile/$staffId'
@@ -54,6 +57,11 @@ const MessagesRoute = MessagesRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeadMessagesRoute = LeadMessagesRouteImport.update({
+  id: '/lead-messages',
+  path: '/lead-messages',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CompanyVaultRoute = CompanyVaultRouteImport.update({
@@ -91,6 +99,11 @@ const LeadsIndexRoute = LeadsIndexRouteImport.update({
   path: '/leads/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LeadMessagesIndexRoute = LeadMessagesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => LeadMessagesRoute,
+} as any)
 const ClientsIndexRoute = ClientsIndexRouteImport.update({
   id: '/clients/',
   path: '/clients/',
@@ -110,6 +123,11 @@ const LeadsLeadIdRoute = LeadsLeadIdRouteImport.update({
   id: '/leads/$leadId',
   path: '/leads/$leadId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const LeadMessagesLeadIdRoute = LeadMessagesLeadIdRouteImport.update({
+  id: '/$leadId',
+  path: '/$leadId',
+  getParentRoute: () => LeadMessagesRoute,
 } as any)
 const ClientsNewRoute = ClientsNewRouteImport.update({
   id: '/clients/new',
@@ -142,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/accept-invitation': typeof AcceptInvitationRoute
   '/auto-login': typeof AutoLoginRoute
   '/company-vault': typeof CompanyVaultRoute
+  '/lead-messages': typeof LeadMessagesRouteWithChildren
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRouteWithChildren
   '/pricing-calculator': typeof PricingCalculatorRoute
@@ -149,10 +168,12 @@ export interface FileRoutesByFullPath {
   '/team': typeof TeamRouteWithChildren
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
+  '/lead-messages/$leadId': typeof LeadMessagesLeadIdRoute
   '/leads/$leadId': typeof LeadsLeadIdRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
   '/actions': typeof ActionsIndexRoute
   '/clients': typeof ClientsIndexRoute
+  '/lead-messages/': typeof LeadMessagesIndexRoute
   '/leads': typeof LeadsIndexRoute
   '/messages/': typeof MessagesIndexRoute
   '/team/': typeof TeamIndexRoute
@@ -170,10 +191,12 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
+  '/lead-messages/$leadId': typeof LeadMessagesLeadIdRoute
   '/leads/$leadId': typeof LeadsLeadIdRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
   '/actions': typeof ActionsIndexRoute
   '/clients': typeof ClientsIndexRoute
+  '/lead-messages': typeof LeadMessagesIndexRoute
   '/leads': typeof LeadsIndexRoute
   '/messages': typeof MessagesIndexRoute
   '/team': typeof TeamIndexRoute
@@ -187,6 +210,7 @@ export interface FileRoutesById {
   '/accept-invitation': typeof AcceptInvitationRoute
   '/auto-login': typeof AutoLoginRoute
   '/company-vault': typeof CompanyVaultRoute
+  '/lead-messages': typeof LeadMessagesRouteWithChildren
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRouteWithChildren
   '/pricing-calculator': typeof PricingCalculatorRoute
@@ -194,10 +218,12 @@ export interface FileRoutesById {
   '/team': typeof TeamRouteWithChildren
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
+  '/lead-messages/$leadId': typeof LeadMessagesLeadIdRoute
   '/leads/$leadId': typeof LeadsLeadIdRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
   '/actions/': typeof ActionsIndexRoute
   '/clients/': typeof ClientsIndexRoute
+  '/lead-messages/': typeof LeadMessagesIndexRoute
   '/leads/': typeof LeadsIndexRoute
   '/messages/': typeof MessagesIndexRoute
   '/team/': typeof TeamIndexRoute
@@ -212,6 +238,7 @@ export interface FileRouteTypes {
     | '/accept-invitation'
     | '/auto-login'
     | '/company-vault'
+    | '/lead-messages'
     | '/login'
     | '/messages'
     | '/pricing-calculator'
@@ -219,10 +246,12 @@ export interface FileRouteTypes {
     | '/team'
     | '/clients/$clientId'
     | '/clients/new'
+    | '/lead-messages/$leadId'
     | '/leads/$leadId'
     | '/messages/$caseId'
     | '/actions'
     | '/clients'
+    | '/lead-messages/'
     | '/leads'
     | '/messages/'
     | '/team/'
@@ -240,10 +269,12 @@ export interface FileRouteTypes {
     | '/settings'
     | '/clients/$clientId'
     | '/clients/new'
+    | '/lead-messages/$leadId'
     | '/leads/$leadId'
     | '/messages/$caseId'
     | '/actions'
     | '/clients'
+    | '/lead-messages'
     | '/leads'
     | '/messages'
     | '/team'
@@ -256,6 +287,7 @@ export interface FileRouteTypes {
     | '/accept-invitation'
     | '/auto-login'
     | '/company-vault'
+    | '/lead-messages'
     | '/login'
     | '/messages'
     | '/pricing-calculator'
@@ -263,10 +295,12 @@ export interface FileRouteTypes {
     | '/team'
     | '/clients/$clientId'
     | '/clients/new'
+    | '/lead-messages/$leadId'
     | '/leads/$leadId'
     | '/messages/$caseId'
     | '/actions/'
     | '/clients/'
+    | '/lead-messages/'
     | '/leads/'
     | '/messages/'
     | '/team/'
@@ -280,6 +314,7 @@ export interface RootRouteChildren {
   AcceptInvitationRoute: typeof AcceptInvitationRoute
   AutoLoginRoute: typeof AutoLoginRoute
   CompanyVaultRoute: typeof CompanyVaultRoute
+  LeadMessagesRoute: typeof LeadMessagesRouteWithChildren
   LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRouteWithChildren
   PricingCalculatorRoute: typeof PricingCalculatorRoute
@@ -332,6 +367,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lead-messages': {
+      id: '/lead-messages'
+      path: '/lead-messages'
+      fullPath: '/lead-messages'
+      preLoaderRoute: typeof LeadMessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/company-vault': {
       id: '/company-vault'
       path: '/company-vault'
@@ -381,6 +423,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LeadsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lead-messages/': {
+      id: '/lead-messages/'
+      path: '/'
+      fullPath: '/lead-messages/'
+      preLoaderRoute: typeof LeadMessagesIndexRouteImport
+      parentRoute: typeof LeadMessagesRoute
+    }
     '/clients/': {
       id: '/clients/'
       path: '/clients'
@@ -408,6 +457,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/leads/$leadId'
       preLoaderRoute: typeof LeadsLeadIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/lead-messages/$leadId': {
+      id: '/lead-messages/$leadId'
+      path: '/$leadId'
+      fullPath: '/lead-messages/$leadId'
+      preLoaderRoute: typeof LeadMessagesLeadIdRouteImport
+      parentRoute: typeof LeadMessagesRoute
     }
     '/clients/new': {
       id: '/clients/new'
@@ -447,6 +503,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface LeadMessagesRouteChildren {
+  LeadMessagesLeadIdRoute: typeof LeadMessagesLeadIdRoute
+  LeadMessagesIndexRoute: typeof LeadMessagesIndexRoute
+}
+
+const LeadMessagesRouteChildren: LeadMessagesRouteChildren = {
+  LeadMessagesLeadIdRoute: LeadMessagesLeadIdRoute,
+  LeadMessagesIndexRoute: LeadMessagesIndexRoute,
+}
+
+const LeadMessagesRouteWithChildren = LeadMessagesRoute._addFileChildren(
+  LeadMessagesRouteChildren,
+)
+
 interface MessagesRouteChildren {
   MessagesCaseIdRoute: typeof MessagesCaseIdRoute
   MessagesIndexRoute: typeof MessagesIndexRoute
@@ -478,6 +548,7 @@ const rootRouteChildren: RootRouteChildren = {
   AcceptInvitationRoute: AcceptInvitationRoute,
   AutoLoginRoute: AutoLoginRoute,
   CompanyVaultRoute: CompanyVaultRoute,
+  LeadMessagesRoute: LeadMessagesRouteWithChildren,
   LoginRoute: LoginRoute,
   MessagesRoute: MessagesRouteWithChildren,
   PricingCalculatorRoute: PricingCalculatorRoute,

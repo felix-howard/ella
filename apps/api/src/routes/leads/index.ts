@@ -4,7 +4,7 @@
  */
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
-import { ActivityRiskLevel, Prisma, type Lead } from '@ella/db'
+import { ActivityRiskLevel, type Lead } from '@ella/db'
 import { BULK_SMS_MAX_RECIPIENTS } from '@ella/shared/constants'
 import { prisma } from '../../lib/db'
 import { getPaginationParams, buildPaginationResponse } from '../../lib/constants'
@@ -33,6 +33,10 @@ import {
   bulkSmsPreviewTargetsSchema,
 } from './schemas'
 import { buildLeadWhere, buildSelectableLeadWhere } from './lead-filter-helpers'
+import {
+  getActiveLeadUnreadMessageTotal,
+  getUnreadLeadMessageCounts,
+} from './lead-message-summary-helpers'
 import { getVerifiedAuth } from './auth-helpers'
 import { canViewFullPhone, serializePhone } from '../../lib/phone-privacy'
 import {
@@ -55,43 +59,6 @@ function toSafeSmsError(error: string | null | undefined): string | null {
   const twilioCode = error.match(/TWILIO_ERROR_(\d+)/)?.[1] ?? error.match(/\b(\d{5})\b/)?.[1]
   if (twilioCode) return `SMS provider error ${twilioCode}`
   return 'SMS delivery failed'
-}
-
-function toSafeCount(value: bigint | number | null | undefined): number {
-  return Math.min(Number(value ?? 0), 9999)
-}
-
-async function getUnreadLeadMessageCounts(leadIds: string[]): Promise<Map<string, number>> {
-  if (leadIds.length === 0) return new Map()
-
-  const rows = await prisma.$queryRaw<Array<{ leadId: string; unreadCount: bigint }>>`
-    SELECT
-      l.id as "leadId",
-      COUNT(m.id) FILTER (
-        WHERE m.direction = 'INBOUND'
-          AND (l."messagesLastReadAt" IS NULL OR m."createdAt" > l."messagesLastReadAt")
-      ) as "unreadCount"
-    FROM "Lead" l
-    LEFT JOIN "Message" m ON m."leadId" = l.id
-    WHERE l.id IN (${Prisma.join(leadIds)})
-    GROUP BY l.id
-  `
-
-  return new Map(rows.map((row) => [row.leadId, toSafeCount(row.unreadCount)]))
-}
-
-async function getActiveLeadUnreadMessageTotal(organizationId: string): Promise<number> {
-  const rows = await prisma.$queryRaw<Array<{ totalUnread: bigint }>>`
-    SELECT COUNT(m.id) as "totalUnread"
-    FROM "Lead" l
-    INNER JOIN "Message" m ON m."leadId" = l.id
-    WHERE l."organizationId" = ${organizationId}
-      AND l.status != 'CONVERTED'
-      AND m.direction = 'INBOUND'
-      AND (l."messagesLastReadAt" IS NULL OR m."createdAt" > l."messagesLastReadAt")
-  `
-
-  return toSafeCount(rows[0]?.totalUnread)
 }
 
 // ============================================

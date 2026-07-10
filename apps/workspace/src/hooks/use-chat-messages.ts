@@ -26,7 +26,7 @@ export function useChatMessages(context: ChatContext, enabled: boolean): UseChat
     queryFn: () =>
       context.type === 'case'
         ? api.messages.list(context.caseId)
-        : api.leads.messages.list(context.leadId),
+        : api.leads.messages.listLatest(context.leadId),
     enabled: enabled && !!chatContextId(context),
     refetchInterval: enabled ? FALLBACK_POLLING_MS : false,
   })

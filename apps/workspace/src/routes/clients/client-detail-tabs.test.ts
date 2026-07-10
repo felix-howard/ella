@@ -1,21 +1,42 @@
 import { describe, expect, it } from 'vitest'
 import { getAvailableTabIds } from './client-detail-tabs'
 
+const noManagementFlags = {
+  canManagePayments: false,
+  canManageAgreements: false,
+} as const
+
+const fullManagementFlags = {
+  canManagePayments: true,
+  canManageAgreements: true,
+} as const
+
 describe('client detail tab availability', () => {
-  it('hides agreements for managers on individual clients', () => {
+  it('shows services for individual clients', () => {
+    const tabs = getAvailableTabIds({ clientType: 'INDIVIDUAL' }, noManagementFlags)
+
+    expect(tabs).toContain('services')
+    expect(tabs.indexOf('services')).toBe(tabs.indexOf('files') + 1)
+  })
+
+  it('shows services for business clients', () => {
     const tabs = getAvailableTabIds(
-      { clientType: 'INDIVIDUAL' },
-      { canManagePayments: false, canManageAgreements: false },
+      { clientType: 'BUSINESS', businessType: 'PARTNERSHIP' },
+      noManagementFlags,
     )
+
+    expect(tabs).toContain('services')
+    expect(tabs.indexOf('services')).toBe(tabs.indexOf('files') + 1)
+  })
+
+  it('hides agreements for managers on individual clients', () => {
+    const tabs = getAvailableTabIds({ clientType: 'INDIVIDUAL' }, noManagementFlags)
 
     expect(tabs).not.toContain('agreements')
   })
 
   it('shows agreements for admins on individual clients', () => {
-    const tabs = getAvailableTabIds(
-      { clientType: 'INDIVIDUAL' },
-      { canManagePayments: true, canManageAgreements: true },
-    )
+    const tabs = getAvailableTabIds({ clientType: 'INDIVIDUAL' }, fullManagementFlags)
 
     expect(tabs).toContain('agreements')
   })
@@ -23,7 +44,7 @@ describe('client detail tab availability', () => {
   it('never shows agreements for business clients', () => {
     const tabs = getAvailableTabIds(
       { clientType: 'BUSINESS', businessType: 'SOLE_PROPRIETORSHIP' },
-      { canManagePayments: true, canManageAgreements: true },
+      fullManagementFlags,
     )
 
     expect(tabs).not.toContain('agreements')

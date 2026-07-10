@@ -34,6 +34,8 @@ const DOC_TYPE_KEYS: Record<string, string> = {
   FORM_1099_G: 'docType.form1099G',
   FORM_1099_SSA: 'docType.form1099Ssa',
   BANK_STATEMENT: 'docType.bankStatement',
+  CREDIT_CARD_STATEMENT: 'docType.creditCardStatement',
+  FOREIGN_BANK_STATEMENT: 'docType.foreignBankStatement',
   PROFIT_LOSS_STATEMENT: 'docType.profitLossStatement',
   BUSINESS_LICENSE: 'docType.businessLicense',
   EIN_LETTER: 'docType.einLetter',

@@ -76,6 +76,7 @@ export const SUPPORTED_DOC_TYPES = [
 
   // Business Documents
   'BANK_STATEMENT',
+  'CREDIT_CARD_STATEMENT',
   'PROFIT_LOSS_STATEMENT',
   'BALANCE_SHEET',
   'BUSINESS_LICENSE',
@@ -429,6 +430,10 @@ Response: {"docType":"FORM_2210","confidence":0.85,"reasoning":"Software-generat
 EXAMPLE 20 - Form 5695 Page 1 with Part I (first page of multi-page form):
 Image shows: "Form 5695 (2024)" in header, "Part I - Residential Clean Energy Credit" section, NO "Page 2" indicator
 Response: {"docType":"FORM_5695","confidence":0.91,"reasoning":"Form 5695 page 1 showing Part I - main form page with no page indicator means page 1","taxYear":2024,"extractedMetadata":{"taxpayerName":"LYNNIE DO AND NHAT T TRAN","ssn4":"6618","pageMarker":{"current":1,"total":null,"partNumber":"I","isWorksheet":false},"continuationMarker":null}}
+
+EXAMPLE 21 - Credit Card Statement:
+Image shows: Chase Ink monthly card statement with purchases, payments, fees, statement balance, minimum payment, payment due date, and credit limit
+Response: {"docType":"CREDIT_CARD_STATEMENT","confidence":0.90,"reasoning":"Monthly credit card statement identified by card account activity, statement balance, minimum payment due, due date, and credit limit"}
 `
 
 /**
@@ -617,7 +622,8 @@ CRITICAL IRS FORMS (Schedules & Credits):
 - FORM_6251: Form 6251 Alternative Minimum Tax (AMT calculation)
 
 BUSINESS DOCUMENTS:
-- BANK_STATEMENT: Bank account statements (monthly/quarterly, shows transactions)
+- BANK_STATEMENT: Checking, savings, or business bank account statements (monthly/quarterly, shows deposits, withdrawals, balances)
+- CREDIT_CARD_STATEMENT: Monthly credit card statement (purchases, payments, credits, fees, interest, statement balance, minimum payment, due date)
 - PROFIT_LOSS_STATEMENT: Business P&L statements (company letterhead, not IRS form)
 - BUSINESS_LICENSE: Business license or registration certificate
 - EIN_LETTER: IRS EIN assignment letter (CP 575, shows XX-XXXXXXX number)
@@ -692,9 +698,15 @@ DISAMBIGUATION RULES FOR CREDITS/DEDUCTIONS:
 DISAMBIGUATION RULES FOR 1099 VARIANTS:
 - 1099-INT vs 1099-DIV: INT = interest only; DIV = dividends (may include interest)
 - 1099-K vs 1099-NEC: 1099-K from payment processors (Square, PayPal); 1099-NEC from payer company
+- FORM_1099_K vs CREDIT_CARD_STATEMENT: 1099-K is an IRS tax form with Box 1a and payment settlement entity; credit card statement is monthly card account activity with purchases, payments, minimum payment, and due date
 - 1099-R vs RRB-1099-R: 1099-R from retirement plans; RRB from Railroad Retirement
 - 1099-B vs BROKERAGE_STATEMENT: 1099-B is tax form; brokerage statement is account summary
 - 1099-SSA vs RRB-1099: SSA from Social Security; RRB from Railroad Retirement
+
+DISAMBIGUATION RULES FOR BANK/CARD STATEMENTS:
+- CREDIT_CARD_STATEMENT vs BANK_STATEMENT: Credit card statements show credit limit, payment due date, minimum payment, purchases, interest/fees; bank statements show deposits, withdrawals, checking/savings balances
+- FOREIGN_BANK_STATEMENT vs BANK_STATEMENT: Foreign or international financial institution statements remain FOREIGN_BANK_STATEMENT, not BANK_STATEMENT
+- FOREIGN_TAX_STATEMENT, FORM_8938, and FBAR_SUPPORT_DOCS are foreign compliance/tax docs, not bank/card statements
 
 DISAMBIGUATION RULES FOR IDENTITY DOCS:
 - SSN_CARD vs ITIN_LETTER: SSN has 9-digit XXX-XX-XXXX; ITIN starts with 9 (9XX-XX-XXXX)

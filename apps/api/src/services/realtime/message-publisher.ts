@@ -197,6 +197,9 @@ export async function publishMessageEventFromLead(
     id: string
     direction: 'INBOUND' | 'OUTBOUND'
     channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
+    eventType?: MessageEventPayload['eventType']
+    twilioStatus?: string | null
+    twilioErrorCode?: string | null
   }
 ): Promise<void> {
   try {
@@ -215,10 +218,12 @@ export async function publishMessageEventFromLead(
 
     await publishMessageEvent(clerkOrgId, {
       leadId,
-      eventType: 'message.created',
+      eventType: message.eventType ?? 'message.created',
       messageId: message.id,
       direction: message.direction,
       channel: message.channel,
+      twilioStatus: message.twilioStatus,
+      twilioErrorCode: message.twilioErrorCode,
       timestamp: new Date().toISOString(),
     })
   } catch (error) {

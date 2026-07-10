@@ -14,6 +14,27 @@ export const sendLeadMessageSchema = z.object({
 export const listLeadMessagesQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(50),
+  latest: z
+    .preprocess((value) => {
+      if (typeof value === 'boolean') return value
+      if (typeof value === 'string') return value === 'true' || value === '1'
+      return false
+    }, z.boolean())
+    .optional()
+    .default(false),
+})
+
+export const listLeadConversationsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  unreadOnly: z
+    .preprocess((value) => {
+      if (typeof value === 'boolean') return value
+      if (typeof value === 'string') return value === 'true' || value === '1'
+      return false
+    }, z.boolean())
+    .optional()
+    .default(false),
 })
 
 // Mark-as-read: optional `upTo` clamps the read-watermark to the newest message
@@ -25,4 +46,5 @@ export const markLeadMessagesReadSchema = z.object({
 
 export type SendLeadMessageInput = z.infer<typeof sendLeadMessageSchema>
 export type ListLeadMessagesQuery = z.infer<typeof listLeadMessagesQuerySchema>
+export type ListLeadConversationsQuery = z.infer<typeof listLeadConversationsQuerySchema>
 export type MarkLeadMessagesReadInput = z.infer<typeof markLeadMessagesReadSchema>

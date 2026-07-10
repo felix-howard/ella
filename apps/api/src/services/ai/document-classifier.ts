@@ -24,6 +24,7 @@ import { config } from '../../lib/config'
 import { DOC_TYPE_LABELS_EN } from '../../lib/constants'
 import { getCategoryFromDocType } from '@ella/shared'
 import type { DocCategory } from '@ella/shared'
+import type { DocType } from '@ella/db'
 
 /**
  * Classification result with additional metadata
@@ -212,24 +213,24 @@ export async function batchClassifyDocuments(
  * Uses exclusion-based approach for easier maintenance
  * (Exclude 7 types vs include 17+ types)
  */
-export function requiresOcrExtraction(docType: SupportedDocType | 'UNKNOWN'): boolean {
+export function requiresOcrExtraction(docType: SupportedDocType | DocType | 'UNKNOWN'): boolean {
   // Only exclude truly non-extractable document types
   // Generic fallback extractor handles all other types dynamically
-  const noOcrTypes: Array<SupportedDocType | 'UNKNOWN'> = [
+  const noOcrTypes = [
     'OTHER',              // Unknown format, no reliable extraction
     'UNKNOWN',            // Unclassified, skip OCR
-  ]
-  return !noOcrTypes.includes(docType)
+  ] as const
+  return !noOcrTypes.includes(docType as (typeof noOcrTypes)[number])
 }
 
 /**
  * Get human-readable label for document type. Defaults to English.
  */
 export function getDocTypeLabel(
-  docType: SupportedDocType | 'UNKNOWN',
+  docType: SupportedDocType | DocType | 'UNKNOWN',
   language: 'EN' | 'VI' = 'EN'
 ): string {
-  const viLabels: Record<SupportedDocType, string> = {
+  const viLabels: Record<SupportedDocType, string> & Partial<Record<DocType, string>> = {
     // Personal / Identity
     SSN_CARD: 'Thẻ SSN',
     DRIVER_LICENSE: 'Bằng Lái / ID',
@@ -300,6 +301,7 @@ export function getDocTypeLabel(
 
     // Business Documents
     BANK_STATEMENT: 'Sao kê ngân hàng',
+    CREDIT_CARD_STATEMENT: 'Sao kê thẻ tín dụng',
     PROFIT_LOSS_STATEMENT: 'Báo cáo lời lỗ',
     BALANCE_SHEET: 'Bảng cân đối',
     BUSINESS_LICENSE: 'Giấy phép kinh doanh',
@@ -473,7 +475,7 @@ export function getDocTypeLabel(
   return DOC_TYPE_LABELS_EN[docType] || formatDocTypeCode(docType)
 }
 
-function formatDocTypeCode(docType: SupportedDocType | 'UNKNOWN'): string {
+function formatDocTypeCode(docType: SupportedDocType | DocType | 'UNKNOWN'): string {
   if (docType === 'UNKNOWN') return 'Unknown'
   return docType
     .split('_')

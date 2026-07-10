@@ -23,7 +23,7 @@ import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { api, type RawImage, type DigitalDoc } from '../../lib/api-client'
 
 // Document types for classification
-const COMMON_DOC_TYPES = [
+export const COMMON_DOC_TYPES = [
   'W2',
   'SSN_CARD',
   'DRIVER_LICENSE',
@@ -32,6 +32,8 @@ const COMMON_DOC_TYPES = [
   'FORM_1099_DIV',
   'FORM_1099_K',
   'BANK_STATEMENT',
+  'CREDIT_CARD_STATEMENT',
+  'FOREIGN_BANK_STATEMENT',
   'BIRTH_CERTIFICATE',
   'DAYCARE_RECEIPT',
   'OTHER',

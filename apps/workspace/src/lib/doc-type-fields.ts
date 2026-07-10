@@ -206,6 +206,24 @@ export const DOC_TYPE_FIELDS: Record<string, string[]> = {
     'endingBalance',
   ],
 
+  CREDIT_CARD_STATEMENT: [
+    'issuerName',
+    'accountHolderName',
+    'accountNumber',
+    'statementPeriodStart',
+    'statementPeriodEnd',
+    'previousBalance',
+    'payments',
+    'purchases',
+    'credits',
+    'fees',
+    'interestCharged',
+    'endingBalance',
+    'minimumPaymentDue',
+    'paymentDueDate',
+    'creditLimit',
+  ],
+
   // Expense documents
   DAYCARE_RECEIPT: [
     'providerName',

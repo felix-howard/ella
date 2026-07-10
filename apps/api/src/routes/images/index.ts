@@ -12,8 +12,9 @@ import { sanitizeReuploadReason } from '../../lib/validation'
 import { sendBlurryResendRequest, isSmsEnabled } from '../../services/sms'
 import { deleteFile } from '../../services/storage'
 import { updateLastActivity } from '../../services/activity-tracker'
-import { ActivityRiskLevel } from '@ella/db'
+import { ActivityRiskLevel, DocType as DbDocType, Prisma } from '@ella/db'
 import type { DocType, ChecklistItemStatus, RawImageStatus, DocCategory } from '@ella/db'
+import { getCategoryFromDocType } from '@ella/shared'
 import {
   getAuditRequestContext,
   logStaffActivities,
@@ -85,7 +86,7 @@ async function logImageMutation(
 
 // Schema for classification update
 const updateClassificationSchema = z.object({
-  docType: z.string().min(1, 'Doc type is required'),
+  docType: z.nativeEnum(DbDocType),
   action: z.enum(['approve', 'reject']),
 })
 
@@ -106,18 +107,21 @@ const renameSchema = z.object({
   filename: z.string().min(1, 'Filename is required').max(255, 'Filename too long'),
 })
 
+const docCategoryValues = [
+  'IDENTITY',
+  'INCOME',
+  'BANK_CARD_STATEMENTS',
+  'TAX_RETURNS',
+  'EXPENSE',
+  'ASSET',
+  'EDUCATION',
+  'HEALTHCARE',
+  'OTHER',
+] as const
+
 // Schema for changing category
 const changeCategorySchema = z.object({
-  category: z.enum([
-    'IDENTITY',
-    'INCOME',
-    'TAX_RETURNS',
-    'EXPENSE',
-    'ASSET',
-    'EDUCATION',
-    'HEALTHCARE',
-    'OTHER',
-  ]),
+  category: z.enum(docCategoryValues),
 })
 
 // Schema for batch category change
@@ -126,16 +130,7 @@ const batchCategorySchema = z.object({
     .array(z.string())
     .min(1, 'At least one image ID required')
     .max(20, 'Maximum 20 images per batch'),
-  category: z.enum([
-    'IDENTITY',
-    'INCOME',
-    'TAX_RETURNS',
-    'EXPENSE',
-    'ASSET',
-    'EDUCATION',
-    'HEALTHCARE',
-    'OTHER',
-  ]),
+  category: z.enum(docCategoryValues),
 })
 
 // Schema for reassigning entity
@@ -181,6 +176,8 @@ imagesRoute.patch(
     }
 
     if (action === 'approve') {
+      const category = getCategoryFromDocType(docType)
+
       // Approve classification - update type and link to checklist
       const result = await prisma.$transaction(async (tx) => {
         // Find matching checklist items, prefer ones with existing images to group docs together
@@ -198,20 +195,54 @@ imagesRoute.patch(
         // Prefer item with existing images, otherwise first by sortOrder
         const checklistItem =
           checklistItems.find((item) => item._count.rawImages > 0) || checklistItems[0] || null
+        const nextChecklistItemId = checklistItem?.id ?? null
+
+        await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
+          SELECT id FROM "RawImage" WHERE id = ${id} FOR UPDATE
+        `)
+
+        const currentRawImage = await tx.rawImage.findUnique({
+          where: { id },
+          select: { checklistItemId: true },
+        })
+
+        if (!currentRawImage) {
+          throw new Error('Raw image disappeared during classification approval')
+        }
+
+        const linkChanged = currentRawImage.checklistItemId !== nextChecklistItemId
+
+        if (linkChanged && currentRawImage.checklistItemId) {
+          await tx.checklistItem.updateMany({
+            where: {
+              id: currentRawImage.checklistItemId,
+              receivedCount: { gt: 0 },
+            },
+            data: { receivedCount: { decrement: 1 } },
+          })
+          await tx.checklistItem.updateMany({
+            where: {
+              id: currentRawImage.checklistItemId,
+              receivedCount: { lte: 0 },
+            },
+            data: { status: 'MISSING' as ChecklistItemStatus },
+          })
+        }
 
         // Update raw image with approved classification
         const updatedImage = await tx.rawImage.update({
           where: { id },
           data: {
             classifiedType: docType as DocType,
+            category: category as DocCategory,
             status: 'LINKED' as RawImageStatus,
             aiConfidence: 1.0, // Manual verification = 100% confidence
-            checklistItemId: checklistItem?.id || null,
+            checklistItemId: nextChecklistItemId,
           },
         })
 
         // Update checklist item status if found
-        if (checklistItem) {
+        if (linkChanged && checklistItem) {
           await tx.checklistItem.update({
             where: { id: checklistItem.id },
             data: {
@@ -227,6 +258,7 @@ imagesRoute.patch(
           update: {
             docType: docType as DocType,
             status: 'PENDING',
+            checklistItemId: nextChecklistItemId,
           },
           create: {
             caseId: rawImage.caseId,
@@ -234,7 +266,7 @@ imagesRoute.patch(
             docType: docType as DocType,
             status: 'PENDING',
             extractedData: {},
-            checklistItemId: checklistItem?.id,
+            checklistItemId: nextChecklistItemId,
           },
         })
 
@@ -249,8 +281,9 @@ imagesRoute.patch(
         action: ACTIVITY_ACTIONS.DOCUMENT.CLASSIFICATION_APPROVED,
         riskLevel: ActivityRiskLevel.MEDIUM,
         metadata: {
-          changedFields: ['classifiedType', 'status', 'aiConfidence', 'checklistItemId'],
+          changedFields: ['classifiedType', 'category', 'status', 'aiConfidence', 'checklistItemId'],
           newDocType: docType,
+          newCategory: category,
         },
       })
 
@@ -456,6 +489,8 @@ imagesRoute.patch('/:id/move', zValidator('json', moveImageSchema), async (c) =>
     return c.json({ error: 'INVALID_CASE', message: 'Cannot move image to a different case' }, 400)
   }
 
+  const newCategory = getCategoryFromDocType(targetItem.template?.docType)
+
   // Skip if already in target
   if (rawImage.checklistItemId === targetChecklistItemId) {
     return c.json({
@@ -491,6 +526,7 @@ imagesRoute.patch('/:id/move', zValidator('json', moveImageSchema), async (c) =>
       data: {
         checklistItemId: targetChecklistItemId,
         classifiedType: targetItem.template?.docType as DocType,
+        category: newCategory as DocCategory,
         status: 'LINKED' as RawImageStatus,
       },
     })
@@ -510,10 +546,12 @@ imagesRoute.patch('/:id/move', zValidator('json', moveImageSchema), async (c) =>
     action: ACTIVITY_ACTIONS.DOCUMENT.MOVED,
     riskLevel: ActivityRiskLevel.LOW,
     metadata: {
-      changedFields: ['checklistItemId', 'classifiedType', 'status'],
+      changedFields: ['checklistItemId', 'classifiedType', 'category', 'status'],
       previousChecklistItemId: rawImage.checklistItemId,
+      previousCategory: rawImage.category,
       newChecklistItemId: targetChecklistItemId,
       newDocType: targetItem.template?.docType,
+      newCategory,
     },
   })
 

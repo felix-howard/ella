@@ -4,6 +4,7 @@ import { isScheduleCEligibleBusiness } from '../../lib/business-type-helpers'
 export type TabType =
   | 'overview'
   | 'files'
+  | 'services'
   | 'checklist'
   | 'schedule-c'
   | 'schedule-e'
@@ -13,9 +14,10 @@ export type TabType =
   | 'agreements'
   | 'payments'
 
+const BASE_CLIENT_TAB_IDS: TabType[] = ['overview', 'files', 'services']
+
 export const VALID_TAB_PARAMS: TabType[] = [
-  'overview',
-  'files',
+  ...BASE_CLIENT_TAB_IDS,
   'checklist',
   'schedule-c',
   'schedule-e',
@@ -37,24 +39,24 @@ export function getAvailableTabIds(
 ): TabType[] {
   if (!client) return VALID_TAB_PARAMS
 
-  const paymentsTabs = flags.canManagePayments ? (['payments'] as TabType[]) : []
-  const agreementsTabs = flags.canManageAgreements ? (['agreements'] as TabType[]) : []
+  const paymentsTabs: TabType[] = flags.canManagePayments ? ['payments'] : []
+  const agreementsTabs: TabType[] = flags.canManageAgreements ? ['agreements'] : []
 
   if (client.clientType === 'BUSINESS') {
+    const scheduleCTabs: TabType[] = isScheduleCEligibleBusiness(client) ? ['schedule-c'] : []
+
     return [
-      'overview',
-      'files',
+      ...BASE_CLIENT_TAB_IDS,
       'contractors',
       'data-entry',
       'shared-docs',
       ...paymentsTabs,
-      ...(isScheduleCEligibleBusiness(client) ? (['schedule-c'] as TabType[]) : []),
+      ...scheduleCTabs,
     ]
   }
 
   return [
-    'overview',
-    'files',
+    ...BASE_CLIENT_TAB_IDS,
     ...agreementsTabs,
     ...paymentsTabs,
     'data-entry',

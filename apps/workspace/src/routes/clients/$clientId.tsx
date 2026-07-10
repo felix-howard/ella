@@ -34,6 +34,7 @@ import {
   Check,
   X,
   CreditCard,
+  BriefcaseBusiness,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button, buttonVariants, Input } from '@ella/ui'
@@ -60,6 +61,7 @@ import {
   CreateEngagementModal,
   ClientOverviewTab,
   BusinessDeleteWithScheduleCModal,
+  ClientServicesTab,
 } from '../../components/clients'
 import { CaseFiledAction } from '../../components/cases/case-filed-action'
 import { useDeleteBusinessWithScheduleC } from '../../hooks/use-delete-business-with-schedule-c'
@@ -675,6 +677,7 @@ function ClientDetailPage() {
   const scheduleETab = { id: 'schedule-e' as TabType, label: 'Schedule E', icon: Home }
   const agreementsTab = { id: 'agreements' as TabType, label: t('clientDetail.tabAgreements'), icon: FileSignature }
   const paymentsTab = { id: 'payments' as TabType, label: t('clientDetail.tabPayments'), icon: CreditCard }
+  const servicesTab = { id: 'services' as TabType, label: t('clientDetail.tabServices'), icon: BriefcaseBusiness }
   const isBusiness = client.clientType === 'BUSINESS'
 
   // Schedule C eligibility & cross-entity activity computation.
@@ -694,6 +697,7 @@ function ClientDetailPage() {
         // individual owner of the ClientGroup, not the business itself.
         { id: 'overview', label: t('clientOverview.title'), icon: Building2 },
         { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
+        servicesTab,
         { id: 'contractors', label: 'Contractors', icon: UserCircle },
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
         { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
@@ -703,6 +707,7 @@ function ClientDetailPage() {
     : [
         { id: 'overview', label: t('clientOverview.title'), icon: User },
         { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
+        servicesTab,
         ...(canManageAgreements ? [agreementsTab] : []),
         ...(canManagePayments ? [paymentsTab] : []),
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
@@ -1030,6 +1035,14 @@ function ClientDetailPage() {
 
       {/* Payments Tab - deposits/balances collected from this client */}
       {activeTab === 'payments' && canManagePayments && <ClientPaymentsTab clientId={clientId} />}
+
+      {/* Services Tab - internal CPA service ledger. Full UI lands in Phase 4. */}
+      {activeTab === 'services' && (
+        <ClientServicesTab
+          clientId={clientId}
+          defaultTaxYear={selectedEngagement?.taxYear ?? selectedCase?.taxYear ?? activeCase?.taxYear}
+        />
+      )}
 
       {/* Checklist Tab - Requirement-based document view (renamed from Documents) */}
       {activeTab === 'checklist' && (

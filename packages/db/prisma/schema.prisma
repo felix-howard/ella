@@ -436,6 +436,26 @@ enum ClientType {
   BUSINESS
 }
 
+enum ClientServiceType {
+  INDIVIDUAL_TAX_RETURN
+  BUSINESS_TAX_RETURN
+  BOOKKEEPING
+  PAYROLL
+  TAX_PLANNING
+  IRS_NOTICE
+  AMENDMENT
+  FORM_1099_FILING
+  CONSULTATION
+  OTHER
+}
+
+enum ClientServiceStatus {
+  ACTIVE
+  WAITING_ON_CLIENT
+  COMPLETED
+  CANCELLED
+}
+
 enum StaffFileKind {
   PERSONAL_DOCUMENT
   INVOICE
@@ -503,6 +523,9 @@ model Staff {
   managedClientLinks   ClientManager[]
   createdClients       Client[]            @relation("CreatedClients")
   updatedClients       Client[]            @relation("UpdatedClients")
+  createdClientServiceLogs ClientServiceLog[]  @relation("ClientServiceLogCreatedBy")
+  updatedClientServiceLogs ClientServiceLog[]  @relation("ClientServiceLogUpdatedBy")
+  deletedClientServiceLogs ClientServiceLog[]  @relation("ClientServiceLogDeletedBy")
   documentViews        DocumentView[]
   uploadedDraftReturns ShareableDocument[]
   sentMessages         Message[]           @relation("SentMessages")
@@ -743,6 +766,7 @@ model Organization {
   clients                        Client[]
   clientManagers                 ClientManager[]
   clientGroups                   ClientGroup[]
+  clientServiceLogs              ClientServiceLog[]
   leads                          Lead[]
   paymentQuotes                  PaymentQuote[]
   paymentTemplates               PaymentTemplate[]
@@ -825,6 +849,7 @@ model Client {
   profile        ClientProfile?
   engagements    TaxEngagement[]
   taxCases       TaxCase[]
+  serviceLogs    ClientServiceLog[]
   convertedLeads Lead[]          @relation("ConvertedLead")
   agreements     Agreement[]
   paymentQuotes  PaymentQuote[]
@@ -861,6 +886,34 @@ model Client {
   @@index([tags], type: Gin)
   @@index([clientType])
   @@index([clientGroupId])
+}
+
+model ClientServiceLog {
+  id                String              @id @default(cuid())
+  organizationId    String
+  organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientId          String
+  client            Client              @relation(fields: [clientId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  serviceType       ClientServiceType
+  customServiceName String?             @db.VarChar(100)
+  status            ClientServiceStatus @default(ACTIVE)
+  taxYear           Int?
+  serviceDate       DateTime            @default(now())
+  note              String?             @db.Text
+  createdById       String?
+  createdBy         Staff?              @relation("ClientServiceLogCreatedBy", fields: [createdById, organizationId], references: [id, organizationId], onDelete: NoAction)
+  updatedById       String?
+  updatedBy         Staff?              @relation("ClientServiceLogUpdatedBy", fields: [updatedById, organizationId], references: [id, organizationId], onDelete: NoAction)
+  deletedAt         DateTime?
+  deletedById       String?
+  deletedBy         Staff?              @relation("ClientServiceLogDeletedBy", fields: [deletedById, organizationId], references: [id, organizationId], onDelete: NoAction)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([organizationId, clientId, serviceDate])
+  @@index([organizationId, clientId, status])
+  @@index([organizationId, serviceType])
+  @@index([createdById])
 }
 
 model ClientManager {

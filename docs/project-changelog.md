@@ -1,6 +1,6 @@
 # Project Changelog
 
-> **Last Updated:** 2026-07-10 ICT
+> **Last Updated:** 2026-07-11 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
@@ -11,7 +11,8 @@
 **Changed:**
 - Added staff-only `Services` tab on client detail for individual and business clients.
 - Added org-scoped `ClientServiceLog` CRUD under `/clients/:id/service-logs` with service/status enums, tax year, service date, optional custom service name, internal note, staff attribution, and soft delete.
-- Added Workspace quick-add, active/waiting summary, chronological history, edit/delete modal, EN/VI copy, and URL-safe `?tab=services` routing.
+- Added Workspace Service history, add-service modal, edit/delete modal, EN/VI copy, and URL-safe `?tab=services` routing.
+- Simplified Workspace Services UX by removing the duplicate active-work summary and moving add-service entry into a modal opened from the Service history header.
 - ActivityLog entries use `CLIENT_SERVICE_LOG` targets and redacted metadata; service note bodies and custom note text are not persisted in activity metadata.
 - Portal remains unchanged; service logs are internal Workspace-only records.
 
@@ -22,7 +23,8 @@
 - `pnpm -F @ella/workspace type-check` pass.
 - `pnpm -F @ella/workspace test -- client-detail-tabs` pass, 5 tests.
 - `pnpm -F @ella/workspace test -- client-services-tab` pass, 7 tests.
-- `pnpm i18n:check` pass; workspace 3247 keys and portal 536 keys in parity.
+- `pnpm -F @ella/workspace lint` pass with existing warnings only.
+- `pnpm i18n:check` pass; workspace 3243 keys and portal 536 keys in parity.
 - `pnpm type-check` pass across 8 packages.
 - `git diff --check` pass.
 

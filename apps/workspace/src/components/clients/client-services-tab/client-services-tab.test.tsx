@@ -20,32 +20,28 @@ const mocks = getClientServicesTabMocks()
 describe('ClientServicesTab', () => {
   beforeEach(resetClientServicesTabMocks)
 
-  it('wires latest and active queries to the service log API', async () => {
+  it('wires the service history query to the service log API', async () => {
     renderToStaticMarkup(<ClientServicesTab clientId="client_1" />)
 
     await Promise.all(mocks.queryOptions.map((option) => option.queryFn()))
 
+    expect(mocks.queryOptions).toHaveLength(1)
     expect(mocks.list).toHaveBeenCalledWith('client_1', { limit: 200 })
-    expect(mocks.list).toHaveBeenCalledWith('client_1', {
-      limit: 200,
-      status: ['WAITING_ON_CLIENT', 'ACTIVE'],
-    })
   })
 
-  it('renders quick-add defaults and empty states', () => {
+  it('renders add-service action and service history empty state', () => {
     const markup = renderToStaticMarkup(
       <ClientServicesTab clientId="client_1" defaultTaxYear={2026} />
     )
 
-    expect(markup).toContain('clientServices.quickAddTitle')
-    expect(markup).toContain('value="2026"')
-    expect(markup).toContain('clientServices.activeEmptyTitle')
-    expect(markup).toContain('clientServices.emptyTitle')
     expect(markup).toContain('clientServices.addService')
+    expect(markup).toContain('clientServices.historyTitle')
+    expect(markup).toContain('clientServices.emptyTitle')
+    expect(markup).not.toContain('clientServices.activeTitle')
   })
 
-  it('renders active summary and chronological history', () => {
-    mocks.activeQuery.data = {
+  it('renders chronological history without active summary', () => {
+    mocks.latestQuery.data = {
       data: [
         serviceLog({
           id: 'service_waiting',
@@ -60,11 +56,6 @@ describe('ClientServicesTab', () => {
           status: 'ACTIVE',
           serviceDate: '2026-07-09T00:00:00.000Z',
         }),
-      ],
-    }
-    mocks.latestQuery.data = {
-      data: [
-        ...mocks.activeQuery.data.data,
         serviceLog({
           id: 'service_done',
           status: 'COMPLETED',
@@ -75,8 +66,8 @@ describe('ClientServicesTab', () => {
 
     const markup = renderToStaticMarkup(<ClientServicesTab clientId="client_1" />)
 
-    expect(markup).toContain('clientServices.activeTitle')
-    expect(markup).toContain('clientServices.activeCount:2')
+    expect(markup).not.toContain('clientServices.activeTitle')
+    expect(markup).not.toContain('clientServices.activeCount')
     expect(markup).toContain('Quarterly Planning')
     expect(markup).toContain('clientServices.status.waitingOnClient')
     expect(markup).toContain('clientServices.serviceTypes.bookkeeping')
@@ -128,13 +119,24 @@ describe('ClientServicesTab', () => {
       root.render(<ClientServicesTab clientId="client_1" defaultTaxYear={2026} />)
     })
 
+    const addButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('clientServices.addService')
+    )
+    expect(addButton).toBeTruthy()
+
+    await act(async () => {
+      addButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
     const selects = container.querySelectorAll('select')
     const serviceDateInput = container.querySelector<HTMLInputElement>('input[type="date"]')
-    const noteInput = container.querySelector<HTMLTextAreaElement>('#client-service-quick-note')
+    const taxYearInput = container.querySelector<HTMLInputElement>('input[inputmode="numeric"]')
+    const noteInput = container.querySelector<HTMLTextAreaElement>('#client-service-add-note')
     const form = container.querySelector('form')
 
     expect(selects).toHaveLength(2)
     expect(serviceDateInput).not.toBeNull()
+    expect(taxYearInput?.value).toBe('2026')
     expect(noteInput).not.toBeNull()
     expect(form).not.toBeNull()
 
@@ -185,10 +187,7 @@ describe('ClientServicesTab', () => {
   })
 })
 
-function setControlValue(
-  element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
-  value: string
-) {
+function setControlValue(element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, value: string) {
   const prototype = element instanceof HTMLInputElement
     ? HTMLInputElement.prototype
     : element instanceof HTMLSelectElement

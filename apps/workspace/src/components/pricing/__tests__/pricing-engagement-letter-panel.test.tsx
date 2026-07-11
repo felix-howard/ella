@@ -8,9 +8,7 @@ import {
   getEngagementLetterDisabledReason,
   type SelectedRecipient,
 } from '../pricing-engagement-letter-panel-helpers'
-import {
-  PricingEngagementLetterPanel,
-} from '../pricing-engagement-letter-panel'
+import { PricingEngagementLetterPanel } from '../pricing-engagement-letter-panel'
 
 vi.mock('react-i18next', () => ({
   initReactI18next: { type: '3rdParty', init: vi.fn() },
@@ -72,20 +70,22 @@ describe('PricingEngagementLetterPanel', () => {
         pricingInput={input}
         pricingResult={calculatePricing(input)}
         disabledReason={null}
-      />,
+      />
     )
 
     expect(markup).toContain('Engagement letter')
     expect(markup).toContain('Prepare engagement letter')
-    expect(markup).toContain('Search clients or leads')
+    expect(markup).toContain('Search clients')
     expect(markup).toContain('Payment after signature: Auto-send payment portal')
-    expect(markup).toContain('Select a client or lead to prepare an engagement letter.')
+    expect(markup).toContain('Select a client to prepare an engagement letter.')
     expect(markup).toContain('disabled=""')
   })
 
   it('maps calculator payment modes to localized label keys', () => {
     expect(getCalculatorPaymentModeLabelKey('AUTO_SEND')).toBe('settings.calculatorPaymentAutoSend')
-    expect(getCalculatorPaymentModeLabelKey('STAFF_REVIEW')).toBe('settings.calculatorPaymentStaffReview')
+    expect(getCalculatorPaymentModeLabelKey('STAFF_REVIEW')).toBe(
+      'settings.calculatorPaymentStaffReview'
+    )
   })
 
   it('prioritizes calculator invalid states over recipient states', () => {
@@ -100,7 +100,7 @@ describe('PricingEngagementLetterPanel', () => {
     }
 
     expect(
-      getEngagementLetterDisabledReason('Payable total must be greater than $0.', selected),
+      getEngagementLetterDisabledReason('Payable total must be greater than $0.', selected)
     ).toBe('Payable total must be greater than $0.')
   })
 
@@ -116,7 +116,7 @@ describe('PricingEngagementLetterPanel', () => {
     }
 
     expect(getEngagementLetterDisabledReason(null, selected)).toBe(
-      'Selected recipient has no phone on file. Add a phone number before sending.',
+      'Selected recipient has no phone on file. Add a phone number before sending.'
     )
   })
 
@@ -137,14 +137,16 @@ describe('PricingEngagementLetterPanel', () => {
     const modalState = createCalculatorEngagementLetterModalState(
       selected,
       input,
-      calculatePricing(input),
+      calculatePricing(input)
     )
 
     expect(modalState.entity).toEqual({ type: 'client', id: 'client_1' })
     expect(modalState.recipientLabel).toBe('Ada Lovelace')
     expect(modalState.recipientHint).toBe('ACME · •••• 1234')
     expect(modalState.draftSeed.contentHtml).toContain('<h2>Engagement Letter</h2>')
-    expect(modalState.draftSeed.contentHtml).toContain('Payroll employees (3 × $7, owner-manual): $21.')
+    expect(modalState.draftSeed.contentHtml).toContain(
+      'Payroll employees (3 × $7, owner-manual): $21.'
+    )
     expect(modalState.draftSeed.contentHtml).toContain('Tax Filing Allocation (Months 1-6 Only)')
     expect(modalState.draftSeed.source).toBe('CALCULATOR')
     expect(modalState.draftSeed.sourceSnapshot).toMatchObject({

@@ -174,6 +174,12 @@ export interface RecipientSearchResponse {
   leads: RecipientResult[]
 }
 
+export type RecipientSearchType = 'all' | 'client' | 'lead'
+
+export interface RecipientSearchOptions {
+  type?: RecipientSearchType
+}
+
 export interface CompanyVaultCredential {
   id: string
   toolName: string
@@ -606,10 +612,12 @@ export const api = {
     },
   },
 
-  // Recipient search (combined Clients + Leads) for sending pricing quotes
+  // Recipient search (combined Clients + Leads by default) for sending pricing quotes
   recipients: {
-    search: (q: string) =>
-      request<RecipientSearchResponse>('/recipients/search', { params: { q } }),
+    search: (q: string, options?: RecipientSearchOptions) =>
+      request<RecipientSearchResponse>('/recipients/search', {
+        params: { q, type: options?.type },
+      }),
   },
 
   push: {

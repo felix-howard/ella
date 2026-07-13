@@ -1,9 +1,79 @@
 # Project Changelog
 
-> **Last Updated:** 2026-07-11 ICT
+> **Last Updated:** 2026-07-13 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### ACH Bank Payment UX Hardening Phase 5
+**Status:** Complete
+
+**Changed:**
+- Added staff quote-payment diagnostics to the client Payments endpoint without changing the existing ledger `data` contract.
+- Workspace Payments now shows sent quote rows for bank processing, failed retryable, paid, duplicate-review, and subscription-canceled-after-payment states.
+- Added monitoring banners for ACH processing, stale ACH after 5 business days, duplicate settlement review before refunding, and subscription cancellation after collected money.
+- Agreement payment-portal badges now treat `awaiting_payment` and `duplicate_paid_review` as non-copyable/non-sendable states.
+- Added server-side staff send/activation guard so calculator, custom quote, and agreement payment portal sends fail while another quote for the same client is still processing bank payment.
+- Updated README and architecture docs with ACH settlement behavior and required Stripe webhook events.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/clients/__tests__/payments-staff.test.ts src/services/payments/__tests__/quote-send-service.test.ts src/services/payments/__tests__/custom-quote-send-service.test.ts src/services/payments/__tests__/agreement-quote-service.test.ts` passed, 4 files / 64 tests.
+- `pnpm -F @ella/workspace test -- src/components/clients/client-payments-tab/client-payments-tab.test.tsx src/components/agreements/agreement-card-payment-portal.test.tsx` passed, 16 tests.
+- `pnpm -F @ella/api type-check` passed.
+- `pnpm -F @ella/workspace type-check` passed.
+- `pnpm i18n:check` passed.
+- `pnpm -F @ella/api lint` and `pnpm -F @ella/workspace lint` passed with existing unrelated warnings only.
+
+### ACH Bank Payment UX Hardening Phase 4
+**Status:** Complete
+
+**Changed:**
+- Added Portal quote payment-state mapping for `processing_bank_payment`, `payment_failed`, `canceled_before_payment`, and `subscription_canceled_after_payment`.
+- Added a dedicated ACH bank-processing result panel with 3-5 business day settlement copy, no public retry/pay CTA, and a `Check status` action.
+- Made `Check status` refresh public quote state through GET only; checkout POST stays isolated to the pay/retry CTA.
+- Added retry copy for failed payments and separated no-charge cancellation copy from subscription-canceled-after-payment copy.
+- Added legacy/future-drift fallbacks so `awaiting_payment` and unknown `mayStartCheckout === false` states render the no-CTA processing panel.
+- Added tests for quote state mapping, bank-processing panel rendering, GET-only status refresh, and EN/VI no-charge copy boundaries.
+
+**Validation:**
+- `pnpm -F @ella/portal test` passed, 9 files / 20 tests.
+- `pnpm -F @ella/portal type-check` passed.
+- `pnpm -F @ella/portal lint` passed with 0 errors and 3 pre-existing unrelated Fast Refresh warnings outside payment files.
+- `pnpm i18n:check` passed.
+
+### ACH Bank Payment UX Hardening Phase 3
+**Status:** Complete
+
+**Changed:**
+- Added quote-level first-payment guard in quote webhook fulfillment with row lock, scoped current-quote Payment lookup, and duplicate delivery handling.
+- Duplicate first-payment success now marks `StripeCheckoutSession.status = duplicate_paid_review`, verifies durable marker writes, retries when no marker row exists, suppresses the second client receipt, and sends admin duplicate-review SMS only.
+- `duplicate_paid_review` is sticky and excluded from subscription invoice/failure quote updates and recurring/failure fulfillment.
+- `customer.subscription.deleted` no longer raw-cancels paid/active quotes or paid subscription sessions; cancellation now applies only to matching non-duplicate sessions with `paidAt: null`.
+- Public quote state now reports `subscription_canceled_after_payment` when a paid session later has subscription cancellation status.
+- No DB migration/schema change.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/payments/__tests__/quote-fulfillment-service.test.ts src/services/payments/__tests__/quote-fulfillment-notify.test.ts src/services/payments/__tests__/payment-sms-templates.test.ts src/services/payments/__tests__/quote-public-payment-state.test.ts src/routes/webhooks/__tests__/stripe-webhook.test.ts` passed, 5 files / 76 tests.
+- `pnpm -F @ella/api type-check` passed.
+- `pnpm -F @ella/api lint` passed with existing unrelated Fast Refresh warning in `apps/api/src/services/agreements/pdf-signature-page.tsx`.
+
+### ACH Bank Payment UX Hardening Phase 2
+**Status:** Complete
+
+**Changed:**
+- Added quote Stripe reconciliation before public quote GET and public checkout creation.
+- Blocked duplicate public Checkout creation while an ACH/bank payment is processing or when Stripe cannot verify an ambiguous prior session.
+- Added stale-state self-heal for paid and failed Stripe facts, including terminal facts whose Stripe object creation timestamp predates the observed reconciliation timestamp.
+- Added structured `PAYMENT_PROCESSING` response for pending/unverified bank-payment states.
+- Updated Portal quote API and pay page handling so `PAYMENT_PROCESSING` does not return the client to a payable state.
+- Redacted public quote pay tokens from reconciliation failure logs.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/payments/__tests__/public-quote-handlers.test.ts src/services/payments/__tests__/quote-public-payment-state.test.ts src/services/payments/__tests__/quote-checkout-service.test.ts` passed, 39 tests.
+- `pnpm -F @ella/portal test -- src/lib/quote-api.test.ts src/lib/api-client.test.ts` passed, 2 tests.
+- `pnpm -F @ella/api type-check` passed.
+- `pnpm -F @ella/portal type-check` passed.
+- `pnpm -F @ella/api lint` and `pnpm -F @ella/portal lint` passed with existing unrelated Fast Refresh warnings only.
 
 ### Client Service Log Tab
 **Status:** Complete

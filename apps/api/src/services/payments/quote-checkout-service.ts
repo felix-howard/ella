@@ -27,6 +27,14 @@ import { rebuildQuoteForCheckout, resolveQuoteCouponOptions } from '../stripe/qu
 import { ensureStripeCustomerForClient } from '../stripe/stripe-customer-link-service'
 import { buildQuotePayUrl } from './quote-send-service'
 import {
+  buildQuotePublicPaymentState,
+  type PublicQuotePaymentState,
+} from './quote-public-payment-state'
+import {
+  reconcileQuotePaymentFromStripe,
+  type QuoteReconciliationResult,
+} from './quote-stripe-reconciliation-service'
+import {
   BOOKKEEPING_SERVICE_LABEL,
   BOOKKEEPING_SETUP_LABEL,
   isBusinessTaxReturnPrepayLine,
@@ -35,8 +43,13 @@ import {
 /** Route-friendly error with a stable code; handlers map codes to statuses. */
 export class QuoteCheckoutError extends Error {
   constructor(
-    readonly code: 'ALREADY_PAID' | 'NOT_PAYABLE' | 'STRIPE_MISSING_URL',
-    message: string
+    readonly code:
+      | 'ALREADY_PAID'
+      | 'NOT_PAYABLE'
+      | 'PAYMENT_PROCESSING'
+      | 'STRIPE_MISSING_URL',
+    message: string,
+    readonly publicPaymentState: PublicQuotePaymentState | null = null
   ) {
     super(message)
     this.name = 'QuoteCheckoutError'
@@ -47,6 +60,7 @@ export class QuoteCheckoutError extends Error {
 // these. `active` = live subscription; `paid` = one-time charge captured.
 const PAID_STATUSES = ['paid', 'active'] as const
 const CANCELED_STATUSES = ['canceled'] as const
+const PROCESSING_PAYMENT_STATUSES = ['awaiting_payment'] as const
 const AGREEMENT_NOT_PAYABLE_STATUSES = [
   'agreement_draft',
   'agreement_pending_signature',
@@ -107,6 +121,7 @@ export interface PublicQuoteView {
   status: string
   /** ISO timestamp once settled; null otherwise. */
   paidAt: string | null
+  publicPaymentState: PublicQuotePaymentState
 }
 
 const quoteWithRecipientInclude = {
@@ -125,10 +140,41 @@ const quoteWithRecipientInclude = {
       stripeCouponId: true,
     },
   },
+  checkoutSessions: {
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+    select: {
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+      expiresAt: true,
+      paidAt: true,
+      lastStripeEventAt: true,
+      stripeSessionId: true,
+    },
+  },
+} as const
+
+const quoteWithCheckoutGuardInclude = {
+  checkoutSessions: {
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+    select: {
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+      expiresAt: true,
+      paidAt: true,
+      lastStripeEventAt: true,
+      stripeSessionId: true,
+    },
+  },
 } as const
 
 /** Load the public quote view for a payToken. Null when the token is unknown. */
 export async function getPublicQuoteView(payToken: string): Promise<PublicQuoteView | null> {
+  const reconciliation = await reconcileQuotePaymentFromStripe(payToken)
+
   const quote = await prisma.paymentQuote.findUnique({
     where: { payToken },
     include: quoteWithRecipientInclude,
@@ -145,6 +191,10 @@ export async function getPublicQuoteView(payToken: string): Promise<PublicQuoteV
     recurringCents: quote.monthlyTotalCents,
   })
   const discountAmountCents = discount ? dollarsToCents(discount.amount) : 0
+  const publicPaymentState = publicPaymentStateForReconciliation(
+    await buildPublicPaymentStateForQuote(quote),
+    reconciliation
+  )
 
   return {
     orgName: quote.organization?.name ?? 'us',
@@ -158,11 +208,25 @@ export async function getPublicQuoteView(payToken: string): Promise<PublicQuoteV
     billingInterval: normalizeBillingInterval(quote.billingInterval),
     dueToday: centsToDollars(dueTodayCents - discountAmountCents),
     status: quote.status,
-    paidAt:
-      isPaidStatus(quote.status) && quote.lastStripeEventAt
-        ? quote.lastStripeEventAt.toISOString()
-        : null,
+    paidAt: publicPaymentState.timestamps.paidAt,
+    publicPaymentState,
   }
+}
+
+async function findFirstQuotePayment(
+  checkoutSessions: Array<{ stripeSessionId: string }> | undefined
+): Promise<{ status: string; paidAt: Date | null; paymentMethodBrand: string | null } | null> {
+  const paymentTokens = (checkoutSessions ?? []).map((session) => `qf_${session.stripeSessionId}`)
+  if (paymentTokens.length === 0) return null
+
+  return prisma.payment.findFirst({
+    where: {
+      payToken: { in: paymentTokens },
+      status: 'PAID',
+    },
+    orderBy: { paidAt: 'asc' },
+    select: { status: true, paidAt: true, paymentMethodBrand: true },
+  })
 }
 
 /**
@@ -175,18 +239,35 @@ export async function createQuoteCheckoutSession(
 ): Promise<{ checkoutUrl: string } | null> {
   const payUrl = buildQuotePayUrl(payToken)
   assertQuoteCheckoutConfig(payUrl)
+  const reconciliation = await reconcileQuotePaymentFromStripe(payToken)
 
-  const quote = await prisma.paymentQuote.findUnique({ where: { payToken } })
+  const quote = await prisma.paymentQuote.findUnique({
+    where: { payToken },
+    include: quoteWithCheckoutGuardInclude,
+  })
   if (!quote) return null
 
+  const publicPaymentState = await buildPublicPaymentStateForQuote(quote)
+  assertReconciliationVerifiedForCheckout(publicPaymentState, reconciliation)
+  assertQuoteMayStartCheckout(quote.status, publicPaymentState)
+
+  if (isAgreementNotPayableStatus(quote.status)) {
+    throw new QuoteCheckoutError('NOT_PAYABLE', 'This agreement quote is not ready for payment')
+  }
+
+  // The derived public state is authoritative for paid/pending/canceled money
+  // movement. Raw status checks remain as a conservative fallback for older rows.
   if (isPaidStatus(quote.status)) {
     throw new QuoteCheckoutError('ALREADY_PAID', 'This quote has already been paid')
   }
   if (isCanceledStatus(quote.status)) {
     throw new QuoteCheckoutError('NOT_PAYABLE', 'This quote has been canceled')
   }
-  if (isAgreementNotPayableStatus(quote.status)) {
-    throw new QuoteCheckoutError('NOT_PAYABLE', 'This agreement quote is not ready for payment')
+  if (isProcessingPaymentStatus(quote.status)) {
+    throw new QuoteCheckoutError(
+      'PAYMENT_PROCESSING',
+      'This bank payment has been submitted and is still processing'
+    )
   }
 
   // Reuse a still-open Checkout Session if one exists rather than minting a new
@@ -275,6 +356,90 @@ async function findLatestCheckoutSession(quoteId: string): Promise<{
   })
 }
 
+async function buildPublicPaymentStateForQuote(quote: {
+  status: string
+  lastStripeEventAt: Date | string | null
+  checkoutSessions: Array<{
+    status: string
+    createdAt?: Date | string | null
+    updatedAt?: Date | string | null
+    expiresAt?: Date | string | null
+    paidAt?: Date | string | null
+    lastStripeEventAt?: Date | string | null
+    stripeSessionId: string
+  }>
+}): Promise<PublicQuotePaymentState> {
+  const firstPayment = await findFirstQuotePayment(quote.checkoutSessions)
+  return buildQuotePublicPaymentState({
+    status: quote.status,
+    lastStripeEventAt: quote.lastStripeEventAt,
+    checkoutSessions: quote.checkoutSessions,
+    payments: firstPayment ? [firstPayment] : [],
+  })
+}
+
+function assertQuoteMayStartCheckout(
+  rawStatus: string,
+  publicPaymentState: PublicQuotePaymentState
+): void {
+  if (
+    publicPaymentState.state === 'paid' ||
+    publicPaymentState.state === 'subscription_canceled_after_payment'
+  ) {
+    throw new QuoteCheckoutError(
+      'ALREADY_PAID',
+      'This quote has already been paid',
+      publicPaymentState
+    )
+  }
+  if (publicPaymentState.state === 'processing_bank_payment') {
+    throw new QuoteCheckoutError(
+      'PAYMENT_PROCESSING',
+      'This bank payment has been submitted and is still processing',
+      publicPaymentState
+    )
+  }
+  if (publicPaymentState.state === 'canceled_before_payment' || rawStatus === 'canceled') {
+    throw new QuoteCheckoutError('NOT_PAYABLE', 'This quote has been canceled', publicPaymentState)
+  }
+  if (!publicPaymentState.mayStartCheckout) {
+    throw new QuoteCheckoutError('NOT_PAYABLE', 'This quote is not payable', publicPaymentState)
+  }
+}
+
+function assertReconciliationVerifiedForCheckout(
+  publicPaymentState: PublicQuotePaymentState,
+  reconciliation: QuoteReconciliationResult
+): void {
+  if (reconciliation.status !== 'unverified') return
+  throw new QuoteCheckoutError(
+    'PAYMENT_PROCESSING',
+    'This payment status is still being verified. Please do not pay again.',
+    forceProcessingPaymentState(publicPaymentState)
+  )
+}
+
+function publicPaymentStateForReconciliation(
+  publicPaymentState: PublicQuotePaymentState,
+  reconciliation: QuoteReconciliationResult
+): PublicQuotePaymentState {
+  return reconciliation.status === 'unverified'
+    ? forceProcessingPaymentState(publicPaymentState)
+    : publicPaymentState
+}
+
+function forceProcessingPaymentState(
+  publicPaymentState: PublicQuotePaymentState
+): PublicQuotePaymentState {
+  return {
+    ...publicPaymentState,
+    state: 'processing_bank_payment',
+    paymentMethodFamily: 'bank',
+    processingExplanationKey: 'ach_bank_payment_settlement',
+    mayStartCheckout: false,
+  }
+}
+
 function getReusableCheckoutSessionUrl(
   existing: Awaited<ReturnType<typeof findLatestCheckoutSession>>
 ): string | null {
@@ -312,6 +477,10 @@ function isPaidStatus(status: string): boolean {
 
 function isCanceledStatus(status: string): boolean {
   return (CANCELED_STATUSES as readonly string[]).includes(status)
+}
+
+function isProcessingPaymentStatus(status: string): boolean {
+  return (PROCESSING_PAYMENT_STATUSES as readonly string[]).includes(status)
 }
 
 function isAgreementNotPayableStatus(status: string): boolean {

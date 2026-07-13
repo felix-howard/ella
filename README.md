@@ -150,9 +150,11 @@ STRIPE_CURRENCY=usd
 ```
 For local payment-link testing, place `STRIPE_*` in `apps/api/.env` and `PUBLIC_API_URL` in `apps/landing/.env`, or export them in the process running each app. The Stripe return URLs above target the landing dev server on port `4321`.
 
-When Stripe CLI is installed and both `STRIPE_SECRET_KEY` and the matching local `STRIPE_WEBHOOK_SECRET` are present, `pnpm dev` starts a local Stripe webhook listener automatically for `localhost:3002/webhooks/stripe`. To bootstrap a local `whsec_...`, run `stripe listen --events checkout.session.completed --forward-to localhost:3002/webhooks/stripe` once with the same test account/key, copy the printed signing secret into `apps/api/.env`, then restart `pnpm dev`. Do not reuse the live Dashboard webhook secret for local CLI forwarding. If any prerequisite is missing, the listener is skipped and the rest of dev mode still starts.
+When Stripe CLI is installed and both `STRIPE_SECRET_KEY` and the matching local `STRIPE_WEBHOOK_SECRET` are present, `pnpm dev` starts a local Stripe webhook listener automatically for `localhost:3002/webhooks/stripe`. To bootstrap a local `whsec_...`, run `stripe listen --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,invoice.paid,invoice.payment_failed,customer.subscription.deleted --forward-to localhost:3002/webhooks/stripe` once with the same test account/key, copy the printed signing secret into `apps/api/.env`, then restart `pnpm dev`. Do not reuse the live Dashboard webhook secret for local CLI forwarding. If any prerequisite is missing, the listener is skipped and the rest of dev mode still starts.
 
 Stripe-hosted email receipts depend on the Stripe Dashboard email setting for successful payments. Ella still stores available receipt and invoice URLs from webhooks for staff use in the client Payments tab.
+
+ACH/bank payment links settle asynchronously. After a client submits ACH, the public quote page shows a bank-processing state for 3-5 business days and disables public retry/pay actions until Stripe reports success or failure. Workspace Payments shows quote monitoring labels for bank processing, failed retryable payments, duplicate-payment review before refunding, and subscriptions canceled after money was collected. Staff should not send another payment link while a bank payment is processing; check Stripe before contacting the client when ACH remains pending after 5 business days.
 
 ## Architecture
 

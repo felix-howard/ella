@@ -265,6 +265,50 @@ describe('NdaCard calculator payment portal action', () => {
     expect(markup).not.toContain('agreements.paymentPortal.copyAction')
   })
 
+  it('shows bank-processing badge without payment portal actions for ACH pending quotes', () => {
+    const markup = renderToStaticMarkup(
+      <NdaCard
+        entity={entity}
+        nda={calculatorAgreement({
+          paymentQuote: {
+            id: 'quote_1',
+            status: 'awaiting_payment',
+            payUrl: 'https://portal.test/quote/tok_pay',
+            sentAt: '2026-06-29T12:00:00.000Z',
+            monthlyTotalCents: 25000,
+            setupTotalCents: 50000,
+          },
+        })}
+      />,
+    )
+
+    expect(markup).toContain('agreements.paymentPortal.badge.processing_bank_payment')
+    expect(markup).not.toContain('agreements.paymentPortal.sendAction')
+    expect(markup).not.toContain('agreements.paymentPortal.copyAction')
+  })
+
+  it('shows duplicate-review badge without payment portal actions', () => {
+    const markup = renderToStaticMarkup(
+      <NdaCard
+        entity={entity}
+        nda={calculatorAgreement({
+          paymentQuote: {
+            id: 'quote_1',
+            status: 'duplicate_paid_review',
+            payUrl: 'https://portal.test/quote/tok_pay',
+            sentAt: '2026-06-29T12:00:00.000Z',
+            monthlyTotalCents: 25000,
+            setupTotalCents: 50000,
+          },
+        })}
+      />,
+    )
+
+    expect(markup).toContain('agreements.paymentPortal.badge.duplicate_paid_review')
+    expect(markup).not.toContain('agreements.paymentPortal.sendAction')
+    expect(markup).not.toContain('agreements.paymentPortal.copyAction')
+  })
+
   it('hides automation UI for manual, legacy calculator, and non-signed agreements', () => {
     const manualMarkup = renderToStaticMarkup(<NdaCard entity={entity} nda={agreement()} />)
     const legacyMarkup = renderToStaticMarkup(

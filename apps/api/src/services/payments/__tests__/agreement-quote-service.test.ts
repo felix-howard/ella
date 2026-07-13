@@ -14,6 +14,7 @@ const prismaMocks = vi.hoisted(() => ({
     findUnique: vi.fn(),
   },
   paymentQuote: {
+    count: vi.fn(),
     create: vi.fn(),
     findFirst: vi.fn(),
     updateMany: vi.fn(),
@@ -143,6 +144,7 @@ beforeEach(() => {
   })
   prismaMocks.agreement.updateMany.mockResolvedValue({ count: 1 })
   prismaMocks.paymentQuote.create.mockResolvedValue({ id: 'quote_frozen_1' })
+  prismaMocks.paymentQuote.count.mockResolvedValue(0)
   prismaMocks.paymentQuote.updateMany.mockResolvedValue({ count: 1 })
   prismaMocks.client.findFirst.mockResolvedValue({ id: 'client_1' })
   prismaMocks.lead.findFirst.mockResolvedValue({ id: 'lead_1' })
@@ -339,6 +341,28 @@ describe('activateAgreementQuotePaymentPortal', () => {
       expect.stringContaining(result.payUrl),
       'quote_pay_link',
     )
+  })
+
+  it('blocks activation when another client quote has ACH processing', async () => {
+    prismaMocks.agreement.findFirst.mockResolvedValueOnce(signedAgreement())
+    prismaMocks.paymentQuote.count.mockResolvedValueOnce(1)
+
+    await expect(
+      activateAgreementQuotePaymentPortal({
+        agreementId: 'agreement_1',
+        orgId: 'org_1',
+        staffId: 'staff_1',
+      }),
+    ).rejects.toMatchObject({ status: 409 })
+
+    expect(prismaMocks.paymentQuote.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        organizationId: 'org_1',
+        clientId: 'client_1',
+      }),
+    })
+    expect(prismaMocks.paymentQuote.updateMany).not.toHaveBeenCalled()
+    expect(smsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
   })
 
   it('returns an existing pay link without resending SMS', async () => {

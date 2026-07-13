@@ -14,6 +14,7 @@ import {
   type AgreementQuoteActivationResult,
   type AgreementQuoteDb,
 } from './agreement-quote-types'
+import { assertNoClientPaymentQuoteProcessing } from './quote-processing-guard'
 
 const PAYMENT_LINK_SMS_TIMEOUT_MS = 2500
 
@@ -99,6 +100,10 @@ export async function activateAgreementQuotePaymentPortal(input: {
   if ((TERMINAL_QUOTE_STATUSES as readonly string[]).includes(quote.status)) {
     throw new HTTPException(409, { message: 'Agreement quote is not payable' })
   }
+  await assertNoClientPaymentQuoteProcessing({
+    organizationId: input.orgId,
+    clientId: quote.clientId,
+  })
   if (quote.payToken && quote.sentAt) return existingActivationResult(quote.id, quote.payToken)
 
   const payToken = generatePayToken()

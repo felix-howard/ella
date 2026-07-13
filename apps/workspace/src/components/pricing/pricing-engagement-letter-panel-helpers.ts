@@ -21,10 +21,10 @@ export interface CalculatorEngagementLetterModalState {
 
 export function getEngagementLetterDisabledReason(
   pricingDisabledReason: string | null,
-  selected: SelectedRecipient | null,
+  selected: SelectedRecipient | null
 ): string | null {
   if (pricingDisabledReason) return pricingDisabledReason
-  if (!selected) return 'Select a client or lead to prepare an engagement letter.'
+  if (!selected) return 'Select a client to prepare an engagement letter.'
   if (!selected.metadata.hasPhone) {
     return 'Selected recipient has no phone on file. Add a phone number before sending.'
   }
@@ -34,7 +34,7 @@ export function getEngagementLetterDisabledReason(
 export function createCalculatorEngagementLetterModalState(
   selected: SelectedRecipient,
   pricingInput: PricingCalculatorInput,
-  pricingResult: PricingCalculatorResult,
+  pricingResult: PricingCalculatorResult
 ): CalculatorEngagementLetterModalState {
   return {
     entity: {
@@ -54,9 +54,7 @@ export function createCalculatorEngagementLetterModalState(
   }
 }
 
-export function getCalculatorPaymentModeLabelKey(
-  mode: AgreementPaymentPortalSendMode,
-): string {
+export function getCalculatorPaymentModeLabelKey(mode: AgreementPaymentPortalSendMode): string {
   return mode === 'AUTO_SEND'
     ? 'settings.calculatorPaymentAutoSend'
     : 'settings.calculatorPaymentStaffReview'

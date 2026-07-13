@@ -34,7 +34,7 @@ export function PricingEngagementLetterPanel({
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<SelectedRecipient | null>(null)
   const [modal, setModal] = useState<CalculatorEngagementLetterModalState | null>(null)
-  const { items, recipientByItemId, loading } = useRecipientSearch(query)
+  const { items, recipientByItemId, loading } = useRecipientSearch(query, { type: 'client' })
   const orgSettingsQuery = useQuery({
     queryKey: ['org-settings'],
     queryFn: () => api.orgSettings.get(),
@@ -52,22 +52,24 @@ export function PricingEngagementLetterPanel({
   }, [selected])
 
   const actionDisabledReason = getEngagementLetterDisabledReason(disabledReason, selected)
-  const defaultPaymentMode =
-    orgSettingsQuery.data?.calculatorAgreementPaymentMode ?? 'STAFF_REVIEW'
+  const defaultPaymentMode = orgSettingsQuery.data?.calculatorAgreementPaymentMode ?? 'STAFF_REVIEW'
 
   const handleSelect = (item: ComboboxItem) => {
     const metadata = recipientByItemId.get(item.id)
     const fallback = decodeRecipientId(item.id)
     if (!metadata && !fallback) return
+    if (metadata?.type === 'lead' || fallback?.type === 'lead') return
     setSelected({
       item,
-      metadata: metadata ?? ({
-        id: fallback!.id,
-        type: fallback!.type,
-        label: item.label,
-        hint: item.hint,
-        hasPhone: Boolean(item.hint?.includes('••••')),
-      } satisfies RecipientSearchMetadata),
+      metadata:
+        metadata ??
+        ({
+          id: fallback!.id,
+          type: fallback!.type,
+          label: item.label,
+          hint: item.hint,
+          hasPhone: Boolean(item.hint?.includes('••••')),
+        } satisfies RecipientSearchMetadata),
     })
     setQuery('')
   }
@@ -85,9 +87,13 @@ export function PricingEngagementLetterPanel({
   return (
     <section
       className="rounded-lg border border-border bg-card p-4"
-      aria-labelledby="engagement-letter-panel-title">
+      aria-labelledby="engagement-letter-panel-title"
+    >
       <header>
-        <h2 id="engagement-letter-panel-title" className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <h2
+          id="engagement-letter-panel-title"
+          className="flex items-center gap-2 text-sm font-semibold text-foreground"
+        >
           <FileText className="h-4 w-4 text-primary" />
           Engagement letter
         </h2>
@@ -121,7 +127,10 @@ export function PricingEngagementLetterPanel({
           </div>
         ) : (
           <div>
-            <label htmlFor="engagement-letter-recipient" className="mb-1 block text-xs font-medium text-foreground">
+            <label
+              htmlFor="engagement-letter-recipient"
+              className="mb-1 block text-xs font-medium text-foreground"
+            >
               Recipient
             </label>
             <Combobox
@@ -132,8 +141,8 @@ export function PricingEngagementLetterPanel({
               loading={loading}
               onQueryChange={setQuery}
               onSelect={handleSelect}
-              placeholder="Search clients or leads..."
-              emptyMessage="No clients or leads match"
+              placeholder="Search clients..."
+              emptyMessage="No clients match"
               aria-label="Search for an engagement letter recipient"
             />
             <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">

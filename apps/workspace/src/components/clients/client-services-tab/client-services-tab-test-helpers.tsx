@@ -73,8 +73,15 @@ vi.mock('@ella/ui', () => ({
     disabled,
     onClick,
     type = 'button',
+    ...props
   }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button type={type} className={className} disabled={disabled} onClick={onClick}>
+    <button
+      {...props}
+      type={type}
+      className={className}
+      disabled={disabled}
+      onClick={onClick}
+    >
       {children}
     </button>
   ),
@@ -105,6 +112,23 @@ vi.mock('@ella/ui', () => ({
         ))}
       </select>
     </label>
+  ),
+  Modal: ({ open, children }: { open: boolean; children: React.ReactNode }) =>
+    open ? <div role="dialog">{children}</div> : null,
+  ModalBody: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    <div {...props}>{children}</div>
+  ),
+  ModalDescription: ({ children, ...props }: React.HTMLAttributes<HTMLParagraphElement>) => (
+    <p {...props}>{children}</p>
+  ),
+  ModalFooter: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    <div {...props}>{children}</div>
+  ),
+  ModalHeader: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    <div {...props}>{children}</div>
+  ),
+  ModalTitle: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
+    <h2 {...props}>{children}</h2>
   ),
   cn: (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(' '),
 }))

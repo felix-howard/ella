@@ -98,6 +98,22 @@ export function buildAdminQuotePaidMessage(params: {
   return `${params.payerName} paid ${params.amountFormatted} (quote)`
 }
 
+/** Admin SMS: a quote appears to have been paid more than once. */
+export function buildAdminDuplicateQuotePaymentMessage(params: {
+  payerName: string
+  amountFormatted: string
+  stripeSessionId: string
+  stripePaymentIntentId: string | null
+}): string {
+  const stripeReference = params.stripePaymentIntentId
+    ? `payment ${params.stripePaymentIntentId}`
+    : `session ${params.stripeSessionId}`
+  return (
+    `Duplicate payment review: ${params.payerName} paid ${params.amountFormatted} ` +
+    `again for quote. Review Stripe ${stripeReference} before refunding.`
+  )
+}
+
 /** Admin SMS: a recurring quote charge failed — staff should chase the card. */
 export function buildAdminPaymentFailedMessage(params: {
   payerName: string

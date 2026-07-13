@@ -10,15 +10,10 @@ import {
   type UpdateClientServiceLogInput,
 } from '../../../lib/api-client'
 import { toast } from '../../../stores/toast-store'
-import { ActiveServiceSummary } from './active-service-summary'
 import { ServiceLogEditModal } from './service-log-edit-modal'
 import { ServiceLogQuickAdd } from './service-log-quick-add'
 import { ServiceLogTimeline } from './service-log-timeline'
-import {
-  ACTIVE_SERVICE_STATUSES,
-  compareActiveServices,
-  compareServiceLogsNewestFirst,
-} from './service-log-labels'
+import { compareServiceLogsNewestFirst } from './service-log-labels'
 
 interface ClientServicesTabProps {
   clientId: string
@@ -36,15 +31,6 @@ export function ClientServicesTab({ clientId, defaultTaxYear }: ClientServicesTa
   const latestQuery = useQuery({
     queryKey: serviceLogQueryKey(clientId, 'latest'),
     queryFn: () => api.clients.serviceLogs.list(clientId, { limit: 200 }),
-    staleTime: 30_000,
-  })
-  const activeQuery = useQuery({
-    queryKey: serviceLogQueryKey(clientId, 'active'),
-    queryFn: () =>
-      api.clients.serviceLogs.list(clientId, {
-        limit: 200,
-        status: ['WAITING_ON_CLIENT', 'ACTIVE'],
-      }),
     staleTime: 30_000,
   })
 
@@ -95,37 +81,30 @@ export function ClientServicesTab({ clientId, defaultTaxYear }: ClientServicesTa
     () => [...(latestQuery.data?.data ?? [])].sort(compareServiceLogsNewestFirst),
     [latestQuery.data?.data]
   )
-  const activeLogs = useMemo(
-    () =>
-      [...(activeQuery.data?.data ?? [])]
-        .filter((log) => ACTIVE_SERVICE_STATUSES.has(log.status))
-        .sort(compareActiveServices),
-    [activeQuery.data?.data]
-  )
 
   return (
     <div className="space-y-5">
-      <ServiceLogQuickAdd
-        key={defaultTaxYear ?? 'no-default-year'}
-        defaultTaxYear={defaultTaxYear}
-        isSubmitting={createMutation.isPending}
-        onSubmit={(payload) => createMutation.mutateAsync(payload).then(() => undefined)}
-      />
-
-      {latestQuery.isLoading || activeQuery.isLoading ? (
+      {latestQuery.isLoading ? (
         <ServiceLogLoadingState />
-      ) : latestQuery.isError || activeQuery.isError ? (
+      ) : latestQuery.isError ? (
         <ServiceLogErrorState
           onRetry={() => {
             void latestQuery.refetch()
-            void activeQuery.refetch()
           }}
         />
       ) : (
-        <>
-          <ActiveServiceSummary logs={activeLogs} onEdit={setEditingLog} />
-          <ServiceLogTimeline logs={logs} onEdit={setEditingLog} />
-        </>
+        <ServiceLogTimeline
+          logs={logs}
+          onEdit={setEditingLog}
+          action={
+            <ServiceLogQuickAdd
+              key={defaultTaxYear ?? 'no-default-year'}
+              defaultTaxYear={defaultTaxYear}
+              isSubmitting={createMutation.isPending}
+              onSubmit={(payload) => createMutation.mutateAsync(payload).then(() => undefined)}
+            />
+          }
+        />
       )}
 
       <ServiceLogEditModal

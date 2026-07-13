@@ -22,6 +22,8 @@ import {
   clientIdParamSchema,
 } from './agreements-staff-schemas'
 import { serializeClientPayment } from './client-payment-response'
+import { buildClientQuoteMonitoringSummary } from './client-quote-payment-response'
+import { loadClientQuotePayments } from './client-quote-payment-loader'
 
 const clientsPaymentsStaffRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -65,9 +67,13 @@ clientsPaymentsStaffRoute.get(
       },
     })
 
+    const quotePayments = await loadClientQuotePayments({ clientId, organizationId: orgId })
+
     return c.json({
       success: true,
       pastDue: pastDueCount > 0,
+      monitoring: buildClientQuoteMonitoringSummary(quotePayments),
+      quotePayments,
       data: payments.map(serializeClientPayment),
     })
   }

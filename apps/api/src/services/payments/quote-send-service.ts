@@ -27,6 +27,7 @@ import {
   type CreateSendableQuoteContext,
   type SendableQuoteResult,
 } from './quote-send-shared'
+import { assertNoClientPaymentQuoteProcessing } from './quote-processing-guard'
 
 export { buildQuotePayUrl } from './quote-send-shared'
 export type { CreateSendableQuoteContext, SendableQuoteResult } from './quote-send-shared'
@@ -50,6 +51,10 @@ export async function createSendableQuote(
 
   const orgName = await resolveOrgName(context.organizationId)
   const recipient = await resolveRecipient(input.recipient, context.organizationId)
+  await assertNoClientPaymentQuoteProcessing({
+    organizationId: context.organizationId,
+    clientId: input.recipient.type === 'client' ? recipient.id : null,
+  })
 
   const payToken = generatePayToken()
   await prisma.paymentQuote.create({

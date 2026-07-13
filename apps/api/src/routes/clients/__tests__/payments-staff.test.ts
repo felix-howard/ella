@@ -18,6 +18,7 @@ const prismaMocks = vi.hoisted(() => ({
   paymentQuote: {
     // Past-due banner indicator: count of failed recurring quotes for the client.
     count: vi.fn(),
+    findMany: vi.fn(),
   },
 }))
 
@@ -35,6 +36,7 @@ const receiptReconcileMocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../../../lib/db', () => ({ prisma: prismaMocks }))
+vi.mock('../../../lib/constants', () => ({ PORTAL_URL: 'http://portal.test' }))
 vi.mock('../../../services/payments/deposit-payment-service', () => serviceMocks)
 vi.mock('../../../services/stripe/stripe-payment-receipt-reconcile-service', () => receiptReconcileMocks)
 
@@ -104,6 +106,7 @@ beforeEach(() => {
   prismaMocks.client.findFirst.mockResolvedValue({ id: CLIENT_ID })
   prismaMocks.payment.findMany.mockResolvedValue([])
   prismaMocks.paymentQuote.count.mockResolvedValue(0)
+  prismaMocks.paymentQuote.findMany.mockResolvedValue([])
   serviceMocks.resendDepositPayLink.mockResolvedValue({
     payUrl: 'http://portal.test/pay/tok_abc',
   })
@@ -188,6 +191,127 @@ describe('GET /clients/:clientId/payments', () => {
         agreement: { id: 'agr_1', title: '2026 Engagement Letter' },
       }),
     ])
+  })
+
+  it('returns staff quote diagnostics and monitoring counts', async () => {
+    prismaMocks.payment.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          payToken: 'qf_cs_paid',
+          stripeSessionId: 'cs_paid',
+          status: 'PAID',
+          paidAt: new Date('2026-06-02T10:00:00Z'),
+          paymentMethodBrand: 'visa',
+        },
+      ])
+    prismaMocks.paymentQuote.findMany.mockResolvedValue([
+      {
+        id: 'quote_processing',
+        source: 'custom',
+        status: 'awaiting_payment',
+        payToken: 'quote_tok_processing',
+        sentAt: new Date('2026-06-01T09:00:00Z'),
+        createdAt: new Date('2026-06-01T09:00:00Z'),
+        updatedAt: new Date('2026-06-01T09:00:00Z'),
+        lastStripeEventAt: new Date('2026-06-01T10:00:00Z'),
+        monthlyTotalCents: 0,
+        setupTotalCents: 70000,
+        billingInterval: null,
+        agreement: { id: 'agr_1', title: '2026 Engagement Letter' },
+        checkoutSessions: [
+          {
+            stripeSessionId: 'cs_processing',
+            stripePaymentIntentId: 'pi_processing',
+            stripeInvoiceId: null,
+            status: 'complete',
+            createdAt: new Date('2026-06-01T09:30:00Z'),
+            updatedAt: new Date('2026-06-01T10:00:00Z'),
+            expiresAt: null,
+            paidAt: null,
+            lastStripeEventAt: new Date('2026-06-01T10:00:00Z'),
+          },
+        ],
+      },
+      {
+        id: 'quote_duplicate',
+        source: 'calculator',
+        status: 'active',
+        payToken: 'quote_tok_duplicate',
+        sentAt: new Date('2026-06-01T09:00:00Z'),
+        createdAt: new Date('2026-06-01T09:00:00Z'),
+        updatedAt: new Date('2026-06-02T09:00:00Z'),
+        lastStripeEventAt: new Date('2026-06-02T09:00:00Z'),
+        monthlyTotalCents: 25000,
+        setupTotalCents: 50000,
+        billingInterval: 'month',
+        agreement: null,
+        checkoutSessions: [
+          {
+            stripeSessionId: 'cs_paid',
+            stripePaymentIntentId: 'pi_paid',
+            stripeInvoiceId: 'in_paid',
+            status: 'duplicate_paid_review',
+            createdAt: new Date('2026-06-02T08:30:00Z'),
+            updatedAt: new Date('2026-06-02T09:00:00Z'),
+            expiresAt: null,
+            paidAt: new Date('2026-06-02T09:00:00Z'),
+            lastStripeEventAt: new Date('2026-06-02T09:00:00Z'),
+          },
+        ],
+      },
+      {
+        id: 'quote_failed',
+        source: 'custom',
+        status: 'payment_failed',
+        payToken: 'quote_tok_failed',
+        sentAt: new Date('2026-06-03T09:00:00Z'),
+        createdAt: new Date('2026-06-03T09:00:00Z'),
+        updatedAt: new Date('2026-06-03T10:00:00Z'),
+        lastStripeEventAt: new Date('2026-06-03T10:00:00Z'),
+        monthlyTotalCents: 0,
+        setupTotalCents: 30000,
+        billingInterval: null,
+        agreement: null,
+        checkoutSessions: [],
+      },
+    ])
+
+    const res = await buildApp().request(`/clients/${CLIENT_ID}/payments`)
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.quotePayments).toEqual([
+      expect.objectContaining({
+        id: 'quote_processing',
+        state: 'processing_bank_payment',
+        amount: '700.00',
+        payUrl: 'http://portal.test/quote/quote_tok_processing',
+        mayStartCheckout: false,
+        latestStripeSessionId: 'cs_processing',
+        staleProcessing: true,
+      }),
+      expect.objectContaining({
+        id: 'quote_duplicate',
+        state: 'duplicate_paid_review',
+        recurringAmount: '250.00',
+        latestStripePaymentIntentId: 'pi_paid',
+        mayStartCheckout: false,
+      }),
+      expect.objectContaining({
+        id: 'quote_failed',
+        state: 'payment_failed_retryable',
+        payUrl: 'http://portal.test/quote/quote_tok_failed',
+        mayStartCheckout: true,
+      }),
+    ])
+    expect(json.monitoring).toEqual({
+      bankProcessingCount: 1,
+      staleBankProcessingCount: 1,
+      duplicateReviewCount: 1,
+      paymentFailedCount: 1,
+      subscriptionCanceledAfterPaymentCount: 0,
+    })
   })
 
   it('returns receipt-safe staff fields and receipt status', async () => {

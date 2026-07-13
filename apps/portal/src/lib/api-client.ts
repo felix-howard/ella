@@ -12,7 +12,8 @@ export class ApiError extends Error {
     public status: number,
     public code: string,
     message: string,
-    public documentLabel?: string
+    public documentLabel?: string,
+    public details?: unknown
   ) {
     super(message)
     this.name = 'ApiError'

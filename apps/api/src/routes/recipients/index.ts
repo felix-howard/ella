@@ -22,6 +22,7 @@ const RESULT_CAP = 10
 
 const searchQuerySchema = z.object({
   q: z.string().trim().max(100).optional(),
+  type: z.enum(['all', 'client', 'lead']).default('all'),
 })
 
 export interface RecipientResult {
@@ -46,7 +47,7 @@ recipientsRoute.get(
   async (c) => {
     const user = c.get('user')
     const { orgId } = getVerifiedAuth(user)
-    const rawQuery = c.req.valid('query').q
+    const { q: rawQuery, type } = c.req.valid('query')
     const sanitized = rawQuery ? sanitizeSearchInput(rawQuery) : ''
 
     if (!sanitized) {
@@ -55,48 +56,54 @@ recipientsRoute.get(
 
     const digitsOnly = sanitized.replace(/\D/g, '')
     const phoneSearch = digitsOnly.length >= 3 ? digitsOnly : sanitized
+    const includeClients = type !== 'lead'
+    const includeLeads = type !== 'client'
 
     const [clients, leads] = await Promise.all([
-      prisma.client.findMany({
-        where: {
-          // Canonical client visibility scope (org + per-user assignment).
-          ...buildClientScopeFilter(user),
-          // Message conversations are person-to-person; do not offer business
-          // client records as quote recipients.
-          clientType: 'INDIVIDUAL',
-          OR: [
-            { firstName: { contains: sanitized, mode: 'insensitive' } },
-            { lastName: { contains: sanitized, mode: 'insensitive' } },
-            { name: { contains: sanitized, mode: 'insensitive' } },
-            { phone: { contains: phoneSearch } },
-          ],
-        },
-        orderBy: { createdAt: 'desc' },
-        take: RESULT_CAP,
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          phone: true,
-          // Client.businessName lives on the profile, not the model.
-          profile: { select: { businessName: true } },
-        },
-      }),
-      prisma.lead.findMany({
-        where: {
-          organizationId: orgId,
-          status: { not: 'CONVERTED' },
-          OR: [
-            { firstName: { contains: sanitized, mode: 'insensitive' } },
-            { lastName: { contains: sanitized, mode: 'insensitive' } },
-            { businessName: { contains: sanitized, mode: 'insensitive' } },
-            { phone: { contains: phoneSearch } },
-          ],
-        },
-        orderBy: { createdAt: 'desc' },
-        take: RESULT_CAP,
-        select: { id: true, firstName: true, lastName: true, businessName: true, phone: true },
-      }),
+      includeClients
+        ? prisma.client.findMany({
+            where: {
+              // Canonical client visibility scope (org + per-user assignment).
+              ...buildClientScopeFilter(user),
+              // Message conversations are person-to-person; do not offer business
+              // client records as quote recipients.
+              clientType: 'INDIVIDUAL',
+              OR: [
+                { firstName: { contains: sanitized, mode: 'insensitive' } },
+                { lastName: { contains: sanitized, mode: 'insensitive' } },
+                { name: { contains: sanitized, mode: 'insensitive' } },
+                { phone: { contains: phoneSearch } },
+              ],
+            },
+            orderBy: { createdAt: 'desc' },
+            take: RESULT_CAP,
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+              // Client.businessName lives on the profile, not the model.
+              profile: { select: { businessName: true } },
+            },
+          })
+        : Promise.resolve([]),
+      includeLeads
+        ? prisma.lead.findMany({
+            where: {
+              organizationId: orgId,
+              status: { not: 'CONVERTED' },
+              OR: [
+                { firstName: { contains: sanitized, mode: 'insensitive' } },
+                { lastName: { contains: sanitized, mode: 'insensitive' } },
+                { businessName: { contains: sanitized, mode: 'insensitive' } },
+                { phone: { contains: phoneSearch } },
+              ],
+            },
+            orderBy: { createdAt: 'desc' },
+            take: RESULT_CAP,
+            select: { id: true, firstName: true, lastName: true, businessName: true, phone: true },
+          })
+        : Promise.resolve([]),
     ])
 
     return c.json({
@@ -108,7 +115,7 @@ recipientsRoute.get(
           lastName: r.lastName,
           businessName: r.profile?.businessName ?? null,
           phone: r.phone,
-        }),
+        })
       ),
       leads: leads.map((r) =>
         toRecipient({
@@ -118,7 +125,7 @@ recipientsRoute.get(
           lastName: r.lastName,
           businessName: r.businessName,
           phone: r.phone,
-        }),
+        })
       ),
     })
   }

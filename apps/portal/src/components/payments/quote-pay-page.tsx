@@ -7,35 +7,40 @@
  *
  *   loading     -> ready | paid | error(invalid|canceled|server|rate_limited)
  *   ready       -> redirecting (POST checkout -> Stripe Checkout URL)
- *   confirming  -> paid (webhook landed) | ready | stays confirming w/ refresh
+ *   confirming  -> paid (webhook landed) | bank processing | ready
  *
  * Returning from Stripe with ?status=success enters `confirming`, polling until
- * the webhook settles the quote. ?status=canceled re-enters `ready`.
+ * the webhook settles card payments. ACH returns render a bank-processing state
+ * once the public quote state confirms settlement is pending.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CreditCard, Info, Loader2, Lock } from 'lucide-react'
-import { Button } from '@ella/ui'
+import { Loader2 } from 'lucide-react'
 import { ApiError } from '../../lib/api-client'
 import {
   quoteApi,
   formatQuoteAmount,
-  isQuotePaid,
-  isQuoteCanceled,
+  isQuotePaymentProcessingError,
+  getQuotePaymentStateFromError,
   type PublicQuoteView,
 } from '../../lib/quote-api'
 import { toast } from '../../lib/toast-store'
 import { PaymentPageShell } from './payment-page-shell'
-import { QuoteBreakdown } from './quote-breakdown'
-import { QuoteIntroPanel } from './quote-intro-panel'
+import { QuotePayCard } from './quote-pay-card'
+import { refreshQuotePaymentStatus } from './quote-payment-status-refresh'
 import {
+  resolveQuotePaymentPageState,
+  type QuotePaymentPageState,
+} from './quote-payment-view-state'
+import {
+  PaymentBankProcessingPanel,
   PaymentPaidPanel,
   PaymentConfirmingPanel,
   PaymentErrorPanel,
   type PaymentErrorCode,
 } from './payment-result-panels'
 
-type PageState = 'loading' | 'ready' | 'redirecting' | 'confirming' | 'paid' | 'error'
+type PageState = QuotePaymentPageState
 
 // Webhook lag after Stripe redirect is usually seconds; poll briefly, then fall
 // back to a manual "Check again" button rather than polling forever.
@@ -65,7 +70,9 @@ export function QuotePayPage({ payToken, returnStatus }: QuotePayPageProps) {
   // Bumping either counter re-runs the matching effect (full reload / new poll round).
   const [reloadCounter, setReloadCounter] = useState(0)
   const [pollRound, setPollRound] = useState(0)
+  const [checkingBankStatus, setCheckingBankStatus] = useState(false)
   const redirectingRef = useRef(false)
+  const checkingBankStatusRef = useRef(false)
 
   const handleRetry = useCallback(() => {
     setState('loading')
@@ -76,17 +83,9 @@ export function QuotePayPage({ payToken, returnStatus }: QuotePayPageProps) {
   const applyViewState = useCallback(
     (data: PublicQuoteView, opts: { confirming: boolean }) => {
       setView(data)
-      if (isQuotePaid(data.status)) {
-        setState('paid')
-      } else if (isQuoteCanceled(data.status)) {
-        setErrorCode('canceled')
-        setState('error')
-      } else if (opts.confirming) {
-        // Back from Stripe but the webhook hasn't settled the quote yet
-        setState('confirming')
-      } else {
-        setState('ready')
-      }
+      const resolved = resolveQuotePaymentPageState(data, opts)
+      if (resolved.errorCode) setErrorCode(resolved.errorCode)
+      setState(resolved.pageState)
     },
     [],
   )
@@ -139,6 +138,21 @@ export function QuotePayPage({ payToken, returnStatus }: QuotePayPageProps) {
     setPollRound((n) => n + 1)
   }, [])
 
+  const handleBankStatusRefresh = useCallback(async () => {
+    if (checkingBankStatusRef.current) return
+    checkingBankStatusRef.current = true
+    setCheckingBankStatus(true)
+    try {
+      const data = await refreshQuotePaymentStatus(payToken)
+      applyViewState(data, { confirming: false })
+    } catch {
+      toast.error(t('pay.bankProcessing.refreshError'))
+    } finally {
+      checkingBankStatusRef.current = false
+      setCheckingBankStatus(false)
+    }
+  }, [payToken, applyViewState, t])
+
   const handlePay = useCallback(async () => {
     if (redirectingRef.current) return
     redirectingRef.current = true
@@ -149,6 +163,22 @@ export function QuotePayPage({ payToken, returnStatus }: QuotePayPageProps) {
       // Stay in `redirecting` — browser is navigating away
     } catch (err) {
       redirectingRef.current = false
+      if (isQuotePaymentProcessingError(err)) {
+        const publicPaymentState = getQuotePaymentStateFromError(err)
+        if (publicPaymentState) {
+          setView((current) =>
+            current ? { ...current, publicPaymentState } : current
+          )
+          setState(
+            publicPaymentState.state === 'processing_bank_payment'
+              ? 'processingBankPayment'
+              : 'confirming'
+          )
+        } else {
+          handleRetry()
+        }
+        return
+      }
       if (err instanceof ApiError && err.status === 409) {
         // ALREADY_PAID / NOT_PAYABLE — refetch so the page renders the true state
         handleRetry()
@@ -189,12 +219,20 @@ export function QuotePayPage({ payToken, returnStatus }: QuotePayPageProps) {
           language={i18n.language}
           redirecting={state === 'redirecting'}
           showCanceledNotice={returnStatus === 'canceled'}
+          showFailedNotice={view.publicPaymentState?.state === 'payment_failed'}
           onPay={handlePay}
         />
       )}
 
       {state === 'confirming' && (
         <PaymentConfirmingPanel pollExhausted={pollExhausted} onRefresh={handleManualRefresh} />
+      )}
+
+      {state === 'processingBankPayment' && (
+        <PaymentBankProcessingPanel
+          refreshing={checkingBankStatus}
+          onRefresh={handleBankStatusRefresh}
+        />
       )}
 
       {state === 'paid' && view && (
@@ -204,78 +242,15 @@ export function QuotePayPage({ payToken, returnStatus }: QuotePayPageProps) {
           paidAt={view.paidAt}
         />
       )}
+
+      {state === 'subscriptionCanceledAfterPayment' && view && (
+        <PaymentPaidPanel
+          orgName={view.orgName}
+          amountFormatted={dueTodayFormatted}
+          paidAt={view.paidAt}
+          variant="subscriptionCanceledAfterPayment"
+        />
+      )}
     </PaymentPageShell>
-  )
-}
-
-interface QuotePayCardProps {
-  view: PublicQuoteView
-  dueTodayFormatted: string
-  language: string
-  redirecting: boolean
-  showCanceledNotice: boolean
-  onPay: () => void
-}
-
-function QuotePayCard({
-  view,
-  dueTodayFormatted,
-  language,
-  redirecting,
-  showCanceledNotice,
-  onPay,
-}: QuotePayCardProps) {
-  const { t } = useTranslation()
-
-  return (
-    <section className="flex-1 py-2 sm:py-4">
-      <div className="mx-auto grid w-full max-w-5xl items-start gap-8 lg:grid-cols-[1fr_minmax(380px,420px)] lg:gap-12">
-        <div className="order-2 lg:order-1">
-          <QuoteIntroPanel orgName={view.orgName} recipientFirstName={view.recipientFirstName} />
-        </div>
-
-        <div className="order-1 lg:order-2 lg:sticky lg:top-24">
-          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-            <div className="px-5 py-5 sm:px-6 sm:py-6">
-              {showCanceledNotice && (
-                <div
-                  className="mb-5 flex items-start gap-2.5 rounded-lg border border-border bg-muted/40 px-4 py-3 text-left text-sm text-muted-foreground"
-                  role="status"
-                >
-                  <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span>{t('pay.canceledNotice')}</span>
-                </div>
-              )}
-
-              <QuoteBreakdown view={view} language={language} />
-
-              <Button
-                onClick={onPay}
-                disabled={redirecting}
-                size="lg"
-                className="mt-6 min-h-12 w-full gap-2 text-base font-semibold shadow-md shadow-primary/20"
-              >
-                {redirecting ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-                    {t('pay.redirecting')}
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="h-5 w-5" aria-hidden="true" />
-                    {t('pay.payButton', { amount: dueTodayFormatted })}
-                  </>
-                )}
-              </Button>
-
-              <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-                <Lock className="h-3.5 w-3.5" aria-hidden="true" />
-                {t('pay.stripeNote')}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
   )
 }

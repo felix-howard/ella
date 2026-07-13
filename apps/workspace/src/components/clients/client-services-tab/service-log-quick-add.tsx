@@ -1,7 +1,15 @@
 import { useState, type FormEvent } from 'react'
 import { Loader2, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Button } from '@ella/ui'
+import {
+  Button,
+  Modal,
+  ModalBody,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+} from '@ella/ui'
 import type { CreateClientServiceLogInput } from '../../../lib/api-client'
 import { ServiceLogFormFields } from './service-log-form-fields'
 import {
@@ -22,11 +30,28 @@ export function ServiceLogQuickAdd({
   onSubmit,
 }: ServiceLogQuickAddProps) {
   const { t } = useTranslation()
+  const [isOpen, setIsOpen] = useState(false)
   const [values, setValues] = useState(() => getDefaultFormValues(defaultTaxYear))
   const [error, setError] = useState<string | null>(null)
 
   const setField: ServiceLogFormFieldChange = (key, value) => {
     setValues((current) => ({ ...current, [key]: value }))
+    setError(null)
+  }
+
+  const resetForm = () => {
+    setValues(getDefaultFormValues(defaultTaxYear))
+    setError(null)
+  }
+
+  const handleOpen = () => {
+    resetForm()
+    setIsOpen(true)
+  }
+
+  const handleClose = () => {
+    if (isSubmitting) return
+    setIsOpen(false)
     setError(null)
   }
 
@@ -40,48 +65,76 @@ export function ServiceLogQuickAdd({
 
     try {
       await onSubmit(result.payload)
-      setValues(getDefaultFormValues(defaultTaxYear))
-      setError(null)
+      resetForm()
+      setIsOpen(false)
     } catch {
       setError(t('clientServices.createError'))
     }
   }
 
   return (
-    <section className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-5">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-4">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">
-            {t('clientServices.quickAddTitle')}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+    <>
+      <Button type="button" onClick={handleOpen} className="min-h-11">
+        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+        {t('clientServices.addService')}
+      </Button>
+
+      <Modal
+        open={isOpen}
+        onClose={handleClose}
+        size="lg"
+        aria-labelledby="client-service-add-title"
+        aria-describedby="client-service-add-description"
+        closeOnOverlayClick={!isSubmitting}
+        closeOnEscape={!isSubmitting}
+        showCloseButton={!isSubmitting}
+      >
+        <ModalHeader>
+          <ModalTitle id="client-service-add-title">
+            {t('clientServices.addService')}
+          </ModalTitle>
+          <ModalDescription id="client-service-add-description">
             {t('clientServices.quickAddDescription')}
-          </p>
-        </div>
-      </div>
+          </ModalDescription>
+        </ModalHeader>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <ServiceLogFormFields
-          values={values}
-          onChange={setField}
-          noteId="client-service-quick-note"
-          noteRows={2}
-          denseMobile
-          gridClassName="grid grid-cols-2 gap-3 md:grid-cols-[1.35fr_1fr_0.7fr_0.9fr]"
-        />
+        <form onSubmit={handleSubmit}>
+          <ModalBody className="space-y-3">
+            <ServiceLogFormFields
+              values={values}
+              onChange={setField}
+              noteId="client-service-add-note"
+              noteRows={5}
+            />
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {error ? <p className="text-xs font-medium text-destructive">{error}</p> : <span />}
-          <Button type="submit" disabled={isSubmitting} className="min-h-11">
-            {isSubmitting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-            ) : (
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            {error && (
+              <p aria-live="polite" className="text-xs font-medium text-destructive">
+                {error}
+              </p>
             )}
-            {isSubmitting ? t('clientServices.adding') : t('clientServices.addService')}
-          </Button>
-        </div>
-      </form>
-    </section>
+          </ModalBody>
+
+          <ModalFooter className="flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              disabled={isSubmitting}
+              className="min-h-11"
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" disabled={isSubmitting} className="min-h-11">
+              {isSubmitting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              )}
+              {isSubmitting ? t('clientServices.adding') : t('clientServices.addService')}
+            </Button>
+          </ModalFooter>
+        </form>
+      </Modal>
+    </>
   )
 }

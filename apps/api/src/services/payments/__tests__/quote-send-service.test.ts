@@ -10,6 +10,7 @@ import { HTTPException } from 'hono/http-exception'
 const prismaMocks = vi.hoisted(() => ({
   paymentQuote: {
     create: vi.fn(),
+    count: vi.fn(),
   },
   client: {
     findFirst: vi.fn(),
@@ -132,6 +133,7 @@ describe('createSendableQuote', () => {
       phone: '+14155551234',
     })
     prismaMocks.paymentQuote.create.mockResolvedValue({ id: 'quote_abc123' })
+    prismaMocks.paymentQuote.count.mockResolvedValue(0)
     // signer-sms-delivery reports actual Twilio delivery; default = delivered.
     smsMocks.sendSignerSmsAndPersist.mockResolvedValue({ delivered: true })
   })
@@ -226,6 +228,23 @@ describe('createSendableQuote', () => {
       expect(message).toContain(result.payUrl)
       expect(template).toBe('quote_pay_link')
     })
+  })
+
+  it('blocks sending a new client quote while another ACH payment is processing', async () => {
+    prismaMocks.paymentQuote.count.mockResolvedValueOnce(1)
+
+    await expect(createSendableQuote(buildSendQuoteInput(), context)).rejects.toMatchObject({
+      status: 409,
+    })
+
+    expect(prismaMocks.paymentQuote.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        organizationId: 'org_1',
+        clientId: 'client_1',
+      }),
+    })
+    expect(prismaMocks.paymentQuote.create).not.toHaveBeenCalled()
+    expect(smsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
   })
 
   describe('lead recipient', () => {

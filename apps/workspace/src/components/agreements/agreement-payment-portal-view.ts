@@ -1,6 +1,14 @@
 import type { Agreement } from '../../lib/api-client'
 
-export type PaymentPortalKind = 'pending_review' | 'sent' | 'paid' | 'failed' | 'canceled'
+export type PaymentPortalKind =
+  | 'pending_review'
+  | 'sent'
+  | 'processing_bank_payment'
+  | 'paid'
+  | 'failed'
+  | 'duplicate_paid_review'
+  | 'subscription_canceled_after_payment'
+  | 'canceled'
 
 export interface AgreementPaymentPortalView {
   kind: PaymentPortalKind
@@ -12,7 +20,6 @@ export interface AgreementPaymentPortalView {
 const sentQuoteStatuses = new Set([
   'sent',
   'checkout_created',
-  'awaiting_payment',
   'invoice_paid',
 ])
 
@@ -51,6 +58,23 @@ export function getAgreementPaymentPortalView(
 
   if (status === 'paid' || status === 'active') {
     return { kind: 'paid', payUrl, canSend: false, canCopy: false }
+  }
+
+  if (status === 'awaiting_payment') {
+    return { kind: 'processing_bank_payment', payUrl, canSend: false, canCopy: false }
+  }
+
+  if (status === 'duplicate_paid_review') {
+    return { kind: 'duplicate_paid_review', payUrl, canSend: false, canCopy: false }
+  }
+
+  if (status === 'subscription_canceled_after_payment') {
+    return {
+      kind: 'subscription_canceled_after_payment',
+      payUrl,
+      canSend: false,
+      canCopy: false,
+    }
   }
 
   if (status === 'canceled') {

@@ -3,11 +3,12 @@
  * payable-state guards, reuse of an open Checkout Session (no duplicate Stripe
  * sessions per quote), and amount rebuild from the frozen input snapshot.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CheckoutPricingInput } from '../../../routes/billing/schemas'
 
 const stripeMocks = vi.hoisted(() => ({
   sessionsCreate: vi.fn(),
+  sessionsRetrieve: vi.fn(),
   customersCreate: vi.fn(),
 }))
 
@@ -18,7 +19,11 @@ const prismaMocks = vi.hoisted(() => ({
   },
   stripeCheckoutSession: {
     findFirst: vi.fn(),
+    updateMany: vi.fn(),
     upsert: vi.fn(),
+  },
+  payment: {
+    findFirst: vi.fn(),
   },
   client: {
     findFirst: vi.fn(),
@@ -29,7 +34,12 @@ const prismaMocks = vi.hoisted(() => ({
 
 vi.mock('stripe', () => ({
   default: class {
-    checkout = { sessions: { create: stripeMocks.sessionsCreate } }
+    checkout = {
+      sessions: {
+        create: stripeMocks.sessionsCreate,
+        retrieve: stripeMocks.sessionsRetrieve,
+      },
+    }
     customers = { create: stripeMocks.customersCreate }
   },
 }))
@@ -134,15 +144,53 @@ function couponRow(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function checkoutSessionRow(overrides: Record<string, unknown> = {}) {
+  return {
+    stripeSessionId: 'cs_ach',
+    status: 'open',
+    createdAt: new Date('2026-07-01T09:55:00.000Z'),
+    updatedAt: new Date('2026-07-01T09:55:00.000Z'),
+    expiresAt: new Date('2026-07-02T09:55:00.000Z'),
+    paidAt: null,
+    lastStripeEventAt: null,
+    ...overrides,
+  }
+}
+
+function stripeSession(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'cs_ach',
+    object: 'checkout.session',
+    mode: 'payment',
+    status: 'complete',
+    payment_status: 'unpaid',
+    customer: 'cus_ach',
+    subscription: null,
+    payment_intent: { id: 'pi_ach', status: 'processing', created: 1_783_000_000 },
+    invoice: null,
+    expires_at: 1_783_086_400,
+    created: 1_783_000_000,
+    metadata: { paymentQuoteId: 'quote_1', quotePayToken: 'tok_abcdefghij' },
+    ...overrides,
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   prismaMocks.$transaction.mockResolvedValue([])
   prismaMocks.stripeCheckoutSession.findFirst.mockResolvedValue(null)
+  prismaMocks.stripeCheckoutSession.updateMany.mockResolvedValue({ count: 1 })
   prismaMocks.stripeCheckoutSession.upsert.mockResolvedValue({})
+  prismaMocks.payment.findFirst.mockResolvedValue(null)
   prismaMocks.paymentQuote.updateMany.mockResolvedValue({ count: 1 })
   prismaMocks.client.findFirst.mockResolvedValue(null)
   prismaMocks.client.updateMany.mockResolvedValue({ count: 1 })
   stripeMocks.customersCreate.mockResolvedValue({ id: 'cus_new' })
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe('getPublicQuoteView', () => {
@@ -249,6 +297,117 @@ describe('getPublicQuoteView', () => {
 
     expect(view?.status).toBe('active')
     expect(view?.paidAt).toBe(settledAt.toISOString())
+    expect(view?.publicPaymentState).toMatchObject({
+      state: 'paid',
+      mayStartCheckout: false,
+      timestamps: { paidAt: settledAt.toISOString() },
+    })
+  })
+
+  it('self-heals stale awaiting state when Stripe reports the quote paid', async () => {
+    const paidAt = new Date(1_783_000_000 * 1000)
+    const reconciledAt = new Date('2026-07-12T12:00:00.000Z')
+    vi.useFakeTimers()
+    vi.setSystemTime(reconciledAt)
+    prismaMocks.paymentQuote.findUnique
+      .mockResolvedValueOnce(
+        quoteRow({
+          status: 'awaiting_payment',
+          lastStripeEventAt: new Date('2026-07-01T10:05:00.000Z'),
+          checkoutSessions: [
+            checkoutSessionRow({
+              status: 'complete',
+              lastStripeEventAt: new Date('2026-07-01T10:05:00.000Z'),
+            }),
+          ],
+        })
+      )
+      .mockResolvedValueOnce(
+        quoteRow({
+          status: 'paid',
+          lastStripeEventAt: reconciledAt,
+          checkoutSessions: [
+            checkoutSessionRow({
+              status: 'complete',
+              paidAt,
+              lastStripeEventAt: reconciledAt,
+            }),
+          ],
+        })
+      )
+    stripeMocks.sessionsRetrieve.mockResolvedValue(
+      stripeSession({
+        payment_status: 'paid',
+        payment_intent: { id: 'pi_paid', status: 'succeeded', created: 1_783_000_000 },
+      })
+    )
+
+    const view = await getPublicQuoteView('tok_abcdefghij')
+
+    expect(view?.publicPaymentState).toMatchObject({
+      state: 'paid',
+      mayStartCheckout: false,
+      timestamps: { paidAt: paidAt.toISOString() },
+    })
+    expect(prismaMocks.paymentQuote.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'quote_1',
+        OR: [{ lastStripeEventAt: null }, { lastStripeEventAt: { lte: reconciledAt } }],
+      },
+      data: {
+        status: 'paid',
+        lastStripeEventAt: reconciledAt,
+      },
+    })
+  })
+
+  it('uses deterministic quote payment rows to classify paid subscription cancellations', async () => {
+    const paidAt = new Date('2026-06-08T10:00:00.000Z')
+    const canceledAt = new Date('2026-07-08T10:00:00.000Z')
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(
+      quoteRow({
+        status: 'canceled',
+        lastStripeEventAt: canceledAt,
+        checkoutSessions: [
+          {
+            stripeSessionId: 'cs_paid_quote',
+            status: 'subscription_canceled',
+            createdAt: new Date('2026-06-08T09:55:00.000Z'),
+            updatedAt: canceledAt,
+            expiresAt: null,
+            paidAt: null,
+            lastStripeEventAt: canceledAt,
+          },
+        ],
+      })
+    )
+    prismaMocks.payment.findFirst.mockResolvedValue({
+      status: 'PAID',
+      paidAt,
+      paymentMethodBrand: 'visa',
+    })
+
+    const view = await getPublicQuoteView('tok_abcdefghij')
+
+    expect(prismaMocks.payment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          payToken: { in: ['qf_cs_paid_quote'] },
+          status: 'PAID',
+        },
+      })
+    )
+    expect(view?.status).toBe('canceled')
+    expect(view?.paidAt).toBe(paidAt.toISOString())
+    expect(view?.publicPaymentState).toMatchObject({
+      state: 'subscription_canceled_after_payment',
+      paymentMethodFamily: 'card',
+      mayStartCheckout: false,
+      timestamps: {
+        paidAt: paidAt.toISOString(),
+        latestStripeEventAt: canceledAt.toISOString(),
+      },
+    })
   })
 
   it('prefers lead first name over client', async () => {
@@ -406,6 +565,182 @@ describe('createQuoteCheckoutSession', () => {
     await expect(createQuoteCheckoutSession('tok_abcdefghij')).rejects.toMatchObject({
       code: 'NOT_PAYABLE',
     })
+  })
+
+  it('rejects a quote with a bank payment still processing before checking sessions', async () => {
+    prismaMocks.paymentQuote.findUnique.mockResolvedValue(quoteRow({ status: 'awaiting_payment' }))
+
+    await expect(createQuoteCheckoutSession('tok_abcdefghij')).rejects.toMatchObject({
+      code: 'PAYMENT_PROCESSING',
+    })
+    expect(prismaMocks.stripeCheckoutSession.findFirst).not.toHaveBeenCalled()
+    expect(stripeMocks.sessionsCreate).not.toHaveBeenCalled()
+  })
+
+  it('blocks retry when reconciliation finds a completed async bank session', async () => {
+    const completedAt = new Date(1_783_000_000 * 1000)
+    prismaMocks.paymentQuote.findUnique
+      .mockResolvedValueOnce(
+        quoteRow({
+          status: 'checkout_created',
+          checkoutSessions: [
+            checkoutSessionRow({
+              status: 'open',
+              expiresAt: new Date('2026-07-01T00:00:00.000Z'),
+            }),
+          ],
+        })
+      )
+      .mockResolvedValueOnce(
+        quoteRow({
+          status: 'awaiting_payment',
+          lastStripeEventAt: completedAt,
+          checkoutSessions: [
+            checkoutSessionRow({
+              status: 'complete',
+              expiresAt: new Date('2026-07-01T00:00:00.000Z'),
+              lastStripeEventAt: completedAt,
+            }),
+          ],
+        })
+      )
+    stripeMocks.sessionsRetrieve.mockResolvedValue(stripeSession())
+
+    await expect(createQuoteCheckoutSession('tok_abcdefghij')).rejects.toMatchObject({
+      code: 'PAYMENT_PROCESSING',
+      publicPaymentState: expect.objectContaining({ state: 'processing_bank_payment' }),
+    })
+
+    expect(prismaMocks.stripeCheckoutSession.updateMany).toHaveBeenCalledWith({
+      where: {
+        stripeSessionId: 'cs_ach',
+        OR: [{ lastStripeEventAt: null }, { lastStripeEventAt: { lte: completedAt } }],
+      },
+      data: expect.objectContaining({
+        status: 'complete',
+        stripePaymentIntentId: 'pi_ach',
+        lastStripeEventAt: completedAt,
+      }),
+    })
+    expect(prismaMocks.paymentQuote.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'quote_1',
+        OR: [{ lastStripeEventAt: null }, { lastStripeEventAt: { lte: completedAt } }],
+      },
+      data: {
+        status: 'awaiting_payment',
+        lastStripeEventAt: completedAt,
+      },
+    })
+    expect(stripeMocks.sessionsCreate).not.toHaveBeenCalled()
+  })
+
+  it('fails closed when an expired local session cannot be verified with Stripe', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    prismaMocks.paymentQuote.findUnique
+      .mockResolvedValueOnce(
+        quoteRow({
+          status: 'checkout_created',
+          checkoutSessions: [
+            checkoutSessionRow({
+              status: 'open',
+              expiresAt: new Date('2026-07-01T00:00:00.000Z'),
+            }),
+          ],
+        })
+      )
+      .mockResolvedValueOnce(
+        quoteRow({
+          status: 'checkout_created',
+          checkoutSessions: [
+            checkoutSessionRow({
+              status: 'open',
+              expiresAt: new Date('2026-07-01T00:00:00.000Z'),
+            }),
+          ],
+        })
+      )
+    stripeMocks.sessionsRetrieve.mockRejectedValue(new Error('stripe timeout'))
+
+    await expect(createQuoteCheckoutSession('tok_abcdefghij')).rejects.toMatchObject({
+      code: 'PAYMENT_PROCESSING',
+      message: 'This payment status is still being verified. Please do not pay again.',
+      publicPaymentState: expect.objectContaining({
+        state: 'processing_bank_payment',
+        mayStartCheckout: false,
+      }),
+    })
+
+    expect(stripeMocks.sessionsCreate).not.toHaveBeenCalled()
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('quote=quote_1 session=[redacted]'),
+      expect.any(Error)
+    )
+    expect(consoleSpy.mock.calls[0]?.[0]).not.toContain('tok_abcdefghij')
+  })
+
+  it('allows retry after reconciliation finds an async bank payment failure', async () => {
+    const reconciledAt = new Date('2026-07-12T12:05:00.000Z')
+    vi.useFakeTimers()
+    vi.setSystemTime(reconciledAt)
+    prismaMocks.paymentQuote.findUnique
+      .mockResolvedValueOnce(
+        quoteRow({
+          status: 'awaiting_payment',
+          lastStripeEventAt: new Date('2026-07-01T10:05:00.000Z'),
+          checkoutSessions: [
+            checkoutSessionRow({
+              status: 'complete',
+              lastStripeEventAt: new Date('2026-07-01T10:05:00.000Z'),
+            }),
+          ],
+        })
+      )
+      .mockResolvedValueOnce(
+        quoteRow({
+          status: 'payment_failed',
+          lastStripeEventAt: reconciledAt,
+          checkoutSessions: [
+            checkoutSessionRow({
+              status: 'payment_failed',
+              lastStripeEventAt: reconciledAt,
+            }),
+          ],
+        })
+      )
+    stripeMocks.sessionsRetrieve.mockResolvedValue(
+      stripeSession({
+        payment_intent: {
+          id: 'pi_ach_failed',
+          status: 'requires_payment_method',
+          created: 1_783_000_000,
+        },
+      })
+    )
+    stripeMocks.sessionsCreate.mockResolvedValue({
+      id: 'cs_retry',
+      url: 'https://stripe.test/cs_retry',
+      status: 'open',
+      customer: null,
+      subscription: null,
+      payment_intent: null,
+      expires_at: null,
+    })
+
+    const result = await createQuoteCheckoutSession('tok_abcdefghij')
+
+    expect(result).toEqual({ checkoutUrl: 'https://stripe.test/cs_retry' })
+    expect(prismaMocks.paymentQuote.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'quote_1',
+        OR: [{ lastStripeEventAt: null }, { lastStripeEventAt: { lte: reconciledAt } }],
+      },
+      data: {
+        status: 'payment_failed',
+        lastStripeEventAt: reconciledAt,
+      },
+    })
+    expect(stripeMocks.sessionsCreate).toHaveBeenCalledTimes(1)
   })
 
   it.each(['agreement_draft', 'agreement_pending_signature', 'agreement_signed_review'])(

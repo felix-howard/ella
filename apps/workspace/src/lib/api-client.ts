@@ -174,6 +174,12 @@ export interface RecipientSearchResponse {
   leads: RecipientResult[]
 }
 
+export type RecipientSearchType = 'all' | 'client' | 'lead'
+
+export interface RecipientSearchOptions {
+  type?: RecipientSearchType
+}
+
 export interface CompanyVaultCredential {
   id: string
   toolName: string
@@ -606,10 +612,12 @@ export const api = {
     },
   },
 
-  // Recipient search (combined Clients + Leads) for sending pricing quotes
+  // Recipient search (combined Clients + Leads by default) for sending pricing quotes
   recipients: {
-    search: (q: string) =>
-      request<RecipientSearchResponse>('/recipients/search', { params: { q } }),
+    search: (q: string, options?: RecipientSearchOptions) =>
+      request<RecipientSearchResponse>('/recipients/search', {
+        params: { q, type: options?.type },
+      }),
   },
 
   push: {
@@ -983,7 +991,7 @@ export const api = {
     // Client payments — powers the client profile Payments tab + Overview card
     payments: {
       list: (clientId: string) =>
-        request<{ success: boolean; data: ClientPayment[]; pastDue?: boolean }>(
+        request<ClientPaymentsResponse>(
           `/clients/${clientId}/payments`,
         ),
       reconcileReceipt: (clientId: string, paymentId: string) =>
@@ -2580,6 +2588,14 @@ export type NdaAgreement = Agreement & { depositStatus: DepositStatus }
 export type PaymentType = 'DEPOSIT' | 'BALANCE' | 'OTHER' | 'RECURRING'
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'CANCELED'
 export type ReceiptStatus = 'available' | 'pending' | 'not_applicable'
+export type ClientQuotePaymentState =
+  | 'sent'
+  | 'processing_bank_payment'
+  | 'payment_failed_retryable'
+  | 'paid'
+  | 'duplicate_paid_review'
+  | 'subscription_canceled_after_payment'
+  | 'canceled_before_payment'
 
 export interface ClientPayment {
   id: string
@@ -2605,6 +2621,44 @@ export interface ClientPayment {
   paymentMethodLabel: string | null
   receiptSyncedAt: string | null
   receiptStatus: ReceiptStatus
+}
+
+export interface ClientQuotePayment {
+  id: string
+  source: string
+  rawStatus: string
+  state: ClientQuotePaymentState
+  amount: string
+  recurringAmount: string
+  currency: 'usd'
+  billingInterval: string | null
+  sentAt: string | null
+  createdAt: string
+  lastStripeEventAt: string | null
+  paidAt: string | null
+  agreement: { id: string; title: string } | null
+  payUrl: string | null
+  mayStartCheckout: boolean
+  latestStripeSessionId: string | null
+  latestStripePaymentIntentId: string | null
+  latestStripeInvoiceId: string | null
+  staleProcessing: boolean
+}
+
+export interface ClientPaymentsMonitoring {
+  bankProcessingCount: number
+  staleBankProcessingCount: number
+  duplicateReviewCount: number
+  paymentFailedCount: number
+  subscriptionCanceledAfterPaymentCount: number
+}
+
+export interface ClientPaymentsResponse {
+  success: boolean
+  data: ClientPayment[]
+  pastDue?: boolean
+  quotePayments?: ClientQuotePayment[]
+  monitoring?: ClientPaymentsMonitoring
 }
 
 export interface CreateAgreementPayload {

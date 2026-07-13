@@ -7,11 +7,19 @@ describe('recipient search query key', () => {
       'recipient-search',
       'org_a',
       'nguyen',
+      'all',
     ])
     expect(recipientSearchQueryKey('org_b', 'nguyen')).toEqual([
       'recipient-search',
       'org_b',
       'nguyen',
+      'all',
+    ])
+    expect(recipientSearchQueryKey('org_a', 'nguyen', 'client')).toEqual([
+      'recipient-search',
+      'org_a',
+      'nguyen',
+      'client',
     ])
   })
 })

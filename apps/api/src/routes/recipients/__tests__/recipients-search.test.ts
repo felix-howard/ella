@@ -76,7 +76,7 @@ describe('GET /recipients/search', () => {
           organizationId: 'org_1',
           clientType: 'INDIVIDUAL',
         }),
-      }),
+      })
     )
   })
 
@@ -93,6 +93,33 @@ describe('GET /recipients/search', () => {
           lastName: 'Nguyen',
           businessName: null,
           phoneLast4: '2540',
+        },
+      ],
+      leads: [],
+    })
+  })
+
+  it('supports client-only recipient search without querying leads', async () => {
+    prismaMocks.lead.findMany.mockResolvedValue([
+      {
+        id: 'lead_1',
+        firstName: 'Lead',
+        lastName: 'Hidden',
+        businessName: null,
+        phone: '+18135551234',
+      },
+    ])
+
+    const res = await buildApp().request('/recipients/search?q=tuyet&type=client')
+
+    expect(res.status).toBe(200)
+    expect(prismaMocks.client.findMany).toHaveBeenCalledTimes(1)
+    expect(prismaMocks.lead.findMany).not.toHaveBeenCalled()
+    await expect(res.json()).resolves.toMatchObject({
+      clients: [
+        {
+          id: 'client_1',
+          type: 'client',
         },
       ],
       leads: [],

@@ -13,8 +13,10 @@ const dbMocks = vi.hoisted(() => {
     action: { updateMany: vi.fn() },
     lead: { update: vi.fn() },
     paymentQuote: { updateMany: vi.fn() },
-    payment: { create: vi.fn() },
+    stripeCheckoutSession: { findMany: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
+    payment: { create: vi.fn(), findFirst: vi.fn() },
     $executeRaw: vi.fn(),
+    $queryRaw: vi.fn(),
   }
   return {
     tx,
@@ -31,6 +33,7 @@ const stripeMocks = vi.hoisted(() => ({
 }))
 
 const notifyMocks = vi.hoisted(() => ({
+  notifyDuplicateQuotePayment: vi.fn(),
   notifyFirstQuotePayment: vi.fn(),
   notifyQuotePaymentFailed: vi.fn(),
 }))
@@ -116,7 +119,15 @@ describe('fulfillFirstQuotePayment', () => {
     dbMocks.tx.action.updateMany.mockResolvedValue({ count: 1 })
     dbMocks.tx.lead.update.mockResolvedValue({})
     dbMocks.tx.paymentQuote.updateMany.mockResolvedValue({ count: 1 })
+    dbMocks.tx.stripeCheckoutSession.findMany.mockResolvedValue([
+      { stripeSessionId: 'cs_quote_123' },
+    ])
+    dbMocks.tx.stripeCheckoutSession.findFirst.mockResolvedValue(null)
+    dbMocks.tx.stripeCheckoutSession.updateMany.mockResolvedValue({ count: 1 })
+    dbMocks.tx.payment.findFirst.mockResolvedValue(null)
     dbMocks.tx.payment.create.mockResolvedValue({})
+    dbMocks.tx.$executeRaw.mockResolvedValue(0)
+    dbMocks.tx.$queryRaw.mockResolvedValue([])
     dbMocks.prisma.payment.create.mockResolvedValue({})
     stripeMocks.paymentIntentsRetrieve.mockResolvedValue({
       id: 'pi_quote_123',
@@ -131,6 +142,7 @@ describe('fulfillFirstQuotePayment', () => {
       },
     })
     notifyMocks.notifyFirstQuotePayment.mockResolvedValue(undefined)
+    notifyMocks.notifyDuplicateQuotePayment.mockResolvedValue(undefined)
     stripeCustomerMocks.linkClientToStripeCustomerIfMissing.mockResolvedValue(undefined)
   })
 
@@ -198,5 +210,108 @@ describe('fulfillFirstQuotePayment', () => {
     expect(dbMocks.prisma.payment.create).not.toHaveBeenCalled()
     expect(notifyMocks.notifyFirstQuotePayment).not.toHaveBeenCalled()
     expect(stripeCustomerMocks.linkClientToStripeCustomerIfMissing).not.toHaveBeenCalled()
+  })
+
+  it('flags a second successful quote checkout for staff review without a client receipt', async () => {
+    dbMocks.prisma.paymentQuote.findUnique.mockResolvedValueOnce(
+      quoteRow({
+        clientId: 'client_existing',
+        client: {
+          id: 'client_existing',
+          firstName: 'Anna',
+          lastName: 'Nguyen',
+          phone: '+18135550123',
+        },
+      }),
+    )
+    dbMocks.tx.stripeCheckoutSession.findMany.mockResolvedValueOnce([
+      { stripeSessionId: 'cs_first_success' },
+      { stripeSessionId: 'cs_quote_123' },
+    ])
+    dbMocks.tx.payment.findFirst.mockResolvedValueOnce({
+      payToken: 'qf_cs_first_success',
+      stripeSessionId: 'cs_first_success',
+      stripePaymentIntentId: 'pi_first_success',
+    })
+
+    await fulfillFirstQuotePayment({
+      quoteId: 'quote_1',
+      session: checkoutSession(),
+      eventAt,
+      stripeEventId: 'evt_async_payment_succeeded',
+    })
+
+    expect(dbMocks.tx.client.create).not.toHaveBeenCalled()
+    expect(dbMocks.tx.payment.create).not.toHaveBeenCalled()
+    expect(dbMocks.tx.stripeCheckoutSession.updateMany).toHaveBeenCalledWith({
+      where: {
+        paymentQuoteId: 'quote_1',
+        stripeSessionId: 'cs_quote_123',
+        status: { not: 'duplicate_paid_review' },
+      },
+      data: {
+        status: 'duplicate_paid_review',
+        lastStripeEventAt: eventAt,
+        lastStripeEventId: 'evt_async_payment_succeeded',
+      },
+    })
+    expect(notifyMocks.notifyFirstQuotePayment).not.toHaveBeenCalled()
+    expect(notifyMocks.notifyDuplicateQuotePayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signer: expect.objectContaining({ id: 'client_existing', kind: 'client' }),
+        amountFormatted: '$100.00',
+        stripeSessionId: 'cs_quote_123',
+        stripePaymentIntentId: 'pi_quote_123',
+      }),
+    )
+    expect(stripeCustomerMocks.linkClientToStripeCustomerIfMissing).not.toHaveBeenCalled()
+  })
+
+  it('fails duplicate fulfillment when no checkout session can be marked for audit', async () => {
+    dbMocks.tx.stripeCheckoutSession.findMany.mockResolvedValueOnce([
+      { stripeSessionId: 'cs_first_success' },
+      { stripeSessionId: 'cs_quote_123' },
+    ])
+    dbMocks.tx.payment.findFirst.mockResolvedValueOnce({
+      payToken: 'qf_cs_first_success',
+      stripeSessionId: 'cs_first_success',
+    })
+    dbMocks.tx.stripeCheckoutSession.updateMany.mockResolvedValueOnce({ count: 0 })
+    dbMocks.tx.stripeCheckoutSession.findFirst.mockResolvedValueOnce(null)
+
+    await expect(
+      fulfillFirstQuotePayment({
+        quoteId: 'quote_1',
+        session: checkoutSession(),
+        eventAt,
+        stripeEventId: 'evt_async_payment_succeeded',
+      }),
+    ).rejects.toThrow('could not be marked for review')
+
+    expect(notifyMocks.notifyDuplicateQuotePayment).not.toHaveBeenCalled()
+  })
+
+  it('does not repeat duplicate alerts when the checkout session is already marked', async () => {
+    dbMocks.tx.stripeCheckoutSession.findMany.mockResolvedValueOnce([
+      { stripeSessionId: 'cs_first_success' },
+      { stripeSessionId: 'cs_quote_123' },
+    ])
+    dbMocks.tx.payment.findFirst.mockResolvedValueOnce({
+      payToken: 'qf_cs_first_success',
+      stripeSessionId: 'cs_first_success',
+    })
+    dbMocks.tx.stripeCheckoutSession.updateMany.mockResolvedValueOnce({ count: 0 })
+    dbMocks.tx.stripeCheckoutSession.findFirst.mockResolvedValueOnce({
+      status: 'duplicate_paid_review',
+    })
+
+    await fulfillFirstQuotePayment({
+      quoteId: 'quote_1',
+      session: checkoutSession(),
+      eventAt,
+      stripeEventId: 'evt_async_payment_succeeded',
+    })
+
+    expect(notifyMocks.notifyDuplicateQuotePayment).not.toHaveBeenCalled()
   })
 })

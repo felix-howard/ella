@@ -7,6 +7,7 @@ import {
   buildDepositPayLinkMessage,
   buildDepositReceiptMessage,
   buildAdminAgreementSignedMessage,
+  buildAdminDuplicateQuotePaymentMessage,
   buildAdminPaymentReceivedMessage,
   buildQuotePayLinkMessage,
   buildQuoteReceiptMessage,
@@ -381,5 +382,32 @@ describe('admin payment failed message', () => {
 
     expect(message).toMatch(/Payment failed: couldn't collect \$1000\.00 from Test User\./)
     expect(message).toMatch(/Follow up to update their card\./)
+  })
+})
+
+describe('admin duplicate quote payment message', () => {
+  it('builds review copy with a Stripe payment reference when present', () => {
+    const message = buildAdminDuplicateQuotePaymentMessage({
+      payerName: 'Anna Nguyen',
+      amountFormatted: '$100.00',
+      stripeSessionId: 'cs_dup_123',
+      stripePaymentIntentId: 'pi_dup_123',
+    })
+
+    expect(message).toBe(
+      'Duplicate payment review: Anna Nguyen paid $100.00 again for quote. ' +
+        'Review Stripe payment pi_dup_123 before refunding.',
+    )
+  })
+
+  it('falls back to the Stripe session reference', () => {
+    const message = buildAdminDuplicateQuotePaymentMessage({
+      payerName: 'Anna Nguyen',
+      amountFormatted: '$100.00',
+      stripeSessionId: 'cs_dup_123',
+      stripePaymentIntentId: null,
+    })
+
+    expect(message).toContain('Review Stripe session cs_dup_123 before refunding.')
   })
 })

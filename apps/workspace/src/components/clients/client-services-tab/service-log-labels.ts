@@ -26,23 +26,11 @@ export const STATUS_OPTIONS: Array<{ value: ClientServiceStatus; labelKey: strin
   { value: 'CANCELLED', labelKey: 'clientServices.status.cancelled' },
 ]
 
-export const ACTIVE_SERVICE_STATUSES = new Set<ClientServiceStatus>([
-  'WAITING_ON_CLIENT',
-  'ACTIVE',
-])
-
 export const STATUS_BADGE_CLASS_NAMES: Record<ClientServiceStatus, string> = {
   ACTIVE: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300',
   WAITING_ON_CLIENT: 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300',
   COMPLETED: 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300',
   CANCELLED: 'bg-muted text-muted-foreground',
-}
-
-const ACTIVE_STATUS_ORDER: Record<ClientServiceStatus, number> = {
-  WAITING_ON_CLIENT: 0,
-  ACTIVE: 1,
-  COMPLETED: 2,
-  CANCELLED: 3,
 }
 
 export function getServiceTypeLabel(type: ClientServiceType, t: Translate) {
@@ -86,12 +74,5 @@ export function compareServiceLogsNewestFirst(a: ClientServiceLog, b: ClientServ
   return (
     Date.parse(b.serviceDate) - Date.parse(a.serviceDate) ||
     Date.parse(b.createdAt) - Date.parse(a.createdAt)
-  )
-}
-
-export function compareActiveServices(a: ClientServiceLog, b: ClientServiceLog) {
-  return (
-    ACTIVE_STATUS_ORDER[a.status] - ACTIVE_STATUS_ORDER[b.status] ||
-    compareServiceLogsNewestFirst(a, b)
   )
 }

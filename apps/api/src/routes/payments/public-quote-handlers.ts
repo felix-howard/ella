@@ -72,8 +72,29 @@ publicQuotesRoute.post(
         if (error.code === 'STRIPE_MISSING_URL') {
           throw new HTTPException(502, { message: error.message })
         }
+        if (error.code === 'PAYMENT_PROCESSING') {
+          return c.json(
+            {
+              success: false,
+              error: error.code,
+              message: error.message,
+              data: { publicPaymentState: error.publicPaymentState },
+            },
+            202
+          )
+        }
         // ALREADY_PAID / NOT_PAYABLE
-        return c.json({ success: false, error: error.code, message: error.message }, 409)
+        return c.json(
+          {
+            success: false,
+            error: error.code,
+            message: error.message,
+            ...(error.publicPaymentState
+              ? { data: { publicPaymentState: error.publicPaymentState } }
+              : {}),
+          },
+          409
+        )
       }
       throw error
     }

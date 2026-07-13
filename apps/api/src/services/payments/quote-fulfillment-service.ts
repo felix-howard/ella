@@ -26,7 +26,11 @@ import {
   toPaymentReceiptData,
   type StripeReceiptFacts,
 } from '../stripe/stripe-receipt-facts'
-import { notifyFirstQuotePayment, notifyQuotePaymentFailed } from './quote-fulfillment-notify'
+import {
+  notifyDuplicateQuotePayment,
+  notifyFirstQuotePayment,
+  notifyQuotePaymentFailed,
+} from './quote-fulfillment-notify'
 import { formatUsdAmount } from './payment-sms-templates'
 import {
   isUniqueViolation,
@@ -45,6 +49,20 @@ function firstPaymentDescription(quote: SendableQuote): string {
   return quote.monthlyTotalCents > 0 ? 'Initial payment (setup + first month)' : 'Initial payment'
 }
 
+type FirstQuotePaymentRecordResult =
+  | { kind: 'created'; recipient: { clientId: string | null; signer: QuoteSigner | null } }
+  | { kind: 'duplicate_delivery' }
+  | {
+      kind: 'duplicate_quote_payment'
+      stripeSessionId: string
+      stripePaymentIntentId: string | null
+    }
+
+interface ExistingFirstQuotePayment {
+  payToken: string
+  stripeSessionId: string | null
+}
+
 class LeadConversionFailedError extends Error {
   constructor(readonly originalError: unknown) {
     super('Lead conversion failed during quote payment fulfillment')
@@ -61,6 +79,11 @@ function leadSigner(lead: NonNullable<SendableQuote['lead']>): QuoteSigner {
     phone: lead.phone,
     kind: 'lead',
   }
+}
+
+function currentQuoteSigner(quote: SendableQuote): QuoteSigner | null {
+  if (quote.client) return { ...quote.client, kind: 'client' }
+  return quote.lead ? leadSigner(quote.lead) : null
 }
 
 /**
@@ -145,8 +168,9 @@ export async function fulfillFirstQuotePayment(params: {
   quoteId: string
   session: Stripe.Checkout.Session
   eventAt: Date
+  stripeEventId?: string
 }): Promise<void> {
-  const { quoteId, session, eventAt } = params
+  const { quoteId, session, eventAt, stripeEventId } = params
   const quote = await prisma.paymentQuote.findUnique({
     where: { id: quoteId },
     include: sendableQuoteInclude,
@@ -165,10 +189,21 @@ export async function fulfillFirstQuotePayment(params: {
     session,
     receiptFacts,
     eventAt,
+    stripeEventId,
     amount,
   })
-  if (!result) {
+  if (result.kind === 'duplicate_delivery') {
     return // duplicate delivery — Payment + SMS already happened
+  }
+  if (result.kind === 'duplicate_quote_payment') {
+    await notifyDuplicateQuotePayment({
+      quote,
+      signer: currentQuoteSigner(quote),
+      amountFormatted: formatUsdAmount(amount),
+      stripeSessionId: result.stripeSessionId,
+      stripePaymentIntentId: result.stripePaymentIntentId,
+    })
+    return
   }
 
   await linkRecipientStripeCustomerIfMissing({
@@ -189,15 +224,17 @@ async function recordFirstQuotePayment({
   session,
   receiptFacts,
   eventAt,
+  stripeEventId,
   amount,
 }: {
   quote: SendableQuote
   session: Stripe.Checkout.Session
   receiptFacts: StripeReceiptFacts
   eventAt: Date
+  stripeEventId?: string
   amount: string
-}): Promise<{ recipient: { clientId: string | null; signer: QuoteSigner | null } } | null> {
-  if (!quote.organizationId) return null
+}): Promise<FirstQuotePaymentRecordResult> {
+  if (!quote.organizationId) return { kind: 'duplicate_delivery' }
 
   const inputBase = {
     payToken: `qf_${session.id}`,
@@ -213,16 +250,30 @@ async function recordFirstQuotePayment({
 
   try {
     return await prisma.$transaction(async (tx) => {
+      await lockQuoteFirstPaymentClaim(tx, quote.id)
+      const existingFirstPayment = await findExistingFirstQuotePayment(tx, quote.id, amount)
+      if (existingFirstPayment) {
+        return markDuplicateOrDelivery({
+          tx,
+          quoteId: quote.id,
+          session,
+          existingFirstPayment,
+          eventAt,
+          stripeEventId,
+          stripePaymentIntentId: inputBase.stripePaymentIntentId,
+        })
+      }
+
       const recipient = await resolveRecipientClientInTransaction(tx, quote, eventAt)
       await insertQuotePayment(tx, {
         ...inputBase,
         clientId: recipient.clientId,
         leadId: recipient.clientId ? null : quote.leadId,
       })
-      return { recipient }
+      return { kind: 'created', recipient }
     })
   } catch (err) {
-    if (isUniqueViolation(err)) return null
+    if (isUniqueViolation(err)) return { kind: 'duplicate_delivery' }
     if (!(err instanceof LeadConversionFailedError)) throw err
 
     console.error(
@@ -233,14 +284,146 @@ async function recordFirstQuotePayment({
       clientId: null,
       signer: quote.lead ? leadSigner(quote.lead) : null,
     }
-    if (!(await createQuotePayment({
-      ...inputBase,
-      clientId: null,
-      leadId: quote.leadId,
-    }))) {
-      return null
+    return recordFirstQuotePaymentWithoutConversion({
+      quote,
+      session,
+      input: {
+        ...inputBase,
+        clientId: null,
+        leadId: quote.leadId,
+      },
+      recipient,
+      eventAt,
+      stripeEventId,
+      amount,
+    })
+  }
+}
+
+async function recordFirstQuotePaymentWithoutConversion(params: {
+  quote: SendableQuote
+  session: Stripe.Checkout.Session
+  input: QuotePaymentInput
+  recipient: { clientId: string | null; signer: QuoteSigner | null }
+  eventAt: Date
+  stripeEventId?: string
+  amount: string
+}): Promise<FirstQuotePaymentRecordResult> {
+  const { quote, session, input, recipient, eventAt, stripeEventId, amount } = params
+  try {
+    return await prisma.$transaction(async (tx) => {
+      await lockQuoteFirstPaymentClaim(tx, quote.id)
+      const existingFirstPayment = await findExistingFirstQuotePayment(tx, quote.id, amount)
+      if (existingFirstPayment) {
+        return markDuplicateOrDelivery({
+          tx,
+          quoteId: quote.id,
+          session,
+          existingFirstPayment,
+          eventAt,
+          stripeEventId,
+          stripePaymentIntentId: input.stripePaymentIntentId,
+        })
+      }
+      await insertQuotePayment(tx, input)
+      return { kind: 'created', recipient }
+    })
+  } catch (err) {
+    if (isUniqueViolation(err)) return { kind: 'duplicate_delivery' }
+    console.error(`[QuoteFulfillment] Payment insert failed (payToken=${input.payToken}):`, err)
+    throw err
+  }
+}
+
+async function lockQuoteFirstPaymentClaim(
+  tx: Prisma.TransactionClient,
+  quoteId: string,
+): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM "PaymentQuote" WHERE id = ${quoteId} FOR UPDATE`
+}
+
+async function findExistingFirstQuotePayment(
+  tx: Prisma.TransactionClient,
+  quoteId: string,
+  amount: string,
+): Promise<ExistingFirstQuotePayment | null> {
+  const sessions = await tx.stripeCheckoutSession.findMany({
+    where: { paymentQuoteId: quoteId },
+    select: { stripeSessionId: true },
+  })
+  const stripeSessionIds = sessions
+    .map((session) => session.stripeSessionId)
+    .filter((stripeSessionId): stripeSessionId is string => Boolean(stripeSessionId))
+  if (stripeSessionIds.length === 0) return null
+  return tx.payment.findFirst({
+    where: {
+      status: 'PAID',
+      type: 'OTHER',
+      amount,
+      payToken: { startsWith: 'qf_' },
+      stripeSessionId: { in: stripeSessionIds },
+    },
+    orderBy: { paidAt: 'asc' },
+    select: {
+      payToken: true,
+      stripeSessionId: true,
+    },
+  })
+}
+
+async function markDuplicateOrDelivery(params: {
+  tx: Prisma.TransactionClient
+  quoteId: string
+  session: Stripe.Checkout.Session
+  existingFirstPayment: ExistingFirstQuotePayment
+  eventAt: Date
+  stripeEventId?: string
+  stripePaymentIntentId: string | null
+}): Promise<FirstQuotePaymentRecordResult> {
+  const {
+    tx,
+    quoteId,
+    session,
+    existingFirstPayment,
+    eventAt,
+    stripeEventId,
+    stripePaymentIntentId,
+  } = params
+  if (
+    existingFirstPayment.payToken === `qf_${session.id}` ||
+    existingFirstPayment.stripeSessionId === session.id
+  ) {
+    return { kind: 'duplicate_delivery' }
+  }
+
+  const marked = await tx.stripeCheckoutSession.updateMany({
+    where: {
+      paymentQuoteId: quoteId,
+      stripeSessionId: session.id,
+      status: { not: 'duplicate_paid_review' },
+    },
+    data: {
+      status: 'duplicate_paid_review',
+      lastStripeEventAt: eventAt,
+      ...(stripeEventId ? { lastStripeEventId: stripeEventId } : {}),
+    },
+  })
+  if (marked.count === 0) {
+    const currentSession = await tx.stripeCheckoutSession.findFirst({
+      where: { paymentQuoteId: quoteId, stripeSessionId: session.id },
+      select: { status: true },
+    })
+    if (currentSession?.status === 'duplicate_paid_review') {
+      return { kind: 'duplicate_delivery' }
     }
-    return { recipient }
+    throw new Error(
+      `[QuoteFulfillment] Duplicate quote payment could not be marked for review quote=${quoteId} session=${session.id}`,
+    )
+  }
+  return {
+    kind: 'duplicate_quote_payment',
+    stripeSessionId: session.id,
+    stripePaymentIntentId,
   }
 }
 
@@ -283,14 +466,9 @@ export async function alertRecurringQuoteFailure(params: {
   invoice: InvoiceFacts
 }): Promise<void> {
   const { quote, invoice } = params
-  const signer: QuoteSigner | null = quote.client
-    ? { ...quote.client, kind: 'client' }
-    : quote.lead
-      ? leadSigner(quote.lead)
-      : null
   await notifyQuotePaymentFailed({
     quote,
-    signer,
+    signer: currentQuoteSigner(quote),
     amountFormatted: formatUsdAmount(centsToAmount(invoice.amountDueCents)),
   })
 }
@@ -302,7 +480,12 @@ export async function loadSendableQuoteBySubscription(
   return prisma.paymentQuote.findFirst({
     where: {
       payToken: { not: null },
-      checkoutSessions: { some: { stripeSubscriptionId } },
+      checkoutSessions: {
+        some: {
+          stripeSubscriptionId,
+          status: { not: 'duplicate_paid_review' },
+        },
+      },
     },
     include: sendableQuoteInclude,
   })

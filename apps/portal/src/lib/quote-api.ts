@@ -3,9 +3,33 @@
  * Backed by the API's `/public/quote` routes; no auth, the token IS the credential.
  * Kept separate from api-client.ts / payment-api.ts per module-size conventions.
  */
-import { request } from './api-client'
+import { ApiError, request } from './api-client'
 
 export type QuotePublicStatus = string
+export type PublicQuotePaymentStateValue =
+  | 'payable'
+  | 'redirecting'
+  | 'processing_bank_payment'
+  | 'paid'
+  | 'payment_failed'
+  | 'canceled_before_payment'
+  | 'subscription_canceled_after_payment'
+export type PublicQuotePaymentMethodFamily = 'card' | 'bank' | 'unknown'
+export type PublicQuoteProcessingExplanationKey = 'ach_bank_payment_settlement'
+
+export interface PublicQuotePaymentState {
+  state: PublicQuotePaymentStateValue
+  paymentMethodFamily: PublicQuotePaymentMethodFamily
+  processingExplanationKey: PublicQuoteProcessingExplanationKey | null
+  mayStartCheckout: boolean
+  timestamps: {
+    latestCheckoutSessionCreatedAt: string | null
+    latestCheckoutSessionUpdatedAt: string | null
+    latestCheckoutSessionExpiresAt: string | null
+    latestStripeEventAt: string | null
+    paidAt: string | null
+  }
+}
 
 export interface QuoteLineView {
   label: string
@@ -41,11 +65,14 @@ export interface PublicQuoteView {
   status: QuotePublicStatus
   /** ISO timestamp once settled; null otherwise. */
   paidAt: string | null
+  publicPaymentState?: PublicQuotePaymentState | null
 }
 
 interface ApiEnvelope<T> {
   success: boolean
   data: T
+  error?: string
+  message?: string
 }
 
 export const quoteApi = {
@@ -57,15 +84,45 @@ export const quoteApi = {
 
   /**
    * Create a fresh Stripe Checkout Session and return its redirect URL.
-   * Throws ApiError with code ALREADY_PAID / NOT_PAYABLE (409) or RATE_LIMITED (429).
+   * Throws ApiError with code ALREADY_PAID / NOT_PAYABLE / PAYMENT_PROCESSING (409)
+   * or RATE_LIMITED (429).
    */
   createCheckout: async (payToken: string): Promise<{ checkoutUrl: string }> => {
-    const envelope = await request<ApiEnvelope<{ checkoutUrl: string }>>(
+    const envelope = await request<
+      ApiEnvelope<{ checkoutUrl: string } | { publicPaymentState: PublicQuotePaymentState | null }>
+    >(
       `/public/quote/${payToken}/checkout`,
       { method: 'POST' }
     )
+    if (!envelope.success || !envelope.data || !('checkoutUrl' in envelope.data)) {
+      throw new ApiError(
+        202,
+        envelope.error ?? 'PAYMENT_PROCESSING',
+        envelope.message ?? 'Payment is still processing',
+        undefined,
+        envelope.data
+      )
+    }
     return envelope.data
   },
+}
+
+export function isQuotePaymentProcessingError(error: unknown): error is ApiError {
+  return (
+    error instanceof ApiError &&
+    (error.status === 202 || error.code === 'PAYMENT_PROCESSING')
+  )
+}
+
+export function getQuotePaymentStateFromError(error: unknown): PublicQuotePaymentState | null {
+  if (!(error instanceof ApiError)) return null
+  const details = error.details
+  if (!details || typeof details !== 'object' || !('publicPaymentState' in details)) return null
+
+  const publicPaymentState = (details as { publicPaymentState?: unknown }).publicPaymentState
+  return publicPaymentState && typeof publicPaymentState === 'object'
+    ? (publicPaymentState as PublicQuotePaymentState)
+    : null
 }
 
 /** A settled quote is no longer payable — paid one-time or live subscription. */

@@ -9,6 +9,7 @@
 import { smsOptedInAdmins } from '../agreements/agreement-post-sign-notifications'
 import { sendSignerSmsAndPersist } from './signer-sms-delivery'
 import {
+  buildAdminDuplicateQuotePaymentMessage,
   buildAdminPaymentFailedMessage,
   buildAdminQuotePaidMessage,
   buildQuoteReceiptMessage,
@@ -70,6 +71,37 @@ export async function notifyFirstQuotePayment(params: {
     )
   } catch (err) {
     console.error(`[QuoteFulfillment] Receipt SMS failed for quote=${quote.id}:`, err)
+  }
+}
+
+/**
+ * Duplicate first-payment settlement: alert admins only. Client receipt was
+ * already sent for the first successful quote payment.
+ */
+export async function notifyDuplicateQuotePayment(params: {
+  quote: SendableQuote
+  signer: QuoteSigner | null
+  amountFormatted: string
+  stripeSessionId: string
+  stripePaymentIntentId: string | null
+}): Promise<void> {
+  const { quote, signer, amountFormatted, stripeSessionId, stripePaymentIntentId } = params
+  if (!quote.organizationId) return
+
+  try {
+    await smsOptedInAdmins({
+      organizationId: quote.organizationId,
+      toggle: 'notifyOnClientPayment',
+      message: buildAdminDuplicateQuotePaymentMessage({
+        payerName: payerNameOf(signer),
+        amountFormatted,
+        stripeSessionId,
+        stripePaymentIntentId,
+      }),
+      logContext: `quote=${quote.id} duplicate_payment_review`,
+    })
+  } catch (err) {
+    console.error(`[QuoteFulfillment] Duplicate-payment admin alert failed for quote=${quote.id}:`, err)
   }
 }
 

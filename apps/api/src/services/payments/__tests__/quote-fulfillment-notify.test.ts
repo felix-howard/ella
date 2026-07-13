@@ -15,7 +15,7 @@ const signerSmsMocks = vi.hoisted(() => ({
 vi.mock('../../agreements/agreement-post-sign-notifications', () => adminNotifyMocks)
 vi.mock('../signer-sms-delivery', () => signerSmsMocks)
 
-import { notifyFirstQuotePayment } from '../quote-fulfillment-notify'
+import { notifyDuplicateQuotePayment, notifyFirstQuotePayment } from '../quote-fulfillment-notify'
 import type { QuoteSigner, SendableQuote } from '../quote-fulfillment-types'
 
 function quote(overrides: Partial<SendableQuote> = {}): SendableQuote {
@@ -84,5 +84,34 @@ describe('notifyFirstQuotePayment', () => {
       'Hi Tuyet, we received your payment. Thank you!',
       'quote_receipt',
     )
+  })
+})
+
+describe('notifyDuplicateQuotePayment', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    adminNotifyMocks.smsOptedInAdmins.mockResolvedValue([])
+    signerSmsMocks.sendSignerSmsAndPersist.mockResolvedValue({ delivered: true })
+  })
+
+  it('alerts admins without sending another payer receipt', async () => {
+    await notifyDuplicateQuotePayment({
+      quote: quote(),
+      signer: signer(),
+      amountFormatted: '$899.00',
+      stripeSessionId: 'cs_dup_123',
+      stripePaymentIntentId: 'pi_dup_123',
+    })
+
+    expect(adminNotifyMocks.smsOptedInAdmins).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: 'org_1',
+        toggle: 'notifyOnClientPayment',
+        message:
+          'Duplicate payment review: Tuyet Nguyen paid $899.00 again for quote. ' +
+          'Review Stripe payment pi_dup_123 before refunding.',
+      }),
+    )
+    expect(signerSmsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
   })
 })

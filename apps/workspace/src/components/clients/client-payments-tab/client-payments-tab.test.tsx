@@ -1,14 +1,18 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import type React from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import type { ClientPayment } from '../../../lib/api-client'
+import type {
+  ClientPayment,
+  ClientPaymentsResponse,
+  ClientQuotePayment,
+} from '../../../lib/api-client'
 import { ClientPaymentsTab } from './client-payments-tab'
 
 const testState = vi.hoisted(() => ({
   query: {
     isLoading: false,
     isError: false,
-    data: { pastDue: false, data: [] as ClientPayment[] },
+    data: { success: true, pastDue: false, data: [] as ClientPayment[] } as ClientPaymentsResponse,
   },
 }))
 
@@ -38,9 +42,27 @@ vi.mock('react-i18next', () => ({
         'payments.openReceiptAria': 'Open payment receipt in a new tab',
         'payments.requestedOn': 'Requested',
         'payments.paidOn': 'Paid',
+        'payments.copyRetryLink': 'Copy retry link',
+        'payments.quoteSectionTitle': 'Payment quotes',
+        'payments.ledgerSectionTitle': 'Collected payments',
+        'payments.quoteSentOn': 'Sent',
+        'payments.quoteRecurringAmount': `Then ${values?.method ?? ''}`,
+        'payments.billingInterval.month': 'month',
+        'payments.quoteSource.custom': 'Custom quote',
+        'payments.quoteSource.calculator': 'Calculator quote',
+        'payments.stripeSession': `Stripe session ${values?.method ?? ''}`,
+        'payments.bankProcessingTitle': 'Bank payment processing',
+        'payments.bankProcessingDesc': 'Do not send another payment link while ACH settlement is pending.',
+        'payments.duplicateReviewTitle': 'Duplicate payment needs review',
+        'payments.duplicateReviewDesc': 'A second successful settlement was detected.',
+        'payments.quoteBankProcessingDesc': 'ACH bank payment submitted.',
+        'payments.quoteDuplicateDesc': 'Duplicate settlement detected.',
         'payments.type.DEPOSIT': 'Initial payment',
         'payments.status.PENDING': 'Pending',
         'payments.status.PAID': 'Paid',
+        'payments.quoteStatus.processing_bank_payment': 'Bank processing',
+        'payments.quoteStatus.payment_failed_retryable': 'Failed - retryable',
+        'payments.quoteStatus.duplicate_paid_review': 'Duplicate review',
       }
       return labels[key] ?? key
     },
@@ -97,12 +119,38 @@ function buildPayment(overrides: Partial<ClientPayment>): ClientPayment {
   }
 }
 
+function buildQuotePayment(overrides: Partial<ClientQuotePayment>): ClientQuotePayment {
+  return {
+    id: 'quote_1',
+    source: 'custom',
+    rawStatus: 'awaiting_payment',
+    state: 'processing_bank_payment',
+    amount: '700.00',
+    recurringAmount: '0.00',
+    currency: 'usd',
+    billingInterval: null,
+    sentAt: '2026-06-07T10:00:00.000Z',
+    createdAt: '2026-06-07T10:00:00.000Z',
+    lastStripeEventAt: '2026-06-07T10:01:00.000Z',
+    paidAt: null,
+    agreement: null,
+    payUrl: 'http://portal.test/quote/tok_quote',
+    mayStartCheckout: false,
+    latestStripeSessionId: 'cs_test',
+    latestStripePaymentIntentId: null,
+    latestStripeInvoiceId: null,
+    staleProcessing: false,
+    ...overrides,
+  }
+}
+
 describe('ClientPaymentsTab', () => {
   it('renders a safe receipt link and payment method for paid rows', () => {
     testState.query = {
       isLoading: false,
       isError: false,
       data: {
+        success: true,
         pastDue: false,
         data: [
           buildPayment({
@@ -132,6 +180,7 @@ describe('ClientPaymentsTab', () => {
       isLoading: false,
       isError: false,
       data: {
+        success: true,
         pastDue: false,
         data: [buildPayment({ receiptStatus: 'pending' })],
       },
@@ -149,6 +198,7 @@ describe('ClientPaymentsTab', () => {
       isLoading: false,
       isError: false,
       data: {
+        success: true,
         pastDue: false,
         data: [
           buildPayment({
@@ -173,6 +223,7 @@ describe('ClientPaymentsTab', () => {
       isLoading: false,
       isError: false,
       data: {
+        success: true,
         pastDue: false,
         data: [
           buildPayment({
@@ -188,5 +239,98 @@ describe('ClientPaymentsTab', () => {
 
     expect(markup).toContain('Copy pay link')
     expect(markup).not.toContain('Refresh receipt')
+  })
+
+  it('shows bank-processing quote monitoring without a copy action', () => {
+    testState.query = {
+      isLoading: false,
+      isError: false,
+      data: {
+        success: true,
+        pastDue: false,
+        data: [],
+        quotePayments: [buildQuotePayment({ state: 'processing_bank_payment' })],
+        monitoring: {
+          bankProcessingCount: 1,
+          staleBankProcessingCount: 0,
+          duplicateReviewCount: 0,
+          paymentFailedCount: 0,
+          subscriptionCanceledAfterPaymentCount: 0,
+        },
+      },
+    }
+
+    const markup = renderToStaticMarkup(<ClientPaymentsTab clientId="client_1" />)
+
+    expect(markup).toContain('Bank payment processing')
+    expect(markup).toContain('Bank processing')
+    expect(markup).toContain('ACH bank payment submitted.')
+    expect(markup).not.toContain('Copy pay link')
+    expect(markup).not.toContain('Copy retry link')
+  })
+
+  it('shows duplicate review quote monitoring without a copy action', () => {
+    testState.query = {
+      isLoading: false,
+      isError: false,
+      data: {
+        success: true,
+        pastDue: false,
+        data: [],
+        quotePayments: [
+          buildQuotePayment({
+            state: 'duplicate_paid_review',
+            rawStatus: 'active',
+            source: 'calculator',
+            mayStartCheckout: false,
+          }),
+        ],
+        monitoring: {
+          bankProcessingCount: 0,
+          staleBankProcessingCount: 0,
+          duplicateReviewCount: 1,
+          paymentFailedCount: 0,
+          subscriptionCanceledAfterPaymentCount: 0,
+        },
+      },
+    }
+
+    const markup = renderToStaticMarkup(<ClientPaymentsTab clientId="client_1" />)
+
+    expect(markup).toContain('Duplicate payment needs review')
+    expect(markup).toContain('Duplicate review')
+    expect(markup).toContain('Duplicate settlement detected.')
+    expect(markup).not.toContain('Copy pay link')
+  })
+
+  it('allows retry-link copy for retryable failed quotes', () => {
+    testState.query = {
+      isLoading: false,
+      isError: false,
+      data: {
+        success: true,
+        pastDue: false,
+        data: [],
+        quotePayments: [
+          buildQuotePayment({
+            state: 'payment_failed_retryable',
+            rawStatus: 'payment_failed',
+            mayStartCheckout: true,
+          }),
+        ],
+        monitoring: {
+          bankProcessingCount: 0,
+          staleBankProcessingCount: 0,
+          duplicateReviewCount: 0,
+          paymentFailedCount: 1,
+          subscriptionCanceledAfterPaymentCount: 0,
+        },
+      },
+    }
+
+    const markup = renderToStaticMarkup(<ClientPaymentsTab clientId="client_1" />)
+
+    expect(markup).toContain('Failed - retryable')
+    expect(markup).toContain('Copy retry link')
   })
 })

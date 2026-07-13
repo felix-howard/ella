@@ -376,6 +376,21 @@ describe('Stripe webhook route', () => {
     'maps %s to local subscription status updates',
     async (type, object, sessionStatus, quoteStatus) => {
       stripeMocks.constructEvent.mockReturnValueOnce(stripeEvent(type, object))
+      const expectedQuoteStatusWhere =
+        type === 'customer.subscription.deleted'
+          ? { notIn: ['canceled', 'paid', 'active'] }
+          : { not: 'canceled' }
+      const expectedCheckoutSessionWhere =
+        type === 'customer.subscription.deleted'
+          ? {
+              stripeSubscriptionId: 'sub_123',
+              status: { not: 'duplicate_paid_review' },
+              paidAt: null,
+            }
+          : {
+              stripeSubscriptionId: 'sub_123',
+              status: { not: 'duplicate_paid_review' },
+            }
 
       const res = await postStripeWebhook()
 
@@ -389,8 +404,8 @@ describe('Stripe webhook route', () => {
       })
       expect(prismaMocks.paymentQuote.updateMany).toHaveBeenCalledWith({
         where: expect.objectContaining({
-          status: { not: 'canceled' },
-          checkoutSessions: { some: { stripeSubscriptionId: 'sub_123' } },
+          status: expectedQuoteStatusWhere,
+          checkoutSessions: { some: expectedCheckoutSessionWhere },
         }),
         data: expect.objectContaining({
           status: quoteStatus,
@@ -599,6 +614,7 @@ describe('Stripe webhook route', () => {
 
     expect(sessionSameSecondStatuses).not.toContain('payment_failed')
     expect(sessionSameSecondStatuses).not.toContain('invoice_payment_failed')
+    expect(sessionSameSecondStatuses).not.toContain('duplicate_paid_review')
     expect(sessionSameSecondStatuses).not.toContain('subscription_canceled')
     expect(quoteSameSecondStatuses).not.toContain('payment_failed')
     expect(quoteSameSecondStatuses).not.toContain('canceled')
@@ -619,6 +635,7 @@ describe('Stripe webhook route', () => {
 
     expect(sessionSameSecondStatuses).not.toContain('payment_failed')
     expect(sessionSameSecondStatuses).not.toContain('invoice_payment_failed')
+    expect(sessionSameSecondStatuses).not.toContain('duplicate_paid_review')
     expect(sessionSameSecondStatuses).not.toContain('subscription_canceled')
     expect(quoteSameSecondStatuses).not.toContain('payment_failed')
     expect(quoteSameSecondStatuses).not.toContain('canceled')
@@ -635,7 +652,7 @@ describe('Stripe webhook route', () => {
     expect(prismaMocks.stripeCheckoutSession.updateMany).toHaveBeenCalledWith({
       where: expect.objectContaining({
         stripeSubscriptionId: 'sub_123',
-        status: { not: 'subscription_canceled' },
+        status: { notIn: ['subscription_canceled', 'duplicate_paid_review'] },
       }),
       data: expect.objectContaining({ status: 'invoice_paid' }),
     })

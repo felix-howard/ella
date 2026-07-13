@@ -92,7 +92,12 @@ export async function handleStripeWebhookEvent(event: Stripe.Event): Promise<Str
         // sendable quote (carries quotePayToken) AND represents a paid charge.
         // Idempotent in fulfillFirstQuotePayment (deterministic Payment payToken).
         if (session.metadata?.quotePayToken && quoteId && isPaidQuoteStatus(targetQuoteStatus)) {
-          await fulfillFirstQuotePayment({ quoteId, session, eventAt: cursor.at })
+          await fulfillFirstQuotePayment({
+            quoteId,
+            session,
+            eventAt: cursor.at,
+            stripeEventId: cursor.id,
+          })
         }
       }
       break
@@ -298,9 +303,10 @@ async function updateQuoteBySubscription(
     prisma.stripeCheckoutSession.updateMany({
       where: {
         stripeSubscriptionId,
-        ...(sessionStatus === 'subscription_canceled'
-          ? {}
-          : { status: { not: 'subscription_canceled' } }),
+        status:
+          sessionStatus === 'subscription_canceled'
+            ? { not: 'duplicate_paid_review' }
+            : { notIn: ['subscription_canceled', 'duplicate_paid_review'] },
         OR: buildSessionEventFreshnessWhere(sessionStatus, event.at),
       },
       data: {
@@ -311,8 +317,17 @@ async function updateQuoteBySubscription(
     }),
     prisma.paymentQuote.updateMany({
       where: {
-        status: { not: 'canceled' },
-        checkoutSessions: { some: { stripeSubscriptionId } },
+        status:
+          quoteStatus === 'canceled'
+            ? { notIn: ['canceled', 'paid', 'active'] }
+            : { not: 'canceled' },
+        checkoutSessions: {
+          some: {
+            stripeSubscriptionId,
+            status: { not: 'duplicate_paid_review' },
+            ...(quoteStatus === 'canceled' ? { paidAt: null } : {}),
+          },
+        },
         OR: buildQuoteEventFreshnessWhere(quoteStatus, event.at),
       },
       data: {
@@ -388,6 +403,7 @@ function isSubscriptionDerivedStatus(status: string | undefined): boolean {
   return (
     status === 'invoice_paid' ||
     status === 'invoice_payment_failed' ||
+    status === 'duplicate_paid_review' ||
     status === 'subscription_canceled'
   )
 }
@@ -446,6 +462,7 @@ function getSameSecondAllowedSessionStatuses(targetStatus: string): string[] {
     'invoice_paid',
     'payment_failed',
     'invoice_payment_failed',
+    'duplicate_paid_review',
     'subscription_canceled',
   ]
 
@@ -465,6 +482,7 @@ function getQuoteStatusPriority(status: string): number {
 function getSessionStatusPriority(status: string): number {
   if (status === 'subscription_canceled') return 50
   if (status === 'payment_failed' || status === 'invoice_payment_failed') return 40
+  if (status === 'duplicate_paid_review') return 35
   if (status === 'invoice_paid') return 30
   if (status === 'complete') return 20
   return 10

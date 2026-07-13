@@ -14,11 +14,14 @@ interface PricingSendQuotePanelProps {
   disabledReason: string | null
 }
 
-export function PricingSendQuotePanel({ pricingInput, disabledReason }: PricingSendQuotePanelProps) {
+export function PricingSendQuotePanel({
+  pricingInput,
+  disabledReason,
+}: PricingSendQuotePanelProps) {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<ComboboxItem | null>(null)
   const [sentSignature, setSentSignature] = useState<string | null>(null)
-  const { items, loading } = useRecipientSearch(query)
+  const { items, loading } = useRecipientSearch(query, { type: 'client' })
   const sendQuote = useSendQuote()
 
   // Focus management: the combobox unmounts when a recipient is picked (replaced
@@ -55,7 +58,7 @@ export function PricingSendQuotePanel({ pricingInput, disabledReason }: PricingS
   const handleSend = async () => {
     if (!selected) return
     const recipient = decodeRecipientId(selected.id)
-    if (!recipient) return
+    if (!recipient || recipient.type !== 'client') return
     try {
       const response = await sendQuote.mutateAsync({
         pricingInput,
@@ -80,14 +83,20 @@ export function PricingSendQuotePanel({ pricingInput, disabledReason }: PricingS
   }
 
   return (
-    <section className="rounded-lg border border-border bg-card p-4" aria-labelledby="send-quote-title">
+    <section
+      className="rounded-lg border border-border bg-card p-4"
+      aria-labelledby="send-quote-title"
+    >
       <header>
-        <h2 id="send-quote-title" className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <h2
+          id="send-quote-title"
+          className="flex items-center gap-2 text-sm font-semibold text-foreground"
+        >
           <Send className="h-4 w-4 text-primary" />
           Send to client
         </h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Text the quote to an existing client or lead. They pay on the portal.
+          Text the quote to an existing client. They pay on the portal.
         </p>
       </header>
 
@@ -95,9 +104,13 @@ export function PricingSendQuotePanel({ pricingInput, disabledReason }: PricingS
         {selected ? (
           <div className="flex items-center justify-between gap-2 rounded-lg border border-primary-light bg-primary-light/30 px-3 py-2">
             <span className="min-w-0">
-              <span className="block truncate text-sm font-medium text-foreground">{selected.label}</span>
+              <span className="block truncate text-sm font-medium text-foreground">
+                {selected.label}
+              </span>
               {selected.hint && (
-                <span className="block truncate text-xs text-muted-foreground">{selected.hint}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {selected.hint}
+                </span>
               )}
             </span>
             <button
@@ -112,7 +125,10 @@ export function PricingSendQuotePanel({ pricingInput, disabledReason }: PricingS
           </div>
         ) : (
           <div>
-            <label htmlFor="send-quote-recipient" className="mb-1 block text-xs font-medium text-foreground">
+            <label
+              htmlFor="send-quote-recipient"
+              className="mb-1 block text-xs font-medium text-foreground"
+            >
               Recipient
             </label>
             <Combobox
@@ -123,9 +139,9 @@ export function PricingSendQuotePanel({ pricingInput, disabledReason }: PricingS
               loading={loading}
               onQueryChange={setQuery}
               onSelect={handleSelect}
-              placeholder="Search clients or leads…"
-              emptyMessage="No clients or leads match"
-              aria-label="Search for a client or lead"
+              placeholder="Search clients..."
+              emptyMessage="No clients match"
+              aria-label="Search for a client"
             />
             <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
               <UserPlus className="h-3 w-3" />
@@ -135,12 +151,17 @@ export function PricingSendQuotePanel({ pricingInput, disabledReason }: PricingS
         )}
 
         <Button type="button" className="w-full" onClick={handleSend} disabled={sendDisabled}>
-          {sendQuote.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          {sendQuote.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
           {quoteChangedSinceSend ? 'Send updated payment link' : 'Send Payment Link'}
         </Button>
 
         <p className="min-h-5 text-xs text-muted-foreground" role="status" aria-live="polite">
-          {disabledReason ?? (quoteChangedSinceSend ? 'Quote changed. Send again to text the new amount.' : '')}
+          {disabledReason ??
+            (quoteChangedSinceSend ? 'Quote changed. Send again to text the new amount.' : '')}
           {errorMessage ? <span className="block text-error">{errorMessage}</span> : null}
         </p>
 

@@ -2,6 +2,7 @@ import { generateContent, isGeminiConfigured } from './gemini-client'
 import { cleanTranslatedText } from './message-translator'
 
 const MAX_REPLY_TRANSLATION_CHARS = 1000
+const REPLY_TRANSLATION_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash']
 
 export type ReplyTranslationError =
   | 'AI_NOT_CONFIGURED'
@@ -56,7 +57,9 @@ export async function translateReplyToVietnamese(
     return { success: false, error: 'AI_NOT_CONFIGURED' }
   }
 
-  const result = await generateContent(buildReplyTranslationPrompt(trimmed))
+  const result = await generateContent(buildReplyTranslationPrompt(trimmed), undefined, {
+    preferredModels: REPLY_TRANSLATION_MODELS,
+  })
 
   if (!result.success || !result.data) {
     return { success: false, error: 'TRANSLATION_FAILED' }

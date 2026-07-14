@@ -23,12 +23,17 @@ import { sendSignerSmsAndPersist } from './signer-sms-delivery'
 
 const generatePayToken = customAlphabet(
   '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
-  32,
+  32
 )
+const PAYMENT_LINK_SMS_TIMEOUT_MS = 2500
 
 /** Public portal pay page URL for a Payment. Phase 4 serves this route. */
 export function buildPaymentPayUrl(payToken: string): string {
   return `${PORTAL_URL}/pay/${payToken}`
+}
+
+export interface DepositPaymentPortalResult {
+  payUrl: string
 }
 
 /** Hide legacy persisted copy from user-facing payment surfaces. */
@@ -39,15 +44,15 @@ export function normalizeDepositPaymentDescription(description: string | null): 
 
 /**
  * Create the PENDING initial-payment Payment for a just-signed agreement and
- * SMS the client the portal pay link. No-op when the agreement has no pending
- * initial payment or a Payment already exists (idempotent).
+ * SMS the client the portal pay link. Reuses an existing PENDING deposit so a
+ * signing retry can still return the same pay URL without creating duplicates.
  */
 export async function createDepositPaymentForAgreement(
-  ctx: PostSignAgreementContext,
-): Promise<void> {
+  ctx: PostSignAgreementContext
+): Promise<DepositPaymentPortalResult | null> {
   const depositAmount = ctx.depositAmount
-  if (!depositAmount || Number(depositAmount.toString()) <= 0) return
-  if (ctx.depositStatus !== 'PENDING') return
+  if (!depositAmount || Number(depositAmount.toString()) <= 0) return null
+  if (ctx.depositStatus !== 'PENDING') return null
 
   // Idempotency: the post-sign hook fires at most once per agreement — it
   // runs only when the signing updateMany (WHERE status='SENT') reports
@@ -56,14 +61,18 @@ export async function createDepositPaymentForAgreement(
   // it is NOT race-safe on its own (no DB unique on agreementId by design —
   // BALANCE/refund payments may share an agreement later).
   const existing = await prisma.payment.findFirst({
-    where: { agreementId: ctx.id, status: { in: ['PENDING', 'PAID'] } },
-    select: { id: true },
+    where: {
+      agreementId: ctx.id,
+      type: 'DEPOSIT',
+      status: { in: ['PENDING', 'PAID'] },
+    },
+    select: { id: true, status: true, payToken: true },
   })
   if (existing) {
     console.warn(
-      `[Payment] Initial payment already exists for agreement=${ctx.id} — skipping create`,
+      `[Payment] Initial payment already exists for agreement=${ctx.id} — skipping create`
     )
-    return
+    return existing.status === 'PENDING' ? { payUrl: buildPaymentPayUrl(existing.payToken) } : null
   }
 
   const payment = await prisma.payment.create({
@@ -80,7 +89,30 @@ export async function createDepositPaymentForAgreement(
     },
   })
 
-  await sendDepositPayLinkSms(ctx, payment.payToken)
+  await sendDepositPayLinkSmsWithTimeout(ctx, payment.payToken)
+
+  return { payUrl: buildPaymentPayUrl(payment.payToken) }
+}
+
+async function sendDepositPayLinkSmsWithTimeout(
+  ctx: PostSignAgreementContext,
+  payToken: string
+): Promise<void> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  const delivery = sendDepositPayLinkSms(ctx, payToken).catch((err) => {
+    // The Portal CTA remains usable even when the fallback SMS provider is
+    // unavailable. Staff can resend the persisted Payment link later.
+    console.error(`[Payment] Initial payment link SMS failed for agreement=${ctx.id}:`, err)
+  })
+  const timeout = new Promise<void>((resolve) => {
+    timeoutId = setTimeout(() => {
+      console.error(`[Payment] Initial payment link SMS timed out for agreement=${ctx.id}`)
+      resolve()
+    }, PAYMENT_LINK_SMS_TIMEOUT_MS)
+  })
+
+  await Promise.race([delivery, timeout])
+  if (timeoutId) clearTimeout(timeoutId)
 }
 
 /**
@@ -89,7 +121,7 @@ export async function createDepositPaymentForAgreement(
  */
 export async function sendDepositPayLinkSms(
   ctx: PostSignAgreementContext,
-  payToken: string,
+  payToken: string
 ): Promise<void> {
   const message = buildDepositPayLinkMessage({
     firstName: ctx.signer.firstName,
@@ -104,7 +136,7 @@ export async function sendDepositPayLinkSms(
       sentById: ctx.createdByUserId,
     },
     message,
-    DEPOSIT_PAY_LINK_TEMPLATE_NAME,
+    DEPOSIT_PAY_LINK_TEMPLATE_NAME
   )
 }
 
@@ -151,9 +183,19 @@ export async function resendDepositPayLink(params: {
   // Signer resolution mirrors the signing service: prefer lead when present.
   const agreement = payment.agreement
   const signer = agreement.lead
-    ? { id: agreement.lead.id, firstName: agreement.lead.firstName, lastName: agreement.lead.lastName, kind: 'lead' as const }
+    ? {
+        id: agreement.lead.id,
+        firstName: agreement.lead.firstName,
+        lastName: agreement.lead.lastName,
+        kind: 'lead' as const,
+      }
     : agreement.client
-      ? { id: agreement.client.id, firstName: agreement.client.firstName, lastName: agreement.client.lastName, kind: 'client' as const }
+      ? {
+          id: agreement.client.id,
+          firstName: agreement.client.firstName,
+          lastName: agreement.client.lastName,
+          kind: 'client' as const,
+        }
       : null
   if (!signer) {
     throw new HTTPException(409, { message: 'Agreement has no linked lead or client' })
@@ -175,7 +217,7 @@ export async function resendDepositPayLink(params: {
       depositStatus: agreement.depositStatus,
       signer,
     },
-    payment.payToken,
+    payment.payToken
   )
 
   return { payUrl: buildPaymentPayUrl(payment.payToken) }

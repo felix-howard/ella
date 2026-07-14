@@ -5,7 +5,7 @@
  * Voice calling (Twilio SDK) available for case context only.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, type CSSProperties } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@ella/ui'
 import { ChatboxButton } from './chatbox-button'
@@ -53,6 +53,7 @@ export function FloatingChatbox({
   const { canViewPhone } = useOrgRole()
   const queryClient = useQueryClient()
   const [isOpen, setIsOpen] = useState(false)
+  const [keyboardOffset, setKeyboardOffset] = useState(0)
 
   // Subscribe to realtime events scoped to this context.
   useRealtimeMessages({ context, enabled: isOpen })
@@ -183,15 +184,60 @@ export function FloatingChatbox({
   // Case-only props for QuickActionsBar's link dropdown.
   const caseClientId = context.type === 'case' ? context.clientId : undefined
   const caseId = context.type === 'case' ? context.caseId : undefined
+  const viewportStyle = {
+    '--chatbox-keyboard-offset': `${keyboardOffset}px`,
+  } as CSSProperties
+
+  useEffect(() => {
+    if (!isOpen) {
+      setKeyboardOffset(0)
+      return
+    }
+
+    const viewport = window.visualViewport
+    const updateKeyboardOffset = () => {
+      if (!viewport) {
+        setKeyboardOffset(0)
+        return
+      }
+
+      const nextOffset = Math.max(
+        0,
+        window.innerHeight - viewport.height - viewport.offsetTop
+      )
+      setKeyboardOffset(Math.round(nextOffset))
+    }
+
+    updateKeyboardOffset()
+    viewport?.addEventListener('resize', updateKeyboardOffset)
+    viewport?.addEventListener('scroll', updateKeyboardOffset)
+    window.addEventListener('orientationchange', updateKeyboardOffset)
+
+    return () => {
+      viewport?.removeEventListener('resize', updateKeyboardOffset)
+      viewport?.removeEventListener('scroll', updateKeyboardOffset)
+      window.removeEventListener('orientationchange', updateKeyboardOffset)
+    }
+  }, [isOpen])
 
   return (
-    <div className="fixed bottom-6 right-6 z-[150] flex flex-col items-end gap-3">
+    <div
+      className={cn(
+        'fixed z-[150] flex flex-col items-end',
+        'right-2 sm:right-6',
+        'bottom-[calc(env(safe-area-inset-bottom)_+_var(--chatbox-keyboard-offset)_+_0.5rem)] sm:bottom-[calc(env(safe-area-inset-bottom)_+_var(--chatbox-keyboard-offset)_+_1.5rem)]',
+        !isOpen && 'gap-3'
+      )}
+      style={viewportStyle}
+    >
       {/* Chat window - shown when open */}
       {isOpen && (
         <div
           className={cn(
-            'w-[360px] min-h-[450px] max-h-[500px] flex flex-col',
-            'bg-card rounded-xl shadow-2xl border border-border',
+            'w-[min(380px,calc(100vw_-_1rem))]',
+            'h-[clamp(320px,calc(100dvh_-_var(--chatbox-keyboard-offset)_-_1rem),640px)]',
+            'max-h-[640px] flex flex-col overflow-hidden',
+            'bg-card rounded-2xl sm:rounded-xl shadow-2xl border border-border',
             'animate-in slide-in-from-bottom-4 fade-in duration-200'
           )}
         >
@@ -206,7 +252,7 @@ export function FloatingChatbox({
           <MessageThread
             messages={messages}
             isLoading={isLoadingMessages}
-            className="flex-1 min-h-[320px] bg-background"
+            className="min-h-0 bg-background"
           />
 
           {canRenderComposer && (
@@ -222,19 +268,22 @@ export function FloatingChatbox({
               onReplyModeChange={context.type === 'case' ? handleReplyModeChange : undefined}
               isReplyModeSaving={isReplyModeSaving}
               translationEnabled={context.type === 'case'}
+              compact
               autoFocus
             />
           )}
         </div>
       )}
 
-      {/* Floating button - always visible */}
-      <ChatboxButton
-        unreadCount={unreadCount}
-        isOpen={isOpen}
-        onClick={handleToggle}
-        className="relative"
-      />
+      {/* The header close button owns the open state, so this cannot cover send. */}
+      {!isOpen && (
+        <ChatboxButton
+          unreadCount={unreadCount}
+          isOpen={isOpen}
+          onClick={handleToggle}
+          className="relative"
+        />
+      )}
 
       {/* Active Call Modal - case context only */}
       {showCallModal && context.type === 'case' && phone && (

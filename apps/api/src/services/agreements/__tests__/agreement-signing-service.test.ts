@@ -30,7 +30,7 @@ vi.mock('../agreement-post-sign-notifications', () => ({
 }))
 
 vi.mock('../../payments/deposit-payment-service', () => ({
-  createDepositPaymentForAgreement: vi.fn().mockResolvedValue(undefined),
+  createDepositPaymentForAgreement: vi.fn().mockResolvedValue(null),
 }))
 
 vi.mock('../../payments/agreement-quote-service', () => ({
@@ -309,6 +309,7 @@ describe('signNda', () => {
     vi.clearAllMocks()
     mockGenPdf.mockResolvedValue(Buffer.from('%PDF-1.4\n...signed...'))
     mockGetSigned.mockResolvedValue('https://r2.test/signed/pdf')
+    mockCreateDepositPayment.mockResolvedValue(null)
   })
 
   const baseInput = {
@@ -367,6 +368,54 @@ describe('signNda', () => {
     expect(mockMarkAgreementQuoteSignedForReview).not.toHaveBeenCalled()
   })
 
+  it('returns the initial-payment Portal URL after signing an engagement letter', async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      activeNda({
+        id: 'engagement-initial-payment',
+        type: 'ENGAGEMENT_LETTER',
+        title: '2026 Tax Engagement Letter',
+        depositAmount: '5000.00',
+        depositStatus: 'PENDING',
+      }) as any
+    )
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+    mockCreateDepositPayment.mockResolvedValueOnce({
+      payUrl: 'https://portal.test/pay/tok_initial',
+    })
+
+    const result = await signAgreement(baseInput)
+
+    expect(result).toMatchObject({
+      status: 'SIGNED',
+      paymentPortalUrl: 'https://portal.test/pay/tok_initial',
+    })
+    expect(result).not.toHaveProperty('paymentPortalDelivery')
+  })
+
+  it('keeps signing successful when initial-payment setup fails', async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      activeNda({
+        id: 'engagement-payment-failure',
+        type: 'ENGAGEMENT_LETTER',
+        depositAmount: '5000.00',
+        depositStatus: 'PENDING',
+      }) as any
+    )
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+    mockCreateDepositPayment.mockRejectedValueOnce(new Error('database unavailable'))
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    const result = await signAgreement(baseInput)
+
+    expect(result).toMatchObject({ status: 'SIGNED' })
+    expect(result).not.toHaveProperty('paymentPortalUrl')
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Post-sign deposit payment hook failed'),
+      expect.any(Error)
+    )
+    errorSpy.mockRestore()
+  })
+
   it('auto-activates a linked calculator quote after signing and returns payment portal details', async () => {
     mockFindUnique.mockResolvedValueOnce(
       activeNda({
@@ -377,9 +426,12 @@ describe('signNda', () => {
         paymentQuoteId: 'quote_1',
         paymentPortalMode: 'AUTO_SEND',
         sentByUserId: 'staff-sender',
-      }) as any,
+      }) as any
     )
     mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+    mockCreateDepositPayment.mockResolvedValueOnce({
+      payUrl: 'https://portal.test/pay/tok_initial',
+    })
 
     const result = await signAgreement(baseInput)
 
@@ -388,6 +440,7 @@ describe('signNda', () => {
       orgId: 'org-1',
       staffId: 'staff-sender',
     })
+    expect(mockCreateDepositPayment).not.toHaveBeenCalled()
     expect(result).toMatchObject({
       status: 'SIGNED',
       paymentPortalUrl: 'https://portal.test/quote/tok_pay',
@@ -407,7 +460,7 @@ describe('signNda', () => {
         source: 'CALCULATOR',
         paymentQuoteId: 'quote_1',
         paymentPortalMode: 'AUTO_SEND',
-      }) as any,
+      }) as any
     )
     mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
     mockActivateAgreementQuotePaymentPortal.mockRejectedValueOnce(new Error('activation down'))
@@ -417,9 +470,10 @@ describe('signNda', () => {
 
     expect(result).toMatchObject({ status: 'SIGNED' })
     expect(result).not.toHaveProperty('paymentPortalUrl')
+    expect(mockCreateDepositPayment).not.toHaveBeenCalled()
     expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining('Post-sign quote activation failed'),
-      expect.any(Error),
+      expect.any(Error)
     )
     errorSpy.mockRestore()
   })
@@ -433,9 +487,12 @@ describe('signNda', () => {
         source: 'CALCULATOR',
         paymentQuoteId: 'quote_1',
         paymentPortalMode: 'STAFF_REVIEW',
-      }) as any,
+      }) as any
     )
     mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+    mockCreateDepositPayment.mockResolvedValueOnce({
+      payUrl: 'https://portal.test/pay/tok_initial',
+    })
 
     const result = await signAgreement(baseInput)
 
@@ -444,6 +501,7 @@ describe('signNda', () => {
       organizationId: 'org-1',
     })
     expect(mockActivateAgreementQuotePaymentPortal).not.toHaveBeenCalled()
+    expect(mockCreateDepositPayment).not.toHaveBeenCalled()
     expect(result).toMatchObject({ status: 'SIGNED' })
     expect(result).not.toHaveProperty('paymentPortalUrl')
   })
@@ -457,7 +515,7 @@ describe('signNda', () => {
         source: 'CALCULATOR',
         paymentQuoteId: 'quote_1',
         paymentPortalMode: 'STAFF_REVIEW',
-      }) as any,
+      }) as any
     )
     mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
     mockMarkAgreementQuoteSignedForReview.mockRejectedValueOnce(new Error('review marker down'))
@@ -468,7 +526,7 @@ describe('signNda', () => {
     expect(result).toMatchObject({ status: 'SIGNED' })
     expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining('Post-sign quote review marker failed'),
-      expect.any(Error),
+      expect.any(Error)
     )
     errorSpy.mockRestore()
   })

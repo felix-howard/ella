@@ -4,7 +4,7 @@
  * resend endpoint error mapping, and Payment.amount as the immutable SMS
  * amount source (not agreement.depositAmount).
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HTTPException } from 'hono/http-exception'
 
 const prismaMocks = vi.hoisted(() => ({
@@ -47,6 +47,8 @@ function postSignCtx(overrides: Partial<PostSignAgreementContext> = {}): PostSig
 }
 
 describe('createDepositPaymentForAgreement', () => {
+  afterEach(() => vi.useRealTimers())
+
   beforeEach(() => {
     vi.clearAllMocks()
     prismaMocks.payment.findFirst.mockResolvedValue(null)
@@ -55,7 +57,9 @@ describe('createDepositPaymentForAgreement', () => {
   })
 
   it('creates one PENDING DEPOSIT payment and SMSes the pay link', async () => {
-    await createDepositPaymentForAgreement(postSignCtx())
+    const result = await createDepositPaymentForAgreement(postSignCtx())
+
+    expect(result).toEqual({ payUrl: 'http://portal.test/pay/tok_abc' })
 
     expect(prismaMocks.payment.create).toHaveBeenCalledTimes(1)
     expect(prismaMocks.payment.create).toHaveBeenCalledWith({
@@ -88,37 +92,98 @@ describe('createDepositPaymentForAgreement', () => {
   })
 
   it('is a no-op when the agreement has no deposit', async () => {
-    await createDepositPaymentForAgreement(postSignCtx({ depositAmount: null }))
-    await createDepositPaymentForAgreement(
-      postSignCtx({ depositAmount: { toString: () => '0' } }),
+    const missingResult = await createDepositPaymentForAgreement(
+      postSignCtx({ depositAmount: null })
+    )
+    const zeroResult = await createDepositPaymentForAgreement(
+      postSignCtx({ depositAmount: { toString: () => '0' } })
     )
 
+    expect(missingResult).toBeNull()
+    expect(zeroResult).toBeNull()
     expect(prismaMocks.payment.findFirst).not.toHaveBeenCalled()
     expect(prismaMocks.payment.create).not.toHaveBeenCalled()
     expect(smsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
   })
 
   it('is a no-op when depositStatus is not PENDING', async () => {
-    await createDepositPaymentForAgreement(postSignCtx({ depositStatus: 'PAID' }))
+    const result = await createDepositPaymentForAgreement(postSignCtx({ depositStatus: 'PAID' }))
 
+    expect(result).toBeNull()
     expect(prismaMocks.payment.findFirst).not.toHaveBeenCalled()
     expect(prismaMocks.payment.create).not.toHaveBeenCalled()
     expect(smsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
   })
 
-  it('skips creation when a PENDING/PAID payment already exists (idempotent)', async () => {
+  it('reuses the pay URL when a PENDING deposit payment already exists', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    prismaMocks.payment.findFirst.mockResolvedValue({ id: 'pay_existing' })
+    prismaMocks.payment.findFirst.mockResolvedValue({
+      id: 'pay_existing',
+      status: 'PENDING',
+      payToken: 'tok_existing',
+    })
 
-    await createDepositPaymentForAgreement(postSignCtx())
+    const result = await createDepositPaymentForAgreement(postSignCtx())
 
     expect(prismaMocks.payment.findFirst).toHaveBeenCalledWith({
-      where: { agreementId: 'agr_1', status: { in: ['PENDING', 'PAID'] } },
-      select: { id: true },
+      where: {
+        agreementId: 'agr_1',
+        type: 'DEPOSIT',
+        status: { in: ['PENDING', 'PAID'] },
+      },
+      select: { id: true, status: true, payToken: true },
     })
+    expect(result).toEqual({ payUrl: 'http://portal.test/pay/tok_existing' })
     expect(prismaMocks.payment.create).not.toHaveBeenCalled()
     expect(smsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
     warnSpy.mockRestore()
+  })
+
+  it('does not return a payment CTA when the initial payment is already PAID', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    prismaMocks.payment.findFirst.mockResolvedValue({
+      id: 'pay_existing',
+      status: 'PAID',
+      payToken: 'tok_paid',
+    })
+
+    const result = await createDepositPaymentForAgreement(postSignCtx())
+
+    expect(result).toBeNull()
+    expect(prismaMocks.payment.create).not.toHaveBeenCalled()
+    expect(smsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
+
+  it('still returns the Portal URL when fallback SMS delivery fails', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    smsMocks.sendSignerSmsAndPersist.mockRejectedValueOnce(new Error('Twilio unavailable'))
+
+    const result = await createDepositPaymentForAgreement(postSignCtx())
+
+    expect(result).toEqual({ payUrl: 'http://portal.test/pay/tok_abc' })
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Initial payment link SMS failed'),
+      expect.any(Error)
+    )
+    errorSpy.mockRestore()
+  })
+
+  it('returns the Portal URL when fallback SMS delivery exceeds its deadline', async () => {
+    vi.useFakeTimers()
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    smsMocks.sendSignerSmsAndPersist.mockImplementation(() => new Promise(() => undefined))
+
+    const creation = createDepositPaymentForAgreement(postSignCtx())
+
+    await vi.waitFor(() => expect(smsMocks.sendSignerSmsAndPersist).toHaveBeenCalled())
+    await vi.advanceTimersByTimeAsync(2500)
+
+    await expect(creation).resolves.toEqual({ payUrl: 'http://portal.test/pay/tok_abc' })
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Initial payment link SMS timed out')
+    )
+    errorSpy.mockRestore()
   })
 })
 
@@ -158,7 +223,7 @@ describe('resendDepositPayLink', () => {
     prismaMocks.payment.findFirst.mockResolvedValue(null)
 
     await expect(resendDepositPayLink(params)).rejects.toMatchObject(
-      new HTTPException(404, { message: 'No initial payment found for this agreement' }),
+      new HTTPException(404, { message: 'No initial payment found for this agreement' })
     )
     expect(smsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
   })
@@ -177,9 +242,7 @@ describe('resendDepositPayLink', () => {
 
     expect(result).toEqual({ payUrl: 'http://portal.test/pay/tok_resend' })
     const [target, message] = smsMocks.sendSignerSmsAndPersist.mock.calls[0]
-    expect(target).toEqual(
-      expect.objectContaining({ signerId: 'client_1', signerKind: 'client' }),
-    )
+    expect(target).toEqual(expect.objectContaining({ signerId: 'client_1', signerKind: 'client' }))
     expect(message).toContain('$300.00')
     expect(message).toContain('initial payment')
     expect(message).not.toContain('deposit')
@@ -195,7 +258,7 @@ describe('resendDepositPayLink', () => {
           leadId: 'lead_1',
           lead: { id: 'lead_1', firstName: 'Anna', lastName: 'Nguyen' },
         },
-      }),
+      })
     )
 
     await resendDepositPayLink(params)
@@ -203,7 +266,7 @@ describe('resendDepositPayLink', () => {
     expect(smsMocks.sendSignerSmsAndPersist).toHaveBeenCalledWith(
       expect.objectContaining({ signerId: 'lead_1', signerKind: 'lead' }),
       expect.any(String),
-      'deposit_pay_link',
+      'deposit_pay_link'
     )
   })
 })
@@ -217,16 +280,16 @@ describe('buildPaymentPayUrl', () => {
 describe('normalizeDepositPaymentDescription', () => {
   it('rewrites legacy retainer descriptions for user-facing payment surfaces', () => {
     expect(normalizeDepositPaymentDescription('Retainer – 2026 Engagement Letter')).toBe(
-      'Initial payment - 2026 Engagement Letter',
+      'Initial payment - 2026 Engagement Letter'
     )
     expect(normalizeDepositPaymentDescription('Retainer - 2026 Engagement Letter')).toBe(
-      'Initial payment - 2026 Engagement Letter',
+      'Initial payment - 2026 Engagement Letter'
     )
   })
 
   it('leaves current and empty descriptions unchanged', () => {
     expect(normalizeDepositPaymentDescription('Initial payment - 2026 Engagement Letter')).toBe(
-      'Initial payment - 2026 Engagement Letter',
+      'Initial payment - 2026 Engagement Letter'
     )
     expect(normalizeDepositPaymentDescription(null)).toBeNull()
   })

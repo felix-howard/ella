@@ -69,6 +69,7 @@ export interface QuickActionsBarProps {
   onReplyModeChange?: (mode: ReplyMode) => void | Promise<void>
   isReplyModeSaving?: boolean
   translationEnabled?: boolean
+  compact?: boolean
 }
 
 export function QuickActionsBar({
@@ -86,6 +87,7 @@ export function QuickActionsBar({
   onReplyModeChange,
   isReplyModeSaving,
   translationEnabled = true,
+  compact = false,
 }: QuickActionsBarProps) {
   const isLeadContext = context?.type === 'lead'
   const leadTemplates = isLeadContext ? getQuickTemplates(context) : []
@@ -443,9 +445,158 @@ export function QuickActionsBar({
   )
 
   const dropdownContent = caseDropdown
+  const translationPreview = isReplyTranslationEnabled && trimmedMessage.length > 0 && (
+    <ReplyTranslationPreview
+      value={replyTranslation.translatedText}
+      disabled={disabled || isSending}
+      isLoading={replyTranslation.isLoading}
+      isEdited={replyTranslation.isEdited}
+      isStale={replyTranslation.isStale}
+      error={replyTranslation.error}
+      className={compact ? 'mb-0 mt-2' : undefined}
+      onChange={replyTranslation.setTranslatedText}
+      onRegenerate={replyTranslation.regenerate}
+    />
+  )
+
+  const inputRow = (
+    <div className="flex items-center gap-2">
+      {/* Lead context: templates dropdown */}
+      {isLeadContext && (
+        <ChatTemplateDropdown
+          templates={leadTemplates}
+          onInsert={handleTemplateInsert}
+        />
+      )}
+
+      {canAttachImages && (
+        <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ACCEPTED_MESSAGE_IMAGE_TYPES}
+            multiple
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled || isSending || attachments.length >= MAX_MESSAGE_IMAGE_COUNT}
+            className={cn(
+              'p-2 rounded-lg transition-colors',
+              'text-muted-foreground hover:text-foreground hover:bg-muted',
+              'focus:outline-none focus:ring-2 focus:ring-primary/30',
+              (disabled || isSending || attachments.length >= MAX_MESSAGE_IMAGE_COUNT) && 'opacity-50 cursor-not-allowed'
+            )}
+            aria-label={t('messages.attachImage')}
+            title={t('messages.attachImage')}
+          >
+            <ImagePlus className="w-[18px] h-[18px]" />
+          </button>
+        </>
+      )}
+
+      {/* Case context: link dropdown button */}
+      {!isLeadContext && clientId && (
+        hasAdditionalLinks ? (
+          // Dropdown button when additional links are available
+          <button
+            ref={dropdownTriggerRef}
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            disabled={isLoadingPortalLink}
+            className={cn(
+              'p-2 rounded-lg transition-colors flex items-center gap-0.5',
+              'text-muted-foreground hover:text-foreground hover:bg-muted',
+              isDropdownOpen && 'bg-muted text-foreground',
+              isLoadingPortalLink && 'opacity-50 cursor-wait'
+            )}
+            aria-label={t('messages.insertLink')}
+            title={t('messages.insertLink')}
+            aria-haspopup="true"
+            aria-expanded={isDropdownOpen}
+          >
+            <Link2 className="w-[18px] h-[18px]" />
+            <ChevronDown className="w-3 h-3" />
+          </button>
+        ) : (
+          // Simple button when only portal link is available
+          <button
+            onClick={handleInsertPortalLink}
+            disabled={isLoadingPortalLink}
+            className={cn(
+              'p-2 rounded-lg transition-colors',
+              'text-muted-foreground hover:text-foreground hover:bg-muted',
+              isLoadingPortalLink && 'opacity-50 cursor-wait'
+            )}
+            aria-label={t('messages.insertPortalLink')}
+            title={t('messages.insertPortalLink')}
+          >
+            {isLoadingPortalLink ? (
+              <div className="w-[18px] h-[18px] border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+            ) : (
+              <Link2 className="w-[18px] h-[18px]" />
+            )}
+          </button>
+        )
+      )}
+
+      {/* Text input */}
+      <div className="flex-1">
+        <textarea
+          ref={textareaRef}
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          enterKeyHint="enter"
+          aria-label={t('messages.inputPlaceholder')}
+          placeholder={t(
+            isReplyTranslationEnabled
+              ? 'messages.inputPlaceholderEnglish'
+              : 'messages.inputPlaceholder'
+          )}
+          disabled={disabled || isSending}
+          rows={1}
+          maxLength={1000}
+          className={cn(
+            'w-full px-3.5 py-2 rounded-xl bg-muted/50 border border-transparent',
+            'resize-none overflow-hidden',
+            'focus:outline-none focus:bg-muted/70 focus:border-border/40',
+            'text-base md:text-sm text-foreground placeholder:text-muted-foreground/60',
+            'disabled:opacity-50 disabled:cursor-not-allowed',
+            'transition-all duration-200'
+          )}
+        />
+      </div>
+
+      {/* Send button */}
+      <button
+        type="button"
+        onClick={handleSend}
+        disabled={!canSend}
+        className={cn(
+          'p-2 rounded-xl transition-all duration-200',
+          canSend
+            ? 'bg-primary text-white hover:bg-primary-dark shadow-sm hover:shadow-md'
+            : 'bg-muted/50 text-muted-foreground/40 cursor-not-allowed'
+        )}
+        aria-label={t('messages.sendMessage')}
+      >
+        {isSending ? (
+          <div className="w-[18px] h-[18px] border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        ) : (
+          <Send className="w-[18px] h-[18px]" />
+        )}
+      </button>
+    </div>
+  )
 
   return (
-    <div className="bg-card px-3 py-2.5 shadow-[0_-1px_4px_-1px_rgba(0,0,0,0.04)]">
+    <div className={cn(
+      'bg-card px-3 py-2.5 shadow-[0_-1px_4px_-1px_rgba(0,0,0,0.04)]',
+      compact && 'max-h-[min(52dvh,22rem)] overflow-y-auto overscroll-contain'
+    )}>
         {translationEnabled && !isLeadContext && caseId && onReplyModeChange && (
           <ReplyTranslationModeToggle
             replyMode={replyMode}
@@ -462,149 +613,17 @@ export function QuickActionsBar({
           onRemove={removeAttachment}
         />
 
-        {isReplyTranslationEnabled && trimmedMessage.length > 0 && (
-          <ReplyTranslationPreview
-            value={replyTranslation.translatedText}
-            disabled={disabled || isSending}
-            isLoading={replyTranslation.isLoading}
-            isEdited={replyTranslation.isEdited}
-            isStale={replyTranslation.isStale}
-            error={replyTranslation.error}
-            onChange={replyTranslation.setTranslatedText}
-            onRegenerate={replyTranslation.regenerate}
-          />
+        {compact ? (
+          <>
+            {inputRow}
+            {translationPreview}
+          </>
+        ) : (
+          <>
+            {translationPreview}
+            {inputRow}
+          </>
         )}
-
-        {/* Input area - vertically centered */}
-        <div className="flex items-center gap-2">
-          {/* Lead context: templates dropdown */}
-          {isLeadContext && (
-            <ChatTemplateDropdown
-              templates={leadTemplates}
-              onInsert={handleTemplateInsert}
-            />
-          )}
-
-          {canAttachImages && (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={ACCEPTED_MESSAGE_IMAGE_TYPES}
-                multiple
-                className="hidden"
-                onChange={handleFileChange}
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={disabled || isSending || attachments.length >= MAX_MESSAGE_IMAGE_COUNT}
-                className={cn(
-                  'p-2 rounded-lg transition-colors',
-                  'text-muted-foreground hover:text-foreground hover:bg-muted',
-                  'focus:outline-none focus:ring-2 focus:ring-primary/30',
-                  (disabled || isSending || attachments.length >= MAX_MESSAGE_IMAGE_COUNT) && 'opacity-50 cursor-not-allowed'
-                )}
-                aria-label={t('messages.attachImage')}
-                title={t('messages.attachImage')}
-              >
-                <ImagePlus className="w-[18px] h-[18px]" />
-              </button>
-            </>
-          )}
-
-          {/* Case context: link dropdown button */}
-          {!isLeadContext && clientId && (
-            hasAdditionalLinks ? (
-              // Dropdown button when additional links are available
-              <button
-                ref={dropdownTriggerRef}
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                disabled={isLoadingPortalLink}
-                className={cn(
-                  'p-2 rounded-lg transition-colors flex items-center gap-0.5',
-                  'text-muted-foreground hover:text-foreground hover:bg-muted',
-                  isDropdownOpen && 'bg-muted text-foreground',
-                  isLoadingPortalLink && 'opacity-50 cursor-wait'
-                )}
-                aria-label={t('messages.insertLink')}
-                title={t('messages.insertLink')}
-                aria-haspopup="true"
-                aria-expanded={isDropdownOpen}
-              >
-                <Link2 className="w-[18px] h-[18px]" />
-                <ChevronDown className="w-3 h-3" />
-              </button>
-            ) : (
-              // Simple button when only portal link is available
-              <button
-                onClick={handleInsertPortalLink}
-                disabled={isLoadingPortalLink}
-                className={cn(
-                  'p-2 rounded-lg transition-colors',
-                  'text-muted-foreground hover:text-foreground hover:bg-muted',
-                  isLoadingPortalLink && 'opacity-50 cursor-wait'
-                )}
-                aria-label={t('messages.insertPortalLink')}
-                title={t('messages.insertPortalLink')}
-              >
-                {isLoadingPortalLink ? (
-                  <div className="w-[18px] h-[18px] border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
-                ) : (
-                  <Link2 className="w-[18px] h-[18px]" />
-                )}
-              </button>
-            )
-          )}
-
-          {/* Text input */}
-          <div className="flex-1">
-            <textarea
-              ref={textareaRef}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              enterKeyHint="enter"
-              aria-label={t('messages.inputPlaceholder')}
-              placeholder={t(
-                isReplyTranslationEnabled
-                  ? 'messages.inputPlaceholderEnglish'
-                  : 'messages.inputPlaceholder'
-              )}
-              disabled={disabled || isSending}
-              rows={1}
-              maxLength={1000}
-              className={cn(
-                'w-full px-3.5 py-2 rounded-xl bg-muted/50 border border-transparent',
-                'resize-none overflow-hidden',
-                'focus:outline-none focus:bg-muted/70 focus:border-border/40',
-                'text-base md:text-sm text-foreground placeholder:text-muted-foreground/60',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
-                'transition-all duration-200'
-              )}
-            />
-          </div>
-
-          {/* Send button */}
-          <button
-            onClick={handleSend}
-            disabled={!canSend}
-            className={cn(
-              'p-2 rounded-xl transition-all duration-200',
-              canSend
-                ? 'bg-primary text-white hover:bg-primary-dark shadow-sm hover:shadow-md'
-                : 'bg-muted/50 text-muted-foreground/40 cursor-not-allowed'
-            )}
-            aria-label={t('messages.sendMessage')}
-          >
-            {isSending ? (
-              <div className="w-[18px] h-[18px] border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Send className="w-[18px] h-[18px]" />
-            )}
-          </button>
-        </div>
 
         {/* Link dropdown portal */}
         {dropdownContent}

@@ -29,10 +29,18 @@ describe('reply translator', () => {
       translatedText: 'Em cần anh/chị gửi W-2 năm 2025.',
     })
     expect(mockGenerateContent).toHaveBeenCalledWith(
-      expect.stringContaining('Please send your 2025 W-2.')
+      expect.stringContaining('Please send your 2025 W-2.'),
+      undefined,
+      expect.objectContaining({
+        preferredModels: ['gemini-2.5-flash-lite', 'gemini-2.5-flash'],
+      })
     )
     expect(mockGenerateContent).toHaveBeenCalledWith(
-      expect.stringContaining('The staff member speaks as "em".')
+      expect.stringContaining('The staff member speaks as "em".'),
+      undefined,
+      expect.objectContaining({
+        preferredModels: ['gemini-2.5-flash-lite', 'gemini-2.5-flash'],
+      })
     )
   })
 

@@ -106,6 +106,10 @@ export interface GeminiResponse<T> {
   retries?: number
 }
 
+export interface GenerateContentOptions {
+  preferredModels?: string[]
+}
+
 /**
  * Image data for Gemini vision
  */
@@ -218,7 +222,8 @@ function isRetryableError(error: Error): boolean {
  */
 export async function generateContent(
   prompt: string,
-  image?: ImageData
+  image?: ImageData,
+  options: GenerateContentOptions = {}
 ): Promise<GeminiResponse<string>> {
   if (!isGeminiConfigured) {
     return {
@@ -230,9 +235,10 @@ export async function generateContent(
   // Build model list: active model first, then fallbacks (deduplicated)
   const activeModel = getActiveModel()
   const modelsToTry = [
+    ...(options.preferredModels ?? []),
     activeModel,
     ...config.ai.fallbackModels.filter((m) => m !== activeModel),
-  ]
+  ].filter((model, index, models) => model && models.indexOf(model) === index)
 
   const maxRetries = config.ai.maxRetries
   const retryDelay = config.ai.retryDelayMs

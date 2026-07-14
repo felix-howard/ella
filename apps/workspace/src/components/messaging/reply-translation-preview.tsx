@@ -10,6 +10,7 @@ interface ReplyTranslationPreviewProps {
   isEdited: boolean
   isStale: boolean
   error: string | null
+  className?: string
   onChange: (value: string) => void
   onRegenerate: () => void
 }
@@ -21,6 +22,7 @@ export function ReplyTranslationPreview({
   isEdited,
   isStale,
   error,
+  className,
   onChange,
   onRegenerate,
 }: ReplyTranslationPreviewProps) {
@@ -32,7 +34,7 @@ export function ReplyTranslationPreview({
   }
 
   return (
-    <div className="mb-2 rounded-xl border border-primary/20 bg-primary/5 p-2.5">
+    <div className={cn('mb-2 rounded-xl border border-primary/20 bg-primary/5 p-2.5', className)}>
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <div className="text-xs font-medium text-foreground">
           {t('messages.replyTranslationPreviewLabel')}

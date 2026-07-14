@@ -1,9 +1,29 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-07-13 ICT
-> **Recent Feature:** ACH Bank Payment UX Hardening Phase 5 COMPLETE (Workspace monitoring/staff rollout) ✅
+> **Last Updated:** 2026-07-14 ICT
+> **Recent Feature:** Agreement Initial Payment Post-Sign CTA COMPLETE ✅
 > **Current Phase:** ACH Bank Payment UX Hardening COMPLETE (5 of 5 phases, validation/docs synced) ✅ | Lead Messages and Unknown Call Gate COMPLETE (4 of 4 phases, automated validation/docs synced; production Twilio QA pending) ✅ | Agreement Revocation COMPLETE (5 of 5 phases, validation/docs synced) ✅ | Lead Reply MMS and Visibility COMPLETE (external Twilio/R2/Web Push QA pending) ✅ | PWA Web Push Notifications COMPLETE ✅ | Team Clerk Membership Reconciliation COMPLETE ✅ | Calculator Custom Items COMPLETE ✅ | Client Intake Link Management COMPLETE ✅ | Company Vault COMPLETE ✅ | Self Team Profile Access COMPLETE ✅ | Staff Documents, Invoices, and Profile Tabs COMPLETE ✅ | Payment Templates COMPLETE ✅ | Client/Case MMS Image Attachments COMPLETE ✅ | Multi-Staff Client Management COMPLETE ✅ | Workspace Pricing Calculator Payment Links COMPLETE ✅ | Stripe Checkout Validation Phase 05 COMPLETE ✅ | Landing Polish COMPLETE ✅ | Landing Pricing Restore COMPLETE ✅ | Landing Reposition Phase 06 COMPLETE ✅ | earlier completed phases retained below
 > **Overall Project Progress:** Lead Messages and Unknown Call Gate COMPLETE (4 of 4 phases, automated validation/docs synced; production Twilio QA pending) ✅ + Agreement Revocation COMPLETE (5 of 5 phases, validation/docs synced) ✅ + Lead Reply MMS and Visibility COMPLETE (4 of 4 phases, automated validation/docs synced; external Twilio/R2/Web Push QA pending) ✅ + Team Clerk Membership Reconciliation COMPLETE (4 of 4 phases, validation/docs/runbook synced) ✅ + Calculator Custom Items COMPLETE (4 of 4 phases, validation/docs synced) ✅ + Client Intake Link Management COMPLETE (5 of 5 phases, validation/docs synced) ✅ + Company Vault COMPLETE (4 of 4 phases, validation/docs synced) ✅ + Lead Contact Info Editing COMPLETE (3 of 3 phases, validation/docs synced) ✅ + Self Team Profile Access COMPLETE (4 of 4 phases, validation/docs synced) ✅ + Staff Documents, Invoices, and Profile Tabs COMPLETE (5 of 5 phases, validation/docs synced) ✅ + Payment Templates COMPLETE (5 of 5 phases, docs synced) ✅ + Client/Case MMS Image Attachments COMPLETE (3 of 3 phases, automated validation done; real Twilio/R2 browser QA pending configured env) ✅ + Multi-Staff Client Management COMPLETE (5 of 5 phases, 100% done) ✅ + Workspace Pricing Calculator Payment Links COMPLETE (4 of 4 phases, 100% done) ✅ + Stripe Checkout Payments COMPLETE (Phase 05 local E2E completed on 2026-06-01) ✅ + Landing Polish COMPLETE (5 of 5 phases, 100% done) ✅ + Landing Reposition Phase 06 COMPLETE (6 of 6 phases, 100% done) ✅ + English-First i18n Hardcode Removal COMPLETE (6 of 6 phases, 100% done) ✅ + Comprehensive User Activity Log COMPLETE (5 of 5 phases, 100% done) ✅ + Operational Filed Retention Workflow COMPLETE (4 of 4 phases, 100% done) ✅ + Upload Portal Security Hardening COMPLETE (10 phases, 100% done) ✅ + Tax Advisory Presentation Landing COMPLETE (3 phases, 100% done) ✅ + Contractor Agent Agreement Phase 06 COMPLETE (6 of 6 phases done; migration applied/status clean) ✅ + Upload Link Message Template Selection COMPLETE (4 phases, 100% done) ✅ + Campaign Form Intro Landing Content COMPLETE (single-phase conversion UX enhancement, 100% done) ✅ + Individual Schedule C Activity COMPLETE (5 phases, 100% done) ✅ + Edit & Send Modal Service Builder COMPLETE (single-phase UX enhancement, 100% done) ✅ + Engagement Letter Placeholder Fields COMPLETE (single-phase UX enhancement, 100% done) ✅ + Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+
+### Agreement Initial Payment Post-Sign CTA ✅
+**Started:** 2026-07-14
+**Completed:** 2026-07-14
+**Status:** COMPLETE
+**Objective:** Keep post-sign initial-payment behavior consistent across manual agreements and calculator-linked payment flows without duplicate payment messages.
+
+**Delivered:**
+- Manual `Collect initial payment` agreements now return the existing Portal `/pay/:token` CTA after signing and retain SMS as a best-effort fallback.
+- Calculator-linked agreements exclusively own `AUTO_SEND` and `STAFF_REVIEW`, preventing duplicate deposit SMS delivery.
+- Existing `PENDING` deposits are reused; `PAID` deposits return no CTA.
+- SMS delivery is bounded to 2.5 seconds, and failures never roll back successful signing.
+- No database migration or schema change.
+
+**Validation:**
+- Agreement initial-payment API tests passed, 2 files / 57 tests.
+- Portal agreement confirmation panel tests passed, 2 tests.
+- API and Portal type-checks passed.
+- API lint passed with 0 errors and 1 pre-existing warning.
+- Code review approved.
 
 ### Bank/Card Statements Category ✅
 **Started:** 2026-07-07

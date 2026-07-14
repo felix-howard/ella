@@ -1,9 +1,26 @@
 # Project Changelog
 
-> **Last Updated:** 2026-07-13 ICT
+> **Last Updated:** 2026-07-14 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### Agreement Initial Payment Post-Sign CTA
+**Status:** Complete
+
+**Changed:**
+- Agreements using manual `Collect initial payment` now return the existing Portal `/pay/:token` CTA after signing while retaining SMS as a best-effort fallback.
+- Calculator-linked agreements exclusively own the `AUTO_SEND` and `STAFF_REVIEW` payment flow, preventing duplicate deposit SMS delivery.
+- Existing `PENDING` deposits are reused; `PAID` deposits return no payment CTA.
+- SMS delivery is bounded to 2.5 seconds, and SMS failures never roll back successful agreement signing.
+- No database migration or schema change.
+
+**Validation:**
+- Agreement initial-payment API tests passed, 2 files / 57 tests.
+- Portal agreement confirmation panel tests passed, 2 tests.
+- `pnpm -F @ella/api type-check` and `pnpm -F @ella/portal type-check` passed.
+- `pnpm -F @ella/api lint` passed with 0 errors and 1 pre-existing warning.
+- Code review approved.
 
 ### ACH Bank Payment UX Hardening Phase 5
 **Status:** Complete

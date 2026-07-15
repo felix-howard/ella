@@ -133,7 +133,7 @@ describe('calculator engagement letter modal helpers', () => {
     ).toBe('calculator-newer')
   })
 
-  it('does not replace a resumed draft null source snapshot with the current quote snapshot', () => {
+  it('keeps resumed draft metadata isolated while persisting payment mode changes', () => {
     const pricingInput = createDefaultPricingInput()
     const draftSeed = buildCalculatorEngagementLetterDraftSeed({
       recipient: { type: 'client', id: 'client_1' },
@@ -147,7 +147,14 @@ describe('calculator engagement letter modal helpers', () => {
         agreement({ sourceSnapshot: null }),
         draftSeed,
       ),
-    ).toBeUndefined()
+    ).toEqual({ paymentPortalMode: draftSeed.sourceSnapshot.paymentPortalMode })
+    expect(
+      getCalculatorDraftEditorSourceSnapshot(
+        agreement({ sourceSnapshot: { paymentPortalMode: 'AUTO_SEND', preparedAt: 'saved' } }),
+        draftSeed,
+        'STAFF_REVIEW',
+      ),
+    ).toEqual({ paymentPortalMode: 'STAFF_REVIEW', preparedAt: 'saved' })
     expect(getCalculatorDraftEditorSourceSnapshot(null, draftSeed)).toEqual(
       draftSeed.sourceSnapshot,
     )

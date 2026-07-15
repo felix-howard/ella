@@ -106,7 +106,12 @@ export function getCalculatorDraftEditorSourceSnapshot(
   draftSeed: CalculatorEngagementLetterDraftSeed,
   paymentPortalMode = draftSeed.sourceSnapshot.paymentPortalMode,
 ): Record<string, unknown> | undefined {
-  if (selectedDraft) return selectedDraft.sourceSnapshot ?? undefined
+  if (selectedDraft) {
+    return {
+      ...(selectedDraft.sourceSnapshot ?? {}),
+      paymentPortalMode,
+    }
+  }
   return {
     ...draftSeed.sourceSnapshot,
     paymentPortalMode,

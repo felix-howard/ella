@@ -46,13 +46,49 @@ export interface ModalProps extends VariantProps<typeof modalContentVariants> {
   onClose: () => void
   children: React.ReactNode
   className?: string
+  overlayClassName?: string
   closeOnOverlayClick?: boolean
   closeOnEscape?: boolean
   showCloseButton?: boolean
+  closeButtonAriaLabel?: string
   /** ID of element that labels the modal (for accessibility) */
   'aria-labelledby'?: string
   /** ID of element that describes the modal (for accessibility) */
   'aria-describedby'?: string
+}
+
+interface BodyScrollLockState {
+  count: number
+  previousOverflow: string
+}
+
+const bodyScrollLocks = new WeakMap<Document, BodyScrollLockState>()
+
+function lockBodyScroll(ownerDocument: Document): () => void {
+  const activeLock = bodyScrollLocks.get(ownerDocument)
+  if (activeLock) {
+    activeLock.count += 1
+  } else {
+    bodyScrollLocks.set(ownerDocument, {
+      count: 1,
+      previousOverflow: ownerDocument.body.style.overflow,
+    })
+    ownerDocument.body.style.overflow = 'hidden'
+  }
+
+  let released = false
+  return () => {
+    if (released) return
+    released = true
+
+    const lock = bodyScrollLocks.get(ownerDocument)
+    if (!lock) return
+    lock.count -= 1
+    if (lock.count > 0) return
+
+    ownerDocument.body.style.overflow = lock.previousOverflow
+    bodyScrollLocks.delete(ownerDocument)
+  }
 }
 
 const Modal = React.forwardRef<HTMLDivElement, ModalProps>(
@@ -62,10 +98,12 @@ const Modal = React.forwardRef<HTMLDivElement, ModalProps>(
       onClose,
       children,
       className,
+      overlayClassName,
       size,
       closeOnOverlayClick = true,
       closeOnEscape = true,
       showCloseButton = true,
+      closeButtonAriaLabel = 'Close modal',
       'aria-labelledby': ariaLabelledby,
       'aria-describedby': ariaDescribedby,
     },
@@ -141,16 +179,11 @@ const Modal = React.forwardRef<HTMLDivElement, ModalProps>(
       return () => previousActiveElement?.focus()
     }, [getFocusableElements, open])
 
-    // Prevent body scroll when modal is open
+    // A reference count keeps nested modals locked even when React cleans them
+    // up out of mount order (for example when a parent and child close together).
     React.useEffect(() => {
-      if (open) {
-        document.body.style.overflow = 'hidden'
-      } else {
-        document.body.style.overflow = ''
-      }
-      return () => {
-        document.body.style.overflow = ''
-      }
+      if (!open) return undefined
+      return lockBodyScroll(document)
     }, [open])
 
     const handleOverlayClick = (e: React.MouseEvent) => {
@@ -163,7 +196,7 @@ const Modal = React.forwardRef<HTMLDivElement, ModalProps>(
 
     return (
       <div
-        className={cn(modalOverlayVariants({ open }))}
+        className={cn(modalOverlayVariants({ open }), overlayClassName)}
         onClick={handleOverlayClick}
         role="dialog"
         aria-modal="true"
@@ -179,7 +212,7 @@ const Modal = React.forwardRef<HTMLDivElement, ModalProps>(
             <button
               onClick={onClose}
               className="absolute right-4 top-4 rounded-full p-1 text-muted hover:bg-muted hover:text-foreground transition-colors"
-              aria-label="Close modal"
+              aria-label={closeButtonAriaLabel}
             >
               <X className="h-5 w-5" />
             </button>

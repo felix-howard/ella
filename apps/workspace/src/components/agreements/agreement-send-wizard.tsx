@@ -20,6 +20,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Loader2, X } from 'lucide-react'
 import { AgreementDraftEditor } from './agreement-draft-editor'
+import type { AgreementDraftCloseGuard } from './use-agreement-draft-close-guard'
 import type { AgreementDraftSavedState } from './use-agreement-draft-saved-state'
 import { useCreateAgreement } from './use-agreement-mutations'
 import { useNdaReadiness } from './use-nda-readiness'
@@ -67,7 +68,7 @@ export function buildConsentAgreementPayload(
 export function AgreementSendWizard({ entity, recipient, agreements, onClose }: Props) {
   const { t } = useTranslation()
   const mutation = useCreateAgreement(entity)
-  const closeGuardRef = useRef<(() => boolean) | null>(null)
+  const closeGuardRef = useRef<AgreementDraftCloseGuard | null>(null)
 
   const [step, setStep] = useState<Step>(1)
   const [type, setType] = useState<AgreementType | null>(null)
@@ -81,12 +82,15 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
   // agreement from the uploaded PDF (uploadedPdfKey) rather than HTML/template.
   const isUploadMode = templateId === UPLOAD_PDF_TEMPLATE
 
-  const registerCloseGuard = useCallback((guard: (() => boolean) | null) => {
+  const registerCloseGuard = useCallback((guard: AgreementDraftCloseGuard | null) => {
     closeGuardRef.current = guard
   }, [])
 
   const requestClose = useCallback(() => {
-    if (closeGuardRef.current && !closeGuardRef.current()) return
+    if (closeGuardRef.current) {
+      closeGuardRef.current(onClose)
+      return
+    }
     onClose()
   }, [onClose])
 
@@ -147,10 +151,14 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
 
   const handleBack = () => {
     if (step === 3) {
-      if (closeGuardRef.current && !closeGuardRef.current()) return
       // CUSTOM and CONSENT_7216 skip Step 2 — bounce back to Step 1.
       const target: Step = type === 'CUSTOM' || type === 'CONSENT_7216' ? 1 : 2
-      setStep(target)
+      const continueBack = () => setStep(target)
+      if (closeGuardRef.current) {
+        closeGuardRef.current(continueBack)
+      } else {
+        continueBack()
+      }
       return
     }
     if (step === 2) {

@@ -34,6 +34,9 @@ interface UseAgreementDraftAutosaveInput {
 interface UseAgreementDraftAutosaveResult {
   state: AgreementDraftAutosaveState
   resetSavedBaseline: (payload: SaveAgreementDraftPayload | null) => void
+  saveNow: () => Promise<void>
+  pause: () => void
+  resume: () => void
 }
 
 const AUTOSAVE_DELAY_MS = 1000
@@ -65,6 +68,10 @@ export function useAgreementDraftAutosave({
   const failedSignatureRef = useRef<string | null>(null)
   const savingRef = useRef(false)
   const conflictRef = useRef(false)
+  const currentSaveRequestRef = useRef<Promise<void> | null>(null)
+  const currentSaveSignatureRef = useRef<string | null>(null)
+  const latestUpdatedAtRef = useRef(updatedAt)
+  const manuallyPausedRef = useRef(false)
 
   const payloadSignature = useMemo(
     () => (payload ? createPayloadSignature(payload) : null),
@@ -79,7 +86,84 @@ export function useAgreementDraftAutosave({
     setState(nextPayload ? 'saved' : 'idle')
   }, [])
 
-  /* eslint-disable react-hooks/set-state-in-effect -- autosave status intentionally mirrors draft identity before timers run */
+  useEffect(() => {
+    if (!currentSaveRequestRef.current) latestUpdatedAtRef.current = updatedAt
+  }, [updatedAt])
+
+  const pause = useCallback(() => {
+    manuallyPausedRef.current = true
+    setSaveNonce((current) => current + 1)
+  }, [])
+
+  const resume = useCallback(() => {
+    manuallyPausedRef.current = false
+    setSaveNonce((current) => current + 1)
+  }, [])
+
+  const saveNow = useCallback(function persistNow(): Promise<void> {
+    const expectedUpdatedAt = latestUpdatedAtRef.current
+    if (!enabled || !draftAgreementId || !payload || !payloadSignature || !expectedUpdatedAt) {
+      return Promise.reject(new Error('Agreement draft is not ready to save'))
+    }
+
+    if (savedSignatureRef.current === payloadSignature) {
+      setState('saved')
+      return Promise.resolve()
+    }
+
+    const currentRequest = currentSaveRequestRef.current
+    if (currentRequest) {
+      if (currentSaveSignatureRef.current === payloadSignature) return currentRequest
+      return currentRequest.then(() => persistNow())
+    }
+
+    const updatePayload = buildAgreementDraftAutosaveUpdatePayload(payload, expectedUpdatedAt)
+    savingRef.current = true
+    currentSaveSignatureRef.current = payloadSignature
+    setState('saving')
+
+    const request = agreementsApi(entity)
+      .updateDraft(entity.id, draftAgreementId, updatePayload)
+      .then((res) => {
+        savedSignatureRef.current = payloadSignature
+        failedSignatureRef.current = null
+        conflictRef.current = false
+        latestUpdatedAtRef.current = res.data.updatedAt
+        setState('saved')
+        onSaved(res.data)
+        invalidate()
+      })
+      .catch((error: Error) => {
+        if (isAgreementDraftConflict(error)) {
+          conflictRef.current = true
+          setState('conflict')
+          onConflict(error)
+        } else {
+          failedSignatureRef.current = payloadSignature
+          setState('failed')
+        }
+        throw error
+      })
+      .finally(() => {
+        savingRef.current = false
+        currentSaveRequestRef.current = null
+        currentSaveSignatureRef.current = null
+        setSaveNonce((current) => current + 1)
+      })
+
+    currentSaveRequestRef.current = request
+    return request
+  }, [
+    draftAgreementId,
+    enabled,
+    entity,
+    invalidate,
+    onConflict,
+    onSaved,
+    payload,
+    payloadSignature,
+  ])
+
   useEffect(() => {
     if (!enabled || !draftAgreementId || !payload || !payloadSignature) {
       setState('idle')
@@ -112,56 +196,31 @@ export function useAgreementDraftAutosave({
       return
     }
 
-    if (!updatedAt || paused || savingRef.current) {
+    if (savingRef.current || currentSaveRequestRef.current) {
+      setState('saving')
+      return
+    }
+
+    if (!updatedAt || paused || manuallyPausedRef.current) {
       setState('unsaved')
       return
     }
 
     setState('unsaved')
     const timeoutId = window.setTimeout(() => {
-      const updatePayload = buildAgreementDraftAutosaveUpdatePayload(payload, updatedAt)
-      savingRef.current = true
-      setState('saving')
-      agreementsApi(entity)
-        .updateDraft(entity.id, draftAgreementId, updatePayload)
-        .then((res) => {
-          savedSignatureRef.current = payloadSignature
-          failedSignatureRef.current = null
-          setState('saved')
-          onSaved(res.data)
-          invalidate()
-        })
-        .catch((error: Error) => {
-          if (isAgreementDraftConflict(error)) {
-            conflictRef.current = true
-            setState('conflict')
-            onConflict(error)
-            return
-          }
-          failedSignatureRef.current = payloadSignature
-          setState('failed')
-        })
-        .finally(() => {
-          savingRef.current = false
-          setSaveNonce((current) => current + 1)
-        })
+      void saveNow().catch(() => undefined)
     }, AUTOSAVE_DELAY_MS)
 
     return () => window.clearTimeout(timeoutId)
   }, [
     draftAgreementId,
     enabled,
-    entity,
-    invalidate,
-    onConflict,
-    onSaved,
     paused,
     payload,
     payloadSignature,
+    saveNow,
     saveNonce,
     updatedAt,
   ])
-  /* eslint-enable react-hooks/set-state-in-effect */
-
-  return { state, resetSavedBaseline }
+  return { state, resetSavedBaseline, saveNow, pause, resume }
 }

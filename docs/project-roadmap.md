@@ -1,9 +1,28 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-07-14 ICT
-> **Recent Feature:** Agreement Initial Payment Post-Sign CTA COMPLETE ✅
+> **Last Updated:** 2026-07-15 ICT
+> **Recent Feature:** Agreement Draft Close Confirmation COMPLETE ✅
 > **Current Phase:** ACH Bank Payment UX Hardening COMPLETE (5 of 5 phases, validation/docs synced) ✅ | Lead Messages and Unknown Call Gate COMPLETE (4 of 4 phases, automated validation/docs synced; production Twilio QA pending) ✅ | Agreement Revocation COMPLETE (5 of 5 phases, validation/docs synced) ✅ | Lead Reply MMS and Visibility COMPLETE (external Twilio/R2/Web Push QA pending) ✅ | PWA Web Push Notifications COMPLETE ✅ | Team Clerk Membership Reconciliation COMPLETE ✅ | Calculator Custom Items COMPLETE ✅ | Client Intake Link Management COMPLETE ✅ | Company Vault COMPLETE ✅ | Self Team Profile Access COMPLETE ✅ | Staff Documents, Invoices, and Profile Tabs COMPLETE ✅ | Payment Templates COMPLETE ✅ | Client/Case MMS Image Attachments COMPLETE ✅ | Multi-Staff Client Management COMPLETE ✅ | Workspace Pricing Calculator Payment Links COMPLETE ✅ | Stripe Checkout Validation Phase 05 COMPLETE ✅ | Landing Polish COMPLETE ✅ | Landing Pricing Restore COMPLETE ✅ | Landing Reposition Phase 06 COMPLETE ✅ | earlier completed phases retained below
 > **Overall Project Progress:** Lead Messages and Unknown Call Gate COMPLETE (4 of 4 phases, automated validation/docs synced; production Twilio QA pending) ✅ + Agreement Revocation COMPLETE (5 of 5 phases, validation/docs synced) ✅ + Lead Reply MMS and Visibility COMPLETE (4 of 4 phases, automated validation/docs synced; external Twilio/R2/Web Push QA pending) ✅ + Team Clerk Membership Reconciliation COMPLETE (4 of 4 phases, validation/docs/runbook synced) ✅ + Calculator Custom Items COMPLETE (4 of 4 phases, validation/docs synced) ✅ + Client Intake Link Management COMPLETE (5 of 5 phases, validation/docs synced) ✅ + Company Vault COMPLETE (4 of 4 phases, validation/docs synced) ✅ + Lead Contact Info Editing COMPLETE (3 of 3 phases, validation/docs synced) ✅ + Self Team Profile Access COMPLETE (4 of 4 phases, validation/docs synced) ✅ + Staff Documents, Invoices, and Profile Tabs COMPLETE (5 of 5 phases, validation/docs synced) ✅ + Payment Templates COMPLETE (5 of 5 phases, docs synced) ✅ + Client/Case MMS Image Attachments COMPLETE (3 of 3 phases, automated validation done; real Twilio/R2 browser QA pending configured env) ✅ + Multi-Staff Client Management COMPLETE (5 of 5 phases, 100% done) ✅ + Workspace Pricing Calculator Payment Links COMPLETE (4 of 4 phases, 100% done) ✅ + Stripe Checkout Payments COMPLETE (Phase 05 local E2E completed on 2026-06-01) ✅ + Landing Polish COMPLETE (5 of 5 phases, 100% done) ✅ + Landing Reposition Phase 06 COMPLETE (6 of 6 phases, 100% done) ✅ + English-First i18n Hardcode Removal COMPLETE (6 of 6 phases, 100% done) ✅ + Comprehensive User Activity Log COMPLETE (5 of 5 phases, 100% done) ✅ + Operational Filed Retention Workflow COMPLETE (4 of 4 phases, 100% done) ✅ + Upload Portal Security Hardening COMPLETE (10 phases, 100% done) ✅ + Tax Advisory Presentation Landing COMPLETE (3 phases, 100% done) ✅ + Contractor Agent Agreement Phase 06 COMPLETE (6 of 6 phases done; migration applied/status clean) ✅ + Upload Link Message Template Selection COMPLETE (4 phases, 100% done) ✅ + Campaign Form Intro Landing Content COMPLETE (single-phase conversion UX enhancement, 100% done) ✅ + Individual Schedule C Activity COMPLETE (5 phases, 100% done) ✅ + Edit & Send Modal Service Builder COMPLETE (single-phase UX enhancement, 100% done) ✅ + Engagement Letter Placeholder Fields COMPLETE (single-phase UX enhancement, 100% done) ✅ + Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+
+### Agreement Draft Close Confirmation ✅
+**Started:** 2026-07-15
+**Completed:** 2026-07-15
+**Status:** COMPLETE
+**Objective:** Replace native browser close alerts with a clear, recoverable save-or-discard decision across shared agreement editors.
+
+**Delivered:**
+- Pricing calculator and Client Agreements now share a dedicated unsaved-draft confirmation modal.
+- Dirty backdrop, X, Escape, Cancel, and Back requests offer explicit save or do-not-save actions.
+- Save-before-close waits for successful create/update; failures and conflicts preserve editor state.
+- Existing-draft autosave pauses during the decision and flushes immediately when Save draft is chosen.
+- Confirmation dismissal keeps editing, and wizard Back preserves its original navigation intent.
+
+**Validation:**
+- Agreement tests passed, 18 files / 64 tests; targeted pricing calculator modal tests passed, 2 files / 10 tests.
+- Workspace/UI type-checks and EN/VI locale parity passed.
+- Workspace lint passed with existing warnings only.
+- Adversarial code review approved with no remaining findings.
 
 ### Agreement Initial Payment Post-Sign CTA ✅
 **Started:** 2026-07-14

@@ -1,9 +1,28 @@
 # Project Changelog
 
-> **Last Updated:** 2026-07-14 ICT
+> **Last Updated:** 2026-07-15 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### Agreement Draft Close Confirmation
+**Status:** Complete
+
+**Changed:**
+- Replaced native browser agreement-draft close prompts with one dedicated Ella confirmation modal shared by the pricing calculator Engagement Letter editor and Client Agreements editor.
+- Added explicit `Save draft` and `Don't save draft` actions for dirty backdrop, X, Escape, Cancel, and wizard Back requests; confirmation backdrop/Escape safely returns to editing.
+- Preserved the intended continuation so wizard Back remains Back after confirmation instead of closing the full editor.
+- New drafts close only after draft creation succeeds; saved drafts pause debounce autosave, flush the current conflict-safe update immediately, and close only after persistence succeeds.
+- Added high-layer modal support, EN/VI copy, payment-mode dirty detection, and regression coverage for clean/dirty/busy close state, modal actions, save callbacks, and immediate autosave flush.
+- No database migration or API contract change.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- agreement` passed, 18 files / 64 tests.
+- Targeted pricing calculator modal regression suite passed, 2 files / 10 tests.
+- Workspace and UI package type-checks passed.
+- `pnpm i18n:check` passed; Workspace 3279 keys and Portal 549 keys in parity.
+- Workspace lint passed with 0 errors and 14 existing warnings.
+- Adversarial code review approved after autosave race and nested-modal scroll-lock regressions were covered.
 
 ### Agreement Initial Payment Post-Sign CTA
 **Status:** Complete

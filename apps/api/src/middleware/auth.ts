@@ -32,6 +32,11 @@ export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(asy
     throw new HTTPException(401, { message: 'Authentication required' })
   }
 
+  const clerkOrgId = auth.orgId || null
+  if (!clerkOrgId) {
+    throw new HTTPException(403, { message: 'Please select an organization' })
+  }
+
   // Look up staff by Clerk ID. Webhooks are the primary sync path, but the
   // invite-accept redirect can reach the API before Clerk delivers the webhook.
   let staff = await prisma.staff.findUnique({
@@ -39,13 +44,11 @@ export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(asy
     include: { organization: true },
   })
 
-  const clerkOrgId = auth.orgId || null
-
-  if (staff && clerkOrgId && staff.organization?.clerkOrgId === clerkOrgId && !staff.isActive) {
+  if (staff && staff.organization?.clerkOrgId === clerkOrgId && !staff.isActive) {
     throw new HTTPException(403, { message: 'Account has been disabled' })
   }
 
-  const needsMembershipSync = clerkOrgId && (
+  const needsMembershipSync = (
     !staff ||
     !staff.organizationId ||
     staff.organization?.clerkOrgId !== clerkOrgId
@@ -64,6 +67,10 @@ export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(asy
 
   if (!staff.isActive) {
     throw new HTTPException(403, { message: 'Account has been disabled' })
+  }
+
+  if (staff.organization?.clerkOrgId !== clerkOrgId) {
+    throw new HTTPException(403, { message: 'Organization access mismatch' })
   }
 
   // Extract org context from JWT (for validation)
@@ -156,7 +163,7 @@ export const cpaOrAdmin = requireRole('ADMIN', 'CPA')
 export const requireOrg = createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
   const user = c.get('user')
   if (!user) throw new HTTPException(401, { message: 'Not authenticated' })
-  if (!user.organizationId) {
+  if (!user.organizationId || !user.clerkOrgId) {
     throw new HTTPException(403, { message: 'Please select an organization' })
   }
   await next()

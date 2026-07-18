@@ -99,7 +99,9 @@ app.use(requireOrgAdmin) // Verify org:admin role (Clerk)
 
 **Token Parsing (Read-Only):**
 - `userId`, `orgId`, `orgRole` extracted from Clerk JWT
+- Protected API auth requires an active Clerk `orgId` before any Staff database lookup. Missing organization context fails with HTTP 403 and must not reach tenant queries.
 - Middleware looks up Staff by clerkId from DB; if an invite accept reaches API before webhook sync, it bootstraps Staff from the active Clerk organization membership
+- After lookup/bootstrap, middleware must cross-check `Staff.organization.clerkOrgId` against the active Clerk `orgId` before attaching request context. Any mismatch fails closed with HTTP 403.
 - Role mapping normally syncs via Clerk webhooks, with auth bootstrap as a race/local-dev fallback
 
 **Backend Middleware:**
@@ -580,5 +582,5 @@ describe('Feature', () => {
 ---
 
 **Version:** 2.5
-**Last Updated:** 2026-05-22
-**Status:** English-first i18n enforcement documented. TaxBandits API Integration complete. TaxBandits API client + 8 endpoints. Schema cleanup done (removed legacy fields, indexed TaxBandits IDs).
+**Last Updated:** 2026-07-17
+**Status:** Protected auth requires matching active Clerk and linked Staff organization context before tenant access; regression coverage guards the no-organization path. English-first i18n enforcement documented. TaxBandits API Integration complete.

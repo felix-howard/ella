@@ -1,9 +1,111 @@
 # Project Changelog
 
-> **Last Updated:** 2026-07-15 ICT
+> **Last Updated:** 2026-07-18 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### Automatic Paid Client Services Phase 6 (2026-07-16)
+**Status:** COMPLETE — final legitimate same-org STAFF assigned/unassigned scope smoke passed 2026-07-18
+
+**Fixed:**
+- Resolved the final auth reviewer warning. Protected API auth now rejects missing active Clerk organization context before any Staff database lookup, then cross-checks the linked Staff organization's Clerk ID before accepting tenant context. Regressions verify both a missing organization and a Staff record returned for a mismatched Clerk organization fail before client data access.
+
+**Changed:**
+- Duplicate-client Calculator settlement now moves only the exact signed Engagement Letter linked by `paymentQuoteId`, lead, and tenant scope; retries self-heal idempotently without broad relinking.
+- Paid-service evidence now stays aggregated: Payment evidence reduces by quote/type/status and checkout history reduces to latest health plus cancellation evidence. Candidate quotes keyset-page by aggregate first settlement (`MIN(paidAt)`, quote ID); invalid projections are skipped until the newest 100 valid groups are returned or candidates are exhausted.
+- Recurring Payment evidence now fails closed to Stripe `subscription_cycle` invoices only. The response includes `meta.isTruncated`/`limit`; Workspace warns that older history remains in Payments. The API no longer replaces the full view with 422 or builds an unbounded aggregate query.
+- Froze the exact non-financial DTO: response `success/data/meta`; group `id/source/paidAt/agreement/items`; agreement `id/title/signedAt`; item `id/label/description/category/cadence/status`. Exact-key validation rejects extra sensitive fields. Admin-authored labels, descriptions, and agreement titles remain free text and can mention pricing, so teams must keep them suitable for staff visibility.
+- Refund synchronization now locks both available Charge and PaymentIntent references in deterministic, deduplicated order on refund and Payment insertion paths.
+- Added refund lookup index migration `20260716070806_index_payment_stripe_payment_intent`.
+- Local and deployed Stripe event guidance now includes `charge.refunded` alongside Checkout, async payment, invoice, and subscription deletion events.
+
+**Validation:**
+- Final focused validation passed: API 68/68; Workspace 50/50; API and Workspace package type-checks; `git diff --check`; final reviewer 10/10 with no findings or warnings.
+- Earlier Phase 6 baseline remains preserved: migration chain 106; targeted API 95/95; targeted Workspace 59/59; root suite 3,866/3,866; lint 0 errors/35 known warnings; root type-check 8/8; build 4/4.
+- Authenticated ADMIN test-mode smoke verified one signed Calculator card service, one linked Custom Link card service, recurring Past Due → Active → Ended without duplicate service, full-refund Refunded retention, and financial details retained in admin Payments.
+- First Custom Link settlement exposed Prisma `P2010`: `$queryRaw` attempted to deserialize PostgreSQL `void` from `pg_advisory_xact_lock`. Changed the lock call to `$executeRaw`; the exact failed signed webhook replay then processed successfully once.
+- Historical post-fix validation passed: 65/65 focused API tests, API type-check, and diff-check.
+- Historical independent simplifier passed 27/27; tester passed 191/191 plus type-check/diff-check; USD payment-method follow-up passed 97/97 plus type-check/diff-check. The subsequent auth reviewer warning was fixed with the fail-closed guard and regression coverage above.
+- ACH smoke passed. Root cause was Adaptive Pricing localizing USD Checkout to VND and suppressing ACH, not Stripe account capability. The shared builder now requests `card`, `link`, and `us_bank_account`, disables Adaptive Pricing, and rejects non-USD configuration.
+- Signed Calculator ACH displayed US bank account; completed/unpaid replay returned 200 with zero linked payments, then async-success replay returned 200 with exactly one `PAID` Payment and one `Active` service group. No sensitive identifiers recorded.
+- Legitimate same-org STAFF smoke passed: authentication succeeded; the client list exposed exactly one assigned client; assigned Services UI/API rendered three groups using only safe DTO fields with no structured financial or Stripe keys; the unassigned paid-services API returned uniform 404; and direct unassigned page navigation showed `Client not found` without client data.
+- Manual scope covered assigned/unassigned behavior; no separate cross-org fixture was exercised. Automated auth regressions cover missing and mismatched Clerk organization paths.
+- Phase 6/release-readiness rollout is complete. Production rollout still requires `STRIPE_CURRENCY=usd`, verified ACH/`us_bank_account`, explicit destructive-migration approval, and separate deployment authorization.
+
+**Rollout / Rollback:**
+- In every environment where the migrations are unapplied, confirm a verified full backup or explicitly confirm legacy `ClientServiceLog` rows are disposable, then obtain explicit destructive approval.
+- Configure all required Stripe events including `charge.refunded`; enter maintenance and stop the old API/Workspace because the first feature migration removes the legacy schema while adding provenance; apply committed migrations; deploy API then Workspace; resume; smoke one newly created eligible test quote. No historical backfill.
+- Before the destructive migration, the old deployment can be restored. After application, do not deploy old code or edit/recreate applied migrations; roll forward with corrective app code/new migrations. Use a verified full backup only for disaster recovery.
+- Completion performed no destructive migration, deployment, or Stripe production operation; every environment rollout action above remains separately authorized.
+
+### Automatic Paid Client Services Phase 5 (2026-07-16)
+**Status:** Complete
+
+**Changed:**
+- Replaced the transitional Workspace Services tab with a responsive, read-only catalogue backed by `GET /clients/:clientId/paid-services`.
+- Ordered quote groups by lifecycle priority: Past Due, Active, Paid one-time, then Ended/Refunded history. Each group shows safe source, first-paid date, cadence, status, and localized loading/error/empty states.
+- Kept amounts, receipts, tokens, raw snapshots, and Stripe identifiers out of Services. Capability-gated admins can navigate to Payments/Agreements; other staff receive provenance without inaccessible links or Add/Edit/Delete controls.
+
+**Validation:**
+- 25/25 targeted Workspace tests passed.
+- Workspace type-check and build passed; lint reported 0 errors and 14 pre-existing warnings.
+- EN/VI locale parity passed, 3252/3252 keys.
+
+**Next:**
+- Historical at Phase 5 close: Phase 6 later completed cross-package automated validation/docs, authenticated ADMIN card/ACH/lifecycle smoke, and legitimate STAFF assigned/unassigned scope smoke.
+
+### Automatic Paid Client Services Phase 4 (2026-07-15)
+**Status:** Complete
+
+**Added:**
+- Added staff-accessible `GET /clients/:clientId/paid-services` under normal client organization/assignment scope, with uniform 404 responses for inaccessible clients.
+- Added strict frozen Calculator and Custom Link snapshot validation. Eligible Calculator rows require a signed linked Calculator Engagement Letter; Custom Links must be sent and client-linked; both require direct `Payment.paymentQuoteId` evidence in `PAID` or `REFUNDED` state.
+- Added category-specific lifecycle projection: one-time items return `PAID` or `REFUNDED`; recurring items return `ACTIVE`, `PAST_DUE`, `ENDED`, or `REFUNDED`.
+- Added a fixed staff-safe DTO and malformed-quote isolation. Amounts, tokens, raw snapshots, receipts, payment methods, and Stripe identifiers remain private, while one invalid snapshot skips only its quote.
+
+**Validation:**
+- 36/36 targeted parser, query, projection, ordering, lifecycle, and route tests passed.
+- API type-check, build, and lint passed.
+
+**Next:**
+- Phase 5 subsequently replaced the placeholder Workspace Services tab with the read-only paid-services UI backed by this endpoint.
+
+### Automatic Paid Client Services Phase 3 (2026-07-15)
+**Status:** Complete
+
+**Changed:**
+- First quote payments now use Stripe Checkout `amount_total`, and recurring payments use invoice `amount_paid`; frozen quote totals are guarded fallbacks only when Stripe omits the authoritative amount.
+- Added quote-scoped `charge.refunded` synchronization. Full refunds transition only the uniquely matched quote-generated `Payment` from `PAID` to `REFUNDED`; partial, duplicate, ambiguous, unrelated, and already-refunded events are safe no-ops.
+- Added durable refund-before-Payment evidence to `StripeWebhookEventLog` through additive migration `20260715152629_record_full_refund_webhook_evidence`, storing safe charge/payment-intent identifiers and full-refund state.
+- Serialized refund handling and late Payment creation by transaction-scoped PostgreSQL advisory locks on both available Charge and PaymentIntent references, so either webhook order produces preserved `REFUNDED` history.
+- Newer `invoice.paid` events now recover quote/session recurring health after payment failure. Same-second precedence blocks failure regression, and stale failure events no longer emit admin alerts.
+- Subscription cancellation remains terminal for quote/session health; later invoice events cannot reactivate it, while settled and refunded `Payment` history remains preserved.
+
+**Validation:**
+- 66/66 targeted lifecycle, webhook, fulfillment, refund, activity, and deposit tests passed.
+- API and database package type-checks passed.
+
+**Next:**
+- Historical at Phase 3 close: Phases 4-6 subsequently delivered the read API, Workspace UI, automated validation/docs, authenticated ADMIN card/ACH/lifecycle smoke, and legitimate STAFF assigned/unassigned scope smoke.
+
+### Automatic Paid Client Services Phase 2 (2026-07-15)
+**Status:** Complete
+
+**Changed:**
+- Added nullable, indexed `Payment.paymentQuoteId` provenance to `PaymentQuote` with `onDelete: SetNull` so quote deletion cannot cascade into financial-history deletion.
+- Future first and recurring settled quote payments now persist the server-loaded quote id. Deposit payments and existing historical payments intentionally remain null; no backfill was performed.
+- Added fail-closed organization checks for quote/client/lead scope before quote payment insertion; provenance is server-controlled and is not accepted from public payloads.
+- Removed the already-retired `ClientServiceLog` model, `ClientServiceStatus`, and `ClientServiceType` from the current Prisma schema while preserving prior migrations and historical activity identifiers.
+- Applied migration `20260715135724_link_payments_remove_client_service_log` after destructive SQL review and explicit approval. It removed 2 disposable legacy rows with the table, then dropped the table and two enums.
+
+**Validation:**
+- Prisma validate/generate, API type-check, and migration status passed.
+- Quote-fulfillment provenance and idempotency coverage passed, 26/26 tests.
+- Adversarial code review approved at 9.8/10.
+
+**Next:**
+- Phase 3 will synchronize refund and recurring billing lifecycle state through the new payment-to-quote relation.
 
 ### Agreement Draft Close Confirmation
 **Status:** Complete
@@ -1866,7 +1968,7 @@
 - `pnpm -F @ella/workspace type-check` pass
 - `pnpm -F @ella/workspace test -- pricing` pass
 - `pnpm i18n:check` pass
-- Manual browser smoke not executed in this non-interactive session; requires org-admin Clerk login.
+- Historical phase-close limitation: browser smoke was not executed in this session. Superseded by authenticated ADMIN card/ACH/lifecycle smoke on 2026-07-16 and legitimate STAFF assigned/unassigned scope smoke on 2026-07-18.
 
 ### Workspace: Pricing Calculator Route Shell
 **Status:** Complete

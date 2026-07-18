@@ -6,7 +6,7 @@ Modern tax document management and compliance platform built with TypeScript, Re
 
 Ella streamlines tax preparation workflows by automating document collection, classification, data extraction, and team collaboration. Built as a multi-tenant SaaS with organization-based access control and role-based permissions.
 
-**Status:** MVP complete with multi-tenancy, voice integration, and schedule C expense collection.
+**Status:** MVP complete. Automatic Paid Client Services Phase 6 and its release-readiness rollout are complete: automated validation, ADMIN card/ACH/lifecycle smoke, and legitimate same-org STAFF assigned/unassigned scope smoke all passed. Production deployment remains a separately authorized operation.
 
 ## Key Features
 
@@ -150,11 +150,34 @@ STRIPE_CURRENCY=usd
 ```
 For local payment-link testing, place `STRIPE_*` in `apps/api/.env` and `PUBLIC_API_URL` in `apps/landing/.env`, or export them in the process running each app. The Stripe return URLs above target the landing dev server on port `4321`.
 
-When Stripe CLI is installed and both `STRIPE_SECRET_KEY` and the matching local `STRIPE_WEBHOOK_SECRET` are present, `pnpm dev` starts a local Stripe webhook listener automatically for `localhost:3002/webhooks/stripe`. To bootstrap a local `whsec_...`, run `stripe listen --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,invoice.paid,invoice.payment_failed,customer.subscription.deleted --forward-to localhost:3002/webhooks/stripe` once with the same test account/key, copy the printed signing secret into `apps/api/.env`, then restart `pnpm dev`. Do not reuse the live Dashboard webhook secret for local CLI forwarding. If any prerequisite is missing, the listener is skipped and the rest of dev mode still starts.
+When Stripe CLI is installed and both `STRIPE_SECRET_KEY` and the matching local `STRIPE_WEBHOOK_SECRET` are present, `pnpm dev` starts a local Stripe webhook listener automatically for `localhost:3002/webhooks/stripe`. To bootstrap a local `whsec_...`, run `stripe listen --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,invoice.paid,invoice.payment_failed,customer.subscription.deleted,charge.refunded --forward-to localhost:3002/webhooks/stripe` once with the same test account/key, copy the printed signing secret into `apps/api/.env`, then restart `pnpm dev`. Configure the same event set on each deployed Stripe endpoint, using that endpoint's own test/live signing secret. Do not reuse the live Dashboard webhook secret for local CLI forwarding. If any prerequisite is missing, the listener is skipped and the rest of dev mode still starts.
 
 Stripe-hosted email receipts depend on the Stripe Dashboard email setting for successful payments. Ella still stores available receipt and invoice URLs from webhooks for staff use in the client Payments tab.
 
 ACH/bank payment links settle asynchronously. After a client submits ACH, the public quote page shows a bank-processing state for 3-5 business days and disables public retry/pay actions until Stripe reports success or failure. Workspace Payments shows quote monitoring labels for bank processing, failed retryable payments, duplicate-payment review before refunding, and subscriptions canceled after money was collected. Staff should not send another payment link while a bank payment is processing; check Stripe before contacting the client when ACH remains pending after 5 business days.
+
+Stripe documents [ACH Direct Debit](https://docs.stripe.com/payments/ach-direct-debit) as USD-presentment and delayed-notification. Ella's shared quote Checkout builder explicitly requests `card`, `link`, and `us_bank_account`, disables [Adaptive Pricing](https://docs.stripe.com/payments/currencies/localize-prices/adaptive-pricing) so quote Checkout stays in USD, and rejects non-USD `STRIPE_CURRENCY` with `CheckoutQuoteError`. This applies to signed/client-linked quotes, direct Calculator quotes, and Custom quote builder paths. The test account supports ACH: explicit `us_bank_account` sessions worked. The earlier missing ACH option came from Adaptive Pricing localizing USD Checkout to VND in the current locale, which suppressed USD-only ACH. Production must retain `STRIPE_CURRENCY=usd` and enable/verify ACH in each Stripe environment.
+
+Authenticated ADMIN smoke on 2026-07-16 verified that a signed Calculator card checkout appeared once, a linked Custom Link card settlement appeared once, recurring failure/recovery/cancellation mapped Past Due → Active → Ended without duplicate service rows, a full refund remained Refunded, and admin Payments retained financial detail. Signed Calculator ACH smoke then displayed US bank account; a verified `checkout.session.completed` replay with `payment_status=unpaid` returned 200 and kept the linked payment count at zero; the verified `checkout.session.async_payment_succeeded` replay returned 200 and produced exactly one PAID Payment plus one new Active service group. Direct, anonymous, unpaid, and historical pre-release quotes must remain absent. The exact non-financial Services DTO is `success`, `data`, and `meta { isTruncated, limit }`; each group contains `id`, `source`, `paidAt`, nullable safe `agreement { id, title, signedAt }`, and `items`, whose fields are `id`, `label`, nullable `description`, `category`, `cadence`, and `status`. Structured amounts, receipts, payment identifiers, and Stripe data remain in admin Payments. Admin-authored labels, descriptions, and agreement titles can still mention pricing, so operational teams must keep that free text suitable for staff visibility.
+
+### Paid Services Release Gate
+
+Phase 6 and the release-readiness rollout are complete. Final focused validation passes API 68/68, Workspace 50/50, both package type-checks, and `git diff --check`; final reviewer score is 10/10 with no findings or warnings. Earlier Phase 6 evidence remains preserved: 106 migrations current; targeted API 95/95; targeted Workspace 59/59; full suite 3,866/3,866; lint 0 errors/35 known warnings; root type-check 8/8; build 4/4; post-fix API 65/65; simplifier 27/27; independent focused tests 191/191; and USD hardening 97/97. The final auth warning is resolved: protected API requests require an active Clerk organization before Staff lookup, then cross-check the linked Staff organization's Clerk ID before accepting tenant context; automated regressions protect both missing and mismatched organization paths. Services keyset-pages by the aggregate first-settlement key (`MIN(Payment.paidAt)`, quote ID), skips invalid projections, and returns the newest 100 valid groups with explicit truncation metadata. Workspace warns that older history remains in Payments; the API no longer replaces the full view with 422.
+
+The authenticated ADMIN smoke covered card settlement, lifecycle transitions, and the signed Calculator ACH delayed-settlement path. The first Custom Link settlement exposed Prisma `P2010`: `$queryRaw` tried to deserialize PostgreSQL `void` from `pg_advisory_xact_lock`. The lock now uses `$executeRaw`; the exact failed signed webhook request was replayed and processed successfully once. ACH investigation later corrected the earlier configuration diagnosis: the direct Stripe test account supports ACH, while Adaptive Pricing had localized presentment to VND and suppressed USD-only `us_bank_account`. The shared Checkout builder now fixes quote presentment to USD and explicitly requests all supported methods.
+
+Final authenticated STAFF smoke used a legitimate same-org role. The client list exposed exactly one assigned client; that client's Services UI/API rendered three groups and only the fixed safe DTO, with no structured financial or Stripe keys. The unassigned paid-services API returned the same uniform 404, while direct navigation to the unassigned client page showed `Client not found` without client data. Manual browser scope covered assigned/unassigned behavior; no separate cross-org fixture was exercised. Missing and mismatched Clerk organization paths remain covered by automated auth regressions.
+
+Use a coordinated, forward-only rollout in every environment where the migrations are not yet applied:
+
+1. Confirm a verified full database backup or confirm all legacy `ClientServiceLog` rows are disposable, then obtain explicit approval for the destructive migration in that environment.
+2. Keep `STRIPE_CURRENCY=usd`, then enable and verify required payment methods, including ACH/`us_bank_account`, in that Stripe environment's Payment Method Configuration.
+3. Configure `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.deleted`, and `charge.refunded` on that environment's Stripe endpoint.
+4. Enter maintenance and stop the old API/Workspace before migrating; the first feature migration removes the legacy service-log schema while adding payment provenance.
+5. Apply the feature migrations in order, deploy API, deploy Workspace, then resume traffic.
+6. Pay one newly created eligible test quote and verify Services with ADMIN and an assigned/non-assigned STAFF/CPA account. Historical quotes are intentionally not backfilled.
+
+Before the destructive migration, the old deployment can still be restored. After it is applied, do not deploy the old application or edit/recreate applied migrations; roll forward with a corrective application release and, when needed, a new migration. Use a verified full database backup only for disaster recovery. Phase 6 completion did not perform a destructive migration, deployment, or Stripe production operation; every environment rollout action above remains separately authorized.
 
 ## Architecture
 
@@ -323,7 +346,7 @@ pnpm dev
 
 ---
 
-**Last Updated:** 2026-02-04
+**Last Updated:** 2026-07-18
 **Version:** 2.0.0
 **Maintainers:** Development Team
 

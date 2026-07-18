@@ -397,9 +397,13 @@ describe('Stripe checkout session params', () => {
 
 describe('buildCheckoutSessionParams — generalized line items + coupons', () => {
   beforeEach(() => {
-    const mutableConfig = config as { nodeEnv: string; stripe: { isConfigured: boolean } }
+    const mutableConfig = config as {
+      nodeEnv: string
+      stripe: { isConfigured: boolean; currency: string }
+    }
     mutableConfig.nodeEnv = 'development'
     mutableConfig.stripe.isConfigured = true
+    mutableConfig.stripe.currency = 'usd'
   })
 
   it('maps custom line items with description, quantity and per-item interval', () => {
@@ -456,6 +460,34 @@ describe('buildCheckoutSessionParams — generalized line items + coupons', () =
     )
     expect(params.mode).toBe('payment')
     expect(params.custom_text).toBeUndefined()
+  })
+
+  it('keeps quote checkout in USD and requests card, Link, and ACH', () => {
+    const recurringParams = buildCheckoutSessionParams(
+      [{ label: 'Monthly fee', unitAmountCents: 9900, quantity: 1, interval: 'month' }],
+      { quoteId: 'quote_recurring_methods' }
+    )
+    const oneTimeParams = buildCheckoutSessionParams(
+      [{ label: 'Single fee', unitAmountCents: 9900, quantity: 1, interval: 'one_time' }],
+      { quoteId: 'quote_one_time_methods' }
+    )
+
+    expect(recurringParams.payment_method_types).toEqual(['card', 'link', 'us_bank_account'])
+    expect(oneTimeParams.payment_method_types).toEqual(['card', 'link', 'us_bank_account'])
+    expect(recurringParams.adaptive_pricing).toEqual({ enabled: false })
+    expect(oneTimeParams.adaptive_pricing).toEqual({ enabled: false })
+  })
+
+  it('rejects non-USD quote checkout because ACH requires USD presentment', () => {
+    const mutableConfig = config as { stripe: { currency: string } }
+    mutableConfig.stripe.currency = 'eur'
+
+    expect(() =>
+      buildCheckoutSessionParams(
+        [{ label: 'Monthly fee', unitAmountCents: 9900, quantity: 1, interval: 'month' }],
+        { quoteId: 'quote_non_usd' }
+      )
+    ).toThrow('Quote checkout requires USD for ACH payments')
   })
 
   it('uses a Stripe Customer id instead of customer_email when provided', () => {

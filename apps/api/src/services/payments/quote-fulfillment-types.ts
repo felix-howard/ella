@@ -10,10 +10,13 @@ import type { StripeReceiptFacts } from '../stripe/stripe-receipt-facts'
  * the extra fields required to auto-convert it to a Client on first payment.
  */
 export const sendableQuoteInclude = {
-  client: { select: { id: true, firstName: true, lastName: true, phone: true } },
+  client: {
+    select: { id: true, organizationId: true, firstName: true, lastName: true, phone: true },
+  },
   lead: {
     select: {
       id: true,
+      organizationId: true,
       firstName: true,
       lastName: true,
       phone: true,
@@ -45,11 +48,27 @@ export interface QuoteSigner {
 export interface InvoiceFacts {
   id: string | null
   billingReason: string | null
-  amountPaidCents: number
+  amountPaidCents: number | null
   amountDueCents: number
   paymentIntentId: string | null
   subscriptionId: string | null
   receiptFacts?: StripeReceiptFacts
+}
+
+/** Server-controlled data for a settled quote Payment insert. */
+export interface QuotePaymentInput {
+  paymentQuoteId: string
+  payToken: string
+  organizationId: string
+  clientId: string | null
+  leadId: string | null
+  type: 'OTHER' | 'RECURRING'
+  amount: string
+  stripeSessionId: string | null
+  stripePaymentIntentId: string | null
+  receiptFacts?: StripeReceiptFacts
+  paidAt: Date
+  description: string
 }
 
 /** True for a Prisma unique-constraint violation (deterministic-payToken dedupe). */
@@ -64,4 +83,11 @@ export function stripeIdOf(value: unknown): string | null {
     return (value as { id: string }).id
   }
   return null
+}
+
+/** Prefer a Stripe-reported settlement total, with the frozen quote total as fallback. */
+export function resolveSettlementAmountCents(value: unknown, fallbackCents: number): number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+    ? value
+    : fallbackCents
 }

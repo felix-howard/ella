@@ -1,148 +1,186 @@
-import { useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertCircle, Loader2, RefreshCw } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
-import { Button } from '@ella/ui'
+import { cn } from '@ella/ui'
 import {
-  api,
-  type ClientServiceLog,
-  type CreateClientServiceLogInput,
-  type UpdateClientServiceLogInput,
+  AlertTriangle,
+  Archive,
+  BriefcaseBusiness,
+  CheckCircle2,
+  ShieldCheck,
+  type LucideIcon,
+} from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import type {
+  ClientPaidServiceGroup,
+  ClientPaidServiceStatus,
 } from '../../../lib/api-client'
-import { toast } from '../../../stores/toast-store'
-import { ServiceLogEditModal } from './service-log-edit-modal'
-import { ServiceLogQuickAdd } from './service-log-quick-add'
-import { ServiceLogTimeline } from './service-log-timeline'
-import { compareServiceLogsNewestFirst } from './service-log-labels'
+import { CardSection } from '../../shared/card-section'
+import { PaidServiceGroup } from './paid-service-group'
+import {
+  PaidServicesEmpty,
+  PaidServicesError,
+  PaidServicesLoading,
+  PaidServicesTruncated,
+} from './paid-services-query-states'
+import { useClientPaidServices } from './use-client-paid-services'
 
 interface ClientServicesTabProps {
   clientId: string
-  defaultTaxYear?: number | null
+  canManagePayments?: boolean
+  canManageAgreements?: boolean
 }
 
-const serviceLogQueryKey = (clientId: string, scope: 'latest' | 'active' = 'latest') =>
-  ['client-service-logs', clientId, scope] as const
+interface PaidServiceSectionProps {
+  id: string
+  title: string
+  description?: string
+  icon: LucideIcon
+  groups: ClientPaidServiceGroup[]
+  clientId: string
+  canManagePayments: boolean
+  canManageAgreements: boolean
+  attention?: boolean
+}
 
-export function ClientServicesTab({ clientId, defaultTaxYear }: ClientServicesTabProps) {
-  const { t } = useTranslation()
-  const queryClient = useQueryClient()
-  const [editingLog, setEditingLog] = useState<ClientServiceLog | null>(null)
+type PaidServiceSectionId = 'pastDue' | 'active' | 'paid' | 'history'
 
-  const latestQuery = useQuery({
-    queryKey: serviceLogQueryKey(clientId, 'latest'),
-    queryFn: () => api.clients.serviceLogs.list(clientId, { limit: 200 }),
-    staleTime: 30_000,
-  })
+function sectionForGroup(group: ClientPaidServiceGroup): PaidServiceSectionId {
+  const statuses = new Set<ClientPaidServiceStatus>(group.items.map((item) => item.status))
+  if (statuses.has('PAST_DUE')) return 'pastDue'
+  if (statuses.has('ACTIVE')) return 'active'
+  if (statuses.has('ENDED') || statuses.has('REFUNDED')) return 'history'
+  return 'paid'
+}
 
-  const invalidateServiceLogs = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['client-service-logs', clientId] }),
-      queryClient.invalidateQueries({ queryKey: ['activity', 'client', clientId] }),
-    ])
-  }
+function groupsInSection(
+  groups: ClientPaidServiceGroup[],
+  sectionId: PaidServiceSectionId,
+): ClientPaidServiceGroup[] {
+  return groups.filter((group) => sectionForGroup(group) === sectionId)
+}
 
-  const createMutation = useMutation({
-    mutationFn: (payload: CreateClientServiceLogInput) =>
-      api.clients.serviceLogs.create(clientId, payload),
-    onSuccess: async () => {
-      await invalidateServiceLogs()
-      toast.success(t('clientServices.createSuccess'))
-    },
-    onError: () => toast.error(t('clientServices.createError')),
-  })
-
-  const updateMutation = useMutation({
-    mutationFn: ({
-      serviceLogId,
-      payload,
-    }: {
-      serviceLogId: string
-      payload: UpdateClientServiceLogInput
-    }) => api.clients.serviceLogs.update(clientId, serviceLogId, payload),
-    onSuccess: async () => {
-      await invalidateServiceLogs()
-      setEditingLog(null)
-      toast.success(t('clientServices.updateSuccess'))
-    },
-    onError: () => toast.error(t('clientServices.updateError')),
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (serviceLogId: string) => api.clients.serviceLogs.delete(clientId, serviceLogId),
-    onSuccess: async () => {
-      await invalidateServiceLogs()
-      setEditingLog(null)
-      toast.success(t('clientServices.deleteSuccess'))
-    },
-    onError: () => toast.error(t('clientServices.deleteError')),
-  })
-
-  const logs = useMemo(
-    () => [...(latestQuery.data?.data ?? [])].sort(compareServiceLogsNewestFirst),
-    [latestQuery.data?.data]
-  )
+function PaidServiceSection({
+  id,
+  title,
+  description,
+  icon: Icon,
+  groups,
+  clientId,
+  canManagePayments,
+  canManageAgreements,
+  attention = false,
+}: PaidServiceSectionProps) {
+  if (groups.length === 0) return null
 
   return (
-    <div className="space-y-5">
-      {latestQuery.isLoading ? (
-        <ServiceLogLoadingState />
-      ) : latestQuery.isError ? (
-        <ServiceLogErrorState
-          onRetry={() => {
-            void latestQuery.refetch()
-          }}
-        />
+    <section aria-labelledby={id}>
+      <div
+        className={cn(
+          'mb-3 rounded-xl border px-4 py-3',
+          attention
+            ? 'border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/40'
+            : 'border-border/60 bg-muted/40',
+        )}
+      >
+        <h3
+          id={id}
+          className={cn(
+            'flex items-center gap-2 text-sm font-semibold',
+            attention ? 'text-red-800 dark:text-red-300' : 'text-foreground',
+          )}
+        >
+          <Icon className="size-4" aria-hidden="true" />
+          {title}
+        </h3>
+        {description ? (
+          <p
+            className={cn(
+              'mt-1 text-xs leading-5',
+              attention
+                ? 'text-red-700/90 dark:text-red-400/90'
+                : 'text-muted-foreground',
+            )}
+          >
+            {description}
+          </p>
+        ) : null}
+      </div>
+      <div className="space-y-3">
+        {groups.map((group) => (
+          <PaidServiceGroup
+            key={`${id}-${group.id}`}
+            clientId={clientId}
+            group={group}
+            canManagePayments={canManagePayments}
+            canManageAgreements={canManageAgreements}
+          />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+export function ClientServicesTab({
+  clientId,
+  canManagePayments = false,
+  canManageAgreements = false,
+}: ClientServicesTabProps) {
+  const { t } = useTranslation()
+  const query = useClientPaidServices(clientId)
+  const groups = query.data?.data ?? []
+  const sections = [
+    {
+      id: 'paid-services-past-due',
+      title: t('clientServices.section.pastDue'),
+      description: t('clientServices.section.pastDueDescription'),
+      icon: AlertTriangle,
+      groups: groupsInSection(groups, 'pastDue'),
+      attention: true,
+    },
+    {
+      id: 'paid-services-active',
+      title: t('clientServices.section.active'),
+      icon: ShieldCheck,
+      groups: groupsInSection(groups, 'active'),
+    },
+    {
+      id: 'paid-services-paid',
+      title: t('clientServices.section.paid'),
+      icon: CheckCircle2,
+      groups: groupsInSection(groups, 'paid'),
+    },
+    {
+      id: 'paid-services-history',
+      title: t('clientServices.section.history'),
+      icon: Archive,
+      groups: groupsInSection(groups, 'history'),
+    },
+  ]
+
+  return (
+    <CardSection
+      title={t('clientServices.tabTitle')}
+      icon={BriefcaseBusiness}
+      bodyClassName="p-4 sm:p-6"
+    >
+      {query.isLoading ? (
+        <PaidServicesLoading />
+      ) : query.isError ? (
+        <PaidServicesError onRetry={() => void query.refetch()} />
       ) : (
-        <ServiceLogTimeline
-          logs={logs}
-          onEdit={setEditingLog}
-          action={
-            <ServiceLogQuickAdd
-              key={defaultTaxYear ?? 'no-default-year'}
-              defaultTaxYear={defaultTaxYear}
-              isSubmitting={createMutation.isPending}
-              onSubmit={(payload) => createMutation.mutateAsync(payload).then(() => undefined)}
-            />
-          }
-        />
+        <div className="space-y-7">
+          {query.data?.meta.isTruncated ? (
+            <PaidServicesTruncated limit={query.data.meta.limit} />
+          ) : null}
+          {groups.length === 0 ? <PaidServicesEmpty /> : sections.map((section) => (
+              <PaidServiceSection
+                key={section.id}
+                {...section}
+                clientId={clientId}
+                canManagePayments={canManagePayments}
+                canManageAgreements={canManageAgreements}
+              />
+            ))}
+        </div>
       )}
-
-      <ServiceLogEditModal
-        log={editingLog}
-        isSaving={updateMutation.isPending}
-        isDeleting={deleteMutation.isPending}
-        onClose={() => setEditingLog(null)}
-        onSave={(serviceLogId, payload) =>
-          updateMutation.mutateAsync({ serviceLogId, payload }).then(() => undefined)
-        }
-        onDelete={(serviceLogId) => deleteMutation.mutateAsync(serviceLogId).then(() => undefined)}
-      />
-    </div>
-  )
-}
-
-function ServiceLogLoadingState() {
-  const { t } = useTranslation()
-  return (
-    <section className="rounded-xl border border-border bg-card p-6 text-center shadow-sm">
-      <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" aria-hidden="true" />
-      <p className="mt-3 text-sm text-muted-foreground">{t('clientServices.loading')}</p>
-    </section>
-  )
-}
-
-function ServiceLogErrorState({ onRetry }: { onRetry: () => void }) {
-  const { t } = useTranslation()
-  return (
-    <section className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center shadow-sm">
-      <AlertCircle className="mx-auto h-7 w-7 text-destructive" aria-hidden="true" />
-      <p className="mt-3 text-sm font-medium text-destructive">
-        {t('clientServices.loadError')}
-      </p>
-      <Button type="button" variant="outline" size="sm" onClick={onRetry} className="mt-4">
-        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-        {t('common.retry')}
-      </Button>
-    </section>
+    </CardSection>
   )
 }

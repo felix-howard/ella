@@ -75,6 +75,9 @@ describe('createDepositPaymentForAgreement', () => {
         description: 'Initial payment - 2026 Engagement Letter',
       }),
     })
+    expect(prismaMocks.payment.create.mock.calls[0]?.[0]?.data).not.toHaveProperty(
+      'paymentQuoteId'
+    )
 
     expect(smsMocks.sendSignerSmsAndPersist).toHaveBeenCalledTimes(1)
     const [target, message, template] = smsMocks.sendSignerSmsAndPersist.mock.calls[0]

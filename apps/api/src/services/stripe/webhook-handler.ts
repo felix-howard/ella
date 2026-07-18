@@ -8,6 +8,7 @@ import {
   loadSendableQuoteBySubscription,
   recordRecurringQuotePayment,
 } from '../payments/quote-fulfillment-service'
+import { synchronizeQuotePaymentRefund } from '../payments/quote-payment-refund-service'
 import type { InvoiceFacts } from '../payments/quote-fulfillment-types'
 import { getReceiptFactsFromInvoice } from './stripe-receipt-facts'
 
@@ -18,6 +19,7 @@ type StripeEventType =
   | 'invoice.paid'
   | 'invoice.payment_failed'
   | 'customer.subscription.deleted'
+  | 'charge.refunded'
 
 type CheckoutFulfillment = 'completed' | 'settled' | 'failed'
 
@@ -109,7 +111,7 @@ export async function handleStripeWebhookEvent(event: Stripe.Event): Promise<Str
       // Record only TRUE monthly cycles. The subscription's first invoice
       // (`subscription_create`) fires alongside checkout.session.completed and is
       // handled there — skip it to avoid a duplicate first-payment row.
-      if (facts.subscriptionId && facts.billingReason !== 'subscription_create') {
+      if (facts.subscriptionId && facts.billingReason === 'subscription_cycle') {
         const quote = await loadSendableQuoteBySubscription(facts.subscriptionId)
         if (quote) {
           await recordRecurringQuotePayment({
@@ -137,13 +139,15 @@ export async function handleStripeWebhookEvent(event: Stripe.Event): Promise<Str
       // re-delivery), and chasing a card for a canceled subscription is pointless.
       const skipAlert =
         !quote || quote.status === 'canceled' || quote.lastStripeEventId === cursor.id
-      await updateQuoteBySubscription(
+      const wasUpdated = await updateQuoteBySubscription(
         event.data.object,
         'payment_failed',
         'invoice_payment_failed',
         cursor
       )
-      if (quote && !skipAlert) await alertRecurringQuoteFailure({ quote, invoice: facts })
+      if (quote && !skipAlert && wasUpdated) {
+        await alertRecurringQuoteFailure({ quote, invoice: facts })
+      }
       break
     }
     case 'customer.subscription.deleted':
@@ -153,6 +157,12 @@ export async function handleStripeWebhookEvent(event: Stripe.Event): Promise<Str
         'subscription_canceled',
         getEventCursor(event)
       )
+      break
+    case 'charge.refunded':
+      await synchronizeQuotePaymentRefund({
+        stripeEventId: event.id,
+        charge: event.data.object,
+      })
       break
     default:
       return { processed: false, type: event.type }
@@ -283,7 +293,7 @@ function extractInvoiceFacts(stripeObject: unknown): InvoiceFacts {
   return {
     id: typeof obj.id === 'string' ? obj.id : null,
     billingReason: typeof obj.billing_reason === 'string' ? obj.billing_reason : null,
-    amountPaidCents: typeof obj.amount_paid === 'number' ? obj.amount_paid : 0,
+    amountPaidCents: typeof obj.amount_paid === 'number' ? obj.amount_paid : null,
     amountDueCents: typeof obj.amount_due === 'number' ? obj.amount_due : 0,
     paymentIntentId: getStripeObjectId(obj.payment_intent) ?? getInvoicePaymentIntentId(obj),
     subscriptionId: getSubscriptionId(stripeObject),
@@ -295,18 +305,15 @@ async function updateQuoteBySubscription(
   quoteStatus: string,
   sessionStatus: string,
   event: StripeEventCursor
-): Promise<void> {
+): Promise<boolean> {
   const stripeSubscriptionId = getSubscriptionId(stripeObject)
-  if (!stripeSubscriptionId) return
+  if (!stripeSubscriptionId) return false
 
-  await prisma.$transaction([
+  const [sessionUpdate, quoteUpdate] = await prisma.$transaction([
     prisma.stripeCheckoutSession.updateMany({
       where: {
         stripeSubscriptionId,
-        status:
-          sessionStatus === 'subscription_canceled'
-            ? { not: 'duplicate_paid_review' }
-            : { notIn: ['subscription_canceled', 'duplicate_paid_review'] },
+        status: { notIn: ['subscription_canceled', 'duplicate_paid_review'] },
         OR: buildSessionEventFreshnessWhere(sessionStatus, event.at),
       },
       data: {
@@ -317,18 +324,17 @@ async function updateQuoteBySubscription(
     }),
     prisma.paymentQuote.updateMany({
       where: {
-        status:
-          quoteStatus === 'canceled'
-            ? { notIn: ['canceled', 'paid', 'active'] }
-            : { not: 'canceled' },
+        status: { not: 'canceled' },
         checkoutSessions: {
           some: {
             stripeSubscriptionId,
-            status: { not: 'duplicate_paid_review' },
-            ...(quoteStatus === 'canceled' ? { paidAt: null } : {}),
+            status:
+              quoteStatus === 'canceled'
+                ? { not: 'duplicate_paid_review' }
+                : { notIn: ['subscription_canceled', 'duplicate_paid_review'] },
           },
         },
-        OR: buildQuoteEventFreshnessWhere(quoteStatus, event.at),
+        OR: buildQuoteEventFreshnessWhere(quoteStatus, event.at, sessionStatus),
       },
       data: {
         status: quoteStatus,
@@ -337,6 +343,7 @@ async function updateQuoteBySubscription(
       },
     }),
   ])
+  return sessionUpdate.count > 0 || quoteUpdate.count > 0
 }
 
 function getCheckoutQuoteStatus(
@@ -408,14 +415,22 @@ function isSubscriptionDerivedStatus(status: string | undefined): boolean {
   )
 }
 
-function buildQuoteEventFreshnessWhere(targetStatus: string, eventAt: Date) {
+function buildQuoteEventFreshnessWhere(
+  targetStatus: string,
+  eventAt: Date,
+  subscriptionEventStatus?: string,
+) {
   return [
     { lastStripeEventAt: null },
     { lastStripeEventAt: { lt: eventAt } },
     {
       AND: [
         { lastStripeEventAt: eventAt },
-        { status: { in: getSameSecondAllowedQuoteStatuses(targetStatus) } },
+        {
+          status: {
+            in: getSameSecondAllowedQuoteStatuses(targetStatus, subscriptionEventStatus),
+          },
+        },
       ],
     },
   ]
@@ -434,7 +449,10 @@ function buildSessionEventFreshnessWhere(targetStatus: string, eventAt: Date) {
   ]
 }
 
-function getSameSecondAllowedQuoteStatuses(targetStatus: string): string[] {
+function getSameSecondAllowedQuoteStatuses(
+  targetStatus: string,
+  subscriptionEventStatus?: string,
+): string[] {
   const statuses = [
     'pending_checkout',
     'checkout_created',
@@ -448,6 +466,12 @@ function getSameSecondAllowedQuoteStatuses(targetStatus: string): string[] {
     'canceled',
   ]
 
+  if (subscriptionEventStatus === 'invoice_paid') {
+    return statuses.filter((status) => status !== 'canceled')
+  }
+  if (subscriptionEventStatus === 'invoice_payment_failed') {
+    return statuses.filter((status) => !['paid', 'active', 'canceled'].includes(status))
+  }
   return statuses.filter(
     (status) => getQuoteStatusPriority(status) <= getQuoteStatusPriority(targetStatus)
   )
@@ -480,10 +504,10 @@ function getQuoteStatusPriority(status: string): number {
 }
 
 function getSessionStatusPriority(status: string): number {
+  if (status === 'duplicate_paid_review') return 60
   if (status === 'subscription_canceled') return 50
+  if (status === 'invoice_paid') return 45
   if (status === 'payment_failed' || status === 'invoice_payment_failed') return 40
-  if (status === 'duplicate_paid_review') return 35
-  if (status === 'invoice_paid') return 30
   if (status === 'complete') return 20
   return 10
 }

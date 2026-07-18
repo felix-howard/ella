@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getAvailableTabIds } from './client-detail-tabs'
+import { getAvailableTabIds, VALID_TAB_PARAMS } from './client-detail-tabs'
 
 const noManagementFlags = {
   canManagePayments: false,
@@ -12,6 +12,10 @@ const fullManagementFlags = {
 } as const
 
 describe('client detail tab availability', () => {
+  it('keeps services as a valid URL tab', () => {
+    expect(VALID_TAB_PARAMS).toContain('services')
+  })
+
   it('shows services for individual clients', () => {
     const tabs = getAvailableTabIds({ clientType: 'INDIVIDUAL' }, noManagementFlags)
 

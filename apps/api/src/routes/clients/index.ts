@@ -71,7 +71,7 @@ import {
 import { clientsAgreementsRoute } from './agreements'
 import { clientsAgreementsStaffRoute } from './agreements-staff'
 import { clientsPaymentsStaffRoute } from './payments-staff'
-import { clientsServiceLogsRoute } from './service-logs'
+import { clientsPaidServicesRoute } from './paid-services'
 import {
   IDENTITY_RETENTION_DELETE_IN_PROGRESS_REASON,
   IDENTITY_RETENTION_POLICY,
@@ -127,7 +127,7 @@ function summarizeIdentityRetention(
 clientsRoute.route('/', clientsAgreementsRoute)
 clientsRoute.route('/', clientsAgreementsStaffRoute)
 clientsRoute.route('/', clientsPaymentsStaffRoute)
-clientsRoute.route('/', clientsServiceLogsRoute)
+clientsRoute.route('/', clientsPaidServicesRoute)
 
 /**
  * Compute display name from firstName and lastName

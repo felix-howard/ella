@@ -13,6 +13,8 @@ interface PricingPaymentLinkPanelProps {
   onCreate: () => Promise<void>
 }
 
+const paymentLinkStatusId = 'pricing-payment-link-status'
+
 export function PricingPaymentLinkPanel({
   checkout,
   disabledReason,
@@ -61,7 +63,13 @@ export function PricingPaymentLinkPanel({
       </header>
 
       <div className="mt-4 space-y-3">
-        <Button type="button" className="w-full" onClick={handleCreate} disabled={createDisabled}>
+        <Button
+          type="button"
+          className="w-full"
+          onClick={handleCreate}
+          disabled={createDisabled}
+          aria-describedby={paymentLinkStatusId}
+        >
           {isCreating ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
@@ -73,7 +81,12 @@ export function PricingPaymentLinkPanel({
           {t('paymentLinks.anonymousClientHistoryWarning')}
         </p>
 
-        <p className="min-h-5 text-xs text-muted-foreground" role="status" aria-live="polite">
+        <p
+          id={paymentLinkStatusId}
+          className="min-h-5 text-xs text-muted-foreground"
+          role={disabledReason ? undefined : 'status'}
+          aria-live={disabledReason ? undefined : 'polite'}
+        >
           {disabledReason ??
             (quoteChanged ? 'Quote changed. Create a new link before sharing.' : '')}
           {errorMessage ? <span className="block text-error">{errorMessage}</span> : null}

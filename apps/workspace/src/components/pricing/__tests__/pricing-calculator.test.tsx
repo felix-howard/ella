@@ -21,7 +21,11 @@ import {
   toPricingCalculatorCustomDraftNumber,
 } from '../pricing-calculator-custom-items'
 import { PricingCalculatorCustomItemRow } from '../pricing-calculator-custom-item-row'
-import { getCreateDisabledReason, getPrintDisabledReason } from '../pricing-disabled-reasons'
+import {
+  CASH_PLAN_PARTICIPANTS_REQUIRED_REASON,
+  getCreateDisabledReason,
+  getPrintDisabledReason,
+} from '../pricing-disabled-reasons'
 
 const useMutationMock = vi.hoisted(() => vi.fn())
 const createCheckoutSessionMock = vi.hoisted(() => vi.fn())
@@ -249,6 +253,21 @@ describe('workspace pricing calculator', () => {
     expect(enabledMarkup).toContain('Audit setup')
   })
 
+  it('shows an accessible error when Cash Plan is enabled without participants', () => {
+    const input = createDefaultPricingInput()
+    input.cashPlan.enabled = true
+
+    const markup = renderToStaticMarkup(
+      <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
+    )
+
+    expect(markup).toContain(CASH_PLAN_PARTICIPANTS_REQUIRED_REASON)
+    expect(markup).toContain('id="pricing-cash-plan-participants-error"')
+    expect(markup).toContain('aria-describedby="pricing-cash-plan-participants-error"')
+    expect(markup).toContain('aria-invalid="true"')
+    expect(markup).toContain('role="alert"')
+  })
+
   it('hides one-time service fields until one-time services are enabled', () => {
     const input = createDefaultPricingInput()
 
@@ -445,6 +464,34 @@ describe('workspace pricing calculator', () => {
     input.nec1099Count = 1
 
     expect(getPrintDisabledReason(input, calculatePricing(input))).toBeNull()
+  })
+
+  it('blocks every calculator proceed action while an included service is $0', () => {
+    const input = createDefaultPricingInput()
+    input.cashPlan.enabled = true
+    const result = calculatePricing(input)
+
+    expect(getCreateDisabledReason(input, result)).toBe(CASH_PLAN_PARTICIPANTS_REQUIRED_REASON)
+    expect(getPrintDisabledReason(input, result)).toBe(CASH_PLAN_PARTICIPANTS_REQUIRED_REASON)
+
+    input.cashPlan.employees = 1
+    const validResult = calculatePricing(input)
+    expect(getCreateDisabledReason(input, validResult)).toBeNull()
+    expect(getPrintDisabledReason(input, validResult)).toBeNull()
+  })
+
+  it('blocks a selected standard service whose configured rate is $0', () => {
+    const input = createDefaultPricingInput()
+    input.nec1099Count = 1
+    input.rates.tiers.basicMonthly = 0
+    const result = calculatePricing(input)
+
+    expect(getCreateDisabledReason(input, result)).toBe(
+      'Set a price above $0 for Monthly bookkeeping service.'
+    )
+    expect(getPrintDisabledReason(input, result)).toBe(
+      'Set a price above $0 for Monthly bookkeeping service.'
+    )
   })
 
   it('allows 21+ worker payment links, send-to-client, print quotes, and custom monthly rates', () => {

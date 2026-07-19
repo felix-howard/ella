@@ -14,6 +14,7 @@ export {
   calculatePricing,
   createDefaultPricingInput,
   detectPricingTier,
+  findNonPositivePricingLine,
   isBusinessTaxReturnPrepayLine,
   isPricingCheckoutAmountSane,
   isPricingInputSane,

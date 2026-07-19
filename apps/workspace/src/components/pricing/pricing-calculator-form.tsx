@@ -5,6 +5,7 @@ import { useState, type ReactNode } from 'react'
 import { Input, SelectField, Switch } from '@ella/ui'
 import { clampWholeNumber, formatCurrency } from './pricing-format'
 import { PricingCalculatorCustomItemsSection } from './pricing-calculator-custom-items-section'
+import { CASH_PLAN_PARTICIPANTS_REQUIRED_REASON } from './pricing-disabled-reasons'
 
 interface PricingCalculatorFormProps {
   input: PricingCalculatorInput
@@ -30,6 +31,7 @@ const oneTimeRows: OneTimeRow[] = [
 
 const numberInputClass =
   '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
+const cashPlanParticipantsErrorId = 'pricing-cash-plan-participants-error'
 
 export function PricingCalculatorForm({
   input,
@@ -39,6 +41,8 @@ export function PricingCalculatorForm({
   const hasOneTimeSelection = Object.values(input.oneTime).some((quantity) => quantity > 0)
   const [oneTimeManuallyEnabled, setOneTimeManuallyEnabled] = useState(false)
   const oneTimeEnabled = oneTimeManuallyEnabled || hasOneTimeSelection
+  const cashPlanNeedsParticipant =
+    input.cashPlan.enabled && input.cashPlan.employees + input.cashPlan.owners <= 0
 
   const setQuantity = (key: TopQuantityKey, value: string, max = 1000) => {
     onInputChange({ ...input, [key]: clampWholeNumber(value, max) })
@@ -154,6 +158,8 @@ export function PricingCalculatorForm({
                   label="Employees enrolled"
                   value={input.cashPlan.employees}
                   max={200}
+                  describedBy={cashPlanNeedsParticipant ? cashPlanParticipantsErrorId : undefined}
+                  invalid={cashPlanNeedsParticipant}
                   onChange={(value) =>
                     onInputChange({
                       ...input,
@@ -166,6 +172,8 @@ export function PricingCalculatorForm({
                   label="Owners / shareholders"
                   value={input.cashPlan.owners}
                   max={99}
+                  describedBy={cashPlanNeedsParticipant ? cashPlanParticipantsErrorId : undefined}
+                  invalid={cashPlanNeedsParticipant}
                   onChange={(value) =>
                     onInputChange({
                       ...input,
@@ -174,6 +182,15 @@ export function PricingCalculatorForm({
                   }
                 />
               </div>
+              {cashPlanNeedsParticipant && (
+                <p
+                  id={cashPlanParticipantsErrorId}
+                  className="text-xs text-destructive"
+                  role="alert"
+                >
+                  {CASH_PLAN_PARTICIPANTS_REQUIRED_REASON}
+                </p>
+              )}
               <div className="grid gap-3 sm:grid-cols-3">
                 <RateField
                   label="Setup"
@@ -318,6 +335,8 @@ function NumberField({
   hint,
   max,
   disabled = false,
+  describedBy,
+  invalid = false,
 }: {
   id: string
   label: string
@@ -326,6 +345,8 @@ function NumberField({
   hint?: string
   max: number
   disabled?: boolean
+  describedBy?: string
+  invalid?: boolean
 }) {
   const displayValue = value === 0 ? '' : String(value)
 
@@ -340,6 +361,8 @@ function NumberField({
         maxLength={String(max).length}
         value={displayValue}
         disabled={disabled}
+        aria-describedby={describedBy}
+        aria-invalid={invalid || undefined}
         onChange={(event) => onChange(event.target.value.replace(/[^\d]/g, ''))}
         className={`mt-1 ${numberInputClass}`}
       />

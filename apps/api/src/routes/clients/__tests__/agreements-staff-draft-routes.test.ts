@@ -1,6 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { Hono } from 'hono'
 import type { AuthUser, AuthVariables } from '../../../middleware/auth'
+import { errorHandler } from '../../../middleware/error-handler'
+import { CheckoutQuoteError } from '../../../services/stripe/quote-calculator'
 
 vi.mock('../../../services/agreements/agreement-service', () => ({
   createAgreementForEntity: vi.fn(),
@@ -82,6 +84,7 @@ const pricingInput = {
 
 function buildApp() {
   const app = new Hono<{ Variables: AuthVariables }>()
+  app.onError(errorHandler)
   app.use('*', async (c, next) => {
     c.set('user', ADMIN_USER)
     await next()
@@ -134,6 +137,30 @@ describe('client agreement draft staff routes', () => {
       sourceSnapshot: { quoteId: 'quote_1' },
       calculatorQuote: { pricingInput, paymentPortalMode: 'STAFF_REVIEW' },
     }))
+  })
+
+  it('returns invalid Calculator pricing as a client error', async () => {
+    vi.mocked(createAgreementDraftForEntity).mockRejectedValueOnce(
+      new CheckoutQuoteError('Set a price above $0 for Cash Plan'),
+    )
+
+    const res = await jsonRequest(`/clients/${clientId}/agreements/drafts`, 'POST', {
+      type: 'ENGAGEMENT_LETTER',
+      contentHtml: '<p>Scope</p>',
+      source: 'CALCULATOR',
+      calculatorQuote: {
+        pricingInput: {
+          ...pricingInput,
+          cashPlan: { enabled: true, employees: 0, owners: 0 },
+        },
+      },
+    })
+
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'ERROR',
+      message: 'Set a price above $0 for Cash Plan',
+    })
   })
 
   it('passes client draft updates with expectedUpdatedAt to the shared draft service', async () => {

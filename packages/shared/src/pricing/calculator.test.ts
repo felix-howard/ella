@@ -5,6 +5,7 @@ import {
   calculatePricing,
   createDefaultPricingInput,
   detectPricingTier,
+  findNonPositivePricingLine,
   isPricingCheckoutAmountSane,
   isPricingInputSane,
   MAX_CHECKOUT_LINE_AMOUNT,
@@ -177,6 +178,16 @@ describe('pricing calculator', () => {
     input.rates.tiers.basicMonthly = MAX_CHECKOUT_LINE_AMOUNT + 1
 
     expect(isPricingCheckoutAmountSane(calculatePricing(input))).toBe(false)
+  })
+
+  it('finds an included calculator service whose amount is not positive', () => {
+    const input = createDefaultPricingInput()
+    input.cashPlan = { enabled: true, employees: 0, owners: 0 }
+
+    expect(findNonPositivePricingLine(calculatePricing(input))?.label).toContain('Cash Plan')
+
+    input.cashPlan.employees = 1
+    expect(findNonPositivePricingLine(calculatePricing(input))).toBeNull()
   })
 
   it('rejects quantities beyond workspace checkout limits', () => {

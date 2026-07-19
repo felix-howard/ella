@@ -268,6 +268,16 @@ export function isPricingCheckoutAmountSane(result: PricingCheckoutAmountSummary
   )
 }
 
+export function findNonPositivePricingLine(
+  result: PricingCheckoutAmountSummary
+): PricingLineItem | null {
+  return (
+    [...result.monthlyItems, ...result.setupItems].find(
+      (item) => !Number.isFinite(item.amount) || item.amount <= 0
+    ) ?? null
+  )
+}
+
 function total(items: PricingLineItem[]): number {
   return items.reduce((sum, item) => sum + item.amount, 0)
 }

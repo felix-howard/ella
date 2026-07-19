@@ -25,6 +25,8 @@ interface PricingEngagementLetterPanelProps {
   disabledReason: string | null
 }
 
+const engagementLetterStatusId = 'pricing-engagement-letter-status'
+
 export function PricingEngagementLetterPanel({
   pricingInput,
   pricingResult,
@@ -157,12 +159,18 @@ export function PricingEngagementLetterPanel({
           className="w-full"
           onClick={openModal}
           disabled={Boolean(actionDisabledReason)}
+          aria-describedby={engagementLetterStatusId}
         >
           <FileText className="h-4 w-4" />
           Prepare engagement letter
         </Button>
 
-        <p className="min-h-5 text-xs text-muted-foreground" role="status" aria-live="polite">
+        <p
+          id={engagementLetterStatusId}
+          className="min-h-5 text-xs text-muted-foreground"
+          role={disabledReason ? undefined : 'status'}
+          aria-live={disabledReason ? undefined : 'polite'}
+        >
           {actionDisabledReason ?? 'Review and edit before previewing the PDF.'}
         </p>
         <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">

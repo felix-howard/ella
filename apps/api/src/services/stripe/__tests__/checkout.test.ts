@@ -284,6 +284,27 @@ describe('Stripe checkout session params', () => {
     ).toThrow('Select at least one billable service before checkout')
   })
 
+  it('rejects Cash Plan checkout without an employee or owner', () => {
+    expect(() =>
+      calculateCheckoutQuote({
+        ...basePricingInput,
+        cashPlan: { enabled: true, employees: 0, owners: 0 },
+      })
+    ).toThrow('Set a price above $0 for Cash Plan')
+  })
+
+  it('rejects any selected calculator service configured at $0', () => {
+    expect(() =>
+      calculateCheckoutQuote({
+        ...basePricingInput,
+        rates: {
+          ...basePricingInput.rates,
+          tiers: { ...basePricingInput.rates.tiers, proMonthly: 0 },
+        },
+      })
+    ).toThrow('Set a price above $0 for Monthly bookkeeping service')
+  })
+
   it('allows 21+ worker payment links', () => {
     const quote = calculateCheckoutQuote({
       ...basePricingInput,

@@ -30,6 +30,8 @@ const prismaMocks = vi.hoisted(() => ({
 const quoteMocks = vi.hoisted(() => ({
   calculateCheckoutQuote: vi.fn(),
   CheckoutQuoteError: class CheckoutQuoteError extends Error {
+    readonly status = 400 as const
+
     constructor(message: string) {
       super(message)
       this.name = 'CheckoutQuoteError'
@@ -255,6 +257,28 @@ describe('saveFrozenCalculatorAgreementQuoteForAgreement', () => {
       ),
     ).rejects.toThrow(quoteMocks.CheckoutQuoteError)
     expect(prismaMocks.paymentQuote.create).not.toHaveBeenCalled()
+  })
+
+  it('rejects invalid calculator pricing before agreement quote writes', async () => {
+    prismaMocks.agreement.findFirst.mockResolvedValueOnce(draftAgreement())
+    quoteMocks.calculateCheckoutQuote.mockImplementationOnce(() => {
+      throw new quoteMocks.CheckoutQuoteError('Set a price above $0 for Cash Plan')
+    })
+
+    await expect(
+      saveFrozenCalculatorAgreementQuoteForAgreement(
+        {
+          agreementId: 'agreement_1',
+          recipient: { type: 'client', id: 'client_1' },
+          quote: { pricingInput },
+        },
+        { organizationId: 'org_1', staffId: 'staff_1' },
+      ),
+    ).rejects.toMatchObject({ status: 400 })
+
+    expect(prismaMocks.paymentQuote.create).not.toHaveBeenCalled()
+    expect(prismaMocks.paymentQuote.updateMany).not.toHaveBeenCalled()
+    expect(prismaMocks.agreement.updateMany).not.toHaveBeenCalled()
   })
 })
 

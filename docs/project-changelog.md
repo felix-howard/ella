@@ -1,9 +1,22 @@
 # Project Changelog
 
-> **Last Updated:** 2026-07-18 ICT
+> **Last Updated:** 2026-07-19 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### Zero-Priced Calculator Service Prevention (2026-07-19)
+**Status:** Complete
+
+**Fixed:**
+- Calculator quotes now block every included service priced at `$0` or less in both Workspace proceed actions and the API. Cash Plan requires at least one employee or owner and shows an accessible inline error when enabled without participants.
+- Calculator agreement API requests now return `400` without committing quote or agreement writes when pricing is invalid.
+
+**Scope:**
+- Custom Link validation, the Paid Services parser, and historical quotes remain unchanged. No database migration or data repair.
+
+**Validation:**
+- Full shared, Workspace, and API tests passed, 3,863/3,863; targeted zero-price and Custom Link regressions passed, including Custom Link 14/14. Package type-checks, Workspace/API production builds, lint with 0 errors and 15 known unrelated warnings, code review 10/10, and `git diff --check` passed.
 
 ### Automatic Paid Client Services Phase 6 (2026-07-16)
 **Status:** COMPLETE — final legitimate same-org STAFF assigned/unassigned scope smoke passed 2026-07-18

@@ -84,23 +84,27 @@ import { computeStatus } from '../../lib/computed-status'
 import { BUSINESS_TYPE_LABELS } from '../../lib/business-type-helpers'
 import { IndividualScheduleCActivities } from '../../components/cases/tabs/schedule-c-tab/individual-schedule-c-activities'
 import { getLinkedBusinessesWithScheduleC } from '../../components/cases/tabs/schedule-c-tab/schedule-c-activities'
-import { DEFAULT_CLIENT_TAB, getAvailableTabIds, type TabType, VALID_TAB_PARAMS } from './client-detail-tabs'
+import {
+  DEFAULT_CLIENT_TAB,
+  getAvailableTabIds,
+  parseClientDetailSearch,
+  type TabType,
+} from './client-detail-tabs'
 
 export const Route = createFileRoute('/clients/$clientId')({
   component: ClientDetailPage,
   parseParams: (params) => ({ clientId: params.clientId }),
-  validateSearch: (search: Record<string, unknown>): { tab?: TabType } => {
-    const tab = search.tab as string | undefined
-    return {
-      tab: tab && VALID_TAB_PARAMS.includes(tab as TabType) ? (tab as TabType) : undefined,
-    }
-  },
+  validateSearch: parseClientDetailSearch,
 })
 
 function ClientDetailPage() {
   const { t, i18n } = useTranslation()
   const { clientId } = Route.useParams()
-  const { tab: tabFromSearch } = Route.useSearch()
+  const {
+    tab: tabFromSearch,
+    agreementId: focusedAgreementId,
+    quoteId: focusedQuoteId,
+  } = Route.useSearch()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>(tabFromSearch ?? DEFAULT_CLIENT_TAB)
@@ -1013,11 +1017,14 @@ function ClientDetailPage() {
           }}
           enabled={true}
           canSend={canManageAgreements}
+          focusedAgreementId={focusedAgreementId}
         />
       )}
 
       {/* Payments Tab - deposits/balances collected from this client */}
-      {activeTab === 'payments' && canManagePayments && <ClientPaymentsTab clientId={clientId} />}
+      {activeTab === 'payments' && canManagePayments && (
+        <ClientPaymentsTab clientId={clientId} focusedQuoteId={focusedQuoteId} />
+      )}
 
       {/* Services Tab - read-only paid services projection. */}
       {activeTab === 'services' && (

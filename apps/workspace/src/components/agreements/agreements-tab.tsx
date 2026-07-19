@@ -16,9 +16,17 @@ interface Props {
   enabled: boolean
   /** Whether the current user can send agreements. Defaults to true for backwards compat with Lead callsite. */
   canSend?: boolean
+  /** Agreement card to reveal when arriving from a related service. */
+  focusedAgreementId?: string
 }
 
-export function AgreementsTab({ entity, recipient, enabled, canSend = true }: Props) {
+export function AgreementsTab({
+  entity,
+  recipient,
+  enabled,
+  canSend = true,
+  focusedAgreementId,
+}: Props) {
   const { t } = useTranslation()
   const query = useAgreementsList(entity, enabled)
   const agreements = query.data?.data ?? []
@@ -40,6 +48,7 @@ export function AgreementsTab({ entity, recipient, enabled, canSend = true }: Pr
         ndas={agreements}
         isLoading={query.isLoading}
         isError={query.isError}
+        focusedAgreementId={focusedAgreementId}
       />
     </CardSection>
   )

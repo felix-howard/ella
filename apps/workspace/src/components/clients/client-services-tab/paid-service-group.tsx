@@ -57,7 +57,7 @@ export function PaidServiceGroup({
               <Link
                 to="/clients/$clientId"
                 params={{ clientId }}
-                search={{ tab: 'payments' }}
+                search={{ tab: 'payments', quoteId: group.id }}
                 aria-label={t('clientServices.viewPaymentsForService', { source: sourceLabel })}
                 className="inline-flex min-h-11 items-center gap-1.5 rounded-md text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
@@ -69,7 +69,7 @@ export function PaidServiceGroup({
               <Link
                 to="/clients/$clientId"
                 params={{ clientId }}
-                search={{ tab: 'agreements' }}
+                search={{ tab: 'agreements', agreementId: group.agreement.id }}
                 aria-label={t('clientServices.viewAgreementByTitle', {
                   title: group.agreement.title,
                 })}

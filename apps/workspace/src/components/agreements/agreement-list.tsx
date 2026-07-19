@@ -4,7 +4,7 @@
  * `ndas` to SendAgreementButton for disabled-state logic without double fetching.
  */
 import { useTranslation } from 'react-i18next'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { FileSignature, Loader2 } from 'lucide-react'
 import { NdaCard } from './agreement-card'
 import type { Agreement } from '../../lib/api-client'
@@ -16,10 +16,18 @@ interface Props {
   ndas: Agreement[]
   isLoading: boolean
   isError: boolean
+  focusedAgreementId?: string
 }
 
-export function NdaList({ entity, ndas, isLoading, isError }: Props) {
+export function NdaList({
+  entity,
+  ndas,
+  isLoading,
+  isError,
+  focusedAgreementId,
+}: Props) {
   const { t } = useTranslation()
+  const focusedAgreementRef = useRef<HTMLDivElement>(null)
   const sortedAgreements = useMemo(
     () => ndas
       .map((nda, index) => ({ nda, index }))
@@ -37,6 +45,22 @@ export function NdaList({ entity, ndas, isLoading, isError }: Props) {
       .map(({ nda }) => nda),
     [ndas],
   )
+
+  useEffect(() => {
+    const target = focusedAgreementRef.current
+    if (!target) return
+
+    const frameId = window.requestAnimationFrame(() => {
+      target.focus({ preventScroll: true })
+      target.scrollIntoView({
+        behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+          ? 'auto'
+          : 'smooth',
+        block: 'center',
+      })
+    })
+    return () => window.cancelAnimationFrame(frameId)
+  }, [focusedAgreementId, sortedAgreements])
 
   if (isLoading) {
     return (
@@ -66,7 +90,20 @@ export function NdaList({ entity, ndas, isLoading, isError }: Props) {
   return (
     <div className="space-y-3">
       {sortedAgreements.map((nda) => (
-        <NdaCard key={nda.id} entity={entity} nda={nda} />
+        <div
+          key={nda.id}
+          ref={nda.id === focusedAgreementId ? focusedAgreementRef : undefined}
+          tabIndex={nda.id === focusedAgreementId ? -1 : undefined}
+          data-agreement-id={nda.id}
+          data-focused-agreement={nda.id === focusedAgreementId ? 'true' : undefined}
+          className={
+            nda.id === focusedAgreementId
+              ? 'rounded-xl ring-2 ring-primary ring-offset-2 transition-shadow'
+              : undefined
+          }
+        >
+          <NdaCard entity={entity} nda={nda} />
+        </div>
       ))}
     </div>
   )

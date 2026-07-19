@@ -24,10 +24,16 @@ vi.mock('@tanstack/react-router', () => ({
     'aria-label': ariaLabel,
   }: {
     children: React.ReactNode
-    search: { tab: string }
+    search: { tab: string; agreementId?: string; quoteId?: string }
     'aria-label'?: string
   }) => (
-    <a href={`/clients/client_1?tab=${search.tab}`} data-tab={search.tab} aria-label={ariaLabel}>
+    <a
+      href={`/clients/client_1?tab=${search.tab}`}
+      data-tab={search.tab}
+      data-agreement-id={search.agreementId}
+      data-quote-id={search.quoteId}
+      aria-label={ariaLabel}
+    >
       {children}
     </a>
   ),
@@ -99,6 +105,20 @@ describe('PaidServiceGroup', () => {
     expect(customMarkup).not.toContain('data-tab="agreements"')
     expect(agreementMarkup).not.toContain('data-tab="payments"')
     expect(agreementMarkup).toContain('data-tab="agreements"')
+  })
+
+  it('deep-links each action to the exact related record', () => {
+    const markup = renderToStaticMarkup(
+      <PaidServiceGroup
+        clientId="client_1"
+        group={calculatorGroup}
+        canManagePayments
+        canManageAgreements
+      />,
+    )
+
+    expect(markup).toContain('data-quote-id="quote_1"')
+    expect(markup).toContain('data-agreement-id="agreement_1"')
   })
 
   it('uses non-landmark link groups with source-specific accessible names', () => {

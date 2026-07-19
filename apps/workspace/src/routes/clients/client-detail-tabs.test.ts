@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { getAvailableTabIds, VALID_TAB_PARAMS } from './client-detail-tabs'
+import {
+  getAvailableTabIds,
+  parseClientDetailSearch,
+  VALID_TAB_PARAMS,
+} from './client-detail-tabs'
 
 const noManagementFlags = {
   canManagePayments: false,
@@ -52,5 +56,32 @@ describe('client detail tab availability', () => {
     )
 
     expect(tabs).not.toContain('agreements')
+  })
+})
+
+describe('client detail search parsing', () => {
+  it('keeps only the focus id that belongs to the active tab', () => {
+    expect(parseClientDetailSearch({
+      tab: 'agreements',
+      agreementId: ' agreement_1 ',
+      quoteId: 'quote_ignored',
+    })).toEqual({ tab: 'agreements', agreementId: 'agreement_1' })
+
+    expect(parseClientDetailSearch({
+      tab: 'payments',
+      agreementId: 'agreement_ignored',
+      quoteId: 'quote_1',
+    })).toEqual({ tab: 'payments', quoteId: 'quote_1' })
+  })
+
+  it('drops invalid, stale, and mismatched focus ids', () => {
+    expect(parseClientDetailSearch({
+      tab: 'agreements',
+      agreementId: '../agreement_1',
+    })).toEqual({ tab: 'agreements', agreementId: undefined })
+    expect(parseClientDetailSearch({ tab: 'services', quoteId: 'quote_1' }))
+      .toEqual({ tab: 'services' })
+    expect(parseClientDetailSearch({ tab: 'not-a-tab', agreementId: 'agreement_1' }))
+      .toEqual({ tab: undefined })
   })
 })

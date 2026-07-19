@@ -5,6 +5,18 @@
 
 ---
 
+### Services Related-Card Deep Links (2026-07-19)
+**Status:** Complete
+
+**Changed:**
+- Services `View agreement` and `View payments` actions now navigate to the exact related Agreement or Payment Quote card, scroll it into view, move focus to it, and show a visible outline.
+- Stale or invalid related IDs fail gracefully, while existing capability gates remain unchanged.
+- Frontend-only change; no API, database, schema, or migration changes.
+
+**Validation:**
+- Focused tests passed, 26/26; full Workspace tests passed, 412/412.
+- Workspace type-check, production build, and `git diff --check` passed. Lint reported 0 errors and 14 pre-existing warnings; reviewer scored 10/10.
+
 ### Zero-Priced Calculator Service Prevention (2026-07-19)
 **Status:** Complete
 

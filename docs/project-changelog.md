@@ -5,6 +5,21 @@
 
 ---
 
+### Portal Agreement Signer-Metadata Overflow (2026-07-20)
+**Status:** Complete
+
+**Fixed:**
+- Firm signature previews and long unbroken signer names/titles shared one non-wrapping row without width constraints, allowing horizontal overflow on narrow Portal screens.
+- The signature row now wraps, constrains wide images to the available width, preserves their aspect ratio and left alignment, and breaks signer metadata safely when needed.
+
+**Scope:**
+- Portal agreement signing UI only. No API, database, schema, or migration change.
+
+**Validation:**
+- Automated containment-style regression passed, 1/1; full Portal suite passed, 21/21.
+- Intercepted browser verification with a representative 1104×220 signature showed no page, form, card, or row overflow at 1440px and 390px viewports.
+- Portal type-check, production build, and `git diff --check` passed. Lint reported 0 errors and 3 pre-existing warnings in unchanged files.
+
 ### Calculator Setup-Fee Alignment (2026-07-20)
 **Status:** Complete
 

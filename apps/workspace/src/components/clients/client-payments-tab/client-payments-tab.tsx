@@ -3,6 +3,7 @@
  * client: amount, type, description, status badge, paid date, source
  * agreement link, and copy-pay-link action while PENDING.
  */
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, CreditCard, Loader2 } from 'lucide-react'
 import { CardSection } from '../../shared/card-section'
@@ -13,6 +14,7 @@ import { useReconcilePaymentReceipt } from './use-reconcile-payment-receipt'
 
 interface Props {
   clientId: string
+  focusedQuoteId?: string
 }
 
 function PastDueBanner() {
@@ -55,8 +57,9 @@ function MonitoringBanner({
   )
 }
 
-export function ClientPaymentsTab({ clientId }: Props) {
+export function ClientPaymentsTab({ clientId, focusedQuoteId }: Props) {
   const { t } = useTranslation()
+  const focusedQuoteRef = useRef<HTMLDivElement>(null)
   const query = useClientPayments(clientId)
   const receiptRefreshMutation = useReconcilePaymentReceipt(clientId)
   const payments = query.data?.data ?? []
@@ -64,6 +67,22 @@ export function ClientPaymentsTab({ clientId }: Props) {
   const monitoring = query.data?.monitoring
   const pastDue = query.data?.pastDue ?? false
   const hasPaymentActivity = payments.length > 0 || quotePayments.length > 0
+
+  useEffect(() => {
+    const target = focusedQuoteRef.current
+    if (!target) return
+
+    const frameId = window.requestAnimationFrame(() => {
+      target.focus({ preventScroll: true })
+      target.scrollIntoView({
+        behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+          ? 'auto'
+          : 'smooth',
+        block: 'center',
+      })
+    })
+    return () => window.cancelAnimationFrame(frameId)
+  }, [focusedQuoteId, query.data?.quotePayments])
 
   return (
     <CardSection title={t('payments.tabTitle')} icon={CreditCard}>
@@ -113,7 +132,20 @@ export function ClientPaymentsTab({ clientId }: Props) {
                 {t('payments.quoteSectionTitle')}
               </h3>
               {quotePayments.map((quote) => (
-                <ClientQuotePaymentRow key={quote.id} quote={quote} clientId={clientId} />
+                <div
+                  key={quote.id}
+                  ref={quote.id === focusedQuoteId ? focusedQuoteRef : undefined}
+                  tabIndex={quote.id === focusedQuoteId ? -1 : undefined}
+                  data-payment-quote-id={quote.id}
+                  data-focused-payment-quote={quote.id === focusedQuoteId ? 'true' : undefined}
+                  className={
+                    quote.id === focusedQuoteId
+                      ? 'rounded-xl ring-2 ring-primary ring-offset-2 transition-shadow'
+                      : undefined
+                  }
+                >
+                  <ClientQuotePaymentRow quote={quote} clientId={clientId} />
+                </div>
               ))}
             </div>
           )}

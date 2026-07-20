@@ -8,6 +8,7 @@
 import { customAlphabet } from 'nanoid'
 import { HTTPException } from 'hono/http-exception'
 import type { Prisma } from '@ella/db'
+import { materializePricingSetupRates } from '@ella/shared/pricing'
 import { prisma } from '../../lib/db'
 import { PORTAL_URL } from '../../lib/constants'
 import type { SendQuoteInput } from '../../routes/billing/schemas'
@@ -59,7 +60,7 @@ export type CalculatorQuoteSnapshotInput = Pick<
  */
 export function buildCalculatorQuoteInputSnapshot(input: CalculatorQuoteSnapshotInput) {
   return {
-    pricingInput: input.pricingInput,
+    pricingInput: materializePricingSetupRates(input.pricingInput),
     customerEmail: input.customerEmail,
     customerName: input.customerName,
     businessName: input.businessName,

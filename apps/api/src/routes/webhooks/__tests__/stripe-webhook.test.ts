@@ -6,6 +6,12 @@ const stripeMocks = vi.hoisted(() => ({
   constructEvent: vi.fn(),
 }))
 
+const fulfillmentNotifyMocks = vi.hoisted(() => ({
+  notifyDuplicateQuotePayment: vi.fn(),
+  notifyFirstQuotePayment: vi.fn(),
+  notifyQuotePaymentFailed: vi.fn(),
+}))
+
 const prismaMocks = vi.hoisted(() => ({
   paymentQuote: {
     updateMany: vi.fn(),
@@ -18,6 +24,7 @@ const prismaMocks = vi.hoisted(() => ({
     updateMany: vi.fn(),
   },
   stripeWebhookEventLog: {
+    findFirst: vi.fn(),
     findUnique: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
@@ -25,9 +32,12 @@ const prismaMocks = vi.hoisted(() => ({
   },
   payment: {
     findUnique: vi.fn(),
+    findMany: vi.fn(),
     updateMany: vi.fn(),
     create: vi.fn(),
   },
+  $executeRaw: vi.fn(),
+  $queryRaw: vi.fn(),
   $transaction: vi.fn(),
 }))
 
@@ -61,6 +71,7 @@ vi.mock('../../../lib/config', async (importOriginal) => {
 vi.mock('../../../lib/db', () => ({
   prisma: prismaMocks,
 }))
+vi.mock('../../../services/payments/quote-fulfillment-notify', () => fulfillmentNotifyMocks)
 
 function createApp() {
   const app = new Hono()
@@ -120,7 +131,10 @@ describe('Stripe webhook route', () => {
     prismaMocks.stripeCheckoutSession.updateMany.mockResolvedValue({ count: 1 })
     prismaMocks.paymentQuote.updateMany.mockResolvedValue({ count: 1 })
     prismaMocks.paymentQuote.findFirst.mockResolvedValue(null)
+    prismaMocks.payment.findMany.mockResolvedValue([])
+    prismaMocks.payment.updateMany.mockResolvedValue({ count: 1 })
     prismaMocks.stripeWebhookEventLog.findUnique.mockResolvedValue(null)
+    prismaMocks.stripeWebhookEventLog.findFirst.mockResolvedValue(null)
     prismaMocks.stripeWebhookEventLog.create.mockResolvedValue({
       stripeEventId: 'evt_checkout_session_completed',
       status: 'received',
@@ -133,9 +147,17 @@ describe('Stripe webhook route', () => {
     })
     prismaMocks.stripeWebhookEventLog.updateMany.mockResolvedValue({ count: 1 })
     prismaMocks.payment.create.mockResolvedValue({})
-    prismaMocks.$transaction.mockImplementation(async (operations: Promise<unknown>[]) =>
-      Promise.all(operations)
-    )
+    prismaMocks.$executeRaw.mockResolvedValue(1)
+    prismaMocks.$queryRaw.mockResolvedValue([])
+    fulfillmentNotifyMocks.notifyDuplicateQuotePayment.mockResolvedValue(undefined)
+    fulfillmentNotifyMocks.notifyFirstQuotePayment.mockResolvedValue(undefined)
+    fulfillmentNotifyMocks.notifyQuotePaymentFailed.mockResolvedValue(undefined)
+    prismaMocks.$transaction.mockImplementation(async (input: unknown) => {
+      if (typeof input === 'function') {
+        return (input as (tx: typeof prismaMocks) => unknown)(prismaMocks)
+      }
+      return Promise.all(input as Promise<unknown>[])
+    })
   })
 
   it('marks a completed paid subscription checkout quote active', async () => {
@@ -236,6 +258,28 @@ describe('Stripe webhook route', () => {
       }),
       data: expect.objectContaining({ status: 'awaiting_payment' }),
     })
+  })
+
+  it('does not create paid-service evidence for a fully discounted checkout', async () => {
+    stripeMocks.constructEvent.mockReturnValueOnce(
+      stripeEvent(
+        'checkout.session.completed',
+        checkoutSession({
+          payment_status: 'no_payment_required',
+          amount_total: 0,
+          metadata: { paymentQuoteId: 'quote_123', quotePayToken: 'tok_quote' },
+        })
+      )
+    )
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(200)
+    expect(prismaMocks.paymentQuote.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: 'quote_123' }),
+      data: expect.objectContaining({ status: 'awaiting_payment' }),
+    })
+    expect(prismaMocks.payment.create).not.toHaveBeenCalled()
   })
 
   it('prefers the local checkout-session quote association over metadata', async () => {
@@ -376,20 +420,16 @@ describe('Stripe webhook route', () => {
     'maps %s to local subscription status updates',
     async (type, object, sessionStatus, quoteStatus) => {
       stripeMocks.constructEvent.mockReturnValueOnce(stripeEvent(type, object))
-      const expectedQuoteStatusWhere =
-        type === 'customer.subscription.deleted'
-          ? { notIn: ['canceled', 'paid', 'active'] }
-          : { not: 'canceled' }
+      const expectedQuoteStatusWhere = { not: 'canceled' }
       const expectedCheckoutSessionWhere =
         type === 'customer.subscription.deleted'
           ? {
               stripeSubscriptionId: 'sub_123',
               status: { not: 'duplicate_paid_review' },
-              paidAt: null,
             }
           : {
               stripeSubscriptionId: 'sub_123',
-              status: { not: 'duplicate_paid_review' },
+              status: { notIn: ['subscription_canceled', 'duplicate_paid_review'] },
             }
 
       const res = await postStripeWebhook()
@@ -414,6 +454,91 @@ describe('Stripe webhook route', () => {
       })
     }
   )
+
+  it('marks a quote-linked Payment refunded for a fully refunded charge', async () => {
+    stripeMocks.constructEvent.mockReturnValueOnce(
+      stripeEvent('charge.refunded', {
+        id: 'ch_quote_123',
+        object: 'charge',
+        payment_intent: 'pi_quote_123',
+        amount: 10_000,
+        amount_refunded: 10_000,
+        refunded: true,
+      })
+    )
+    prismaMocks.payment.findMany.mockResolvedValueOnce([
+      {
+        id: 'payment_123',
+        paymentQuoteId: 'quote_123',
+        status: 'PAID',
+        stripeChargeId: 'ch_quote_123',
+      },
+    ])
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({
+      processed: true,
+      type: 'charge.refunded',
+    })
+    expect(prismaMocks.payment.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'payment_123',
+        paymentQuoteId: 'quote_123',
+        status: 'PAID',
+        stripeChargeId: 'ch_quote_123',
+      },
+      data: { status: 'REFUNDED' },
+    })
+  })
+
+  it('acknowledges a partial charge refund without changing Payment status', async () => {
+    stripeMocks.constructEvent.mockReturnValueOnce(
+      stripeEvent('charge.refunded', {
+        id: 'ch_quote_123',
+        object: 'charge',
+        payment_intent: 'pi_quote_123',
+        amount: 10_000,
+        amount_refunded: 2_500,
+        refunded: false,
+      })
+    )
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(200)
+    expect(prismaMocks.payment.findMany).not.toHaveBeenCalled()
+    expect(prismaMocks.payment.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('persists an unmatched full refund for later Payment creation', async () => {
+    stripeMocks.constructEvent.mockReturnValueOnce(
+      stripeEvent('charge.refunded', {
+        id: 'ch_early_refund',
+        object: 'charge',
+        payment_intent: 'pi_early_refund',
+        amount: 10_000,
+        amount_refunded: 10_000,
+        refunded: true,
+      })
+    )
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(200)
+    expect(prismaMocks.stripeWebhookEventLog.updateMany).toHaveBeenCalledWith({
+      where: {
+        stripeEventId: 'evt_charge_refunded',
+        eventType: 'charge.refunded',
+      },
+      data: {
+        stripePaymentIntentId: 'pi_early_refund',
+        chargeFullyRefunded: true,
+      },
+    })
+    expect(prismaMocks.payment.updateMany).not.toHaveBeenCalled()
+  })
 
   it('records recurring invoice payments with receipt facts', async () => {
     stripeMocks.constructEvent.mockReturnValueOnce(
@@ -453,7 +578,13 @@ describe('Stripe webhook route', () => {
       organizationId: 'org_1',
       clientId: 'client_123',
       leadId: null,
-      client: { id: 'client_123', firstName: 'Anna', lastName: 'Nguyen', phone: null },
+      client: {
+        id: 'client_123',
+        organizationId: 'org_1',
+        firstName: 'Anna',
+        lastName: 'Nguyen',
+        phone: null,
+      },
       lead: null,
     })
 
@@ -484,6 +615,43 @@ describe('Stripe webhook route', () => {
     })
   })
 
+  it.each([null, 'subscription_update'])(
+    'does not record non-cycle invoice payments when billing_reason is %s',
+    async (billingReason) => {
+      stripeMocks.constructEvent.mockReturnValueOnce(
+        stripeEvent('invoice.paid', {
+          id: 'in_non_cycle',
+          object: 'invoice',
+          subscription: 'sub_123',
+          billing_reason: billingReason,
+          amount_paid: 8500,
+          amount_due: 8500,
+          payment_intent: 'pi_non_cycle',
+        })
+      )
+      prismaMocks.paymentQuote.findFirst.mockResolvedValueOnce({
+        id: 'quote_123',
+        organizationId: 'org_1',
+        clientId: 'client_123',
+        leadId: null,
+        client: {
+          id: 'client_123',
+          organizationId: 'org_1',
+          firstName: 'Anna',
+          lastName: 'Nguyen',
+          phone: null,
+        },
+        lead: null,
+      })
+
+      const res = await postStripeWebhook()
+
+      expect(res.status).toBe(200)
+      expect(prismaMocks.paymentQuote.findFirst).not.toHaveBeenCalled()
+      expect(prismaMocks.payment.create).not.toHaveBeenCalled()
+    }
+  )
+
   it('returns 500 when recurring Payment insert fails with a non-idempotency error', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     stripeMocks.constructEvent.mockReturnValueOnce(
@@ -511,7 +679,13 @@ describe('Stripe webhook route', () => {
       organizationId: 'org_1',
       clientId: 'client_123',
       leadId: null,
-      client: { id: 'client_123', firstName: 'Anna', lastName: 'Nguyen', phone: null },
+      client: {
+        id: 'client_123',
+        organizationId: 'org_1',
+        firstName: 'Anna',
+        lastName: 'Nguyen',
+        phone: null,
+      },
       lead: null,
     })
     prismaMocks.payment.create.mockRejectedValueOnce(new Error('insert failed'))
@@ -620,7 +794,7 @@ describe('Stripe webhook route', () => {
     expect(quoteSameSecondStatuses).not.toContain('canceled')
   })
 
-  it('guards same-second invoice paid writes against failed subscription state', async () => {
+  it('lets same-second invoice paid recover failed state without overriding terminal state', async () => {
     stripeMocks.constructEvent.mockReturnValueOnce(
       stripeEvent('invoice.paid', { object: 'invoice', subscription: 'sub_123' })
     )
@@ -633,12 +807,98 @@ describe('Stripe webhook route', () => {
     const sessionSameSecondStatuses = sessionWhere.OR[2].AND[1].status.in
     const quoteSameSecondStatuses = quoteWhere.OR[2].AND[1].status.in
 
-    expect(sessionSameSecondStatuses).not.toContain('payment_failed')
-    expect(sessionSameSecondStatuses).not.toContain('invoice_payment_failed')
+    expect(sessionSameSecondStatuses).toContain('payment_failed')
+    expect(sessionSameSecondStatuses).toContain('invoice_payment_failed')
     expect(sessionSameSecondStatuses).not.toContain('duplicate_paid_review')
     expect(sessionSameSecondStatuses).not.toContain('subscription_canceled')
-    expect(quoteSameSecondStatuses).not.toContain('payment_failed')
+    expect(quoteSameSecondStatuses).toContain('payment_failed')
     expect(quoteSameSecondStatuses).not.toContain('canceled')
+  })
+
+  it('does not let same-second invoice failure replace successful recurring health', async () => {
+    stripeMocks.constructEvent.mockReturnValueOnce(
+      stripeEvent('invoice.payment_failed', { object: 'invoice', subscription: 'sub_123' })
+    )
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(200)
+    const sessionWhere = prismaMocks.stripeCheckoutSession.updateMany.mock.calls[0]?.[0].where
+    const quoteWhere = prismaMocks.paymentQuote.updateMany.mock.calls[0]?.[0].where
+    const sessionSameSecondStatuses = sessionWhere.OR[2].AND[1].status.in
+    const quoteSameSecondStatuses = quoteWhere.OR[2].AND[1].status.in
+
+    expect(sessionSameSecondStatuses).not.toContain('invoice_paid')
+    expect(sessionSameSecondStatuses).not.toContain('duplicate_paid_review')
+    expect(sessionSameSecondStatuses).not.toContain('subscription_canceled')
+    expect(quoteSameSecondStatuses).not.toContain('paid')
+    expect(quoteSameSecondStatuses).not.toContain('active')
+    expect(quoteSameSecondStatuses).not.toContain('canceled')
+  })
+
+  it('suppresses a recurring failure alert when the Stripe event is stale', async () => {
+    stripeMocks.constructEvent.mockReturnValueOnce(
+      stripeEvent('invoice.payment_failed', {
+        id: 'in_stale_failure',
+        object: 'invoice',
+        subscription: 'sub_123',
+        amount_due: 8500,
+      })
+    )
+    prismaMocks.paymentQuote.findFirst.mockResolvedValueOnce({
+      id: 'quote_123',
+      organizationId: 'org_1',
+      status: 'active',
+      lastStripeEventId: 'evt_newer',
+      client: {
+        id: 'client_123',
+        organizationId: 'org_1',
+        firstName: 'Anna',
+        lastName: 'Nguyen',
+        phone: null,
+      },
+      lead: null,
+    })
+    prismaMocks.stripeCheckoutSession.updateMany.mockResolvedValueOnce({ count: 0 })
+    prismaMocks.paymentQuote.updateMany.mockResolvedValueOnce({ count: 0 })
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(200)
+    expect(fulfillmentNotifyMocks.notifyQuotePaymentFailed).not.toHaveBeenCalled()
+  })
+
+  it('allows a newer invoice paid event to recover failed recurring health', async () => {
+    const recoveredAt = new Date(1_800_000_100 * 1000)
+    stripeMocks.constructEvent.mockReturnValueOnce({
+      ...stripeEvent('invoice.paid', { object: 'invoice', subscription: 'sub_123' }),
+      created: 1_800_000_100,
+    })
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(200)
+    expect(prismaMocks.stripeCheckoutSession.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        stripeSubscriptionId: 'sub_123',
+        status: { notIn: ['subscription_canceled', 'duplicate_paid_review'] },
+        OR: expect.arrayContaining([{ lastStripeEventAt: { lt: recoveredAt } }]),
+      }),
+      data: expect.objectContaining({ status: 'invoice_paid', lastStripeEventAt: recoveredAt }),
+    })
+    expect(prismaMocks.paymentQuote.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        status: { not: 'canceled' },
+        checkoutSessions: {
+          some: {
+            stripeSubscriptionId: 'sub_123',
+            status: { notIn: ['subscription_canceled', 'duplicate_paid_review'] },
+          },
+        },
+        OR: expect.arrayContaining([{ lastStripeEventAt: { lt: recoveredAt } }]),
+      }),
+      data: expect.objectContaining({ status: 'active', lastStripeEventAt: recoveredAt }),
+    })
   })
 
   it('does not let later invoice events replace a canceled checkout session status', async () => {
@@ -655,6 +915,17 @@ describe('Stripe webhook route', () => {
         status: { notIn: ['subscription_canceled', 'duplicate_paid_review'] },
       }),
       data: expect.objectContaining({ status: 'invoice_paid' }),
+    })
+    expect(prismaMocks.paymentQuote.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        checkoutSessions: {
+          some: {
+            stripeSubscriptionId: 'sub_123',
+            status: { notIn: ['subscription_canceled', 'duplicate_paid_review'] },
+          },
+        },
+      }),
+      data: expect.objectContaining({ status: 'active' }),
     })
   })
 

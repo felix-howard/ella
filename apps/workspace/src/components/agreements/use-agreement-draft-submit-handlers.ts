@@ -68,7 +68,7 @@ export function useAgreementDraftSubmitHandlers({
   onClose,
   conflictMessage,
 }: UseAgreementDraftSubmitHandlersInput): {
-  handleSaveDraft: (resolved: Step3Resolved) => void
+  handleSaveDraft: (resolved: Step3Resolved, onSuccess?: () => void) => void
   handleSubmit: (resolved: Step3Resolved) => void
 } {
   const shouldSendCalculatorQuote = Boolean(
@@ -113,7 +113,7 @@ export function useAgreementDraftSubmitHandlers({
     [handleSendError, onClose, paymentPortalMode, sendDraftMutation, type],
   )
 
-  const handleSaveDraft = useCallback((resolved: Step3Resolved) => {
+  const handleSaveDraft = useCallback((resolved: Step3Resolved, onSuccess?: () => void) => {
     const payload = buildSaveAgreementDraftPayload({
       type,
       templateId,
@@ -126,6 +126,7 @@ export function useAgreementDraftSubmitHandlers({
       onSuccess: (res) => {
         setSavedDraft(res.data, resolved)
         resetSavedBaseline(payload)
+        onSuccess?.()
       },
     })
   }, [

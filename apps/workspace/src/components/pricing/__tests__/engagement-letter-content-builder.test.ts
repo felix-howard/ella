@@ -54,6 +54,24 @@ describe('buildCalculatorEngagementLetterHtml', () => {
     expect(html).toContain('Audit Detection setup: $1,000.')
   })
 
+  it('uses waived setup fees in the agreement total', () => {
+    const input = createDefaultPricingInput()
+    input.payrollEmployees = 1
+    input.cashPlan = { enabled: true, employees: 1, owners: 0 }
+    input.auditProtection = true
+    input.rates.bookkeeping!.setup = 0
+    input.rates.payroll.setup = 0
+
+    const html = buildHtml(input)
+
+    expect(html).not.toContain('Bookkeeping onboarding setup:')
+    expect(html).not.toContain('Payroll setup:')
+    expect(html).toContain('Cash Plan setup: $1,000.')
+    expect(html).toContain('Audit Detection setup: $1,000.')
+    expect(html).toContain('<strong>Total Setup Fee:</strong> $2,000')
+    expect(html).not.toContain('<strong>Total Setup Fee:</strong> $2,400')
+  })
+
   it('escapes custom monthly and one-time item labels', () => {
     const input = createDefaultPricingInput()
     input.customItems = [

@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Loader2, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { AgreementDraftEditor } from '../agreements/agreement-draft-editor'
+import type { AgreementDraftSavedState } from '../agreements/use-agreement-draft-saved-state'
+import type { AgreementDraftCloseGuard } from '../agreements/use-agreement-draft-close-guard'
 import { CalculatorPaymentModeControl } from '../agreements/calculator-payment-mode-control'
 import { useNdaReadiness } from '../agreements/use-nda-readiness'
 import { NdaSetupRequiredCard } from '../agreements/nda-setup-required-card'
@@ -41,9 +43,14 @@ export function CalculatorEngagementLetterModal({
   })
   const [paymentPortalModeOverride, setPaymentPortalModeOverride] =
     useState<AgreementPaymentPortalSendMode | null>(null)
-  const closeGuardRef = useRef<(() => boolean) | null>(null)
+  const [persistedPaymentModeBaseline, setPersistedPaymentModeBaseline] = useState<{
+    draftKey: string | null
+    mode: AgreementPaymentPortalSendMode
+  } | null>(null)
+  const closeGuardRef = useRef<AgreementDraftCloseGuard | null>(null)
   const draftChoice = useCalculatorEngagementLetterDraftChoice(entity)
   const selectedDraft = draftChoice.selectedDraft
+  const selectedDraftKey = selectedDraft?.id ?? null
 
   const setupMissing =
     readinessQuery.isError || (readinessQuery.data ? !readinessQuery.data.ready : false)
@@ -51,13 +58,16 @@ export function CalculatorEngagementLetterModal({
     orgSettingsQuery.data?.calculatorAgreementPaymentMode ?? 'STAFF_REVIEW'
   const selectedDraftPaymentMode = selectedDraft
     ? resolveCalculatorPaymentPortalMode(
-        selectedDraft.paymentPortalMode,
         getCalculatorSourceSnapshotPaymentPortalMode(selectedDraft.sourceSnapshot) ??
-          orgDefaultPaymentMode,
+          selectedDraft.paymentPortalMode,
+        orgDefaultPaymentMode,
       )
     : null
-  const paymentPortalMode =
-    paymentPortalModeOverride ?? selectedDraftPaymentMode ?? orgDefaultPaymentMode
+  const paymentPortalModeBaseline =
+    persistedPaymentModeBaseline?.draftKey === selectedDraftKey
+      ? persistedPaymentModeBaseline.mode
+      : selectedDraftPaymentMode ?? orgDefaultPaymentMode
+  const paymentPortalMode = paymentPortalModeOverride ?? paymentPortalModeBaseline
   const canContinuePastLookupFailure =
     !draftChoice.lookupFailedWithoutDraft || draftChoice.isStartingCurrentQuote
   const hasResolvedEditorState =
@@ -88,14 +98,30 @@ export function CalculatorEngagementLetterModal({
     !draftChoice.shouldChooseDraftMode &&
     !isWaitingForPaymentSettings
 
-  const registerCloseGuard = useCallback((guard: (() => boolean) | null) => {
+  const registerCloseGuard = useCallback((guard: AgreementDraftCloseGuard | null) => {
     closeGuardRef.current = guard
   }, [])
 
   const requestClose = useCallback(() => {
-    if (closeGuardRef.current && !closeGuardRef.current()) return
+    if (closeGuardRef.current) {
+      closeGuardRef.current(onClose)
+      return
+    }
     onClose()
   }, [onClose])
+
+  const handleSavedStateChange = useCallback((state: AgreementDraftSavedState | null) => {
+    if (!state) return
+    const savedMode = resolveCalculatorPaymentPortalMode(
+      getCalculatorSourceSnapshotPaymentPortalMode(state.agreement.sourceSnapshot) ??
+        state.agreement.paymentPortalMode,
+      paymentPortalMode,
+    )
+    setPersistedPaymentModeBaseline({ draftKey: selectedDraftKey, mode: savedMode })
+    setPaymentPortalModeOverride((currentOverride) =>
+      currentOverride === null || currentOverride === savedMode ? null : currentOverride,
+    )
+  }, [paymentPortalMode, selectedDraftKey])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -243,7 +269,12 @@ export function CalculatorEngagementLetterModal({
               paymentPortalMode={paymentPortalMode}
               initialDraft={selectedDraft ? undefined : draftSeed.draft}
               closeBaselineDraft={selectedDraft ? undefined : draftSeed.draft}
+              hasExternalUnsavedChanges={
+                paymentPortalModeOverride !== null &&
+                paymentPortalModeOverride !== paymentPortalModeBaseline
+              }
               existingDraft={selectedDraft ?? undefined}
+              onSavedStateChange={handleSavedStateChange}
               onClose={onClose}
               registerCloseGuard={registerCloseGuard}
             />

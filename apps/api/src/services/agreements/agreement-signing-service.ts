@@ -36,7 +36,10 @@ import {
   notifyAdminsAgreementSigned,
   type PostSignAgreementContext,
 } from './agreement-post-sign-notifications'
-import { createDepositPaymentForAgreement } from '../payments/deposit-payment-service'
+import {
+  createDepositPaymentForAgreement,
+  type DepositPaymentPortalResult,
+} from '../payments/deposit-payment-service'
 import {
   activateAgreementQuotePaymentPortal,
   markAgreementQuoteSignedForReview,
@@ -409,7 +412,7 @@ export async function toPublicView(agreement: LoadedAgreement): Promise<PublicAg
     expired: isExpired(agreement.expiresAt),
     templateVersion: agreement.templateVersion,
     templateTitle: agreement.title || template.title,
-    templateSubtitle: agreement.type === 'CONSENT_7216' ? template.subtitle ?? null : null,
+    templateSubtitle: agreement.type === 'CONSENT_7216' ? (template.subtitle ?? null) : null,
     templateSections: sections,
     // Sanitized at write time. Legacy templateSections kept for back-compat
     // with portal builds that don't yet read templateHtml. `|| null` (not
@@ -680,20 +683,24 @@ export async function signAgreement(input: SignAgreementInput) {
     throw new HTTPException(409, { message: 'Agreement was already signed' })
   }
 
-  // Post-commit side effects (admin SMS, deposit Payment + client pay link).
-  // Fire-and-forget: must NEVER fail or delay the signing response.
-  runPostSignSideEffects({
-    id: agreement.id,
-    organizationId: agreement.organizationId,
-    orgName: agreement.organization.name,
-    title: agreement.title,
-    createdByUserId: agreement.createdByUserId,
-    leadId: agreement.leadId,
-    clientId: agreement.clientId,
-    depositAmount: agreement.depositAmount,
-    depositStatus: agreement.depositStatus,
-    signer: agreement.signer,
-  })
+  // Post-commit side effects (admin SMS, initial Payment + client pay link).
+  // Payment setup is awaited so the signing response can expose its Portal
+  // URL; failures remain isolated and never roll back a valid signature.
+  const initialPaymentPortalResult = await runPostSignSideEffects(
+    {
+      id: agreement.id,
+      organizationId: agreement.organizationId,
+      orgName: agreement.organization.name,
+      title: agreement.title,
+      createdByUserId: agreement.createdByUserId,
+      leadId: agreement.leadId,
+      clientId: agreement.clientId,
+      depositAmount: agreement.depositAmount,
+      depositStatus: agreement.depositStatus,
+      signer: agreement.signer,
+    },
+    Boolean(agreement.paymentQuoteId)
+  )
   const paymentPortalResult = await runAgreementQuotePostSignSideEffect({
     agreementId: agreement.id,
     organizationId: agreement.organizationId,
@@ -702,14 +709,18 @@ export async function signAgreement(input: SignAgreementInput) {
     paymentQuoteId: agreement.paymentQuoteId,
   })
 
+  // Linked calculator quotes own their post-sign CTA and SMS semantics;
+  // standard agreements use the initial-payment URL returned above.
+  const paymentPortalUrl = paymentPortalResult?.payUrl ?? initialPaymentPortalResult?.payUrl
+
   const downloadUrl = await getSignedDownloadUrl(signedPdfKey, DOWNLOAD_TTL_SECONDS)
   return {
     status: 'SIGNED' as const,
     signedAt,
     downloadUrl,
+    ...(paymentPortalUrl ? { paymentPortalUrl } : {}),
     ...(paymentPortalResult
       ? {
-          paymentPortalUrl: paymentPortalResult.payUrl,
           paymentPortalDelivery: {
             mode: 'AUTO_SEND' as const,
             smsSent: paymentPortalResult.smsSent,
@@ -721,17 +732,28 @@ export async function signAgreement(input: SignAgreementInput) {
 }
 
 /**
- * Post-sign side effects, fired AFTER the signing transaction commits. Each
- * step is independently caught + logged — a Twilio outage or payment-create
- * failure never breaks the signing response.
+ * Post-sign side effects, fired AFTER the signing transaction commits. Admin
+ * notification stays detached; initial-payment setup is awaited because its
+ * pay URL is part of the successful response. Both failures remain isolated.
  */
-function runPostSignSideEffects(ctx: PostSignAgreementContext): void {
+async function runPostSignSideEffects(
+  ctx: PostSignAgreementContext,
+  hasLinkedPaymentQuote: boolean
+): Promise<DepositPaymentPortalResult | null> {
   notifyAdminsAgreementSigned(ctx).catch((err) => {
     console.error(`[Agreement] Post-sign admin notification failed for agreement=${ctx.id}:`, err)
   })
-  createDepositPaymentForAgreement(ctx).catch((err) => {
+
+  // Calculator quotes have their own activation/review and SMS workflow.
+  // Never create a second initial-payment link for the same agreement.
+  if (hasLinkedPaymentQuote) return null
+
+  try {
+    return await createDepositPaymentForAgreement(ctx)
+  } catch (err) {
     console.error(`[Agreement] Post-sign deposit payment hook failed for agreement=${ctx.id}:`, err)
-  })
+    return null
+  }
 }
 
 async function runAgreementQuotePostSignSideEffect(input: {
@@ -751,7 +773,7 @@ async function runAgreementQuotePostSignSideEffect(input: {
     } catch (err) {
       console.error(
         `[Agreement] Post-sign quote review marker failed for agreement=${input.agreementId}:`,
-        err,
+        err
       )
     }
     return null
@@ -767,7 +789,7 @@ async function runAgreementQuotePostSignSideEffect(input: {
   } catch (err) {
     console.error(
       `[Agreement] Post-sign quote activation failed for agreement=${input.agreementId}:`,
-      err,
+      err
     )
     return null
   }

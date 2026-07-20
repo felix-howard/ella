@@ -207,7 +207,8 @@ describe('agreement draft editor hooks', () => {
     const unsavedHandlers = captureHandlers.mock.calls.at(-1)?.[0]
     if (!unsavedHandlers) throw new Error('Expected unsaved draft handlers')
 
-    unsavedHandlers.handleSaveDraft(resolved)
+    const afterSave = vi.fn()
+    unsavedHandlers.handleSaveDraft(resolved, afterSave)
     expect(saveDraftMutation.mutate).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Engagement Letter',
       source: 'CALCULATOR',
@@ -217,6 +218,7 @@ describe('agreement draft editor hooks', () => {
     expect(resetSavedBaseline).toHaveBeenCalledWith(expect.objectContaining({
       source: 'CALCULATOR',
     }))
+    expect(afterSave).toHaveBeenCalledOnce()
 
     unsavedHandlers.handleSubmit(resolved)
     expect(createMutation.mutate).toHaveBeenCalledWith(expect.objectContaining({

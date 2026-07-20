@@ -1,10 +1,15 @@
-import type { PayrollMode, PricingCalculatorInput } from '@ella/shared/pricing'
-import { PAYROLL } from '@ella/shared/constants'
+import {
+  MAX_CHECKOUT_LINE_AMOUNT,
+  type PayrollMode,
+  type PricingCalculatorInput,
+} from '@ella/shared/pricing'
+import { PAYROLL, TIER_BASIC } from '@ella/shared/constants'
 import { Calculator, ShieldCheck, Store, WalletCards, type LucideIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Input, SelectField, Switch } from '@ella/ui'
 import { clampWholeNumber, formatCurrency } from './pricing-format'
 import { PricingCalculatorCustomItemsSection } from './pricing-calculator-custom-items-section'
+import { CASH_PLAN_PARTICIPANTS_REQUIRED_REASON } from './pricing-disabled-reasons'
 
 interface PricingCalculatorFormProps {
   input: PricingCalculatorInput
@@ -13,7 +18,13 @@ interface PricingCalculatorFormProps {
 }
 
 type TopQuantityKey = 'nec1099Count' | 'payrollEmployees' | 'salesTaxShops'
-type RateObjectGroup = 'tiers' | 'payroll' | 'cashPlan' | 'auditProtection' | 'oneTime'
+type RateObjectGroup =
+  | 'bookkeeping'
+  | 'tiers'
+  | 'payroll'
+  | 'cashPlan'
+  | 'auditProtection'
+  | 'oneTime'
 type OneTimeKey = Exclude<keyof PricingCalculatorInput['oneTime'], 'businessTaxReturn'>
 type OneTimeRow = {
   key: OneTimeKey
@@ -30,6 +41,7 @@ const oneTimeRows: OneTimeRow[] = [
 
 const numberInputClass =
   '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
+const cashPlanParticipantsErrorId = 'pricing-cash-plan-participants-error'
 
 export function PricingCalculatorForm({
   input,
@@ -39,22 +51,25 @@ export function PricingCalculatorForm({
   const hasOneTimeSelection = Object.values(input.oneTime).some((quantity) => quantity > 0)
   const [oneTimeManuallyEnabled, setOneTimeManuallyEnabled] = useState(false)
   const oneTimeEnabled = oneTimeManuallyEnabled || hasOneTimeSelection
+  const cashPlanNeedsParticipant =
+    input.cashPlan.enabled && input.cashPlan.employees + input.cashPlan.owners <= 0
 
   const setQuantity = (key: TopQuantityKey, value: string, max = 1000) => {
     onInputChange({ ...input, [key]: clampWholeNumber(value, max) })
   }
   const setRate = <T extends RateObjectGroup>(
     group: T,
-    key: keyof PricingCalculatorInput['rates'][T],
+    key: keyof NonNullable<PricingCalculatorInput['rates'][T]>,
     value: string
   ) => {
+    const currentGroup = input.rates[group] ?? {}
     onInputChange({
       ...input,
       rates: {
         ...input.rates,
         [group]: {
-          ...input.rates[group],
-          [key]: clampWholeNumber(value, 1_000_000),
+          ...currentGroup,
+          [key]: clampWholeNumber(value, MAX_CHECKOUT_LINE_AMOUNT),
         },
       },
     })
@@ -114,7 +129,7 @@ export function PricingCalculatorForm({
               },
             ]}
           />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <RateField
               label="0-10 workers / mo"
               value={input.rates.tiers.basicMonthly}
@@ -135,6 +150,16 @@ export function PricingCalculatorForm({
               value={input.rates.payroll.baseMonthly}
               onChange={(value) => setRate('payroll', 'baseMonthly', value)}
             />
+            <RateField
+              label="Bookkeeping setup"
+              value={input.rates.bookkeeping?.setup ?? TIER_BASIC.setup}
+              onChange={(value) => setRate('bookkeeping', 'setup', value)}
+            />
+            <RateField
+              label="Payroll setup"
+              value={input.rates.payroll.setup ?? PAYROLL.baseSetup}
+              onChange={(value) => setRate('payroll', 'setup', value)}
+            />
           </div>
         </FormSection>
 
@@ -154,6 +179,8 @@ export function PricingCalculatorForm({
                   label="Employees enrolled"
                   value={input.cashPlan.employees}
                   max={200}
+                  describedBy={cashPlanNeedsParticipant ? cashPlanParticipantsErrorId : undefined}
+                  invalid={cashPlanNeedsParticipant}
                   onChange={(value) =>
                     onInputChange({
                       ...input,
@@ -166,6 +193,8 @@ export function PricingCalculatorForm({
                   label="Owners / shareholders"
                   value={input.cashPlan.owners}
                   max={99}
+                  describedBy={cashPlanNeedsParticipant ? cashPlanParticipantsErrorId : undefined}
+                  invalid={cashPlanNeedsParticipant}
                   onChange={(value) =>
                     onInputChange({
                       ...input,
@@ -174,6 +203,15 @@ export function PricingCalculatorForm({
                   }
                 />
               </div>
+              {cashPlanNeedsParticipant && (
+                <p
+                  id={cashPlanParticipantsErrorId}
+                  className="text-xs text-destructive"
+                  role="alert"
+                >
+                  {CASH_PLAN_PARTICIPANTS_REQUIRED_REASON}
+                </p>
+              )}
               <div className="grid gap-3 sm:grid-cols-3">
                 <RateField
                   label="Setup"
@@ -318,6 +356,8 @@ function NumberField({
   hint,
   max,
   disabled = false,
+  describedBy,
+  invalid = false,
 }: {
   id: string
   label: string
@@ -326,6 +366,8 @@ function NumberField({
   hint?: string
   max: number
   disabled?: boolean
+  describedBy?: string
+  invalid?: boolean
 }) {
   const displayValue = value === 0 ? '' : String(value)
 
@@ -340,6 +382,8 @@ function NumberField({
         maxLength={String(max).length}
         value={displayValue}
         disabled={disabled}
+        aria-describedby={describedBy}
+        aria-invalid={invalid || undefined}
         onChange={(event) => onChange(event.target.value.replace(/[^\d]/g, ''))}
         className={`mt-1 ${numberInputClass}`}
       />

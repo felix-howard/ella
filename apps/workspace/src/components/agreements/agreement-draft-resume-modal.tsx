@@ -8,6 +8,7 @@ import {
   ModalTitle,
 } from '@ella/ui'
 import { AgreementDraftEditor } from './agreement-draft-editor'
+import type { AgreementDraftCloseGuard } from './use-agreement-draft-close-guard'
 import type { Agreement } from '../../lib/api-client'
 import type { EntityRef } from './types'
 
@@ -25,14 +26,17 @@ export function AgreementDraftResumeModal({
   onClose,
 }: AgreementDraftResumeModalProps) {
   const { t } = useTranslation()
-  const closeGuardRef = useRef<(() => boolean) | null>(null)
+  const closeGuardRef = useRef<AgreementDraftCloseGuard | null>(null)
 
-  const registerCloseGuard = useCallback((guard: (() => boolean) | null) => {
+  const registerCloseGuard = useCallback((guard: AgreementDraftCloseGuard | null) => {
     closeGuardRef.current = guard
   }, [])
 
   const requestClose = useCallback(() => {
-    if (closeGuardRef.current && !closeGuardRef.current()) return
+    if (closeGuardRef.current) {
+      closeGuardRef.current(onClose)
+      return
+    }
     onClose()
   }, [onClose])
 

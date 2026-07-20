@@ -468,4 +468,27 @@ describe('Activity Log', () => {
     expect(item.targetType).toBe(ACTIVITY_TARGET_TYPES.UNKNOWN)
     expect(item.summary).toBe('message received')
   })
+
+  it('preserves historical service-log timeline items', () => {
+    const item = toActivityTimelineItem({
+      id: 'activity_service_1',
+      action: ACTIVITY_ACTIONS.CLIENT.SERVICE_LOG_CREATED,
+      category: null,
+      targetType: ACTIVITY_TARGET_TYPES.CLIENT_SERVICE_LOG,
+      targetId: 'service_log_1',
+      targetLabel: 'Added service log: Bookkeeping',
+      summary: 'Added service log: Bookkeeping',
+      actorType: ActivityActorType.STAFF,
+      actorStaffId: 'staff_1',
+      riskLevel: ActivityRiskLevel.LOW,
+      createdAt: new Date('2026-05-20T12:00:00.000Z'),
+    })
+
+    expect(item).toMatchObject({
+      category: ACTIVITY_CATEGORIES.CLIENT,
+      targetType: ACTIVITY_TARGET_TYPES.CLIENT_SERVICE_LOG,
+      targetLabel: 'Added service log: Bookkeeping',
+      summary: 'Added service log: Bookkeeping',
+    })
+  })
 })

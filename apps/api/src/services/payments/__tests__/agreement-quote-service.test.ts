@@ -4,6 +4,7 @@
  * and staff-review status transitions.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { materializePricingSetupRates } from '@ella/shared/pricing'
 
 const prismaMocks = vi.hoisted(() => ({
   agreement: {
@@ -30,6 +31,8 @@ const prismaMocks = vi.hoisted(() => ({
 const quoteMocks = vi.hoisted(() => ({
   calculateCheckoutQuote: vi.fn(),
   CheckoutQuoteError: class CheckoutQuoteError extends Error {
+    readonly status = 400 as const
+
     constructor(message: string) {
       super(message)
       this.name = 'CheckoutQuoteError'
@@ -199,7 +202,9 @@ describe('saveFrozenCalculatorAgreementQuoteForAgreement', () => {
     })
     expect(createData).not.toHaveProperty('payToken')
     expect(createData).not.toHaveProperty('sentAt')
-    expect(createData.inputSnapshot.pricingInput).toEqual(pricingInput)
+    expect(createData.inputSnapshot.pricingInput).toEqual(
+      materializePricingSetupRates(pricingInput)
+    )
     expect(createData.resultSnapshot).toEqual(quoteOutput())
     expect(createData.monthlyTotalCents).toBe(5000)
     expect(createData.setupTotalCents).toBe(25000)
@@ -255,6 +260,28 @@ describe('saveFrozenCalculatorAgreementQuoteForAgreement', () => {
       ),
     ).rejects.toThrow(quoteMocks.CheckoutQuoteError)
     expect(prismaMocks.paymentQuote.create).not.toHaveBeenCalled()
+  })
+
+  it('rejects invalid calculator pricing before agreement quote writes', async () => {
+    prismaMocks.agreement.findFirst.mockResolvedValueOnce(draftAgreement())
+    quoteMocks.calculateCheckoutQuote.mockImplementationOnce(() => {
+      throw new quoteMocks.CheckoutQuoteError('Set a price above $0 for Cash Plan')
+    })
+
+    await expect(
+      saveFrozenCalculatorAgreementQuoteForAgreement(
+        {
+          agreementId: 'agreement_1',
+          recipient: { type: 'client', id: 'client_1' },
+          quote: { pricingInput },
+        },
+        { organizationId: 'org_1', staffId: 'staff_1' },
+      ),
+    ).rejects.toMatchObject({ status: 400 })
+
+    expect(prismaMocks.paymentQuote.create).not.toHaveBeenCalled()
+    expect(prismaMocks.paymentQuote.updateMany).not.toHaveBeenCalled()
+    expect(prismaMocks.agreement.updateMany).not.toHaveBeenCalled()
   })
 })
 

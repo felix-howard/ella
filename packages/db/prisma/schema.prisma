@@ -436,26 +436,6 @@ enum ClientType {
   BUSINESS
 }
 
-enum ClientServiceType {
-  INDIVIDUAL_TAX_RETURN
-  BUSINESS_TAX_RETURN
-  BOOKKEEPING
-  PAYROLL
-  TAX_PLANNING
-  IRS_NOTICE
-  AMENDMENT
-  FORM_1099_FILING
-  CONSULTATION
-  OTHER
-}
-
-enum ClientServiceStatus {
-  ACTIVE
-  WAITING_ON_CLIENT
-  COMPLETED
-  CANCELLED
-}
-
 enum StaffFileKind {
   PERSONAL_DOCUMENT
   INVOICE
@@ -490,14 +470,14 @@ model Staff {
   isContractorAgent Boolean   @default(false)
 
   // Notification preferences
-  notifyOnUpload              Boolean @default(true) // Enable/disable SMS on client uploads
-  notifyOnChat                Boolean @default(false) // Enable/disable SMS when monitored staff sends messages
-  notifyOnAgreementSigned     Boolean @default(false) // ADMIN-only: SMS when a client signs an agreement
-  notifyOnClientPayment       Boolean @default(false) // ADMIN-only: SMS when a client completes a payment
-  notifyOnPaymentFailed       Boolean @default(false) // ADMIN-only: SMS when a recurring quote charge fails
-  autoSendUploadLink          Boolean @default(false) // Per-staff auto-send upload link on personal form
+  notifyOnUpload              Boolean   @default(true) // Enable/disable SMS on client uploads
+  notifyOnChat                Boolean   @default(false) // Enable/disable SMS when monitored staff sends messages
+  notifyOnAgreementSigned     Boolean   @default(false) // ADMIN-only: SMS when a client signs an agreement
+  notifyOnClientPayment       Boolean   @default(false) // ADMIN-only: SMS when a client completes a payment
+  notifyOnPaymentFailed       Boolean   @default(false) // ADMIN-only: SMS when a recurring quote charge fails
+  autoSendUploadLink          Boolean   @default(false) // Per-staff auto-send upload link on personal form
   defaultUploadLinkTemplateId String? // Default SMS template for personal form auto-send
-  useOrgUploadLinkDefaults    Boolean @default(true) // Personal form inherits org upload-link settings
+  useOrgUploadLinkDefaults    Boolean   @default(true) // Personal form inherits org upload-link settings
   defaultUploadLinkLanguage   Language? // Optional SMS language override for personal form auto-send
 
   // Audit fields
@@ -523,9 +503,6 @@ model Staff {
   managedClientLinks   ClientManager[]
   createdClients       Client[]            @relation("CreatedClients")
   updatedClients       Client[]            @relation("UpdatedClients")
-  createdClientServiceLogs ClientServiceLog[]  @relation("ClientServiceLogCreatedBy")
-  updatedClientServiceLogs ClientServiceLog[]  @relation("ClientServiceLogUpdatedBy")
-  deletedClientServiceLogs ClientServiceLog[]  @relation("ClientServiceLogDeletedBy")
   documentViews        DocumentView[]
   uploadedDraftReturns ShareableDocument[]
   sentMessages         Message[]           @relation("SentMessages")
@@ -578,7 +555,7 @@ model StaffFile {
   originalFilename String
   mimeType         String
   fileSize         Int
-  r2Key            String @unique
+  r2Key            String        @unique
   checksumSha256   String?
 
   invoiceYear   Int?
@@ -713,18 +690,18 @@ model WebPushSubscription {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  endpoint     String   @unique
+  endpoint     String    @unique
   p256dh       String
   auth         String
-  enabled      Boolean  @default(true)
+  enabled      Boolean   @default(true)
   userAgent    String?
   deviceLabel  String?
-  lastSeenAt   DateTime @default(now())
+  lastSeenAt   DateTime  @default(now())
   lastSentAt   DateTime?
-  failureCount Int      @default(0)
+  failureCount Int       @default(0)
   failedAt     DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([staffId, enabled])
   @@index([organizationId, enabled])
@@ -742,12 +719,12 @@ model Organization {
   registrationTitle      String?                @db.VarChar(120)
   registrationSubtitle   String?                @db.VarChar(240)
 
-  smsLanguage                  Language @default(VI)
-  missedCallTextBack           Boolean  @default(false)
-  autoSendFormClientUploadLink Boolean  @default(false)
+  smsLanguage                    Language                   @default(VI)
+  missedCallTextBack             Boolean                    @default(false)
+  autoSendFormClientUploadLink   Boolean                    @default(false)
   calculatorAgreementPaymentMode AgreementPaymentPortalMode @default(AUTO_SEND)
-  defaultUploadLinkTemplateId  String? // Default SMS template for generic form auto-send
-  defaultUploadLinkLanguage    Language @default(EN) // Default SMS language for upload-link automation
+  defaultUploadLinkTemplateId    String? // Default SMS template for generic form auto-send
+  defaultUploadLinkLanguage      Language                   @default(EN) // Default SMS language for upload-link automation
 
   // Firm address + governing law (for NDA header)
   address         String? // Street address
@@ -766,7 +743,6 @@ model Organization {
   clients                        Client[]
   clientManagers                 ClientManager[]
   clientGroups                   ClientGroup[]
-  clientServiceLogs              ClientServiceLog[]
   leads                          Lead[]
   paymentQuotes                  PaymentQuote[]
   paymentTemplates               PaymentTemplate[]
@@ -849,7 +825,6 @@ model Client {
   profile        ClientProfile?
   engagements    TaxEngagement[]
   taxCases       TaxCase[]
-  serviceLogs    ClientServiceLog[]
   convertedLeads Lead[]          @relation("ConvertedLead")
   agreements     Agreement[]
   paymentQuotes  PaymentQuote[]
@@ -864,7 +839,7 @@ model Client {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   managedById String?
-  managedBy   Staff?  @relation("ManagedClients", fields: [managedById], references: [id], onDelete: SetNull)
+  managedBy   Staff?          @relation("ManagedClients", fields: [managedById], references: [id], onDelete: SetNull)
   managers    ClientManager[]
 
   createdById String?
@@ -875,10 +850,10 @@ model Client {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([id, organizationId])
   @@index([phone])
   @@index([name])
   @@index([source])
-  @@unique([id, organizationId])
   @@index([organizationId])
   @@index([managedById])
   @@index([createdById])
@@ -886,34 +861,6 @@ model Client {
   @@index([tags], type: Gin)
   @@index([clientType])
   @@index([clientGroupId])
-}
-
-model ClientServiceLog {
-  id                String              @id @default(cuid())
-  organizationId    String
-  organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  clientId          String
-  client            Client              @relation(fields: [clientId, organizationId], references: [id, organizationId], onDelete: Cascade)
-  serviceType       ClientServiceType
-  customServiceName String?             @db.VarChar(100)
-  status            ClientServiceStatus @default(ACTIVE)
-  taxYear           Int?
-  serviceDate       DateTime            @default(now())
-  note              String?             @db.Text
-  createdById       String?
-  createdBy         Staff?              @relation("ClientServiceLogCreatedBy", fields: [createdById, organizationId], references: [id, organizationId], onDelete: NoAction)
-  updatedById       String?
-  updatedBy         Staff?              @relation("ClientServiceLogUpdatedBy", fields: [updatedById, organizationId], references: [id, organizationId], onDelete: NoAction)
-  deletedAt         DateTime?
-  deletedById       String?
-  deletedBy         Staff?              @relation("ClientServiceLogDeletedBy", fields: [deletedById, organizationId], references: [id, organizationId], onDelete: NoAction)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-
-  @@index([organizationId, clientId, serviceDate])
-  @@index([organizationId, clientId, status])
-  @@index([organizationId, serviceType])
-  @@index([createdById])
 }
 
 model ClientManager {
@@ -1897,41 +1844,42 @@ model Lead {
 }
 
 model PaymentQuote {
-  id                String                  @id @default(cuid())
-  organizationId    String?
-  organization      Organization?           @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  clientId          String?
-  client            Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  leadId            String?
-  lead              Lead?                   @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  customerEmail     String?
-  customerName      String?
-  businessName      String?
-  inputSnapshot     Json
-  resultSnapshot    Json
-  monthlyTotalCents Int // recurring total, cadence in billingInterval (month or year)
-  setupTotalCents   Int // one-time total
+  id                  String                  @id @default(cuid())
+  organizationId      String?
+  organization        Organization?           @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  clientId            String?
+  client              Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  leadId              String?
+  lead                Lead?                   @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  customerEmail       String?
+  customerName        String?
+  businessName        String?
+  inputSnapshot       Json
+  resultSnapshot      Json
+  monthlyTotalCents   Int // recurring total, cadence in billingInterval (month or year)
+  setupTotalCents     Int // one-time total
   // Link source + billing cadence for the custom-link feature.
   // source defaults to "calculator" so existing rows/flows are untouched.
-  source              String   @default("calculator") // "calculator" | "custom"
+  source              String                  @default("calculator") // "calculator" | "custom"
   billingInterval     String? // null=one-time | "month" | "year"
   appliedCouponId     String? // owner-attached, pre-applied coupon
-  appliedCoupon       Coupon?  @relation(fields: [appliedCouponId], references: [id], onDelete: SetNull)
-  allowPromotionCodes Boolean  @default(false) // client may type a code at Stripe checkout
-  status            String                  @default("pending_checkout")
-  lastStripeEventId String?
-  lastStripeEventAt DateTime?
-  createdByStaffId  String?
-  createdByStaff    Staff?                  @relation("PaymentQuoteCreatedBy", fields: [createdByStaffId], references: [id], onDelete: SetNull)
+  appliedCoupon       Coupon?                 @relation(fields: [appliedCouponId], references: [id], onDelete: SetNull)
+  allowPromotionCodes Boolean                 @default(false) // client may type a code at Stripe checkout
+  status              String                  @default("pending_checkout")
+  lastStripeEventId   String?
+  lastStripeEventAt   DateTime?
+  createdByStaffId    String?
+  createdByStaff      Staff?                  @relation("PaymentQuoteCreatedBy", fields: [createdByStaffId], references: [id], onDelete: SetNull)
   // Sendable-quote fields: portal pay token, send timestamp ("is sendable" marker), and SMS sender attribution
-  payToken          String?                 @unique // portal token; null for anonymous quotes from the create-link panel
-  sentAt            DateTime? // set when the quote is sent to a client/lead
-  sentByStaffId     String?
-  sentByStaff       Staff?                  @relation("QuoteSentBy", fields: [sentByStaffId], references: [id], onDelete: SetNull)
-  agreement         Agreement?
-  checkoutSessions  StripeCheckoutSession[]
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
+  payToken            String?                 @unique // portal token; null for anonymous quotes from the create-link panel
+  sentAt              DateTime? // set when the quote is sent to a client/lead
+  sentByStaffId       String?
+  sentByStaff         Staff?                  @relation("QuoteSentBy", fields: [sentByStaffId], references: [id], onDelete: SetNull)
+  agreement           Agreement?
+  checkoutSessions    StripeCheckoutSession[]
+  payments            Payment[]
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
 
   @@index([organizationId, createdAt])
   @@index([clientId])
@@ -1947,27 +1895,27 @@ model PaymentQuote {
 // Stripe owns the discount math (percent/amount/duration/redeem_by/max_redemptions);
 // this model backs the management UI and the quote-attach flow.
 model Coupon {
-  id                    String       @id @default(cuid())
+  id                    String         @id @default(cuid())
   organizationId        String
-  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization          Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   code                  String // promotion code shown to client, e.g. "WELCOME10"
   name                  String? // internal label
   discountType          String // "percent" | "amount"
   percentOff            Int? // 1..100 when percent
   amountOffCents        Int? // > 0 when amount (currency = org default)
-  currency              String       @default("usd")
-  duration              String       @default("once") // "once" | "forever" | "repeating"
+  currency              String         @default("usd")
+  duration              String         @default("once") // "once" | "forever" | "repeating"
   durationInMonths      Int? // when duration = "repeating"
   maxRedemptions        Int? // usage limit (null = unlimited)
   redeemBy              DateTime? // expiry
   stripeCouponId        String? // synced Stripe Coupon id
   stripePromotionCodeId String? // synced Stripe Promotion Code id
-  active                Boolean      @default(true) // soft "disable" toggle
-  timesRedeemed         Int          @default(0) // cached from Stripe for display
+  active                Boolean        @default(true) // soft "disable" toggle
+  timesRedeemed         Int            @default(0) // cached from Stripe for display
   createdByStaffId      String?
   appliedQuotes         PaymentQuote[]
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 
   @@unique([organizationId, code])
   @@index([organizationId, active])
@@ -2018,22 +1966,26 @@ model StripeCheckoutSession {
 }
 
 model StripeWebhookEventLog {
-  id             String    @id @default(cuid())
-  stripeEventId  String    @unique
-  eventType      String
-  stripeObjectId String?
-  livemode       Boolean
-  status         String
-  attemptCount   Int       @default(1)
-  errorMessage   String?   @db.Text
-  receivedAt     DateTime  @default(now())
-  processedAt    DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id                      String    @id @default(cuid())
+  stripeEventId           String    @unique
+  eventType               String
+  stripeObjectId          String?
+  stripePaymentIntentId   String?
+  chargeFullyRefunded     Boolean?
+  livemode                Boolean
+  status                  String
+  attemptCount            Int       @default(1)
+  errorMessage            String?   @db.Text
+  receivedAt              DateTime  @default(now())
+  processedAt             DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   @@index([status, receivedAt])
   @@index([eventType])
   @@index([stripeObjectId])
+  @@index([eventType, stripeObjectId, chargeFullyRefunded])
+  @@index([eventType, stripePaymentIntentId, chargeFullyRefunded])
 }
 
 enum PaymentType {
@@ -2054,15 +2006,17 @@ enum PaymentStatus {
 // Deposit/balance payments collected from clients or leads (e.g. after agreement signing).
 // Distinct from PaymentQuote (pricing-calculator checkouts) — keep names separate.
 model Payment {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   clientId       String?
-  client         Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  client         Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
   leadId         String?
-  lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  lead           Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
   agreementId    String?
-  agreement      Agreement?   @relation(fields: [agreementId], references: [id], onDelete: SetNull)
+  agreement      Agreement?    @relation(fields: [agreementId], references: [id], onDelete: SetNull)
+  paymentQuoteId String?
+  paymentQuote   PaymentQuote? @relation(fields: [paymentQuoteId], references: [id], onDelete: SetNull)
 
   type     PaymentType   @default(DEPOSIT)
   status   PaymentStatus @default(PENDING)
@@ -2093,8 +2047,10 @@ model Payment {
   @@index([clientId])
   @@index([leadId])
   @@index([agreementId])
+  @@index([paymentQuoteId])
   @@index([organizationId, status])
   @@index([stripeCustomerId])
+  @@index([stripePaymentIntentId])
   @@index([stripeInvoiceId])
   @@index([stripeChargeId])
 }
@@ -2126,13 +2082,13 @@ model Agreement {
   id String @id @default(cuid())
 
   // Type + display
-  type           AgreementType   @default(NDA)
-  title          String          @db.VarChar(200)
-  internalNote   String?         @db.Text
-  source         AgreementSource @default(MANUAL)
-  sourceSnapshot Json?
-  paymentQuoteId String? @unique
-  paymentQuote   PaymentQuote? @relation(fields: [paymentQuoteId], references: [id], onDelete: SetNull)
+  type              AgreementType              @default(NDA)
+  title             String                     @db.VarChar(200)
+  internalNote      String?                    @db.Text
+  source            AgreementSource            @default(MANUAL)
+  sourceSnapshot    Json?
+  paymentQuoteId    String?                    @unique
+  paymentQuote      PaymentQuote?              @relation(fields: [paymentQuoteId], references: [id], onDelete: SetNull)
   paymentPortalMode AgreementPaymentPortalMode @default(NONE)
 
   // Tenancy
@@ -2201,15 +2157,15 @@ model Agreement {
 
   // Audit
   createdByUserId    String
-  createdBy          Staff   @relation("AgreementCreatedBy", fields: [createdByUserId], references: [id])
+  createdBy          Staff     @relation("AgreementCreatedBy", fields: [createdByUserId], references: [id])
   lastEditedByUserId String?
-  lastEditedBy       Staff?  @relation("AgreementLastEditedBy", fields: [lastEditedByUserId], references: [id], onDelete: SetNull)
+  lastEditedBy       Staff?    @relation("AgreementLastEditedBy", fields: [lastEditedByUserId], references: [id], onDelete: SetNull)
   sentByUserId       String?
-  sentBy             Staff?  @relation("AgreementSentBy", fields: [sentByUserId], references: [id], onDelete: SetNull)
+  sentBy             Staff?    @relation("AgreementSentBy", fields: [sentByUserId], references: [id], onDelete: SetNull)
   voidedAt           DateTime?
   voidedByUserId     String?
-  voidedBy           Staff?  @relation("AgreementVoidedBy", fields: [voidedByUserId], references: [id], onDelete: SetNull)
-  voidReason         String? @db.VarChar(500)
+  voidedBy           Staff?    @relation("AgreementVoidedBy", fields: [voidedByUserId], references: [id], onDelete: SetNull)
+  voidReason         String?   @db.VarChar(500)
 
   payments Payment[]
 
@@ -2254,13 +2210,13 @@ model AgreementTemplate {
 }
 
 model Campaign {
-  id               String         @id @default(cuid())
+  id               String                 @id @default(cuid())
   name             String
   slug             String
   tag              String
-  status           CampaignStatus @default(ACTIVE)
-  description      String?        @db.Text
-  formIntroContent String?        @db.Text
+  status           CampaignStatus         @default(ACTIVE)
+  description      String?                @db.Text
+  formIntroContent String?                @db.Text
   formHeaderMode   RegistrationHeaderMode @default(DEFAULT)
   formTitle        String?                @db.VarChar(120)
   formSubtitle     String?                @db.VarChar(240)

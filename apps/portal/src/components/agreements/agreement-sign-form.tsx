@@ -201,13 +201,13 @@ export function AgreementSignForm({
           <p className="text-xs font-medium text-muted-foreground mb-2">
             {t('nda.firmAlreadySigned')}
           </p>
-          <div className="flex items-end gap-3">
+          <div className="flex flex-wrap items-end gap-3">
             <img
               src={firmSnapshot.signaturePresignedUrl}
               alt={firmSnapshot.signerName || 'Firm signature'}
-              className="h-16 w-auto bg-white rounded-md border border-border"
+              className="h-16 w-auto max-w-full rounded-md border border-border bg-white object-contain object-left"
             />
-            <div className="text-xs text-foreground/80 leading-snug pb-1">
+            <div className="min-w-0 max-w-full pb-1 text-xs leading-snug text-foreground/80 [overflow-wrap:anywhere]">
               <div className="font-semibold text-foreground">{firmSnapshot.signerName}</div>
               {firmSnapshot.signerTitle && <div>{firmSnapshot.signerTitle}</div>}
               {firmSnapshot.signedAt && (

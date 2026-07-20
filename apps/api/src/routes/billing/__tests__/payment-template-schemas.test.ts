@@ -5,6 +5,7 @@ import {
   MAX_CALCULATOR_CUSTOM_ITEM_QUANTITY,
   MAX_CALCULATOR_CUSTOM_ITEMS,
   MAX_CALCULATOR_CUSTOM_LABEL_LENGTH,
+  MAX_CHECKOUT_LINE_AMOUNT,
 } from '@ella/shared/pricing'
 import {
   checkoutPricingInputSchema,
@@ -58,6 +59,32 @@ describe('checkout pricing input schema', () => {
     const parsed = checkoutPricingInputSchema.parse(input)
 
     expect(parsed.customItems).toEqual([])
+  })
+
+  it('preserves waived setup fees and accepts legacy inputs without overrides', () => {
+    const waived = createDefaultPricingInput()
+    waived.rates.bookkeeping!.setup = 0
+    waived.rates.payroll.setup = 0
+
+    expect(checkoutPricingInputSchema.parse(waived).rates).toMatchObject({
+      bookkeeping: { setup: 0 },
+      payroll: { setup: 0 },
+    })
+
+    const legacy = createDefaultPricingInput()
+    delete legacy.rates.bookkeeping
+    delete legacy.rates.payroll.setup
+
+    expect(checkoutPricingInputSchema.safeParse(legacy).success).toBe(true)
+  })
+
+  it('uses the shared checkout maximum for calculator rates', () => {
+    const atMaximum = createDefaultPricingInput()
+    atMaximum.rates.bookkeeping!.setup = MAX_CHECKOUT_LINE_AMOUNT
+    expect(checkoutPricingInputSchema.safeParse(atMaximum).success).toBe(true)
+
+    atMaximum.rates.bookkeeping!.setup = MAX_CHECKOUT_LINE_AMOUNT + 1
+    expect(checkoutPricingInputSchema.safeParse(atMaximum).success).toBe(false)
   })
 
   it('rejects yearly custom items in calculator checkout', () => {

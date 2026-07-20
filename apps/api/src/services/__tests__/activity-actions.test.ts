@@ -39,4 +39,11 @@ describe('Activity Actions', () => {
     )
     expect(ACTIVITY_TARGET_TYPES.COMPANY_VAULT_CREDENTIAL).toBe('COMPANY_VAULT_CREDENTIAL')
   })
+
+  it('keeps retired service-log activity readable', () => {
+    expect(categoryForAction(ACTIVITY_ACTIONS.CLIENT.SERVICE_LOG_CREATED)).toBe(
+      ACTIVITY_CATEGORIES.CLIENT
+    )
+    expect(ACTIVITY_TARGET_TYPES.CLIENT_SERVICE_LOG).toBe('CLIENT_SERVICE_LOG')
+  })
 })

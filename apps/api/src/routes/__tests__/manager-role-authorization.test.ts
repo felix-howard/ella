@@ -13,6 +13,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Hono } from 'hono'
+import type * as AuthServiceModule from '../../services/auth'
 
 // --- Auth context mock: Clerk JWT parsing only ---
 vi.mock('@hono/clerk-auth', () => ({
@@ -44,6 +45,15 @@ vi.mock('../../lib/clerk-client', () => ({
     },
     users: { getUser: vi.fn() },
   },
+}))
+
+const authServiceMocks = vi.hoisted(() => ({
+  syncStaffFromClerkMembership: vi.fn(),
+}))
+
+vi.mock('../../services/auth', async (importOriginal) => ({
+  ...await importOriginal<typeof AuthServiceModule>(),
+  syncStaffFromClerkMembership: authServiceMocks.syncStaffFromClerkMembership,
 }))
 
 vi.mock('../../services/storage', () => ({
@@ -191,6 +201,21 @@ beforeEach(() => {
 
 describe('MANAGER permission matrix (route integration)', () => {
   describe('Auth middleware inactive staff guard', () => {
+    it('rejects an authenticated Clerk user without an active organization', async () => {
+      vi.mocked(getAuth).mockReturnValue({
+        userId: 'user_without_org',
+        orgId: undefined,
+        orgRole: undefined,
+      } as never)
+
+      const res = await app.request('/clients')
+
+      expect(res.status).toBe(403)
+      expect(await res.text()).toBe('Please select an organization')
+      expect(prisma.staff.findUnique).not.toHaveBeenCalled()
+      expect(prisma.client.findMany).not.toHaveBeenCalled()
+    })
+
     it('rejects inactive Staff in the selected org without Clerk bootstrap sync', async () => {
       vi.mocked(getAuth).mockReturnValue({
         userId: 'user_archived',
@@ -215,6 +240,47 @@ describe('MANAGER permission matrix (route integration)', () => {
       expect(clerkClient.organizations.getOrganizationMembershipList).not.toHaveBeenCalled()
       expect(prisma.staff.update).not.toHaveBeenCalled()
       expect(prisma.staff.upsert).not.toHaveBeenCalled()
+    })
+
+    it('rejects Staff returned by membership sync for a different Clerk organization', async () => {
+      vi.mocked(getAuth).mockReturnValue({
+        userId: 'user_mismatched_org',
+        orgId: 'org_clerk_selected',
+        orgRole: 'org:member',
+      } as never)
+      vi.mocked(prisma.staff.findUnique).mockResolvedValue({
+        id: 'staff_mismatched_org',
+        clerkId: 'user_mismatched_org',
+        email: 'mismatch@test.com',
+        name: 'Mismatched User',
+        role: 'STAFF',
+        avatarUrl: null,
+        organizationId: 'org_other',
+        isActive: true,
+        organization: { id: 'org_other', clerkOrgId: 'org_clerk_other' },
+      } as never)
+      authServiceMocks.syncStaffFromClerkMembership.mockResolvedValueOnce({
+        id: 'staff_mismatched_org',
+        clerkId: 'user_mismatched_org',
+        email: 'mismatch@test.com',
+        name: 'Mismatched User',
+        role: 'STAFF',
+        avatarUrl: null,
+        organizationId: 'org_other',
+        isActive: true,
+        organization: { id: 'org_other', clerkOrgId: 'org_clerk_other' },
+      })
+
+      const res = await app.request('/clients')
+
+      expect(res.status).toBe(403)
+      expect(await res.text()).toBe('Organization access mismatch')
+      expect(authServiceMocks.syncStaffFromClerkMembership).toHaveBeenCalledWith(
+        'user_mismatched_org',
+        'org_clerk_selected',
+        'org:member',
+      )
+      expect(prisma.client.findMany).not.toHaveBeenCalled()
     })
   })
 

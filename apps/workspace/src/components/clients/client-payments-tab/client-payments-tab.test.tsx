@@ -1,4 +1,7 @@
+// @vitest-environment happy-dom
+import { act } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { createRoot } from 'react-dom/client'
 import type React from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type {
@@ -7,6 +10,9 @@ import type {
   ClientQuotePayment,
 } from '../../../lib/api-client'
 import { ClientPaymentsTab } from './client-payments-tab'
+
+;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
+  .IS_REACT_ACT_ENVIRONMENT = true
 
 const testState = vi.hoisted(() => ({
   query: {
@@ -332,5 +338,99 @@ describe('ClientPaymentsTab', () => {
 
     expect(markup).toContain('Failed - retryable')
     expect(markup).toContain('Copy retry link')
+  })
+
+  it('outlines only the exact focused payment quote', () => {
+    testState.query = {
+      isLoading: false,
+      isError: false,
+      data: {
+        success: true,
+        pastDue: false,
+        data: [],
+        quotePayments: [
+          buildQuotePayment({ id: 'quote_1' }),
+          buildQuotePayment({ id: 'quote_2', amount: '900.00' }),
+        ],
+      },
+    }
+
+    const markup = renderToStaticMarkup(
+      <ClientPaymentsTab clientId="client_1" focusedQuoteId="quote_2" />,
+    )
+
+    expect(markup).toContain('tabindex="-1" data-payment-quote-id="quote_2"')
+    expect(markup).toContain('data-focused-payment-quote="true"')
+    expect(markup.match(/data-focused-payment-quote="true"/g)).toHaveLength(1)
+    expect(markup).toContain('ring-2 ring-primary ring-offset-2')
+  })
+
+  it('renders normally when a focused payment quote is stale', () => {
+    testState.query = {
+      isLoading: false,
+      isError: false,
+      data: {
+        success: true,
+        pastDue: false,
+        data: [],
+        quotePayments: [buildQuotePayment({ id: 'quote_1' })],
+      },
+    }
+
+    const markup = renderToStaticMarkup(
+      <ClientPaymentsTab clientId="client_1" focusedQuoteId="quote_missing" />,
+    )
+
+    expect(markup).not.toContain('data-focused-payment-quote')
+    expect(markup).not.toContain('ring-2 ring-primary ring-offset-2')
+  })
+
+  it('focuses and scrolls the exact quote with reduced motion, then cleans up', async () => {
+    testState.query = {
+      isLoading: false,
+      isError: false,
+      data: {
+        success: true,
+        pastDue: false,
+        data: [],
+        quotePayments: [buildQuotePayment({ id: 'quote_1' })],
+      },
+    }
+    const scrollIntoView = vi.fn()
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    })
+    const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0)
+      return 7
+    })
+    const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined)
+    const matchMedia = vi.spyOn(window, 'matchMedia').mockReturnValue({
+      matches: true,
+    } as MediaQueryList)
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    await act(async () => {
+      root.render(<ClientPaymentsTab clientId="client_1" focusedQuoteId="quote_1" />)
+    })
+    const target = container.querySelector<HTMLElement>('[data-payment-quote-id="quote_1"]')
+
+    expect(document.activeElement).toBe(target)
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'center' })
+    await act(async () => root.unmount())
+    expect(cancelFrame).toHaveBeenCalledWith(7)
+
+    container.remove()
+    requestFrame.mockRestore()
+    cancelFrame.mockRestore()
+    matchMedia.mockRestore()
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: originalScrollIntoView,
+    })
   })
 })

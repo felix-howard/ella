@@ -13,6 +13,8 @@ interface PricingPrintPanelProps {
   result: PricingCalculatorResult
 }
 
+const pricingPrintStatusId = 'pricing-print-status'
+
 export const PRICING_PRINT_QUOTE_MESSAGE_TYPE = 'ella:pricing-print-quote'
 
 interface PricingPrintQuoteMessage {
@@ -49,11 +51,22 @@ export function PricingPrintPanel({ input, result }: PricingPrintPanelProps) {
       </header>
 
       <div className="mt-4 space-y-3">
-        <Button type="button" className="w-full" onClick={handlePrint} disabled={Boolean(disabledReason)}>
+        <Button
+          type="button"
+          className="w-full"
+          onClick={handlePrint}
+          disabled={Boolean(disabledReason)}
+          aria-describedby={pricingPrintStatusId}
+        >
           <Printer className="h-4 w-4" />
           Print PDF
         </Button>
-        <p className="min-h-5 text-xs text-muted-foreground" role="status" aria-live="polite">
+        <p
+          id={pricingPrintStatusId}
+          className="min-h-5 text-xs text-muted-foreground"
+          role={disabledReason ? undefined : 'status'}
+          aria-live={disabledReason ? undefined : 'polite'}
+        >
           {disabledReason ?? 'Ready to open a formal print-ready quote.'}
         </p>
       </div>

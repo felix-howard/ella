@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type {
   Agreement,
@@ -9,7 +9,10 @@ import type {
 } from '../../lib/api-client'
 import { createStep3DraftFromAgreement } from './agreement-draft-payload'
 import { useAgreementDraftAutosave } from './use-agreement-draft-autosave'
-import { useAgreementDraftCloseGuard } from './use-agreement-draft-close-guard'
+import {
+  useAgreementDraftCloseGuard,
+  type AgreementDraftCloseGuard,
+} from './use-agreement-draft-close-guard'
 import { useAgreementDraftMetadata } from './use-agreement-draft-metadata'
 import { useAgreementDraftPayloadState } from './use-agreement-draft-payload-state'
 import { useAgreementDraftReload } from './use-agreement-draft-reload'
@@ -20,7 +23,12 @@ import {
 import { useAgreementDraftSubmitHandlers } from './use-agreement-draft-submit-handlers'
 import { useCreateAgreement } from './use-agreement-mutations'
 import { useSaveAgreementDraft, useSendAgreementDraft } from './use-agreement-draft-mutations'
-import { Step3ContentEditor, emptyStep3Draft, type Step3Draft } from './wizard-steps/step3-content-editor'
+import {
+  Step3ContentEditor,
+  emptyStep3Draft,
+  type Step3Draft,
+  type Step3Resolved,
+} from './wizard-steps/step3-content-editor'
 import type { EntityRef } from './types'
 
 interface AgreementDraftEditorProps {
@@ -35,11 +43,12 @@ interface AgreementDraftEditorProps {
   onDraftChange?: (draft: Step3Draft) => void
   initialDraft?: Step3Draft
   closeBaselineDraft?: Step3Draft
+  hasExternalUnsavedChanges?: boolean
   existingDraft?: Agreement
   savedState?: AgreementDraftSavedState | null
   onSavedStateChange?: (state: AgreementDraftSavedState | null) => void
   onClose: () => void
-  registerCloseGuard?: (guard: (() => boolean) | null) => void
+  registerCloseGuard?: (guard: AgreementDraftCloseGuard | null) => void
 }
 
 export function AgreementDraftEditor({
@@ -54,6 +63,7 @@ export function AgreementDraftEditor({
   onDraftChange,
   initialDraft,
   closeBaselineDraft,
+  hasExternalUnsavedChanges,
   existingDraft,
   savedState,
   onSavedStateChange,
@@ -106,11 +116,18 @@ export function AgreementDraftEditor({
       setConflictMessage(error.message || t('agreements.draft.conflict.message'))
     }, [t]),
   })
+  const {
+    state: autosaveState,
+    resetSavedBaseline,
+    saveNow: saveDraftNow,
+    pause: pauseAutosave,
+    resume: resumeAutosave,
+  } = autosave
 
   const { isReloading, reloadDraft } = useAgreementDraftReload({
     entity,
     savedAgreement,
-    resetSavedBaseline: autosave.resetSavedBaseline,
+    resetSavedBaseline,
     setDraft: setDraftState,
     setSavedDraft,
     setConflictMessage,
@@ -126,17 +143,26 @@ export function AgreementDraftEditor({
     t,
   })
 
-  const handleClose = useAgreementDraftCloseGuard({
+  const closeGuard = useAgreementDraftCloseGuard({
     draft,
     baselineDraft: closeBaselineDraft ?? initialDraft,
+    hasExternalUnsavedChanges,
     isBusy,
     savedAgreement,
-    autosaveState: autosave.state,
+    autosaveState,
     onClose,
     registerCloseGuard,
-    busyConfirmMessage: t('agreements.draft.closeBusyConfirm'),
-    unsavedConfirmMessage: t('agreements.draft.closeUnsavedConfirm'),
+    onConfirmationOpen: pauseAutosave,
+    onConfirmationDismiss: resumeAutosave,
   })
+  const {
+    requestClose,
+    confirmationOpen,
+    confirmationBusy,
+    dismissConfirmation,
+    continueWithoutSaving,
+    continueAfterSaving,
+  } = closeGuard
 
   const { handleSaveDraft, handleSubmit } = useAgreementDraftSubmitHandlers({
     type,
@@ -150,7 +176,7 @@ export function AgreementDraftEditor({
     createMutation,
     saveDraftMutation,
     sendDraftMutation,
-    resetSavedBaseline: autosave.resetSavedBaseline,
+    resetSavedBaseline,
     setSavedDraft,
     setConflictMessage,
     onClose,
@@ -158,16 +184,43 @@ export function AgreementDraftEditor({
   })
 
   const sendBlockedReason = useMemo(() => {
-    if (conflictMessage || autosave.state === 'conflict') {
+    if (conflictMessage || autosaveState === 'conflict') {
       return t('agreements.draft.conflict.sendBlocked')
     }
-    if (autosave.state === 'saving') {
+    if (autosaveState === 'saving') {
       return t('agreements.draft.savingSendBlocked')
     }
     return null
-  }, [autosave.state, conflictMessage, t])
+  }, [autosaveState, conflictMessage, t])
 
-  const draftSaveState = saveDraftMutation.isPending ? 'saving' : autosave.state
+  const draftSaveState = saveDraftMutation.isPending ? 'saving' : autosaveState
+
+  useEffect(() => {
+    if (
+      confirmationOpen &&
+      savedAgreement &&
+      autosaveState === 'saved' &&
+      !isBusy
+    ) {
+      continueAfterSaving()
+    }
+  }, [
+    autosaveState,
+    confirmationOpen,
+    continueAfterSaving,
+    isBusy,
+    savedAgreement,
+  ])
+
+  const handleSaveBeforeClose = (resolved: Step3Resolved) => {
+    if (!savedAgreement) {
+      handleSaveDraft(resolved, continueAfterSaving)
+      return
+    }
+    void saveDraftNow()
+      .then(continueAfterSaving)
+      .catch(() => undefined)
+  }
 
   return (
     <Step3ContentEditor
@@ -177,7 +230,7 @@ export function AgreementDraftEditor({
       isSubmitting={isBusy}
       draft={draft}
       onDraftChange={setDraftState}
-      onCancel={handleClose}
+      onCancel={requestClose}
       onSubmit={handleSubmit}
       onSaveDraft={handleSaveDraft}
       draftSaveState={draftSaveState}
@@ -186,6 +239,13 @@ export function AgreementDraftEditor({
       conflictMessage={conflictMessage}
       sendBlockedReason={sendBlockedReason}
       onReloadDraft={savedAgreement ? reloadDraft : undefined}
+      closeConfirmation={{
+        open: confirmationOpen,
+        savePending: confirmationBusy || draftSaveState === 'saving',
+        onCancel: dismissConfirmation,
+        onDiscard: continueWithoutSaving,
+        onSave: handleSaveBeforeClose,
+      }}
     />
   )
 }

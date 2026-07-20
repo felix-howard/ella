@@ -68,7 +68,14 @@ describe('Stripe checkout persistence', () => {
       payment_intent: null,
     })
 
-    const result = await createCheckoutSession(checkoutRequest(), {
+    const request = checkoutRequest()
+    request.pricingInput.payrollEmployees = 1
+    request.pricingInput.cashPlan = { enabled: true, employees: 1, owners: 0 }
+    request.pricingInput.auditProtection = true
+    request.pricingInput.rates.bookkeeping = { setup: 0 }
+    request.pricingInput.rates.payroll.setup = 0
+
+    const result = await createCheckoutSession(request, {
       organizationId: 'org_1',
       createdByStaffId: 'staff_1',
     })
@@ -90,7 +97,11 @@ describe('Stripe checkout persistence', () => {
       status: 'pending_checkout',
     })
     expect(quoteCreate?.data.monthlyTotalCents).toBeGreaterThan(0)
-    expect(quoteCreate?.data.setupTotalCents).toBeGreaterThan(0)
+    expect(quoteCreate?.data.setupTotalCents).toBe(200000)
+    expect(quoteCreate?.data.inputSnapshot.pricingInput.rates).toMatchObject({
+      bookkeeping: { setup: 0 },
+      payroll: { setup: 0 },
+    })
     expect(quoteCreate?.data.inputSnapshot).not.toHaveProperty('quoteNotes')
     expect(prismaMocks.paymentQuote.create.mock.invocationCallOrder[0]).toBeLessThan(
       stripeMocks.createSession.mock.invocationCallOrder[0]

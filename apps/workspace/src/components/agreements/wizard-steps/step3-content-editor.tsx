@@ -22,6 +22,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Check, Loader2, Plus, Trash2 } from 'lucide-react'
 import { RichTextEditor } from '../../leads/rich-text-editor'
+import { AgreementDraftCloseConfirmationModal } from '../agreement-draft-close-confirmation-modal'
 import { NdaPdfPreviewModal } from '../agreement-pdf-preview-modal'
 import { useAgreementDefaultHtml } from '../use-agreement-default-html'
 import type { AgreementDraftAutosaveState } from '../use-agreement-draft-autosave'
@@ -91,7 +92,14 @@ interface Props {
   onDraftChange: (draft: Step3Draft) => void
   onCancel: () => void
   onSubmit: (resolved: Step3Resolved) => void
-  onSaveDraft?: (resolved: Step3Resolved) => void
+  onSaveDraft?: (resolved: Step3Resolved, onSuccess?: () => void) => void
+  closeConfirmation?: {
+    open: boolean
+    savePending: boolean
+    onCancel: () => void
+    onDiscard: () => void
+    onSave: (resolved: Step3Resolved) => void
+  }
   draftSaveState?: AgreementDraftAutosaveState
   draftMetadata?: string | null
   isDraftSaved?: boolean
@@ -293,6 +301,7 @@ export function Step3ContentEditor({
   onCancel,
   onSubmit,
   onSaveDraft,
+  closeConfirmation,
   draftSaveState,
   draftMetadata,
   isDraftSaved,
@@ -821,6 +830,17 @@ export function Step3ContentEditor({
         isSending={isSubmitting}
         sendDisabledReason={sendBlockedReason}
       />
+
+      {closeConfirmation && (
+        <AgreementDraftCloseConfirmationModal
+          open={closeConfirmation.open}
+          savePending={closeConfirmation.savePending}
+          canSave={canSubmit && draftSaveState !== 'conflict'}
+          onCancel={closeConfirmation.onCancel}
+          onDiscard={closeConfirmation.onDiscard}
+          onSave={() => closeConfirmation.onSave(resolveCurrentDraft())}
+        />
+      )}
     </div>
   )
 }

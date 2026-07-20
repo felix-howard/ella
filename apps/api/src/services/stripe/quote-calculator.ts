@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid'
 import type { CheckoutPricingInput } from '../../routes/billing/schemas'
 import {
   calculatePricing,
+  findNonPositivePricingLine,
   isPricingCheckoutAmountSane,
   isPricingInputSane,
   type PricingLineItem,
@@ -26,6 +27,8 @@ export interface CheckoutQuote {
 }
 
 export class CheckoutQuoteError extends Error {
+  readonly status = 400 as const
+
   constructor(message: string) {
     super(message)
     this.name = 'CheckoutQuoteError'
@@ -42,6 +45,11 @@ export function calculateCheckoutQuote(input: CheckoutPricingInput): CheckoutQuo
 
   if (!isPricingInputSane(input)) {
     throw new CheckoutQuoteError('Quantity limits exceeded. Reduce quantities before checkout')
+  }
+
+  const nonPositiveLine = findNonPositivePricingLine(result)
+  if (nonPositiveLine) {
+    throw new CheckoutQuoteError(`Set a price above $0 for ${nonPositiveLine.label}`)
   }
 
   if (result.monthlyTotal <= 0 && result.setupTotal <= 0) {

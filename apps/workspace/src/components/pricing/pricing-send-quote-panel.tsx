@@ -14,6 +14,8 @@ interface PricingSendQuotePanelProps {
   disabledReason: string | null
 }
 
+const sendQuoteStatusId = 'pricing-send-quote-status'
+
 export function PricingSendQuotePanel({
   pricingInput,
   disabledReason,
@@ -150,7 +152,13 @@ export function PricingSendQuotePanel({
           </div>
         )}
 
-        <Button type="button" className="w-full" onClick={handleSend} disabled={sendDisabled}>
+        <Button
+          type="button"
+          className="w-full"
+          onClick={handleSend}
+          disabled={sendDisabled}
+          aria-describedby={sendQuoteStatusId}
+        >
           {sendQuote.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
@@ -159,7 +167,12 @@ export function PricingSendQuotePanel({
           {quoteChangedSinceSend ? 'Send updated payment link' : 'Send Payment Link'}
         </Button>
 
-        <p className="min-h-5 text-xs text-muted-foreground" role="status" aria-live="polite">
+        <p
+          id={sendQuoteStatusId}
+          className="min-h-5 text-xs text-muted-foreground"
+          role={disabledReason ? undefined : 'status'}
+          aria-live={disabledReason ? undefined : 'polite'}
+        >
           {disabledReason ??
             (quoteChangedSinceSend ? 'Quote changed. Send again to text the new amount.' : '')}
           {errorMessage ? <span className="block text-error">{errorMessage}</span> : null}

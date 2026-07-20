@@ -2,7 +2,6 @@
  * Zod schemas for Client API endpoints
  */
 import { z } from 'zod'
-import { ClientServiceStatus, ClientServiceType } from '@ella/db'
 
 // Phone validation (E.164 format for US)
 const phoneSchema = z
@@ -241,72 +240,6 @@ export const updateNotesSchema = z.object({
   notes: z.string().max(50000), // ~50KB HTML limit
 })
 
-const ISO_SERVICE_DATE_PATTERN =
-  /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2}))?$/
-
-function isValidIsoServiceDate(value: string): boolean {
-  if (!ISO_SERVICE_DATE_PATTERN.test(value)) return false
-  const [year, month, day] = value.slice(0, 10).split('-').map(Number)
-  const calendarDate = new Date(Date.UTC(year, month - 1, day))
-  return (
-    calendarDate.getUTCFullYear() === year &&
-    calendarDate.getUTCMonth() === month - 1 &&
-    calendarDate.getUTCDate() === day &&
-    !Number.isNaN(Date.parse(value))
-  )
-}
-
-const serviceDateSchema = z.string().refine(
-  isValidIsoServiceDate,
-  'Invalid ISO service date'
-)
-
-export const clientServiceLogIdParamSchema = z.object({
-  id: z.string().min(1).regex(/^c[a-z0-9]{24}$/, 'Invalid client ID format'),
-  serviceLogId: z.string().min(1).regex(/^c[a-z0-9]{24}$/, 'Invalid service log ID format'),
-})
-
-export const listClientServiceLogsQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(200).default(100),
-  status: z.preprocess(
-    (value) => {
-      if (typeof value === 'string') return value.split(',').filter(Boolean)
-      if (Array.isArray(value)) return value
-      return undefined
-    },
-    z.array(z.nativeEnum(ClientServiceStatus)).max(4).optional()
-  ),
-})
-
-export const createClientServiceLogSchema = z.object({
-  serviceType: z.nativeEnum(ClientServiceType),
-  customServiceName: z.string().max(100).nullable().optional(),
-  status: z.nativeEnum(ClientServiceStatus).default(ClientServiceStatus.ACTIVE),
-  taxYear: z.number().int().min(2000).max(2100).nullable().optional(),
-  serviceDate: serviceDateSchema,
-  note: z.string().max(5000).nullable().optional(),
-}).superRefine((data, ctx) => {
-  if (data.serviceType === ClientServiceType.OTHER && !data.customServiceName?.trim()) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['customServiceName'],
-      message: 'Custom service name is required when service type is OTHER',
-    })
-  }
-})
-
-export const updateClientServiceLogSchema = z.object({
-  serviceType: z.nativeEnum(ClientServiceType).optional(),
-  customServiceName: z.string().max(100).nullable().optional(),
-  status: z.nativeEnum(ClientServiceStatus).optional(),
-  taxYear: z.number().int().min(2000).max(2100).nullable().optional(),
-  serviceDate: serviceDateSchema.optional(),
-  note: z.string().max(5000).nullable().optional(),
-}).refine(
-  (data) => Object.values(data).some((value) => value !== undefined),
-  { message: 'At least one field is required' }
-)
-
 // Combo: create individual + business + group in one call
 const comboProfileSchema = z.object({
   taxTypes: z.array(z.enum(['FORM_1040', 'FORM_1120S', 'FORM_1065'])).default(['FORM_1040']),
@@ -363,5 +296,3 @@ export type CascadeCleanupInput = z.infer<typeof cascadeCleanupSchema>
 export type AvatarPresignedUrlInput = z.infer<typeof avatarPresignedUrlSchema>
 export type AvatarConfirmInput = z.infer<typeof avatarConfirmSchema>
 export type UpdateNotesInput = z.infer<typeof updateNotesSchema>
-export type CreateClientServiceLogInput = z.infer<typeof createClientServiceLogSchema>
-export type UpdateClientServiceLogInput = z.infer<typeof updateClientServiceLogSchema>

@@ -1,5 +1,7 @@
+// @vitest-environment happy-dom
 import { renderToStaticMarkup } from 'react-dom/server'
-import type { ReactNode } from 'react'
+import { act, type ReactNode } from 'react'
+import { createRoot } from 'react-dom/client'
 import type * as ReactDOM from 'react-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { calculatePricing, createDefaultPricingInput } from '@ella/shared/pricing'
@@ -8,6 +10,7 @@ import type {
   AgreementPaymentPortalSendMode,
   CalculatorAgreementQuotePayload,
 } from '../../../lib/api-client'
+import type { AgreementDraftSavedState } from '../../agreements/use-agreement-draft-saved-state'
 import { CalculatorEngagementLetterModal } from '../calculator-engagement-letter-modal'
 import { buildCalculatorEngagementLetterDraftSeed } from '../calculator-engagement-letter-modal-helpers'
 
@@ -16,6 +19,8 @@ interface CapturedDraftEditorProps {
   paymentPortalMode?: AgreementPaymentPortalSendMode
   sourceSnapshot?: Record<string, unknown>
   existingDraft?: Agreement
+  hasExternalUnsavedChanges?: boolean
+  onSavedStateChange?: (state: AgreementDraftSavedState | null) => void
 }
 
 type DraftChoiceMock = {
@@ -111,6 +116,11 @@ const mocks = vi.hoisted(() => ({
   editorProps: [] as CapturedDraftEditorProps[],
 }))
 
+;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
+  .IS_REACT_ACT_ENVIRONMENT = true
+
+let root: ReturnType<typeof createRoot> | null = null
+
 vi.mock('react-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof ReactDOM>()
   return {
@@ -157,14 +167,15 @@ vi.mock('../../agreements/agreement-draft-editor', () => ({
 
 describe('CalculatorEngagementLetterModal component payment mode plumbing', () => {
   beforeEach(() => {
-    vi.stubGlobal('document', { body: {} })
     mocks.orgMode = 'STAFF_REVIEW'
     mocks.draftChoice = createDraftChoice()
     mocks.editorProps = []
   })
 
-  afterEach(() => {
-    vi.unstubAllGlobals()
+  afterEach(async () => {
+    await act(async () => root?.unmount())
+    root = null
+    document.body.replaceChildren()
   })
 
   it('passes org default mode and calculatorQuote for a current calculator quote', () => {
@@ -202,7 +213,7 @@ describe('CalculatorEngagementLetterModal component payment mode plumbing', () =
     const pricingInput = createDefaultPricingInput()
     const savedDraft = agreement({
       paymentPortalMode: 'AUTO_SEND',
-      sourceSnapshot: { paymentPortalMode: 'AUTO_SEND' },
+      sourceSnapshot: { paymentPortalMode: 'STAFF_REVIEW' },
     })
     mocks.orgMode = 'STAFF_REVIEW'
     mocks.draftChoice = createDraftChoice({ selectedDraft: savedDraft })
@@ -222,9 +233,73 @@ describe('CalculatorEngagementLetterModal component payment mode plumbing', () =
 
     expect(mocks.editorProps[0]).toMatchObject({
       existingDraft: savedDraft,
-      paymentPortalMode: 'AUTO_SEND',
-      sourceSnapshot: { paymentPortalMode: 'AUTO_SEND' },
+      paymentPortalMode: 'STAFF_REVIEW',
+      sourceSnapshot: { paymentPortalMode: 'STAFF_REVIEW' },
+      hasExternalUnsavedChanges: false,
     })
     expect(mocks.editorProps[0]).not.toHaveProperty('calculatorQuote')
+  })
+
+  it('advances the payment-mode baseline without losing a newer choice', async () => {
+    const savedDraft = agreement({
+      paymentPortalMode: 'STAFF_REVIEW',
+      sourceSnapshot: { paymentPortalMode: 'STAFF_REVIEW' },
+    })
+    mocks.draftChoice = createDraftChoice({ selectedDraft: savedDraft })
+    const pricingInput = createDefaultPricingInput()
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => root?.render(
+      <CalculatorEngagementLetterModal
+        entity={{ type: 'client', id: 'client-1' }}
+        recipientLabel="Ada Lovelace"
+        draftSeed={buildCalculatorEngagementLetterDraftSeed({
+          recipient: { type: 'client', id: 'client-1' },
+          pricingInput,
+          pricingResult: calculatePricing(pricingInput),
+        })}
+        onClose={vi.fn()}
+      />,
+    ))
+    const pendingStaffReviewSaveProps = mocks.editorProps.at(-1)
+
+    await act(async () => {
+      container.querySelector<HTMLInputElement>('input[value="AUTO_SEND"]')?.click()
+    })
+    let latestProps = mocks.editorProps.at(-1)
+    expect(latestProps).toMatchObject({
+      paymentPortalMode: 'AUTO_SEND',
+      hasExternalUnsavedChanges: true,
+    })
+
+    await act(async () => pendingStaffReviewSaveProps?.onSavedStateChange?.({
+      agreement: agreement({
+        paymentPortalMode: 'STAFF_REVIEW',
+        sourceSnapshot: { paymentPortalMode: 'STAFF_REVIEW' },
+      }),
+      resolved: {} as AgreementDraftSavedState['resolved'],
+    }))
+
+    latestProps = mocks.editorProps.at(-1)
+    expect(latestProps).toMatchObject({
+      paymentPortalMode: 'AUTO_SEND',
+      hasExternalUnsavedChanges: true,
+    })
+
+    await act(async () => latestProps?.onSavedStateChange?.({
+      agreement: agreement({
+        paymentPortalMode: 'AUTO_SEND',
+        sourceSnapshot: { paymentPortalMode: 'AUTO_SEND' },
+      }),
+      resolved: {} as AgreementDraftSavedState['resolved'],
+    }))
+
+    latestProps = mocks.editorProps.at(-1)
+    expect(latestProps).toMatchObject({
+      paymentPortalMode: 'AUTO_SEND',
+      hasExternalUnsavedChanges: false,
+    })
   })
 })

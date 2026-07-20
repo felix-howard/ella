@@ -151,3 +151,19 @@ describe('GET /clients/:id/activity legacy fallback', () => {
     expect(JSON.stringify(json)).not.toContain('secret')
   })
 })
+
+describe('retired client service-log routes', () => {
+  const serviceLogId = 'cbbbbbbbbbbbbbbbbbbbbbbbb'
+  const retiredRoutes = [
+    ['GET', `/clients/${CLIENT_ID}/service-logs`],
+    ['POST', `/clients/${CLIENT_ID}/service-logs`],
+    ['PATCH', `/clients/${CLIENT_ID}/service-logs/${serviceLogId}`],
+    ['DELETE', `/clients/${CLIENT_ID}/service-logs/${serviceLogId}`],
+  ] as const
+
+  it.each(retiredRoutes)('does not mount %s %s', async (method, path) => {
+    const res = await createApp().request(path, { method })
+
+    expect(res.status).toBe(404)
+  })
+})

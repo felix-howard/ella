@@ -15,6 +15,8 @@ import { toCheckoutLineItems, type CheckoutLineItem } from './checkout-line-item
 const SUBSCRIPTION_AUTHORIZATION_TEXT =
   'By subscribing, you authorize ELLA TAX SERVICES LLC to charge you according to the terms and conditions in the engagement letter.'
 
+const QUOTE_PAYMENT_METHOD_TYPES = ['card', 'link', 'us_bank_account'] as const
+
 export interface CheckoutSessionResult {
   quoteId: string
   checkoutUrl: string
@@ -54,6 +56,9 @@ export function buildCheckoutSessionParams(
   if (opts.stripeCouponId && opts.allowPromotionCodes) {
     throw new CheckoutQuoteError('A checkout cannot use a coupon and promotion codes together')
   }
+  if (config.stripe.currency !== 'usd') {
+    throw new CheckoutQuoteError('Quote checkout requires USD for ACH payments')
+  }
 
   // Any recurring line (month/year) makes the whole session a subscription;
   // one-time lines then ride along on the first invoice. All-one-time → payment.
@@ -61,6 +66,11 @@ export function buildCheckoutSessionParams(
 
   return {
     mode: anyRecurring ? 'subscription' : 'payment',
+    // ACH is a product requirement. It only supports USD presentment, so keep
+    // quote checkout in its configured USD currency instead of allowing
+    // Adaptive Pricing to localize the session and hide the bank option.
+    adaptive_pricing: { enabled: false },
+    payment_method_types: [...QUOTE_PAYMENT_METHOD_TYPES],
     line_items: lineItems.map(toStripeLineItem),
     success_url: opts.successUrl ?? config.stripe.successUrl,
     cancel_url: opts.cancelUrl ?? config.stripe.cancelUrl,

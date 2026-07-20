@@ -1,5 +1,6 @@
 import type Stripe from 'stripe'
 import type { Prisma } from '@ella/db'
+import { materializePricingSetupRates } from '@ella/shared/pricing'
 import { prisma } from '../../lib/db'
 import type { CreateCheckoutSessionInput } from '../../routes/billing/schemas'
 import type { CheckoutQuote } from './quote-calculator'
@@ -66,7 +67,7 @@ export async function persistPaymentQuote(
 
 function buildInputSnapshot(input: CreateCheckoutSessionInput): Omit<CreateCheckoutSessionInput, 'quoteNotes'> {
   return {
-    pricingInput: input.pricingInput,
+    pricingInput: materializePricingSetupRates(input.pricingInput),
     customerEmail: input.customerEmail,
     customerName: input.customerName,
     businessName: input.businessName,

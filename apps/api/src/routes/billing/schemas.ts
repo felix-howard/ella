@@ -4,10 +4,11 @@ import {
   MAX_CALCULATOR_CUSTOM_ITEM_QUANTITY,
   MAX_CALCULATOR_CUSTOM_ITEMS,
   MAX_CALCULATOR_CUSTOM_LABEL_LENGTH,
+  MAX_CHECKOUT_LINE_AMOUNT,
 } from '@ella/shared/pricing'
 
 const quantitySchema = z.number().int().min(0).max(1000)
-const rateSchema = z.number().int().min(0).max(1_000_000)
+const rateSchema = z.number().int().min(0).max(MAX_CHECKOUT_LINE_AMOUNT)
 const calculatorCustomItemSchema = z.object({
   id: z.string().trim().min(1).max(120),
   label: z.string().trim().min(1).max(MAX_CALCULATOR_CUSTOM_LABEL_LENGTH),
@@ -36,6 +37,11 @@ export const checkoutPricingInputSchema = z.object({
   salesTaxShops: quantitySchema,
   customItems: z.array(calculatorCustomItemSchema).max(MAX_CALCULATOR_CUSTOM_ITEMS).default([]),
   rates: z.object({
+    bookkeeping: z
+      .object({
+        setup: rateSchema,
+      })
+      .optional(),
     tiers: z.object({
       basicMonthly: rateSchema,
       proMonthly: rateSchema,
@@ -43,6 +49,7 @@ export const checkoutPricingInputSchema = z.object({
     }),
     payroll: z.object({
       baseMonthly: rateSchema,
+      setup: rateSchema.optional(),
     }),
     cashPlan: z.object({
       setup: rateSchema,

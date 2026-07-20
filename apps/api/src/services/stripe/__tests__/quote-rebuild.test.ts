@@ -25,6 +25,8 @@ const baseQuote: RebuildableQuote = {
   source: 'custom',
   inputSnapshot: { source: 'custom', billingInterval: 'month' },
   resultSnapshot: customSnapshot,
+  monthlyTotalCents: 30000,
+  setupTotalCents: 15000,
   appliedCouponId: null,
   allowPromotionCodes: false,
   organizationId: 'org_1',
@@ -88,9 +90,104 @@ describe('rebuildQuoteForCheckout', () => {
       ...baseQuote,
       source: 'calculator',
       inputSnapshot: { pricingInput: calculatorPricingInput },
+      resultSnapshot: {
+        setupItems: [
+          { label: 'Bookkeeping onboarding setup', amount: 150, kind: 'setup' },
+        ],
+      },
+      monthlyTotalCents: 7500,
+      setupTotalCents: 15000,
     })
     expect(items.length).toBeGreaterThan(0)
     expect(items.every((i) => i.unitAmountCents > 0)).toBe(true)
+  })
+
+  it('rebuilds waived setup overrides without restoring legacy fees', () => {
+    const items = rebuildQuoteForCheckout({
+      ...baseQuote,
+      source: 'calculator',
+      inputSnapshot: {
+        pricingInput: {
+          ...calculatorPricingInput,
+          payrollEmployees: 1,
+          cashPlan: { enabled: true, employees: 1, owners: 0 },
+          auditProtection: true,
+          rates: {
+            ...calculatorPricingInput.rates,
+            bookkeeping: { setup: 0 },
+            payroll: { ...calculatorPricingInput.rates.payroll, setup: 0 },
+          },
+        },
+      },
+      monthlyTotalCents: 43700,
+      setupTotalCents: 200000,
+    })
+
+    expect(items.find((item) => item.interval === 'one_time')?.unitAmountCents).toBe(200000)
+  })
+
+  it('keeps legacy calculator setup amounts frozen when overrides are absent', () => {
+    const items = rebuildQuoteForCheckout({
+      ...baseQuote,
+      source: 'calculator',
+      inputSnapshot: {
+        pricingInput: { ...calculatorPricingInput, payrollEmployees: 1 },
+      },
+      resultSnapshot: {
+        setupItems: [
+          { label: 'Bookkeeping onboarding setup', amount: 125, kind: 'setup' },
+          { label: 'Payroll setup', amount: 225, kind: 'setup' },
+        ],
+      },
+      monthlyTotalCents: 13200,
+      setupTotalCents: 35000,
+    })
+
+    expect(items.find((item) => item.interval === 'one_time')?.unitAmountCents).toBe(35000)
+  })
+
+  it('fails closed when rebuilt totals differ from the stored PaymentQuote totals', () => {
+    expect(() =>
+      rebuildQuoteForCheckout({
+        ...baseQuote,
+        source: 'calculator',
+        inputSnapshot: { pricingInput: calculatorPricingInput },
+        resultSnapshot: {
+          setupItems: [
+            { label: 'Bookkeeping onboarding setup', amount: 125, kind: 'setup' },
+          ],
+        },
+        monthlyTotalCents: 7500,
+        setupTotalCents: 15000,
+      })
+    ).toThrow('Rebuilt checkout totals do not match stored quote totals')
+  })
+
+  it('fails closed when required legacy setup pricing is missing', () => {
+    expect(() =>
+      rebuildQuoteForCheckout({
+        ...baseQuote,
+        source: 'calculator',
+        inputSnapshot: { pricingInput: calculatorPricingInput },
+        resultSnapshot: { setupItems: [] },
+      })
+    ).toThrow('Stored calculator setup pricing is missing or ambiguous')
+  })
+
+  it('fails closed when a legacy setup label is ambiguous', () => {
+    expect(() =>
+      rebuildQuoteForCheckout({
+        ...baseQuote,
+        source: 'calculator',
+        inputSnapshot: { pricingInput: calculatorPricingInput },
+        resultSnapshot: {
+          setupItems: [
+            { label: 'Bookkeeping onboarding setup', amount: 150, kind: 'setup' },
+            { label: 'Bookkeeping onboarding setup', amount: 25, kind: 'setup' },
+          ],
+        },
+      })
+    ).toThrow('Stored calculator setup pricing is missing or ambiguous')
   })
 })
 

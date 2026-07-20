@@ -1,199 +1,216 @@
 // @vitest-environment happy-dom
-import { renderToStaticMarkup } from 'react-dom/server'
-import { act } from 'react'
+import type React from 'react'
+import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-import { beforeEach, describe, expect, it } from 'vitest'
-import type { CreateClientServiceLogInput } from '../../../lib/api-client'
-import {
-  getClientServicesTabMocks,
-  resetClientServicesTabMocks,
-  serviceLog,
-} from './client-services-tab-test-helpers'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import en from '../../../locales/en.json'
+import viLocale from '../../../locales/vi.json'
+import type {
+  ClientPaidServiceGroup,
+  ClientPaidServiceStatus,
+  ClientPaidServicesResponse,
+} from '../../../lib/api-client'
 import { ClientServicesTab } from './client-services-tab'
-import { buildServiceLogPayload } from './service-log-form-utils'
 
-;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
-  .IS_REACT_ACT_ENVIRONMENT = true
+const testState = vi.hoisted(() => {
+  const refetch = vi.fn()
+  return {
+    refetch,
+    query: {
+      isLoading: false,
+      isError: false,
+      data: {
+        success: true,
+        data: [],
+        meta: { isTruncated: false, limit: 100 },
+      } as ClientPaidServicesResponse,
+      refetch,
+    },
+  }
+})
 
-const mocks = getClientServicesTabMocks()
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: { language: 'en', resolvedLanguage: 'en' },
+  }),
+}))
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, search }: { children: React.ReactNode; search: { tab: string } }) => (
+    <a href={`/clients/client_1?tab=${search.tab}`} data-tab={search.tab}>
+      {children}
+    </a>
+  ),
+}))
+
+vi.mock('@ella/ui', () => ({
+  cn: (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' '),
+}))
+
+vi.mock('./use-client-paid-services', () => ({
+  useClientPaidServices: () => testState.query,
+}))
+
+function buildGroup(
+  id: string,
+  statuses: ClientPaidServiceStatus[],
+  overrides: Partial<ClientPaidServiceGroup> = {},
+): ClientPaidServiceGroup {
+  return {
+    id,
+    source: 'CUSTOM_LINK',
+    paidAt: '2026-07-15T10:00:00.000Z',
+    agreement: null,
+    items: statuses.map((status, index) => ({
+      id: `${id}-item-${index}`,
+      label: `${id} service ${index}`,
+      description: index === 0 ? `${id} description` : null,
+      category: status === 'PAID' ? 'ONE_TIME' : 'RECURRING',
+      cadence: status === 'PAID' ? 'ONE_TIME' : 'MONTH',
+      status,
+    })),
+    ...overrides,
+  }
+}
+
+beforeEach(() => {
+  testState.refetch.mockReset()
+  testState.query = {
+    isLoading: false,
+    isError: false,
+    data: { success: true, data: [], meta: { isTruncated: false, limit: 100 } },
+    refetch: testState.refetch,
+  }
+})
 
 describe('ClientServicesTab', () => {
-  beforeEach(resetClientServicesTabMocks)
+  it('renders every lifecycle status once in operational section order for staff', () => {
+    testState.query.data.data = [
+      buildGroup('past', ['PAST_DUE', 'PAID']),
+      buildGroup('active', ['ACTIVE']),
+      buildGroup('paid', ['PAID']),
+      buildGroup('history', ['ENDED', 'REFUNDED']),
+    ]
 
-  it('wires the service history query to the service log API', async () => {
-    renderToStaticMarkup(<ClientServicesTab clientId="client_1" />)
+    const markup = renderToStaticMarkup(<ClientServicesTab clientId="client_1" />)
 
-    await Promise.all(mocks.queryOptions.map((option) => option.queryFn()))
-
-    expect(mocks.queryOptions).toHaveLength(1)
-    expect(mocks.list).toHaveBeenCalledWith('client_1', { limit: 200 })
+    const headings = [
+      'clientServices.section.pastDue',
+      'clientServices.section.active',
+      'clientServices.section.paid',
+      'clientServices.section.history',
+    ]
+    headings.forEach((heading, index) => {
+      expect(markup).toContain(heading)
+      if (index > 0) expect(markup.indexOf(heading)).toBeGreaterThan(markup.indexOf(headings[index - 1]))
+    })
+    const sectionMarkup = headings.map((heading, index) =>
+      markup.slice(markup.indexOf(heading), markup.indexOf(headings[index + 1] ?? '') || undefined),
+    )
+    expect(sectionMarkup[0]).toContain('past service 0')
+    expect(sectionMarkup[0]).toContain('past service 1')
+    expect(sectionMarkup[2]).not.toContain('past service 1')
+    expect(sectionMarkup[3]).toContain('history service 0')
+    expect(sectionMarkup[3]).toContain('history service 1')
+    ;(['PAST_DUE', 'ACTIVE', 'PAID', 'ENDED', 'REFUNDED'] as const).forEach((status) => {
+      expect(markup).toContain(`data-status="${status}"`)
+    })
+    expect(markup.match(/past service 0/g)).toHaveLength(1)
+    expect(markup.match(/past service 1/g)).toHaveLength(1)
+    expect(markup).not.toContain('data-tab="payments"')
+    expect(markup).not.toContain('<form')
   })
 
-  it('renders add-service action and service history empty state', () => {
+  it('shows safe admin drill-down links and calculator provenance', () => {
+    testState.query.data.data = [
+      buildGroup('calculator', ['ACTIVE'], {
+        source: 'CALCULATOR_AGREEMENT',
+        agreement: {
+          id: 'agreement_1',
+          title: '2026 Engagement Letter',
+          signedAt: '2026-07-14T10:00:00.000Z',
+        },
+      }),
+    ]
+
     const markup = renderToStaticMarkup(
-      <ClientServicesTab clientId="client_1" defaultTaxYear={2026} />
+      <ClientServicesTab
+        clientId="client_1"
+        canManagePayments
+        canManageAgreements
+      />,
     )
 
-    expect(markup).toContain('clientServices.addService')
-    expect(markup).toContain('clientServices.historyTitle')
-    expect(markup).toContain('clientServices.emptyTitle')
-    expect(markup).not.toContain('clientServices.activeTitle')
+    expect(markup).toContain('2026 Engagement Letter')
+    expect(markup).toContain('data-tab="payments"')
+    expect(markup).toContain('data-tab="agreements"')
+    expect(markup).not.toContain('$')
+    expect(markup).not.toContain('Stripe')
   })
 
-  it('renders chronological history without active summary', () => {
-    mocks.latestQuery.data = {
-      data: [
-        serviceLog({
-          id: 'service_waiting',
-          serviceType: 'OTHER',
-          customServiceName: 'Quarterly Planning',
-          status: 'WAITING_ON_CLIENT',
-          note: 'Waiting for January bank statements.',
-        }),
-        serviceLog({
-          id: 'service_active',
-          serviceType: 'BOOKKEEPING',
-          status: 'ACTIVE',
-          serviceDate: '2026-07-09T00:00:00.000Z',
-        }),
-        serviceLog({
-          id: 'service_done',
-          status: 'COMPLETED',
-          serviceDate: '2026-07-01T00:00:00.000Z',
-        }),
-      ],
+  it('renders long custom service text without truncation', () => {
+    const longLabel = 'A'.repeat(120)
+    testState.query.data.data = [buildGroup('custom', ['PAID'], {
+      items: [{
+        id: 'long-item',
+        label: longLabel,
+        description: 'Detailed custom service description',
+        category: 'ONE_TIME',
+        cadence: 'ONE_TIME',
+        status: 'PAID',
+      }],
+    })]
+
+    const markup = renderToStaticMarkup(<ClientServicesTab clientId="client_1" />)
+
+    expect(markup).toContain(longLabel)
+    expect(markup).toContain('[overflow-wrap:anywhere]')
+    expect(markup).toContain('clientServices.source.CUSTOM_LINK')
+  })
+
+  it('warns when the paid-service history is limited to the newest groups', () => {
+    testState.query.data = {
+      success: true,
+      data: [buildGroup('paid', ['PAID'])],
+      meta: { isTruncated: true, limit: 100 },
     }
 
     const markup = renderToStaticMarkup(<ClientServicesTab clientId="client_1" />)
 
-    expect(markup).not.toContain('clientServices.activeTitle')
-    expect(markup).not.toContain('clientServices.activeCount')
-    expect(markup).toContain('Quarterly Planning')
-    expect(markup).toContain('clientServices.status.waitingOnClient')
-    expect(markup).toContain('clientServices.serviceTypes.bookkeeping')
-    expect(markup).toContain('clientServices.historyTitle')
-    expect(markup).toContain('clientServices.status.completed')
-    expect(markup).toContain('Alice Admin')
+    expect(markup).toContain('clientServices.truncated')
+    expect(markup).toContain('role="status"')
   })
 
-  it('renders loading and retryable error states', () => {
-    mocks.latestQuery = { ...mocks.latestQuery, isLoading: true }
-    let markup = renderToStaticMarkup(<ClientServicesTab clientId="client_1" />)
-    expect(markup).toContain('clientServices.loading')
-
-    mocks.latestQuery = { ...mocks.latestQuery, isLoading: false, isError: true }
-    markup = renderToStaticMarkup(<ClientServicesTab clientId="client_1" />)
-    expect(markup).toContain('clientServices.loadError')
-    expect(markup).toContain('common.retry')
+  it.each([
+    ['loading', { isLoading: true, isError: false }, 'role="status"', 'clientServices.loading'],
+    ['error', { isLoading: false, isError: true }, 'role="alert"', 'clientServices.retry'],
+    ['empty', { isLoading: false, isError: false }, 'clientServices.emptyTitle', 'clientServices.emptyDescription'],
+  ])('renders the %s state accessibly', (_name, state, first, second) => {
+    testState.query = { ...testState.query, ...state }
+    const markup = renderToStaticMarkup(<ClientServicesTab clientId="client_1" />)
+    expect(markup).toContain(first)
+    expect(markup).toContain(second)
   })
 
-  it('creates service logs through the create mutation wiring', async () => {
-    renderToStaticMarkup(<ClientServicesTab clientId="client_1" />)
-    const payload: CreateClientServiceLogInput = {
-      serviceType: 'BOOKKEEPING',
-      status: 'ACTIVE',
-      taxYear: 2026,
-      serviceDate: '2026-07-09',
-      customServiceName: null,
-      note: 'Monthly close',
-    }
-
-    await mocks.mutationOptions[0].mutationFn(payload)
-    await mocks.mutationOptions[0].onSuccess?.()
-
-    expect(mocks.create).toHaveBeenCalledWith('client_1', payload)
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['client-service-logs', 'client_1'],
-    })
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['activity', 'client', 'client_1'],
-    })
-  })
-
-  it('submits quick-add through the rendered form controls', async () => {
+  it('retries the paid-services query after a load error', () => {
+    testState.query = { ...testState.query, isError: true }
     const container = document.createElement('div')
-    document.body.appendChild(container)
     const root = createRoot(container)
+    flushSync(() => root.render(<ClientServicesTab clientId="client_1" />))
 
-    await act(async () => {
-      root.render(<ClientServicesTab clientId="client_1" defaultTaxYear={2026} />)
-    })
+    container.querySelector('button')?.click()
 
-    const addButton = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('clientServices.addService')
-    )
-    expect(addButton).toBeTruthy()
-
-    await act(async () => {
-      addButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    })
-
-    const selects = container.querySelectorAll('select')
-    const serviceDateInput = container.querySelector<HTMLInputElement>('input[type="date"]')
-    const taxYearInput = container.querySelector<HTMLInputElement>('input[inputmode="numeric"]')
-    const noteInput = container.querySelector<HTMLTextAreaElement>('#client-service-add-note')
-    const form = container.querySelector('form')
-
-    expect(selects).toHaveLength(2)
-    expect(serviceDateInput).not.toBeNull()
-    expect(taxYearInput?.value).toBe('2026')
-    expect(noteInput).not.toBeNull()
-    expect(form).not.toBeNull()
-
-    await act(async () => {
-      setControlValue(selects[0], 'BOOKKEEPING')
-      setControlValue(selects[1], 'WAITING_ON_CLIENT')
-      setControlValue(serviceDateInput!, '2026-07-09')
-      setControlValue(noteInput!, 'Need prior-year return')
-      form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-    })
-
-    expect(mocks.create).toHaveBeenCalledWith('client_1', {
-      serviceType: 'BOOKKEEPING',
-      customServiceName: null,
-      status: 'WAITING_ON_CLIENT',
-      taxYear: 2026,
-      serviceDate: '2026-07-09',
-      note: 'Need prior-year return',
-    })
-
-    await act(async () => root.unmount())
-    container.remove()
+    expect(testState.refetch).toHaveBeenCalledOnce()
+    flushSync(() => root.unmount())
   })
 
-  it('builds the quick-add payload expected by the create API', () => {
-    const result = buildServiceLogPayload(
-      {
-        serviceType: 'OTHER',
-        customServiceName: ' Quarterly Planning ',
-        status: 'WAITING_ON_CLIENT',
-        taxYear: '2026',
-        serviceDate: '2026-07-09',
-        note: ' Need prior-year return ',
-      },
-      (key) => key
-    )
+  it('keeps all paid-service translations in English and Vietnamese', () => {
+    const keys = (locale: Record<string, string>) =>
+      Object.keys(locale).filter((key) => key.startsWith('clientServices.')).sort()
 
-    expect(result).toEqual({
-      payload: {
-        serviceType: 'OTHER',
-        customServiceName: 'Quarterly Planning',
-        status: 'WAITING_ON_CLIENT',
-        taxYear: 2026,
-        serviceDate: '2026-07-09',
-        note: 'Need prior-year return',
-      },
-    })
+    expect(keys(en)).toEqual(keys(viLocale))
+    expect(keys(en)).not.toContain('clientServices.placeholderTitle')
   })
 })
-
-function setControlValue(element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, value: string) {
-  const prototype = element instanceof HTMLInputElement
-    ? HTMLInputElement.prototype
-    : element instanceof HTMLSelectElement
-      ? HTMLSelectElement.prototype
-      : HTMLTextAreaElement.prototype
-  Object.getOwnPropertyDescriptor(prototype, 'value')?.set?.call(element, value)
-  element.dispatchEvent(new Event('input', { bubbles: true }))
-  element.dispatchEvent(new Event('change', { bubbles: true }))
-}

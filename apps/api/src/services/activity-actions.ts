@@ -25,6 +25,7 @@ export const ACTIVITY_TARGET_TYPES = {
   CONVERSATION: 'CONVERSATION',
   STAFF: 'STAFF',
   STAFF_FILE: 'STAFF_FILE',
+  // Retained so historical service-log activity rows remain recognizable.
   CLIENT_SERVICE_LOG: 'CLIENT_SERVICE_LOG',
   ORGANIZATION: 'ORGANIZATION',
   AGREEMENT: 'AGREEMENT',
@@ -46,6 +47,7 @@ export const ACTIVITY_ACTIONS = {
     AVATAR_UPDATED: 'client.avatar_updated',
     AVATAR_DELETED: 'client.avatar_deleted',
     NOTES_UPDATED: 'client.notes_updated',
+    // Legacy identifiers only; manual service-log emitters were retired.
     SERVICE_LOG_CREATED: 'client.service_log_created',
     SERVICE_LOG_UPDATED: 'client.service_log_updated',
     SERVICE_LOG_DELETED: 'client.service_log_deleted',

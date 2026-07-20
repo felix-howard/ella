@@ -805,35 +805,10 @@ export const api = {
     getActivity: (id: string) =>
       request<{ data: ClientActivity[] }>(`/clients/${id}/activity`),
 
-    // Client service logs — internal staff ledger for services performed.
-    serviceLogs: {
-      list: (
-        clientId: string,
-        params?: { limit?: number; status?: ClientServiceStatus | ClientServiceStatus[] }
-      ) =>
-        request<{ data: ClientServiceLog[] }>(`/clients/${clientId}/service-logs`, {
-          params: {
-            limit: params?.limit,
-            status: Array.isArray(params?.status) ? params.status.join(',') : params?.status,
-          },
-        }),
-
-      create: (clientId: string, body: CreateClientServiceLogInput) =>
-        request<{ data: ClientServiceLog }>(`/clients/${clientId}/service-logs`, {
-          method: 'POST',
-          body: JSON.stringify(body),
-        }),
-
-      update: (clientId: string, serviceLogId: string, body: UpdateClientServiceLogInput) =>
-        request<{ data: ClientServiceLog }>(`/clients/${clientId}/service-logs/${serviceLogId}`, {
-          method: 'PATCH',
-          body: JSON.stringify(body),
-        }),
-
-      delete: (clientId: string, serviceLogId: string) =>
-        request<{ success: boolean; data: ClientServiceLog }>(`/clients/${clientId}/service-logs/${serviceLogId}`, {
-          method: 'DELETE',
-        }),
+    // Staff-safe read model of services proven by eligible settled quotes.
+    paidServices: {
+      list: (clientId: string) =>
+        request<ClientPaidServicesResponse>(`/clients/${clientId}/paid-services`),
     },
 
     // Update client notes
@@ -3034,62 +3009,6 @@ export interface StaffAssignableMember extends StaffManagerSummary {
   formSlug: string | null
 }
 
-export type ClientServiceType =
-  | 'INDIVIDUAL_TAX_RETURN'
-  | 'BUSINESS_TAX_RETURN'
-  | 'BOOKKEEPING'
-  | 'PAYROLL'
-  | 'TAX_PLANNING'
-  | 'IRS_NOTICE'
-  | 'AMENDMENT'
-  | 'FORM_1099_FILING'
-  | 'CONSULTATION'
-  | 'OTHER'
-
-export type ClientServiceStatus =
-  | 'ACTIVE'
-  | 'WAITING_ON_CLIENT'
-  | 'COMPLETED'
-  | 'CANCELLED'
-
-export interface ClientServiceLogStaff {
-  id: string
-  name: string | null
-  avatarUrl: string | null
-}
-
-export interface ClientServiceLog {
-  id: string
-  clientId: string
-  serviceType: ClientServiceType
-  customServiceName: string | null
-  status: ClientServiceStatus
-  taxYear: number | null
-  serviceDate: string
-  note: string | null
-  createdBy: ClientServiceLogStaff | null
-  updatedBy: ClientServiceLogStaff | null
-  createdAt: string
-  updatedAt: string
-}
-
-interface ClientServiceLogInputFields {
-  customServiceName?: string | null
-  status?: ClientServiceStatus
-  taxYear?: number | null
-  serviceDate?: string
-  note?: string | null
-}
-
-export interface CreateClientServiceLogInput extends ClientServiceLogInputFields {
-  serviceType: ClientServiceType
-  serviceDate: string
-}
-
-export interface UpdateClientServiceLogInput extends ClientServiceLogInputFields {
-  serviceType?: ClientServiceType
-}
-
 // Client with computed status and action counts for list view
 export interface ClientWithActions {
   id: string
@@ -3169,6 +3088,41 @@ export interface ClientStats {
   taxYears: number[]
   verifiedPercent: number
   lastMessageAt: string | null
+}
+
+export type ClientPaidServiceSource = 'CALCULATOR_AGREEMENT' | 'CUSTOM_LINK'
+export type ClientPaidServiceCategory = 'RECURRING' | 'ONE_TIME'
+export type ClientPaidServiceCadence = 'MONTH' | 'YEAR' | 'ONE_TIME'
+export type ClientPaidServiceStatus = 'PAID' | 'ACTIVE' | 'PAST_DUE' | 'ENDED' | 'REFUNDED'
+
+export interface ClientPaidServiceItem {
+  id: string
+  label: string
+  description: string | null
+  category: ClientPaidServiceCategory
+  cadence: ClientPaidServiceCadence
+  status: ClientPaidServiceStatus
+}
+
+export interface ClientPaidServiceGroup {
+  id: string
+  source: ClientPaidServiceSource
+  paidAt: string
+  agreement: {
+    id: string
+    title: string
+    signedAt: string | null
+  } | null
+  items: ClientPaidServiceItem[]
+}
+
+export interface ClientPaidServicesResponse {
+  success: true
+  data: ClientPaidServiceGroup[]
+  meta: {
+    isTruncated: boolean
+    limit: number
+  }
 }
 
 export interface ClientActivity {

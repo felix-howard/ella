@@ -5,6 +5,7 @@
  * and quote pay URL generation.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { materializePricingSetupRates } from '@ella/shared/pricing'
 import { HTTPException } from 'hono/http-exception'
 
 const prismaMocks = vi.hoisted(() => ({
@@ -184,7 +185,7 @@ describe('createSendableQuote', () => {
       // Check snapshots are frozen
       expect(payload.inputSnapshot).toEqual(
         expect.objectContaining({
-          pricingInput: input.pricingInput,
+          pricingInput: materializePricingSetupRates(input.pricingInput),
           customerEmail: 'john@acme.com',
           customerName: 'John Smith',
           businessName: 'Acme Corp',

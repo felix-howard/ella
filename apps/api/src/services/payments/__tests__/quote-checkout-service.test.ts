@@ -83,8 +83,9 @@ const basePricingInput: CheckoutPricingInput = {
   salesTaxShops: 0,
   customItems: [],
   rates: {
+    bookkeeping: { setup: 150 },
     tiers: { basicMonthly: 75, proMonthly: 85, vipMonthly: 85 },
-    payroll: { baseMonthly: 50 },
+    payroll: { baseMonthly: 50, setup: 250 },
     cashPlan: { setup: 1000, perEmployeeMonthly: 5, perOwnerMonthly: 50 },
     auditProtection: { monthly: 300, setup: 1000 },
     oneTime: {
@@ -110,12 +111,14 @@ function quoteRow(overrides: Record<string, unknown> = {}) {
     inputSnapshot: { pricingInput: basePricingInput },
     resultSnapshot: {
       monthlyItems: [{ label: 'Pro plan', amount: 85, kind: 'monthly' }],
-      setupItems: [{ label: 'LLC setup', amount: 1500, kind: 'setup' }],
+      setupItems: [
+        { label: 'Bookkeeping onboarding setup', amount: 150, kind: 'setup' },
+      ],
       monthlyTotal: 85,
-      setupTotal: 1500,
+      setupTotal: 150,
     },
     monthlyTotalCents: 8500,
-    setupTotalCents: 150000,
+    setupTotalCents: 15000,
     lastStripeEventAt: null,
     organization: { name: 'Acme Tax' },
     client: { firstName: 'Anna' },
@@ -204,13 +207,13 @@ describe('getPublicQuoteView', () => {
     expect(view?.recipientFirstName).toBe('Anna')
     expect(view?.lineItems).toEqual([
       { label: 'Monthly bookkeeping service', amount: 85, kind: 'monthly' },
-      { label: 'LLC setup', amount: 1500, kind: 'setup' },
+      { label: 'Bookkeeping onboarding setup', amount: 150, kind: 'setup' },
     ])
     expect(view?.monthlyTotal).toBe(85)
-    expect(view?.setupTotal).toBe(1500)
-    expect(view?.subtotal).toBe(1585)
+    expect(view?.setupTotal).toBe(150)
+    expect(view?.subtotal).toBe(235)
     expect(view?.discount).toBeNull()
-    expect(view?.dueToday).toBe(1585)
+    expect(view?.dueToday).toBe(235)
     expect(view?.paidAt).toBeNull()
   })
 
@@ -223,6 +226,7 @@ describe('getPublicQuoteView', () => {
           monthlyTotal: 85,
           setupTotal: 0,
         },
+        setupTotalCents: 0,
       })
     )
 
@@ -238,14 +242,14 @@ describe('getPublicQuoteView', () => {
 
     const view = await getPublicQuoteView('tok_abcdefghij')
 
-    expect(view?.subtotal).toBe(1585)
+    expect(view?.subtotal).toBe(235)
     expect(view?.discount).toEqual({
       code: 'SAVE10',
       name: 'Welcome',
-      amount: 158.5,
+      amount: 23.5,
       recurringAmount: 0,
     })
-    expect(view?.dueToday).toBe(1426.5)
+    expect(view?.dueToday).toBe(211.5)
   })
 
   it('previews future recurring discount for forever amount coupons', async () => {
@@ -284,7 +288,7 @@ describe('getPublicQuoteView', () => {
     const view = await getPublicQuoteView('tok_abcdefghij')
 
     expect(view?.discount).toBeNull()
-    expect(view?.dueToday).toBe(1585)
+    expect(view?.dueToday).toBe(235)
   })
 
   it('derives paidAt from lastStripeEventAt once settled', async () => {

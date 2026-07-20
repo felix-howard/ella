@@ -81,26 +81,30 @@ import { formatPhone, formatPhoneInput, maskPhone, getInitials, getAvatarColor }
 import { api, type TaxCaseStatus, type RawImage, type DigitalDoc, type ClientPreview } from '../../lib/api-client'
 import type { IdentityRetentionExtensionDays } from '../../lib/api-client'
 import { computeStatus } from '../../lib/computed-status'
-import { isScheduleCEligibleBusiness, BUSINESS_TYPE_LABELS } from '../../lib/business-type-helpers'
+import { BUSINESS_TYPE_LABELS } from '../../lib/business-type-helpers'
 import { IndividualScheduleCActivities } from '../../components/cases/tabs/schedule-c-tab/individual-schedule-c-activities'
 import { getLinkedBusinessesWithScheduleC } from '../../components/cases/tabs/schedule-c-tab/schedule-c-activities'
-import { DEFAULT_CLIENT_TAB, getAvailableTabIds, type TabType, VALID_TAB_PARAMS } from './client-detail-tabs'
+import {
+  DEFAULT_CLIENT_TAB,
+  getAvailableTabIds,
+  parseClientDetailSearch,
+  type TabType,
+} from './client-detail-tabs'
 
 export const Route = createFileRoute('/clients/$clientId')({
   component: ClientDetailPage,
   parseParams: (params) => ({ clientId: params.clientId }),
-  validateSearch: (search: Record<string, unknown>): { tab?: TabType } => {
-    const tab = search.tab as string | undefined
-    return {
-      tab: tab && VALID_TAB_PARAMS.includes(tab as TabType) ? (tab as TabType) : undefined,
-    }
-  },
+  validateSearch: parseClientDetailSearch,
 })
 
 function ClientDetailPage() {
   const { t, i18n } = useTranslation()
   const { clientId } = Route.useParams()
-  const { tab: tabFromSearch } = Route.useSearch()
+  const {
+    tab: tabFromSearch,
+    agreementId: focusedAgreementId,
+    quoteId: focusedQuoteId,
+  } = Route.useSearch()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>(tabFromSearch ?? DEFAULT_CLIENT_TAB)
@@ -672,49 +676,32 @@ function ClientDetailPage() {
       ? [client.managedBy.name]
       : []
 
-  // Schedule C/E tabs: always visible (no More dropdown).
-  const scheduleCTab = { id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }
-  const scheduleETab = { id: 'schedule-e' as TabType, label: 'Schedule E', icon: Home }
-  const agreementsTab = { id: 'agreements' as TabType, label: t('clientDetail.tabAgreements'), icon: FileSignature }
-  const paymentsTab = { id: 'payments' as TabType, label: t('clientDetail.tabPayments'), icon: CreditCard }
-  const servicesTab = { id: 'services' as TabType, label: t('clientDetail.tabServices'), icon: BriefcaseBusiness }
   const isBusiness = client.clientType === 'BUSINESS'
 
   // Schedule C eligibility & cross-entity activity computation.
   // Business: only show Schedule C when the entity actually files it (sole prop / SMLLC).
   // Individual: always show its own case-scoped Schedule C, with linked business
   // Schedule C rows below when sibling businesses already own Schedule C records.
-  const businessIsScheduleCEligible = isBusiness && isScheduleCEligibleBusiness(client)
   const eligibleBusinessesWithScheduleC: ClientPreview[] = !isBusiness
     ? getLinkedBusinessesWithScheduleC(client.clientGroup?.clients)
     : []
-  // Business: only when entity type is Schedule-C-eligible. Individual: always.
-  const showScheduleCTab = isBusiness ? businessIsScheduleCEligible : true
 
-  const tabs: { id: TabType; label: string; icon: typeof User }[] = isBusiness
-    ? [
-        // Business entities skip the Agreements tab — NDAs are signed by the
-        // individual owner of the ClientGroup, not the business itself.
-        { id: 'overview', label: t('clientOverview.title'), icon: Building2 },
-        { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
-        servicesTab,
-        { id: 'contractors', label: 'Contractors', icon: UserCircle },
-        { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
-        { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
-        ...(canManagePayments ? [paymentsTab] : []),
-        ...(showScheduleCTab ? [scheduleCTab] : []),
-      ]
-    : [
-        { id: 'overview', label: t('clientOverview.title'), icon: User },
-        { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
-        servicesTab,
-        ...(canManageAgreements ? [agreementsTab] : []),
-        ...(canManagePayments ? [paymentsTab] : []),
-        { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
-        { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
-        scheduleCTab,
-        scheduleETab,
-      ]
+  type ClientTabDefinition = { id: TabType; label: string; icon: typeof User }
+  const tabDefinitions: Record<TabType, ClientTabDefinition> = {
+    overview: { id: 'overview', label: t('clientOverview.title'), icon: isBusiness ? Building2 : User },
+    files: { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
+    services: { id: 'services', label: t('clientDetail.tabServices'), icon: BriefcaseBusiness },
+    checklist: { id: 'checklist', label: t('clientDetail.tabChecklist'), icon: ClipboardList },
+    'schedule-c': { id: 'schedule-c', label: 'Schedule C', icon: Calculator },
+    'schedule-e': { id: 'schedule-e', label: 'Schedule E', icon: Home },
+    'data-entry': { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
+    'shared-docs': { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
+    contractors: { id: 'contractors', label: 'Contractors', icon: UserCircle },
+    agreements: { id: 'agreements', label: t('clientDetail.tabAgreements'), icon: FileSignature },
+    payments: { id: 'payments', label: t('clientDetail.tabPayments'), icon: CreditCard },
+  }
+  const tabs = getAvailableTabIds(client, { canManagePayments, canManageAgreements })
+    .map((tabId) => tabDefinitions[tabId])
 
   return (
     <PageContainer className="pb-28">
@@ -1030,17 +1017,21 @@ function ClientDetailPage() {
           }}
           enabled={true}
           canSend={canManageAgreements}
+          focusedAgreementId={focusedAgreementId}
         />
       )}
 
       {/* Payments Tab - deposits/balances collected from this client */}
-      {activeTab === 'payments' && canManagePayments && <ClientPaymentsTab clientId={clientId} />}
+      {activeTab === 'payments' && canManagePayments && (
+        <ClientPaymentsTab clientId={clientId} focusedQuoteId={focusedQuoteId} />
+      )}
 
-      {/* Services Tab - internal CPA service ledger. Full UI lands in Phase 4. */}
+      {/* Services Tab - read-only paid services projection. */}
       {activeTab === 'services' && (
         <ClientServicesTab
           clientId={clientId}
-          defaultTaxYear={selectedEngagement?.taxYear ?? selectedCase?.taxYear ?? activeCase?.taxYear}
+          canManagePayments={canManagePayments}
+          canManageAgreements={canManageAgreements && !isBusiness}
         />
       )}
 

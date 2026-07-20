@@ -30,6 +30,34 @@ export const VALID_TAB_PARAMS: TabType[] = [
 
 export const DEFAULT_CLIENT_TAB: TabType = 'files'
 
+export interface ClientDetailSearch {
+  tab?: TabType
+  agreementId?: string
+  quoteId?: string
+}
+
+const CLIENT_DETAIL_FOCUS_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/
+
+function parseFocusId(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const normalized = value.trim()
+  return CLIENT_DETAIL_FOCUS_ID_PATTERN.test(normalized) ? normalized : undefined
+}
+
+export function parseClientDetailSearch(search: Record<string, unknown>): ClientDetailSearch {
+  const tab = VALID_TAB_PARAMS.includes(search.tab as TabType)
+    ? (search.tab as TabType)
+    : undefined
+
+  if (tab === 'agreements') {
+    return { tab, agreementId: parseFocusId(search.agreementId) }
+  }
+  if (tab === 'payments') {
+    return { tab, quoteId: parseFocusId(search.quoteId) }
+  }
+  return { tab }
+}
+
 export function getAvailableTabIds(
   client: { clientType: 'INDIVIDUAL' | 'BUSINESS'; businessType?: BusinessType | null } | null | undefined,
   flags: { canManagePayments: boolean; canManageAgreements: boolean } = {

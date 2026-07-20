@@ -113,6 +113,46 @@ describe('Stripe checkout session params', () => {
     expect(params.metadata).toMatchObject({ quoteId: quote.quoteId, source: 'pricing_calculator' })
   })
 
+  it('charges only non-waived setup fees', () => {
+    const quote = calculateCheckoutQuote({
+      ...basePricingInput,
+      payrollEmployees: 1,
+      cashPlan: { enabled: true, employees: 1, owners: 0 },
+      auditProtection: true,
+      rates: {
+        ...basePricingInput.rates,
+        bookkeeping: { setup: 0 },
+        payroll: { ...basePricingInput.rates.payroll, setup: 0 },
+      },
+    })
+
+    const params = buildParams(quote)
+
+    expect(quote.setupTotal).toBe(2000)
+    expect(quote.setupItems.map((item) => item.label)).toEqual([
+      'Cash Plan setup',
+      'Audit Detection setup',
+    ])
+    expect(params.line_items?.[1]?.price_data?.unit_amount).toBe(200000)
+  })
+
+  it('keeps one-time selections payable when bookkeeping setup is waived', () => {
+    const quote = calculateCheckoutQuote({
+      ...basePricingInput,
+      nec1099Count: 0,
+      oneTime: { ...basePricingInput.oneTime, personalTaxReturn: 1 },
+      rates: {
+        ...basePricingInput.rates,
+        bookkeeping: { setup: 0 },
+      },
+    })
+
+    expect(quote.setupItems).toEqual([
+      { label: 'Personal tax return', amount: 150, kind: 'setup' },
+    ])
+    expect(quote.setupTotal).toBe(150)
+  })
+
   it('keeps checkout quote totals aligned with the shared pricing calculator', () => {
     const pricingInput = {
       ...basePricingInput,
@@ -284,6 +324,27 @@ describe('Stripe checkout session params', () => {
     ).toThrow('Select at least one billable service before checkout')
   })
 
+  it('rejects Cash Plan checkout without an employee or owner', () => {
+    expect(() =>
+      calculateCheckoutQuote({
+        ...basePricingInput,
+        cashPlan: { enabled: true, employees: 0, owners: 0 },
+      })
+    ).toThrow('Set a price above $0 for Cash Plan')
+  })
+
+  it('rejects any selected calculator service configured at $0', () => {
+    expect(() =>
+      calculateCheckoutQuote({
+        ...basePricingInput,
+        rates: {
+          ...basePricingInput.rates,
+          tiers: { ...basePricingInput.rates.tiers, proMonthly: 0 },
+        },
+      })
+    ).toThrow('Set a price above $0 for Monthly bookkeeping service')
+  })
+
   it('allows 21+ worker payment links', () => {
     const quote = calculateCheckoutQuote({
       ...basePricingInput,
@@ -397,9 +458,13 @@ describe('Stripe checkout session params', () => {
 
 describe('buildCheckoutSessionParams — generalized line items + coupons', () => {
   beforeEach(() => {
-    const mutableConfig = config as { nodeEnv: string; stripe: { isConfigured: boolean } }
+    const mutableConfig = config as {
+      nodeEnv: string
+      stripe: { isConfigured: boolean; currency: string }
+    }
     mutableConfig.nodeEnv = 'development'
     mutableConfig.stripe.isConfigured = true
+    mutableConfig.stripe.currency = 'usd'
   })
 
   it('maps custom line items with description, quantity and per-item interval', () => {
@@ -456,6 +521,34 @@ describe('buildCheckoutSessionParams — generalized line items + coupons', () =
     )
     expect(params.mode).toBe('payment')
     expect(params.custom_text).toBeUndefined()
+  })
+
+  it('keeps quote checkout in USD and requests card, Link, and ACH', () => {
+    const recurringParams = buildCheckoutSessionParams(
+      [{ label: 'Monthly fee', unitAmountCents: 9900, quantity: 1, interval: 'month' }],
+      { quoteId: 'quote_recurring_methods' }
+    )
+    const oneTimeParams = buildCheckoutSessionParams(
+      [{ label: 'Single fee', unitAmountCents: 9900, quantity: 1, interval: 'one_time' }],
+      { quoteId: 'quote_one_time_methods' }
+    )
+
+    expect(recurringParams.payment_method_types).toEqual(['card', 'link', 'us_bank_account'])
+    expect(oneTimeParams.payment_method_types).toEqual(['card', 'link', 'us_bank_account'])
+    expect(recurringParams.adaptive_pricing).toEqual({ enabled: false })
+    expect(oneTimeParams.adaptive_pricing).toEqual({ enabled: false })
+  })
+
+  it('rejects non-USD quote checkout because ACH requires USD presentment', () => {
+    const mutableConfig = config as { stripe: { currency: string } }
+    mutableConfig.stripe.currency = 'eur'
+
+    expect(() =>
+      buildCheckoutSessionParams(
+        [{ label: 'Monthly fee', unitAmountCents: 9900, quantity: 1, interval: 'month' }],
+        { quoteId: 'quote_non_usd' }
+      )
+    ).toThrow('Quote checkout requires USD for ACH payments')
   })
 
   it('uses a Stripe Customer id instead of customer_email when provided', () => {

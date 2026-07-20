@@ -6,6 +6,8 @@ describe('pricing quote codec', () => {
   it('round-trips pricing input for print quote links', () => {
     const input = createDefaultPricingInput()
     input.payrollEmployees = 2
+    input.rates.bookkeeping!.setup = 0
+    input.rates.payroll.setup = 0
     input.oneTime.startLlc = 1
     input.customItems = [
       {
@@ -23,6 +25,8 @@ describe('pricing quote codec', () => {
     expect(decoded?.v).toBe(1)
     expect(decoded?.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     expect(decoded?.input).toEqual(input)
+    expect(decoded?.input.rates.bookkeeping?.setup).toBe(0)
+    expect(decoded?.input.rates.payroll.setup).toBe(0)
   })
 
   it('returns null for malformed quote payloads', () => {

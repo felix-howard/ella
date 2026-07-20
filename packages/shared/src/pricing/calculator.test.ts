@@ -9,7 +9,9 @@ import {
   isPricingCheckoutAmountSane,
   isPricingInputSane,
   MAX_CHECKOUT_LINE_AMOUNT,
+  materializePricingSetupRates,
 } from './calculator'
+import { TIER_PRO } from '../constants'
 
 describe('pricing calculator', () => {
   it('detects the 0-10 worker range at 0 and 10 1099 workers', () => {
@@ -24,6 +26,17 @@ describe('pricing calculator', () => {
 
   it('detects the largest worker range above 20 1099 workers', () => {
     expect(detectPricingTier(21)).toBe('vip')
+  })
+
+  it('materializes the detected tier setup rate for legacy-shaped snapshots', () => {
+    const input = createDefaultPricingInput()
+    input.nec1099Count = 11
+    input.rates.bookkeeping = undefined
+
+    const materialized = materializePricingSetupRates(input)
+
+    expect(detectPricingTier(input.nec1099Count)).toBe('pro')
+    expect(materialized.rates.bookkeeping?.setup).toBe(TIER_PRO.setup)
   })
 
   it('keeps 21+ worker quotes payable', () => {
@@ -58,6 +71,46 @@ describe('pricing calculator', () => {
     expect(result.tier).toBe('pro')
     expect(result.monthlyTotal).toBe(245)
     expect(result.setupTotal).toBe(1400)
+  })
+
+  it('honors waived bookkeeping and payroll setup fees', () => {
+    const input = createDefaultPricingInput()
+    input.payrollEmployees = 1
+    input.cashPlan = { enabled: true, employees: 1, owners: 0 }
+    input.auditProtection = true
+    input.rates.bookkeeping!.setup = 0
+    input.rates.payroll.setup = 0
+
+    const result = calculatePricing(input)
+
+    expect(result.setupDisplayItems).toEqual([
+      { label: 'Cash Plan setup', amount: 1000, kind: 'setup' },
+      { label: 'Audit Detection setup', amount: 1000, kind: 'setup' },
+    ])
+    expect(result.setupDisplayTotal).toBe(2000)
+    expect(result.setupTotal).toBe(2000)
+    expect(findNonPositivePricingLine(result)).toBeNull()
+
+    input.rates.cashPlan.setup = 0
+    input.rates.auditProtection.setup = 0
+    const fullyWaivedResult = calculatePricing(input)
+
+    expect(fullyWaivedResult.setupItems).toEqual([])
+    expect(fullyWaivedResult.setupTotal).toBe(0)
+    expect(findNonPositivePricingLine(fullyWaivedResult)).toBeNull()
+  })
+
+  it('keeps a one-time selection eligible when bookkeeping setup is waived', () => {
+    const input = createDefaultPricingInput()
+    input.rates.bookkeeping!.setup = 0
+    input.oneTime.personalTaxReturn = 1
+
+    const result = calculatePricing(input)
+
+    expect(result.hasAnySelection).toBe(true)
+    expect(result.setupItems).toEqual([
+      { label: 'Personal tax return', amount: 150, kind: 'setup' },
+    ])
   })
 
   it('separates business tax return pre-pay for yearly display without changing due today', () => {

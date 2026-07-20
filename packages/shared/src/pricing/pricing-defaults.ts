@@ -7,7 +7,7 @@ import {
   TIER_BASIC,
   TIER_PRO,
 } from '../constants'
-import type { PricingCalculatorInput } from './calculator'
+import type { PricingCalculatorInput, Tier } from './calculator'
 
 export const BUSINESS_TAX_RETURN_PREPAY_LABEL = 'Business tax return pre-pay (1 tax year)'
 
@@ -17,6 +17,12 @@ export const ONE_TIME_LABELS: Record<keyof PricingCalculatorInput['oneTime'], st
   holdingLlcModify: 'LLC restructure',
   personalTaxReturn: 'Personal tax return',
   businessTaxReturn: BUSINESS_TAX_RETURN_PREPAY_LABEL,
+}
+
+export function detectPricingTier(nec1099Count: number): Tier {
+  if (nec1099Count <= TIER_BASIC.maxNec1099) return 'basic'
+  if (nec1099Count <= TIER_PRO.maxNec1099) return 'pro'
+  return 'vip'
 }
 
 export function createDefaultPricingInput(): PricingCalculatorInput {
@@ -36,6 +42,9 @@ export function createDefaultPricingInput(): PricingCalculatorInput {
     salesTaxShops: 0,
     customItems: [],
     rates: {
+      bookkeeping: {
+        setup: TIER_BASIC.setup,
+      },
       tiers: {
         basicMonthly: TIER_BASIC.monthly,
         proMonthly: TIER_PRO.monthly,
@@ -43,6 +52,7 @@ export function createDefaultPricingInput(): PricingCalculatorInput {
       },
       payroll: {
         baseMonthly: PAYROLL.baseMonthly,
+        setup: PAYROLL.baseSetup,
       },
       cashPlan: {
         setup: CASH_PLAN.setup,
@@ -62,6 +72,28 @@ export function createDefaultPricingInput(): PricingCalculatorInput {
         businessTaxReturnState: ONE_TIME.businessTaxReturnState,
       },
       salesTaxMonitoringMonthly: SALES_TAX_MONITORING_MONTHLY,
+    },
+  }
+}
+
+/**
+ * Freeze setup defaults into a calculator snapshot. Persisted quotes must not
+ * depend on future constants or legacy display-label recovery.
+ */
+export function materializePricingSetupRates(
+  input: PricingCalculatorInput
+): PricingCalculatorInput {
+  const tier = detectPricingTier(input.nec1099Count)
+  const bookkeepingSetup = tier === 'basic' ? TIER_BASIC.setup : TIER_PRO.setup
+  return {
+    ...input,
+    rates: {
+      ...input.rates,
+      bookkeeping: input.rates.bookkeeping ?? { setup: bookkeepingSetup },
+      payroll: {
+        ...input.rates.payroll,
+        setup: input.rates.payroll.setup ?? PAYROLL.baseSetup,
+      },
     },
   }
 }

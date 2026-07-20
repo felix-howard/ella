@@ -1,5 +1,9 @@
-import type { PayrollMode, PricingCalculatorInput } from '@ella/shared/pricing'
-import { PAYROLL } from '@ella/shared/constants'
+import {
+  MAX_CHECKOUT_LINE_AMOUNT,
+  type PayrollMode,
+  type PricingCalculatorInput,
+} from '@ella/shared/pricing'
+import { PAYROLL, TIER_BASIC } from '@ella/shared/constants'
 import { Calculator, ShieldCheck, Store, WalletCards, type LucideIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Input, SelectField, Switch } from '@ella/ui'
@@ -14,7 +18,13 @@ interface PricingCalculatorFormProps {
 }
 
 type TopQuantityKey = 'nec1099Count' | 'payrollEmployees' | 'salesTaxShops'
-type RateObjectGroup = 'tiers' | 'payroll' | 'cashPlan' | 'auditProtection' | 'oneTime'
+type RateObjectGroup =
+  | 'bookkeeping'
+  | 'tiers'
+  | 'payroll'
+  | 'cashPlan'
+  | 'auditProtection'
+  | 'oneTime'
 type OneTimeKey = Exclude<keyof PricingCalculatorInput['oneTime'], 'businessTaxReturn'>
 type OneTimeRow = {
   key: OneTimeKey
@@ -49,16 +59,17 @@ export function PricingCalculatorForm({
   }
   const setRate = <T extends RateObjectGroup>(
     group: T,
-    key: keyof PricingCalculatorInput['rates'][T],
+    key: keyof NonNullable<PricingCalculatorInput['rates'][T]>,
     value: string
   ) => {
+    const currentGroup = input.rates[group] ?? {}
     onInputChange({
       ...input,
       rates: {
         ...input.rates,
         [group]: {
-          ...input.rates[group],
-          [key]: clampWholeNumber(value, 1_000_000),
+          ...currentGroup,
+          [key]: clampWholeNumber(value, MAX_CHECKOUT_LINE_AMOUNT),
         },
       },
     })
@@ -118,7 +129,7 @@ export function PricingCalculatorForm({
               },
             ]}
           />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <RateField
               label="0-10 workers / mo"
               value={input.rates.tiers.basicMonthly}
@@ -138,6 +149,16 @@ export function PricingCalculatorForm({
               label="Payroll base / mo"
               value={input.rates.payroll.baseMonthly}
               onChange={(value) => setRate('payroll', 'baseMonthly', value)}
+            />
+            <RateField
+              label="Bookkeeping setup"
+              value={input.rates.bookkeeping?.setup ?? TIER_BASIC.setup}
+              onChange={(value) => setRate('bookkeeping', 'setup', value)}
+            />
+            <RateField
+              label="Payroll setup"
+              value={input.rates.payroll.setup ?? PAYROLL.baseSetup}
+              onChange={(value) => setRate('payroll', 'setup', value)}
             />
           </div>
         </FormSection>

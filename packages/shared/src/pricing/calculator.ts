@@ -1,10 +1,16 @@
 import { PAYROLL, TIER_BASIC, TIER_ENTERPRISE, TIER_PRO } from '../constants'
 import { BUSINESS_TAX_RETURN_PREPAY_LABEL, ONE_TIME_LABELS } from './pricing-defaults'
-export { createDefaultPricingInput } from './pricing-defaults'
+import { detectPricingTier } from './pricing-defaults'
+export {
+  createDefaultPricingInput,
+  detectPricingTier,
+  materializePricingSetupRates,
+} from './pricing-defaults'
 
 export type Tier = 'basic' | 'pro' | 'vip'
 export const BOOKKEEPING_SERVICE_LABEL = 'Monthly bookkeeping service'
 export const BOOKKEEPING_SETUP_LABEL = 'Bookkeeping onboarding setup'
+export const PAYROLL_SETUP_LABEL = 'Payroll setup'
 
 export type PayrollMode = 'owner-manual' | 'ella-staff'
 
@@ -38,6 +44,10 @@ export interface PricingCalculatorInput {
   salesTaxShops: number
   customItems: PricingCalculatorCustomItem[]
   rates: {
+    /** Optional for calculator snapshots created before setup overrides existed. */
+    bookkeeping?: {
+      setup: number
+    }
     tiers: {
       basicMonthly: number
       proMonthly: number
@@ -45,6 +55,8 @@ export interface PricingCalculatorInput {
     }
     payroll: {
       baseMonthly: number
+      /** Optional for calculator snapshots created before setup overrides existed. */
+      setup?: number
     }
     cashPlan: {
       setup: number
@@ -105,12 +117,6 @@ export const MAX_CALCULATOR_CUSTOM_LABEL_LENGTH = 120
 export const MAX_CALCULATOR_CUSTOM_ITEM_AMOUNT = MAX_CHECKOUT_LINE_AMOUNT
 export const MAX_CALCULATOR_CUSTOM_ITEM_QUANTITY = 99
 
-export function detectPricingTier(nec1099Count: number): Tier {
-  if (nec1099Count <= TIER_BASIC.maxNec1099) return 'basic'
-  if (nec1099Count <= TIER_PRO.maxNec1099) return 'pro'
-  return 'vip'
-}
-
 export function calculatePricing(input: PricingCalculatorInput): PricingCalculatorResult {
   const tier = detectPricingTier(input.nec1099Count)
   const tierDef =
@@ -121,6 +127,9 @@ export function calculatePricing(input: PricingCalculatorInput): PricingCalculat
         : { ...TIER_PRO, label: TIER_ENTERPRISE.marketingLabel }
   const monthly: PricingLineItem[] = []
   const setup: PricingLineItem[] = []
+  const pushSetupFee = (label: string, amount: number) => {
+    if (amount !== 0) setup.push({ label, amount, kind: 'setup' })
+  }
   const tierMonthly =
     tier === 'basic'
       ? input.rates.tiers.basicMonthly
@@ -129,7 +138,7 @@ export function calculatePricing(input: PricingCalculatorInput): PricingCalculat
         : input.rates.tiers.vipMonthly
 
   monthly.push({ label: BOOKKEEPING_SERVICE_LABEL, amount: tierMonthly, kind: 'monthly' })
-  setup.push({ label: BOOKKEEPING_SETUP_LABEL, amount: tierDef.setup, kind: 'setup' })
+  pushSetupFee(BOOKKEEPING_SETUP_LABEL, input.rates.bookkeeping?.setup ?? tierDef.setup)
 
   if (input.payrollEmployees > 0) {
     const perEmployee =
@@ -139,7 +148,7 @@ export function calculatePricing(input: PricingCalculatorInput): PricingCalculat
       amount: input.rates.payroll.baseMonthly,
       kind: 'monthly',
     })
-    setup.push({ label: 'Payroll setup', amount: PAYROLL.baseSetup, kind: 'setup' })
+    pushSetupFee(PAYROLL_SETUP_LABEL, input.rates.payroll.setup ?? PAYROLL.baseSetup)
     monthly.push({
       label: `Payroll employees (${input.payrollEmployees} × $${perEmployee}, ${input.payrollMode})`,
       amount: perEmployee * input.payrollEmployees,
@@ -157,7 +166,7 @@ export function calculatePricing(input: PricingCalculatorInput): PricingCalculat
       amount: cashMonthly,
       kind: 'monthly',
     })
-    setup.push({ label: 'Cash Plan setup', amount: rates.setup, kind: 'setup' })
+    pushSetupFee('Cash Plan setup', rates.setup)
   }
 
   if (input.auditProtection) {
@@ -166,11 +175,7 @@ export function calculatePricing(input: PricingCalculatorInput): PricingCalculat
       amount: input.rates.auditProtection.monthly,
       kind: 'monthly',
     })
-    setup.push({
-      label: 'Audit Detection setup',
-      amount: input.rates.auditProtection.setup,
-      kind: 'setup',
-    })
+    pushSetupFee('Audit Detection setup', input.rates.auditProtection.setup)
   }
 
   for (const key of Object.keys(ONE_TIME_LABELS) as Array<
@@ -199,7 +204,12 @@ export function calculatePricing(input: PricingCalculatorInput): PricingCalculat
     })
   }
 
-  const hasStandardSelection = monthly.length > 1 || setup.length > 1
+  const hasStandardSelection =
+    input.payrollEmployees > 0 ||
+    input.cashPlan.enabled ||
+    input.auditProtection ||
+    Object.values(input.oneTime).some((quantity) => quantity > 0) ||
+    input.salesTaxShops > 0
   const standardSetupLineCount = setup.length
   for (const item of getValidCustomItems(input)) {
     const line = {

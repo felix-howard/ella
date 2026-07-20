@@ -1,9 +1,24 @@
 # Project Changelog
 
-> **Last Updated:** 2026-07-19 ICT
+> **Last Updated:** 2026-07-20 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### Calculator Setup-Fee Alignment (2026-07-20)
+**Status:** Complete
+
+**Fixed:**
+- Bookkeeping and Payroll setup had hidden hardcoded `$150`/`$250` fees, producing `$2,400` instead of the configured `$2,000` (`0 + 0 + 1000 + 1000`) across the Agreement and PaymentQuote/Stripe setup.
+- Added explicit editable setup-fee overrides. Zero setup fees are waived and omitted; Agreement totals, persisted PaymentQuote totals, rebuilds, and the Stripe setup line now align at `$2,000` / `200000` cents.
+- New calculator snapshots always freeze explicit setup rates. Legacy snapshots recover uniquely matched frozen setup values and fail closed if recovery or stored-total verification is unsafe. One-time selection eligibility now uses actual inputs.
+- Stripe checkout rebuilds now require recurring/setup cents to match the persisted PaymentQuote totals exactly, preventing the payment page and charge from diverging.
+
+**Scope:**
+- No database migration, data repair, or Stripe production action. Already-created or sent quotes remain frozen and must be replaced if incorrect.
+
+**Validation:**
+- Focused setup/payment tests passed, 190/190. Shared, Workspace, and API type-checks and production builds passed. Full monorepo suite passed, 4/4 tasks (3,906 tests); final independent review scored 10/10.
 
 ### Services Related-Card Deep Links (2026-07-19)
 **Status:** Complete

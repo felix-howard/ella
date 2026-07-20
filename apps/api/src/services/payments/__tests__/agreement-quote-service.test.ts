@@ -4,6 +4,7 @@
  * and staff-review status transitions.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { materializePricingSetupRates } from '@ella/shared/pricing'
 
 const prismaMocks = vi.hoisted(() => ({
   agreement: {
@@ -201,7 +202,9 @@ describe('saveFrozenCalculatorAgreementQuoteForAgreement', () => {
     })
     expect(createData).not.toHaveProperty('payToken')
     expect(createData).not.toHaveProperty('sentAt')
-    expect(createData.inputSnapshot.pricingInput).toEqual(pricingInput)
+    expect(createData.inputSnapshot.pricingInput).toEqual(
+      materializePricingSetupRates(pricingInput)
+    )
     expect(createData.resultSnapshot).toEqual(quoteOutput())
     expect(createData.monthlyTotalCents).toBe(5000)
     expect(createData.setupTotalCents).toBe(25000)

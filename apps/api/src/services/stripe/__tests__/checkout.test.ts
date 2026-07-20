@@ -113,6 +113,46 @@ describe('Stripe checkout session params', () => {
     expect(params.metadata).toMatchObject({ quoteId: quote.quoteId, source: 'pricing_calculator' })
   })
 
+  it('charges only non-waived setup fees', () => {
+    const quote = calculateCheckoutQuote({
+      ...basePricingInput,
+      payrollEmployees: 1,
+      cashPlan: { enabled: true, employees: 1, owners: 0 },
+      auditProtection: true,
+      rates: {
+        ...basePricingInput.rates,
+        bookkeeping: { setup: 0 },
+        payroll: { ...basePricingInput.rates.payroll, setup: 0 },
+      },
+    })
+
+    const params = buildParams(quote)
+
+    expect(quote.setupTotal).toBe(2000)
+    expect(quote.setupItems.map((item) => item.label)).toEqual([
+      'Cash Plan setup',
+      'Audit Detection setup',
+    ])
+    expect(params.line_items?.[1]?.price_data?.unit_amount).toBe(200000)
+  })
+
+  it('keeps one-time selections payable when bookkeeping setup is waived', () => {
+    const quote = calculateCheckoutQuote({
+      ...basePricingInput,
+      nec1099Count: 0,
+      oneTime: { ...basePricingInput.oneTime, personalTaxReturn: 1 },
+      rates: {
+        ...basePricingInput.rates,
+        bookkeeping: { setup: 0 },
+      },
+    })
+
+    expect(quote.setupItems).toEqual([
+      { label: 'Personal tax return', amount: 150, kind: 'setup' },
+    ])
+    expect(quote.setupTotal).toBe(150)
+  })
+
   it('keeps checkout quote totals aligned with the shared pricing calculator', () => {
     const pricingInput = {
       ...basePricingInput,

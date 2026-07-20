@@ -213,6 +213,8 @@ describe('workspace pricing calculator', () => {
     )
 
     expect(markup).toContain('aria-label="0-10 workers / mo rate"')
+    expect(markup).toContain('aria-label="Bookkeeping setup rate"')
+    expect(markup).toContain('aria-label="Payroll setup rate"')
     expect(markup).toContain('aria-label="Setup rate"')
     expect(markup).toContain('aria-label="Audit / mo rate"')
     // Money fields render formatted (e.g. "$1,000") for clarity.
@@ -492,6 +494,23 @@ describe('workspace pricing calculator', () => {
     expect(getPrintDisabledReason(input, result)).toBe(
       'Set a price above $0 for Monthly bookkeeping service.'
     )
+  })
+
+  it('allows optional setup fees to be waived', () => {
+    const input = createDefaultPricingInput()
+    input.nec1099Count = 1
+    input.payrollEmployees = 1
+    input.cashPlan = { enabled: true, employees: 1, owners: 0 }
+    input.auditProtection = true
+    input.rates.bookkeeping!.setup = 0
+    input.rates.payroll.setup = 0
+    input.rates.cashPlan.setup = 0
+    input.rates.auditProtection.setup = 0
+    const result = calculatePricing(input)
+
+    expect(result.setupItems).toEqual([])
+    expect(getCreateDisabledReason(input, result)).toBeNull()
+    expect(getPrintDisabledReason(input, result)).toBeNull()
   })
 
   it('allows 21+ worker payment links, send-to-client, print quotes, and custom monthly rates', () => {

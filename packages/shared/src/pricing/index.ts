@@ -11,8 +11,10 @@ export type {
 export {
   BOOKKEEPING_SERVICE_LABEL,
   BOOKKEEPING_SETUP_LABEL,
+  PAYROLL_SETUP_LABEL,
   calculatePricing,
   createDefaultPricingInput,
+  materializePricingSetupRates,
   detectPricingTier,
   findNonPositivePricingLine,
   isBusinessTaxReturnPrepayLine,

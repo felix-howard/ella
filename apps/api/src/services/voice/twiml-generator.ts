@@ -26,11 +26,15 @@ export interface TwimlVoiceOptions {
 
 /**
  * Generate TwiML response for outbound voice call
- * Includes <Dial> with recording and status callback options
+ * Keeps the browser leg ringing until the destination is bridged.
  */
 export function generateTwimlVoiceResponse(options: TwimlVoiceOptions): string {
   // Build Dial attributes
-  const dialAttrs: string[] = [`callerId="${escapeXml(options.callerId)}"`]
+  const dialAttrs: string[] = [
+    `callerId="${escapeXml(options.callerId)}"`,
+    'answerOnBridge="true"',
+  ]
+  const numberAttrs: string[] = []
 
   // Recording settings (record both sides from answer)
   if (options.record) {
@@ -38,22 +42,26 @@ export function generateTwimlVoiceResponse(options: TwimlVoiceOptions): string {
 
     if (options.recordingStatusCallback) {
       dialAttrs.push(`recordingStatusCallback="${escapeXml(options.recordingStatusCallback)}"`)
-      const events = options.recordingStatusCallbackEvent?.join(' ') || 'completed'
-      dialAttrs.push(`recordingStatusCallbackEvent="${events}"`)
+      dialAttrs.push(
+        `recordingStatusCallbackEvent="${getCallbackEventAttributeValue(options.recordingStatusCallbackEvent)}"`
+      )
     }
   }
 
-  // Call status callbacks
+  // PSTN progress belongs to the dialed Number (the child leg), not Dial.
   if (options.statusCallback) {
-    dialAttrs.push(`statusCallback="${escapeXml(options.statusCallback)}"`)
-    const events = options.statusCallbackEvent?.join(' ') || 'completed'
-    dialAttrs.push(`statusCallbackEvent="${events}"`)
+    numberAttrs.push(`statusCallback="${escapeXml(options.statusCallback)}"`)
+    numberAttrs.push(
+      `statusCallbackEvent="${getCallbackEventAttributeValue(options.statusCallbackEvent)}"`
+    )
   }
+
+  const numberAttributes = numberAttrs.length > 0 ? ` ${numberAttrs.join(' ')}` : ''
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Dial ${dialAttrs.join(' ')}>
-    <Number>${escapeXml(options.to)}</Number>
+    <Number${numberAttributes}>${escapeXml(options.to)}</Number>
   </Dial>
 </Response>`
 }
@@ -76,6 +84,10 @@ function escapeXml(unsafe: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
+}
+
+function getCallbackEventAttributeValue(events?: string[]): string {
+  return events?.join(' ') || 'completed'
 }
 
 // ============================================

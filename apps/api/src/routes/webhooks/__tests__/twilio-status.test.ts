@@ -78,6 +78,28 @@ function createApp() {
   return app
 }
 
+const TERMINAL_CALL_STATUSES = ['completed', 'busy', 'no-answer', 'failed', 'canceled'] as const
+
+function expectTerminalCallStatusUpdate(callStatus: string, content?: string) {
+  expect(prismaMocks.message.updateMany).toHaveBeenCalledWith({
+    where: {
+      id: 'message_outbound',
+      OR: [
+        { callStatus: null },
+        {
+          callStatus: {
+            notIn: TERMINAL_CALL_STATUSES,
+          },
+        },
+      ],
+    },
+    data: {
+      callStatus,
+      ...(content ? { content } : {}),
+    },
+  })
+}
+
 async function postStatus(fields: Record<string, string>) {
   const body = new URLSearchParams({
     MessageSid: 'SM_status_1',
@@ -93,6 +115,32 @@ async function postStatus(fields: Record<string, string>) {
       'x-forwarded-host': 'api.example.test',
       'x-forwarded-proto': 'https',
       'x-forwarded-for': `127.0.3.${Math.floor(Math.random() * 200) + 1}`,
+    },
+    body,
+  })
+}
+
+async function postVoiceStatus(
+  fields: Record<string, string>,
+  options: { messageId?: string; signature?: string } = {}
+) {
+  const body = new URLSearchParams({
+    CallSid: 'CA_child_1',
+    CallStatus: 'completed',
+    ...fields,
+  })
+  const query = options.messageId
+    ? `?messageId=${encodeURIComponent(options.messageId)}`
+    : ''
+
+  return createApp().request(`/webhooks/twilio/voice/status${query}`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+      'x-twilio-signature': options.signature ?? 'valid',
+      'x-forwarded-host': 'api.example.test',
+      'x-forwarded-proto': 'https',
+      'x-forwarded-for': `127.0.4.${Math.floor(Math.random() * 200) + 1}`,
     },
     body,
   })
@@ -252,5 +300,218 @@ describe('Twilio SMS status webhook', () => {
       })
     })
     expect(publishMessageEventFromConversation).not.toHaveBeenCalled()
+  })
+})
+
+describe('Twilio voice status webhook', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    smsMocks.validateTwilioSignature.mockReturnValue({ valid: true })
+    prismaMocks.message.updateMany.mockResolvedValue({ count: 1 })
+    prismaMocks.message.findFirst.mockResolvedValue({
+      id: 'message_outbound',
+      callStatus: null,
+    })
+  })
+
+  it.each([
+    ['completed', undefined],
+    ['busy', 'Call - Busy'],
+    ['no-answer', 'Call - No answer'],
+    ['failed', 'Call - Failed'],
+    ['canceled', 'Call - Canceled'],
+  ])('persists terminal child status %s by scoped message id', async (callStatus, content) => {
+    const res = await postVoiceStatus(
+      { CallStatus: callStatus, CallSid: 'CA_child_terminal' },
+      { messageId: 'message_outbound' }
+    )
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({
+      received: true,
+      processed: true,
+      count: 1,
+    })
+    expectTerminalCallStatusUpdate(callStatus, content)
+  })
+
+  it('validates the exact callback URL including message correlation query', async () => {
+    await postVoiceStatus({}, { messageId: 'message with spaces' })
+
+    expect(smsMocks.validateTwilioSignature).toHaveBeenCalledWith(
+      'https://api.example.test/webhooks/twilio/voice/status?messageId=message%20with%20spaces',
+      expect.objectContaining({
+        CallSid: 'CA_child_1',
+        CallStatus: 'completed',
+      }),
+      'valid'
+    )
+  })
+
+  it('rejects invalid signatures before database access', async () => {
+    smsMocks.validateTwilioSignature.mockReturnValueOnce({
+      valid: false,
+      error: 'invalid signature',
+    })
+
+    const res = await postVoiceStatus({}, { messageId: 'message_outbound', signature: 'invalid' })
+
+    expect(res.status).toBe(403)
+    expect(prismaMocks.message.updateMany).not.toHaveBeenCalled()
+    expect(prismaMocks.message.findFirst).not.toHaveBeenCalled()
+  })
+
+  it('does not overwrite the first persisted terminal outcome', async () => {
+    prismaMocks.message.findFirst.mockResolvedValueOnce({
+      id: 'message_outbound',
+      callStatus: 'completed',
+    })
+
+    const res = await postVoiceStatus(
+      { CallStatus: 'no-answer' },
+      { messageId: 'message_outbound' }
+    )
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({
+      received: true,
+      processed: false,
+      ignored: 'TERMINAL_STATUS_ALREADY_RECORDED',
+    })
+    expect(prismaMocks.message.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('treats a concurrent terminal update loser as an idempotent delivery', async () => {
+    prismaMocks.message.findFirst
+      .mockResolvedValueOnce({ id: 'message_outbound', callStatus: null })
+      .mockResolvedValueOnce({ id: 'message_outbound', callStatus: 'busy' })
+    prismaMocks.message.updateMany.mockResolvedValueOnce({ count: 0 })
+
+    const res = await postVoiceStatus(
+      { CallStatus: 'completed' },
+      { messageId: 'message_outbound' }
+    )
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({
+      received: true,
+      processed: false,
+      ignored: 'TERMINAL_STATUS_ALREADY_RECORDED',
+    })
+    expect(prismaMocks.message.updateMany).toHaveBeenCalledTimes(1)
+    expect(prismaMocks.message.findFirst).toHaveBeenNthCalledWith(2, {
+      where: { id: 'message_outbound' },
+      select: { callStatus: true },
+    })
+  })
+
+  it('reports an uncorrelated child callback without writing another message', async () => {
+    prismaMocks.message.findFirst.mockResolvedValueOnce(null)
+
+    const res = await postVoiceStatus({}, { messageId: 'unknown_message' })
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({
+      received: true,
+      processed: false,
+      warning: 'MESSAGE_NOT_FOUND',
+    })
+    expect(prismaMocks.message.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('rejects a terminal callback without message or legacy SID correlation', async () => {
+    const res = await postVoiceStatus({ CallSid: '' })
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({
+      received: true,
+      processed: false,
+      warning: 'MISSING_CORRELATION',
+    })
+    expect(prismaMocks.message.updateMany).not.toHaveBeenCalled()
+    expect(prismaMocks.message.findFirst).not.toHaveBeenCalled()
+  })
+
+  it('retains parent CallSid fallback for legacy callbacks without messageId', async () => {
+    const res = await postVoiceStatus({ CallSid: 'CA_parent_legacy', CallStatus: 'busy' })
+
+    expect(res.status).toBe(200)
+    expect(prismaMocks.message.findFirst).toHaveBeenCalledWith({
+      where: {
+        callSid: 'CA_parent_legacy',
+        channel: 'CALL',
+        direction: 'OUTBOUND',
+      },
+      select: { id: true, callStatus: true },
+    })
+    expectTerminalCallStatusUpdate('busy', 'Call - Busy')
+  })
+
+  it('falls back from a missing query id to the provider parent CallSid', async () => {
+    const res = await postVoiceStatus({
+      CallSid: 'CA_child_1',
+      ParentCallSid: 'CA_parent_outbound',
+      CallStatus: 'failed',
+    })
+
+    expect(res.status).toBe(200)
+    expect(prismaMocks.message.findFirst).toHaveBeenCalledWith({
+      where: {
+        callSid: 'CA_parent_outbound',
+        channel: 'CALL',
+        direction: 'OUTBOUND',
+      },
+      select: { id: true, callStatus: true },
+    })
+    expect(prismaMocks.message.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 'message_outbound' }),
+        data: {
+          callStatus: 'failed',
+          content: 'Call - Failed',
+        },
+      })
+    )
+  })
+
+  it('falls back from an unknown query id to the provider parent CallSid', async () => {
+    prismaMocks.message.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'message_outbound', callStatus: null })
+
+    const res = await postVoiceStatus(
+      {
+        CallSid: 'CA_child_1',
+        ParentCallSid: 'CA_parent_outbound',
+        CallStatus: 'no-answer',
+      },
+      { messageId: 'unknown_message' }
+    )
+
+    expect(res.status).toBe(200)
+    expect(prismaMocks.message.findFirst).toHaveBeenNthCalledWith(2, {
+      where: {
+        callSid: 'CA_parent_outbound',
+        channel: 'CALL',
+        direction: 'OUTBOUND',
+      },
+      select: { id: true, callStatus: true },
+    })
+    expect(prismaMocks.message.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 'message_outbound' }),
+      })
+    )
+  })
+
+  it('ignores non-terminal progress events without writing', async () => {
+    const res = await postVoiceStatus(
+      { CallStatus: 'ringing' },
+      { messageId: 'message_outbound' }
+    )
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({ received: true })
+    expect(prismaMocks.message.updateMany).not.toHaveBeenCalled()
   })
 })

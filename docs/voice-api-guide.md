@@ -1,7 +1,7 @@
 # Voice API & Recording Playback Guide
 
-**Last Updated:** 2026-07-02
-**Status:** Phase 02 Complete (Incoming Call Routing + Unknown Call Gate)
+**Last Updated:** 2026-07-27
+**Status:** Phase 03 Complete (Outbound Call State Synchronization + Incoming Call Routing + Recording Playback)
 **Architecture Version:** 8.4.0
 
 ## Overview
@@ -22,7 +22,7 @@ Complete voice calling system: browser-based outbound calls (Phase 01-02) + inco
 
 **TwiML Generator** (`twiml-generator.ts`)
 - XML response for Twilio call routing
-- **Outbound:** Includes recording config: `<Record>` with CallSid callback
+- **Outbound:** Keeps the parent browser leg ringing with `answerOnBridge="true"`, records through `<Dial record="record-from-answer-dual">`, and places progress callbacks on the child `<Number>` leg with `messageId` query correlation. The browser parent leg owns immediate UI state; the child PSTN leg owns progress and terminal callbacks.
 - **Incoming:** Rings multiple staff browser clients via `<Client>` nouns (max 10, parallel)
 - **Incoming no-answer:** English `<Say>` prompts with Polly.Joanna + `<Hangup>`; no incoming voicemail `<Record>` while voicemail recording is disabled
 - Status callback for call completion webhook
@@ -79,9 +79,9 @@ Authentication: Twilio credentials used server-side (never exposed to client)
 
 **POST /webhooks/twilio/voice** - Call routing
 - Triggered: When call connects
-- Response: TwiML with `<Dial>` + `<Record>` tags
-- Records: callSid from Twilio context
-- Status callback: Points to voice/status webhook
+- Response: TwiML with `<Dial answerOnBridge="true" record="record-from-answer-dual">` on the parent browser leg; outbound progress callbacks are attached to the child `<Number>` PSTN leg with `messageId` correlation
+- Records: parent CallSid is retained for recording lookup
+- Status callback: Points to `/webhooks/twilio/voice/status?messageId=...` for child-leg progress and terminal updates; the route resolves the outbound message from signed `From=client:staff_<id>` auth plus stored `sentById` + case, and does not fall back to raw `To`
 
 **POST /webhooks/twilio/voice/recording** - Recording completion
 - Triggered: When recording finishes
@@ -90,8 +90,9 @@ Authentication: Twilio credentials used server-side (never exposed to client)
 - Duration: In seconds (optional)
 
 **POST /webhooks/twilio/voice/status** - Call status updates
-- Triggered: Call completion
-- Updates: callStatus (completed, busy, no-answer, failed, canceled)
+- Triggered: Call progress and terminal updates from Twilio outbound callbacks
+- Input: `CallSid`, `CallStatus`, optional `ParentCallSid`, and preferred `messageId` query correlation
+- Updates: terminal `callStatus` values (`completed`, `busy`, `no-answer`, `failed`, `canceled`) with idempotent precedence; non-terminal progress events are ignored. The child terminal callback is the persisted history authority; the browser SDK events remain the immediate UI authority.
 - Webhook signature validation (HMAC)
 
 **POST /webhooks/twilio/voice/incoming** (Phase 02 NEW)
@@ -253,7 +254,13 @@ toggleMute(): void
 1. Mount: Load SDK → fetch token → create Device
 2. Token Expiry: Auto-refresh 5 min before expiry
 3. Call: Check permissions → create message → connect
-4. Cleanup: Remove listeners, destroy device, clear timers
+4. Bridge: Keep the modal in `Ringing` until Twilio bridges the call, then move to `Connected`
+5. Cleanup: Remove listeners, destroy device, clear timers, and disconnect stale late-arriving calls when a newer attempt wins
+
+**Outbound Sync Notes:**
+- The hook treats SDK `ringing`/`accept` events as immediate UI authority and syncs the parent CallSid as soon as it is available.
+- The backend `voice/status` webhook remains the durable terminal history source for the child leg.
+- Outbound setup is deferred to user gesture, the connect attempt times out after 30 seconds, and stale replacement calls are explicitly disconnected before they can overwrite the active attempt.
 
 **Error Messages (Vietnamese):**
 - Microphone denied: "Bạn cần cấp quyền microphone để gọi điện"
@@ -364,7 +371,7 @@ ${API_BASE_URL}/voice/recordings/:recordingSid/audio
 - `completed` - Call ended normally (answered by staff)
 - `busy` - Recipient busy
 - `no-answer` - Recipient didn't answer (staff didn't pick up within 30s)
-- `voicemail` - Call routed to voicemail with recording (Phase 02 NEW)
+- `voicemail` - Call routed to voicemail after answer/bridge with recording; this flow treats voicemail as answered, and AMD is out of scope
 - `failed` - Call failed (technical error)
 - `canceled` - Call canceled by user
 
@@ -504,11 +511,18 @@ Before production rollout, verify these against the deployed API URL configured 
 
 - Twilio Voice webhook still targets `/webhooks/twilio/voice/incoming`.
 - `TWILIO_WEBHOOK_BASE_URL` exactly matches the public deployed API host used by Twilio signature validation.
-- Unknown caller does not press `1`: no staff ring and no `New Caller` placeholder.
-- Unknown caller presses `1`: staff rings, or if no staff answer/are online, the placeholder missed-call hangup flow works.
-- Known lead caller: no prompt, staff rings, and Lead Messages stores missed-call state or recording state when available.
-- Known client caller: existing client Messages call behavior still works.
-- Monitor API logs for Twilio signature failures and repeated non-`1` gate callbacks after deploy.
+
+### Safe Smoke Checklist
+
+- Human answer: place the browser call, answer it, and confirm the modal stays `Ringing` until bridge, then moves to `Connected`.
+- Decline/reject: decline the call at the PSTN destination and confirm the browser modal closes without entering a false connected state.
+- No-answer: let the call ring out and confirm the terminal missed-call history is persisted once.
+- Invalid/unreachable: use an invalid or unreachable destination and confirm the call fails safely without guessing from raw `To`.
+- Remote/local hangup: hang up from the browser side and from the remote side before and after bridge; confirm timers/listeners clean up and no duplicate terminal write lands.
+- Voicemail: leave voicemail and confirm it is treated as an answered/bridged outcome for this flow, with the recording persisted.
+- Duplicate callback: replay the same terminal callback and confirm the history update stays idempotent.
+
+External Twilio/PSTN smoke and deployment are not run or authorized in this documentation update and remain the rollout confidence gate.
 
 ## Troubleshooting
 

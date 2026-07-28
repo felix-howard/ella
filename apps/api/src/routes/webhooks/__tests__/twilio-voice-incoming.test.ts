@@ -172,6 +172,7 @@ async function postUnknownGate(
 
 async function postOutboundVoice(
   input: {
+    from?: string | null
     to?: string
     messageId?: string
     caseId?: string
@@ -179,10 +180,10 @@ async function postOutboundVoice(
   } = {}
 ) {
   const body = new URLSearchParams({
-    From: 'client:staff_1',
     CallSid: 'CA_outbound',
   })
 
+  if (input.from !== null) body.set('From', input.from ?? 'client:staff_staff_1')
   if (input.to !== undefined) body.set('To', input.to)
   if (input.messageId !== undefined) body.set('messageId', input.messageId)
   if (input.caseId !== undefined) body.set('caseId', input.caseId)
@@ -195,6 +196,28 @@ async function postOutboundVoice(
       'x-forwarded-host': 'api.example.test',
       'x-forwarded-proto': 'https',
       'x-forwarded-for': input.ip ?? `127.0.3.${Math.floor(Math.random() * 200) + 1}`,
+    },
+    body,
+  })
+}
+
+async function postOutboundRecording() {
+  const body = new URLSearchParams({
+    CallSid: 'CA_parent_outbound',
+    RecordingSid: 'RE_outbound',
+    RecordingUrl: 'https://recordings.example.test/RE_outbound',
+    RecordingStatus: 'completed',
+    RecordingDuration: '12',
+  })
+
+  return createApp().request('/webhooks/twilio/voice/recording', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+      'x-twilio-signature': 'valid',
+      'x-forwarded-host': 'api.example.test',
+      'x-forwarded-proto': 'https',
+      'x-forwarded-for': `127.0.6.${Math.floor(Math.random() * 200) + 1}`,
     },
     body,
   })
@@ -385,6 +408,9 @@ describe('Twilio voice incoming webhook', () => {
       expect.objectContaining({
         to: '+15554443333',
         callerId: '+15550000000',
+        statusCallback:
+          'https://api.example.test/webhooks/twilio/voice/status?messageId=message_outbound',
+        statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
       })
     )
     expect(prismaMocks.message.findFirst).toHaveBeenCalledWith(
@@ -393,6 +419,7 @@ describe('Twilio voice incoming webhook', () => {
           id: 'message_outbound',
           channel: 'CALL',
           direction: 'OUTBOUND',
+          sentById: 'staff_1',
           conversation: { caseId: 'case_1' },
         },
       })
@@ -400,6 +427,155 @@ describe('Twilio voice incoming webhook', () => {
     expect(prismaMocks.message.update).toHaveBeenCalledWith({
       where: { id: 'message_outbound' },
       data: { callSid: 'CA_outbound' },
+    })
+  })
+
+  it('rejects an outbound message owned by another staff identity', async () => {
+    prismaMocks.message.findFirst.mockResolvedValueOnce(null)
+
+    const res = await postOutboundVoice({
+      from: 'client:staff_staff_2',
+      to: '+15559998888',
+      messageId: 'message_outbound',
+      caseId: 'case_1',
+    })
+
+    expect(res.status).toBe(200)
+    await expect(res.text()).resolves.toBe('<Response></Response>')
+    expect(prismaMocks.message.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: 'message_outbound',
+          channel: 'CALL',
+          direction: 'OUTBOUND',
+          sentById: 'staff_2',
+          conversation: { caseId: 'case_1' },
+        },
+      })
+    )
+    expect(prismaMocks.message.update).not.toHaveBeenCalled()
+    expect(voiceMocks.generateTwimlVoiceResponse).not.toHaveBeenCalled()
+  })
+
+  it('rejects an outbound message correlated to a different case', async () => {
+    prismaMocks.message.findFirst.mockResolvedValueOnce(null)
+
+    const res = await postOutboundVoice({
+      to: '+15559998888',
+      messageId: 'message_outbound',
+      caseId: 'case_other',
+    })
+
+    expect(res.status).toBe(200)
+    await expect(res.text()).resolves.toBe('<Response></Response>')
+    expect(prismaMocks.message.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'message_outbound',
+          sentById: 'staff_1',
+          conversation: { caseId: 'case_other' },
+        }),
+      })
+    )
+    expect(prismaMocks.message.update).not.toHaveBeenCalled()
+    expect(voiceMocks.generateTwimlVoiceResponse).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['messageId', { caseId: 'case_1' }],
+    ['caseId', { messageId: 'message_outbound' }],
+    ['non-empty messageId', { messageId: '   ', caseId: 'case_1' }],
+    ['non-empty caseId', { messageId: 'message_outbound', caseId: '   ' }],
+  ])('rejects an outbound call missing %s correlation', async (_missingField, input) => {
+    const res = await postOutboundVoice({
+      ...input,
+      to: '+15559998888',
+    })
+
+    expect(res.status).toBe(200)
+    await expect(res.text()).resolves.toBe('<Response></Response>')
+    expect(prismaMocks.message.findFirst).not.toHaveBeenCalled()
+    expect(prismaMocks.message.update).not.toHaveBeenCalled()
+    expect(voiceMocks.generateTwimlVoiceResponse).not.toHaveBeenCalled()
+  })
+
+  it('rejects an arbitrary raw To without stored message correlation', async () => {
+    const res = await postOutboundVoice({ to: '+15559998888' })
+
+    expect(res.status).toBe(200)
+    await expect(res.text()).resolves.toBe('<Response></Response>')
+    expect(prismaMocks.message.findFirst).not.toHaveBeenCalled()
+    expect(prismaMocks.message.update).not.toHaveBeenCalled()
+    expect(voiceMocks.generateTwimlVoiceResponse).not.toHaveBeenCalled()
+  })
+
+  it.each([null, 'client:not-staff', 'client:staff_'])(
+    'rejects a missing or invalid Twilio client identity (%s)',
+    async (from) => {
+      const res = await postOutboundVoice({
+        from,
+        to: '+15559998888',
+        messageId: 'message_outbound',
+        caseId: 'case_1',
+      })
+
+      expect(res.status).toBe(200)
+      await expect(res.text()).resolves.toBe('<Response></Response>')
+      expect(prismaMocks.message.findFirst).not.toHaveBeenCalled()
+      expect(prismaMocks.message.update).not.toHaveBeenCalled()
+      expect(voiceMocks.generateTwimlVoiceResponse).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([null, 'not-a-phone'])(
+    'rejects an outbound message with an absent or invalid stored client phone (%s)',
+    async (phone) => {
+      prismaMocks.message.findFirst.mockResolvedValueOnce({
+        id: 'message_outbound',
+        conversation: {
+          caseId: 'case_1',
+          taxCase: {
+            client: { phone },
+          },
+        },
+      })
+
+      const res = await postOutboundVoice({
+        to: '+15559998888',
+        messageId: 'message_outbound',
+        caseId: 'case_1',
+      })
+
+      expect(res.status).toBe(200)
+      await expect(res.text()).resolves.toBe('<Response></Response>')
+      expect(prismaMocks.message.update).not.toHaveBeenCalled()
+      expect(voiceMocks.generateTwimlVoiceResponse).not.toHaveBeenCalled()
+    }
+  )
+
+  it('keeps outbound recording lookup on the stored parent CallSid', async () => {
+    prismaMocks.message.findFirst.mockResolvedValueOnce({
+      id: 'message_outbound',
+      callSid: 'CA_parent_outbound',
+    })
+
+    const res = await postOutboundRecording()
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({
+      received: true,
+      processed: true,
+    })
+    expect(prismaMocks.message.findFirst).toHaveBeenCalledWith({
+      where: { callSid: 'CA_parent_outbound' },
+    })
+    expect(prismaMocks.message.update).toHaveBeenCalledWith({
+      where: { id: 'message_outbound' },
+      data: {
+        recordingUrl: 'https://recordings.example.test/RE_outbound.mp3',
+        recordingDuration: 12,
+        content: 'Call (0:12)',
+      },
     })
   })
 

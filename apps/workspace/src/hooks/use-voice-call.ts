@@ -11,7 +11,6 @@ import {
   loadTwilioSdk,
   type TwilioDeviceInstance,
   type TwilioCall,
-  type TwilioCallEvent,
 } from '../lib/twilio-sdk-loader'
 import { playRingSound, stopRingSound, cleanupRingSound } from '../lib/ring-sound'
 import { toast } from '../stores/toast-store'
@@ -148,6 +147,7 @@ function isTokenValid(expiryTime: number): boolean {
 const PRESENCE_HEARTBEAT_MS = 30000
 const PRESENCE_UNREGISTER_DEDUPE_MS = 10000
 const PRESENCE_REGISTER_RETRY_MS = 65000
+const OUTBOUND_CONNECT_TIMEOUT_MS = 30000
 
 export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   const { t } = useTranslation()
@@ -168,7 +168,12 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   const callRef = useRef<TwilioCall | null>(null)
   const timerRef = useRef<number | null>(null)
   const tokenExpiryRef = useRef<number>(0)
-  const callListenersRef = useRef<{ event: TwilioCallEvent; handler: () => void }[]>([])
+  const outboundAttemptRef = useRef(0)
+  const outboundAttemptActiveRef = useRef(false)
+  const outboundConnectPendingRef = useRef(false)
+  const deviceLifecycleRef = useRef(0)
+  const deviceSetupPromiseRef = useRef<Promise<boolean> | null>(null)
+  const knownCallsRef = useRef(new WeakSet<TwilioCall>())
   const messageIdRef = useRef<string | null>(null) // Track message ID for CallSid update
   const incomingCallRef = useRef<TwilioCall | null>(null) // Track incoming call for timeout
   const heartbeatIntervalRef = useRef<number | null>(null) // Presence heartbeat timer
@@ -192,8 +197,86 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
         }
       }
     }
-    callListenersRef.current = []
   }, [])
+
+  // Start duration timer once per connected call.
+  const startTimer = useCallback(() => {
+    if (timerRef.current !== null) return
+
+    setDuration(0)
+    timerRef.current = window.setInterval(() => {
+      setDuration((d) => d + 1)
+    }, 1000)
+  }, [])
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }, [])
+
+  const finalizeCall = useCallback(
+    (
+      call: TwilioCall | null,
+      nextState: 'idle' | 'error',
+      nextError?: string
+    ) => {
+      if (call && callRef.current !== call) return
+
+      outboundAttemptRef.current += 1
+      outboundAttemptActiveRef.current = false
+      outboundConnectPendingRef.current = false
+      stopTimer()
+      setIsMuted(false)
+      cleanupCallListeners()
+      callRef.current = null
+      messageIdRef.current = null
+      if (nextError) {
+        setError(nextError)
+      }
+      setCallState(nextState)
+    },
+    [cleanupCallListeners, stopTimer]
+  )
+
+  const disconnectDeviceSafely = useCallback(() => {
+    try {
+      deviceRef.current?.disconnectAll()
+    } catch (e) {
+      if (import.meta.env.DEV) {
+        console.warn('[Voice] Device disconnect failed:', e)
+      }
+    }
+  }, [])
+
+  const disconnectCallSafely = useCallback(
+    (call: TwilioCall, allowDeviceFallback: boolean) => {
+      try {
+        call.disconnect()
+      } catch (e) {
+        if (import.meta.env.DEV) {
+          console.warn('[Voice] Call disconnect failed:', e)
+        }
+        if (allowDeviceFallback) {
+          disconnectDeviceSafely()
+        }
+      }
+    },
+    [disconnectDeviceSafely]
+  )
+
+  const disconnectStaleCallSafely = useCallback(
+    (call: TwilioCall) => {
+      const hasReplacement = Boolean(
+        callRef.current ||
+        incomingCallRef.current ||
+        outboundAttemptActiveRef.current
+      )
+      disconnectCallSafely(call, !hasReplacement)
+    },
+    [disconnectCallSafely]
+  )
 
   // Track if voice feature is available on server
   const voiceAvailableRef = useRef(false)
@@ -258,6 +341,8 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   // Check voice availability and preload SDK (but DON'T create Device - AudioContext issue)
   useEffect(() => {
     let mounted = true
+    mountedRef.current = true
+    deviceLifecycleRef.current += 1
 
     async function init() {
       try {
@@ -298,6 +383,11 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
     return () => {
       mounted = false
       mountedRef.current = false // Mark as unmounted for async handlers
+      deviceLifecycleRef.current += 1
+      outboundAttemptRef.current += 1
+      outboundAttemptActiveRef.current = false
+      outboundConnectPendingRef.current = false
+      deviceSetupPromiseRef.current = null
       cleanupCallListeners()
       if (timerRef.current) {
         clearInterval(timerRef.current)
@@ -310,20 +400,32 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       }
       if (deviceRef.current) {
         deviceRef.current.destroy()
+        deviceRef.current = null
       }
+      callRef.current = null
+      incomingCallRef.current = null
+      messageIdRef.current = null
       cleanupRingSound()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cleanupCallListeners])
 
   // Create and setup Twilio Device (called on first user gesture)
-  const setupDevice = useCallback(async (): Promise<boolean> => {
-    if (deviceRef.current) return true // Already setup
-    if (!voiceAvailableRef.current) return false
+  const setupDevice = useCallback((): Promise<boolean> => {
+    if (deviceRef.current) return Promise.resolve(true) // Already setup
+    if (!voiceAvailableRef.current) return Promise.resolve(false)
+    if (deviceSetupPromiseRef.current) return deviceSetupPromiseRef.current
 
-    try {
+    const setupPromise = (async () => {
+      const lifecycle = deviceLifecycleRef.current
+      const isSetupCurrent = () => (
+        mountedRef.current && deviceLifecycleRef.current === lifecycle
+      )
+
+      try {
       // Get voice token from server
       const tokenResponse = await api.voice.getToken()
+      if (!isSetupCurrent()) return false
 
       // Create Twilio Device instance (SDK 2.x)
       // This creates AudioContext - MUST be after user gesture
@@ -334,9 +436,28 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       })
 
       // Setup event handlers
-      device.on('error', (err: unknown) => {
-        setError(getErrorMessage(err, t))
-        setCallState('error')
+      device.on('error', (err: unknown, affectedCall?: TwilioCall) => {
+        const nextError = getErrorMessage(err, t)
+        if (affectedCall) {
+          const isCurrentCall = callRef.current === affectedCall
+          const isPendingCall = (
+            !callRef.current &&
+            outboundAttemptActiveRef.current &&
+            !knownCallsRef.current.has(affectedCall)
+          )
+          finalizeCall(isPendingCall ? null : affectedCall, 'error', nextError)
+          disconnectCallSafely(affectedCall, isCurrentCall || isPendingCall)
+          return
+        }
+
+        const activeCall = callRef.current
+        if (activeCall) {
+          finalizeCall(activeCall, 'error', nextError)
+          disconnectCallSafely(activeCall, true)
+        } else {
+          disconnectDeviceSafely()
+          finalizeCall(null, 'error', nextError)
+        }
       })
 
       device.on('tokenWillExpire', async () => {
@@ -356,10 +477,16 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
 
       // Setup incoming call handler - always show modal for staff to accept/reject
       device.on('incoming', async (call: TwilioCall) => {
+        knownCallsRef.current.add(call)
         const fromPhone = call.parameters.From || 'Unknown'
 
         // Don't accept if already in a call
-        if (callRef.current || callState !== 'idle') {
+        if (
+          callRef.current ||
+          incomingCallRef.current ||
+          outboundAttemptActiveRef.current ||
+          outboundConnectPendingRef.current
+        ) {
           call.reject()
           return
         }
@@ -413,12 +540,12 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
         })
       })
 
-      // Setup presence registration handlers
-      // Note: Don't use mountedRef guard here - React Strict Mode causes false positives
-      // The device will be destroyed on actual unmount, which handles cleanup
+      // Setup presence registration handlers.
       device.on('registered', async () => {
+        if (!isSetupCurrent()) return
         try {
           await api.voice.registerPresence()
+          if (!isSetupCurrent()) return
 
           // Mark as registered
           presenceOnlineRef.current = true
@@ -428,6 +555,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
           // Start heartbeat every 30 seconds
           startPresenceHeartbeat()
         } catch (e) {
+          if (!isSetupCurrent()) return
           setIsRegistering(false)
           presenceOnlineRef.current = false
           if (e instanceof ApiError && e.status === 429) {
@@ -460,40 +588,57 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
 
       // Register device (establishes signaling connection — no mic access needed)
       await device.register()
-
-      return true
-    } catch (e) {
-      if (import.meta.env.DEV) {
-        console.error('[Voice] Device setup failed:', e)
+      if (!isSetupCurrent()) {
+        if (deviceRef.current === device) {
+          device.destroy()
+          deviceRef.current = null
+        }
+        return false
       }
-      setError(getErrorMessage(e, t))
-      return false
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [markPresenceOffline, schedulePresenceRegisterRetry, startPresenceHeartbeat, t])
 
-  // Start duration timer
-  const startTimer = useCallback(() => {
-    setDuration(0)
-    timerRef.current = window.setInterval(() => {
-      setDuration((d) => d + 1)
-    }, 1000)
-  }, [])
+        return true
+      } catch (e) {
+        if (!isSetupCurrent()) return false
+        if (import.meta.env.DEV) {
+          console.error('[Voice] Device setup failed:', e)
+        }
+        setError(getErrorMessage(e, t))
+        return false
+      }
+    })()
 
-  // Stop duration timer
-  const stopTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
-    }
-  }, [])
+    deviceSetupPromiseRef.current = setupPromise
+    void setupPromise.finally(() => {
+      if (deviceSetupPromiseRef.current === setupPromise) {
+        deviceSetupPromiseRef.current = null
+      }
+    })
+    return setupPromise
+  }, [
+    disconnectCallSafely,
+    disconnectDeviceSafely,
+    finalizeCall,
+    markPresenceOffline,
+    schedulePresenceRegisterRetry,
+    startPresenceHeartbeat,
+    t,
+  ])
 
   // Initiate outbound call
   const initiateCall = useCallback(
     async (toPhone: string, caseId: string) => {
-      if (callState !== 'idle') {
+      if (
+        (callState !== 'idle' && callState !== 'error') ||
+        callRef.current ||
+        incomingCallRef.current ||
+        outboundConnectPendingRef.current
+      ) {
         return
       }
+
+      const attemptId = ++outboundAttemptRef.current
+      const isCurrentAttempt = () => outboundAttemptRef.current === attemptId
+      outboundAttemptActiveRef.current = true
 
       setError(null)
       setCallState('connecting')
@@ -504,18 +649,18 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       try {
         // Check microphone permission first
         const hasMicPermission = await checkMicrophonePermission()
+        if (!isCurrentAttempt()) return
         if (!hasMicPermission) {
-          setError(t('voiceError.micPermissionRequired'))
-          setCallState('error')
+          finalizeCall(null, 'error', t('voiceError.micPermissionRequired'))
           return
         }
 
         // Setup device on first call (user gesture required for AudioContext)
         // This creates Twilio Device and registers it
         const deviceReady = await setupDevice()
+        if (!isCurrentAttempt()) return
         if (!deviceReady || !deviceRef.current) {
-          setError(t('voiceError.cannotInitCall'))
-          setCallState('error')
+          finalizeCall(null, 'error', t('voiceError.cannotInitCall'))
           return
         }
 
@@ -523,17 +668,19 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
         if (!isTokenValid(tokenExpiryRef.current)) {
           try {
             const newToken = await api.voice.getToken()
+            if (!isCurrentAttempt()) return
             deviceRef.current.updateToken(newToken.token)
             tokenExpiryRef.current = Date.now() + newToken.expiresIn * 1000
           } catch {
-            setError(t('voiceError.cannotRefreshSession'))
-            setCallState('error')
+            if (!isCurrentAttempt()) return
+            finalizeCall(null, 'error', t('voiceError.cannotRefreshSession'))
             return
           }
         }
 
         // Create call record in backend first (returns messageId for tracking)
         const callRecord = await api.voice.createCall({ caseId, toPhone })
+        if (!isCurrentAttempt()) return
         messageIdRef.current = callRecord.messageId
 
         // Cleanup any existing listeners
@@ -556,39 +703,77 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
         // Select proper mic input before connecting (deferred from registration to avoid
         // prompting mic permission on page load)
         await selectMicrophoneInput(deviceRef.current)
+        if (!isCurrentAttempt()) return
 
         // Note: SDK handles getUserMedia internally
-        const call = await deviceRef.current.connect({
+        outboundConnectPendingRef.current = true
+        const connectPromise = deviceRef.current.connect({
           params: {
             messageId: callRecord.messageId,
             caseId,
           },
         })
+        let connectTimeout: number | null = null
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          connectTimeout = window.setTimeout(() => {
+            reject({ name: 'TIMEOUT' })
+          }, OUTBOUND_CONNECT_TIMEOUT_MS)
+        })
 
+        let call: TwilioCall
+        try {
+          call = await Promise.race([connectPromise, timeoutPromise])
+        } catch (connectError) {
+          if (connectTimeout !== null) {
+            clearTimeout(connectTimeout)
+          }
+          void connectPromise.then((lateCall) => {
+            knownCallsRef.current.add(lateCall)
+            disconnectStaleCallSafely(lateCall)
+          }).catch(() => {})
+          throw connectError
+        }
+        if (connectTimeout !== null) {
+          clearTimeout(connectTimeout)
+        }
+        knownCallsRef.current.add(call)
+
+        if (!isCurrentAttempt()) {
+          disconnectStaleCallSafely(call)
+          outboundConnectPendingRef.current = false
+          return
+        }
+
+        outboundConnectPendingRef.current = false
         callRef.current = call
 
-        // Define event handlers with proper cleanup tracking
-        // Update CallSid in 'ringing' handler when it's guaranteed to be available
-        const ringingHandler = async () => {
-          setCallState('ringing')
-          // Update message with Twilio CallSid for webhook tracking
-          const callSid = callRef.current?.parameters?.CallSid
-          if (callSid && messageIdRef.current) {
-            try {
-              await api.voice.updateCallSid(messageIdRef.current, callSid)
-              if (import.meta.env.DEV) {
-                console.log('[Voice] Updated message with CallSid:', callSid)
-              }
-            } catch (e) {
-              if (import.meta.env.DEV) {
-                console.warn('[Voice] Failed to update CallSid:', e)
-              }
+        // Define event handlers and sync the parent SID on ringing or bridge.
+        let callSidSynced = false
+        const syncCallSid = async () => {
+          const callSid = call.parameters?.CallSid
+          if (!callSid || callSidSynced) return
+
+          callSidSynced = true
+          try {
+            await api.voice.updateCallSid(callRecord.messageId, callSid)
+            if (import.meta.env.DEV) {
+              console.log('[Voice] Updated message with CallSid:', callSid)
+            }
+          } catch (e) {
+            callSidSynced = false
+            if (import.meta.env.DEV) {
+              console.warn('[Voice] Failed to update CallSid:', e)
             }
           }
+        }
+        const ringingHandler = async () => {
+          setCallState('ringing')
+          await syncCallSid()
         }
         const acceptHandler = () => {
           setCallState('connected')
           startTimer()
+          void syncCallSid()
           // Debug: Check call and audio status
           if (import.meta.env.DEV && callRef.current) {
             console.log('[Voice] Call connected!')
@@ -623,30 +808,11 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
             }
           }
         }
-        const disconnectHandler = () => {
-          setCallState('idle')
-          stopTimer()
-          setIsMuted(false)
-          cleanupCallListeners()
-          callRef.current = null
-          messageIdRef.current = null
-        }
-        const cancelHandler = () => {
-          setCallState('idle')
-          stopTimer()
-          setIsMuted(false)
-          cleanupCallListeners()
-          callRef.current = null
-          messageIdRef.current = null
+        const idleHandler = () => {
+          finalizeCall(call, 'idle')
         }
         const errorHandler = (err: unknown) => {
-          setError(getErrorMessage(err, t))
-          setCallState('error')
-          stopTimer()
-          setIsMuted(false)
-          cleanupCallListeners()
-          callRef.current = null
-          messageIdRef.current = null
+          finalizeCall(call, 'error', getErrorMessage(err, t))
         }
         // Warning handler to debug audio issues (SDK 2.x)
         const warningHandler = (warning: unknown) => {
@@ -658,35 +824,51 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
         // Register listeners and track them for cleanup
         call.on('ringing', ringingHandler)
         call.on('accept', acceptHandler)
-        call.on('disconnect', disconnectHandler)
-        call.on('cancel', cancelHandler)
+        call.on('disconnect', idleHandler)
+        call.on('cancel', idleHandler)
         call.on('error', errorHandler)
         call.on('warning', warningHandler)
 
-        callListenersRef.current = [
-          { event: 'ringing', handler: ringingHandler as () => void },
-          { event: 'accept', handler: acceptHandler },
-          { event: 'disconnect', handler: disconnectHandler },
-          { event: 'cancel', handler: cancelHandler },
-          { event: 'error', handler: errorHandler as () => void },
-          { event: 'warning', handler: warningHandler as () => void },
-        ]
+        // connect() may resolve after an event has already fired. Reconcile the
+        // current SDK state once listeners are attached so the UI cannot stick.
+        const currentStatus = call.status()
+        if (currentStatus === 'ringing') {
+          void ringingHandler()
+        } else if (currentStatus === 'open') {
+          acceptHandler()
+        } else if (currentStatus === 'closed') {
+          finalizeCall(call, 'idle')
+        }
       } catch (e) {
-        setError(getErrorMessage(e, t))
-        setCallState('error')
+        outboundConnectPendingRef.current = false
+        if (!isCurrentAttempt()) return
+        finalizeCall(callRef.current, 'error', getErrorMessage(e, t))
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [callState, startTimer, stopTimer, cleanupCallListeners, setupDevice]
+    [
+      callState,
+      startTimer,
+      cleanupCallListeners,
+      setupDevice,
+      finalizeCall,
+      disconnectCallSafely,
+      disconnectStaleCallSafely,
+    ]
   )
 
   // End current call
   const endCall = useCallback(() => {
-    if (callRef.current) {
+    const call = callRef.current
+    if (call) {
       setCallState('disconnecting')
-      callRef.current.disconnect()
+      disconnectCallSafely(call, true)
+      finalizeCall(call, 'idle')
+    } else if (callState === 'connecting') {
+      disconnectDeviceSafely()
+      finalizeCall(null, 'idle')
     }
-  }, [])
+  }, [callState, disconnectCallSafely, disconnectDeviceSafely, finalizeCall])
 
   // Toggle mute
   const toggleMute = useCallback(() => {
@@ -774,6 +956,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
 
         // Setup device (creates Twilio Device, registers it)
         const success = await setupDevice()
+        if (!mountedRef.current) return
         if (!success) {
           setIsRegistering(false)
           autoRegisterTriggeredRef.current = false // Allow retry on failure

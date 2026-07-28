@@ -104,64 +104,80 @@ function buildVoiceWebhookUrl(path: string, calledNumber?: string): string {
   return url.toString()
 }
 
+function buildOutboundVoiceStatusUrl(messageId: string): string {
+  const url = new URL('/webhooks/twilio/voice/status', config.twilio.webhookBaseUrl)
+  url.searchParams.set('messageId', messageId)
+  return url.toString()
+}
+
+const TERMINAL_CALL_STATUSES = ['completed', 'busy', 'no-answer', 'failed', 'canceled'] as const
+
 function getCalledNumber(c: Context, formData: Record<string, unknown>): string {
   const queryCalledNumber = new URL(c.req.url).searchParams.get('calledNumber')
   return queryCalledNumber || ((formData.To || formData.Called || '') as string)
 }
 
-async function resolveOutboundCallDestination(input: {
-  to?: string
-  messageId?: string
-  caseId?: string
-  callSid?: string
-}): Promise<string | null> {
-  const messageId = input.messageId?.trim()
-  const caseId = input.caseId?.trim()
+function parseOutboundStaffId(identity: unknown): string | null {
+  const prefix = 'client:staff_'
+  if (!isNonEmptyString(identity) || !identity.startsWith(prefix)) return null
 
-  if (messageId) {
-    const message = await prisma.message.findFirst({
-      where: {
-        id: messageId,
-        channel: 'CALL',
-        direction: 'OUTBOUND',
-        ...(caseId ? { conversation: { caseId } } : {}),
-      },
-      include: {
-        conversation: {
-          include: {
-            taxCase: {
-              include: { client: true },
-            },
+  const staffId = identity.slice(prefix.length)
+  return /^[A-Za-z0-9_-]+$/.test(staffId) ? staffId : null
+}
+
+async function resolveOutboundCallDestination(input: {
+  staffId?: string | null
+  messageId?: unknown
+  caseId?: unknown
+  callSid?: string
+}): Promise<{ destination: string; messageId: string } | null> {
+  const messageId = isNonEmptyString(input.messageId) ? input.messageId.trim() : null
+  const caseId = isNonEmptyString(input.caseId) ? input.caseId.trim() : null
+  const staffId = isNonEmptyString(input.staffId) ? input.staffId.trim() : null
+
+  if (!messageId || !caseId || !staffId) return null
+
+  const message = await prisma.message.findFirst({
+    where: {
+      id: messageId,
+      channel: 'CALL',
+      direction: 'OUTBOUND',
+      sentById: staffId,
+      conversation: { caseId },
+    },
+    include: {
+      conversation: {
+        include: {
+          taxCase: {
+            include: { client: true },
           },
         },
       },
+    },
+  })
+
+  if (!message) {
+    console.warn('[Voice Webhook] Could not resolve authorized outbound message for call')
+    return null
+  }
+
+  const clientPhone = message.conversation?.taxCase.client.phone
+  if (!clientPhone || !isValidE164Phone(clientPhone)) {
+    console.warn(`[Voice Webhook] Outbound message ${message.id} has no callable client phone`)
+    return null
+  }
+
+  if (isNonEmptyString(input.callSid)) {
+    await prisma.message.update({
+      where: { id: message.id },
+      data: { callSid: input.callSid },
     })
-
-    if (message) {
-      if (input.callSid) {
-        await prisma.message.update({
-          where: { id: message.id },
-          data: { callSid: input.callSid },
-        })
-      }
-
-      const clientPhone = message.conversation?.taxCase.client.phone
-      if (clientPhone && isValidE164Phone(clientPhone)) {
-        return clientPhone
-      }
-
-      console.warn(`[Voice Webhook] Outbound message ${message.id} has no callable client phone`)
-      return null
-    }
-
-    console.warn('[Voice Webhook] Could not resolve outbound message for call')
   }
 
-  if (input.to && isValidE164Phone(input.to)) {
-    return input.to
+  return {
+    destination: clientPhone,
+    messageId: message.id,
   }
-
-  return null
 }
 
 function checkRateLimit(ip: string): boolean {
@@ -481,34 +497,33 @@ twilioWebhookRoute.post('/voice', async (c) => {
   }
 
   // Extract call parameters from Twilio
-  const requestedTo = formData.To as string | undefined
-  const from = formData.From as string
   const callSid = formData.CallSid as string
   const messageId = formData.messageId as string | undefined
   const caseId = formData.caseId as string | undefined
+  const staffId = parseOutboundStaffId(formData.From)
 
-  const to = await resolveOutboundCallDestination({
-    to: requestedTo,
+  const outboundCall = await resolveOutboundCallDestination({
+    staffId,
     messageId,
     caseId,
     callSid,
   })
 
-  if (!to) {
-    console.warn(`[Voice Webhook] Outbound call ${callSid}: destination unavailable`)
+  if (!outboundCall) {
+    console.warn('[Voice Webhook] Outbound call destination unavailable')
     return c.text(generateEmptyTwimlResponse(), 200, { 'Content-Type': 'application/xml' })
   }
 
-  console.log(`[Voice Webhook] Outbound call ${callSid}: ${from} -> destination resolved`)
+  console.log('[Voice Webhook] Outbound call destination resolved')
 
   // Generate TwiML response with recording enabled
   const twiml = generateTwimlVoiceResponse({
-    to,
+    to: outboundCall.destination,
     callerId: config.twilio.phoneNumber,
     record: true,
     recordingStatusCallback: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/recording`,
     recordingStatusCallbackEvent: ['completed'],
-    statusCallback: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/status`,
+    statusCallback: buildOutboundVoiceStatusUrl(outboundCall.messageId),
     statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
   })
 
@@ -639,30 +654,73 @@ twilioWebhookRoute.post('/voice/status', async (c) => {
   }
 
   const callSid = formData.CallSid as string
+  const parentCallSid = formData.ParentCallSid as string | undefined
   const callStatus = formData.CallStatus as string
-  const callDuration = formData.CallDuration as string | undefined
+  const messageId = new URL(c.req.url).searchParams.get('messageId')?.trim()
 
-  console.log(
-    `[Voice Status] ${callSid}: ${callStatus}${callDuration ? `, duration: ${callDuration}s` : ''}`
-  )
+  console.log('[Voice Status] Callback received')
 
   // Update call message status for terminal states
-  const terminalStatuses = ['completed', 'busy', 'no-answer', 'failed', 'canceled']
-  if (terminalStatuses.includes(callStatus)) {
+  if (isTerminalCallStatus(callStatus)) {
+    if (!messageId && !isNonEmptyString(parentCallSid) && !isNonEmptyString(callSid)) {
+      console.warn('[Voice Status] Callback is missing message correlation')
+      return c.json({
+        received: true,
+        processed: false,
+        warning: 'MISSING_CORRELATION',
+      })
+    }
+
     try {
+      const callMessage = await findOutboundCallStatusMessage({
+        messageId,
+        parentCallSid,
+        callSid,
+      })
+
+      if (!callMessage) {
+        console.warn('[Voice Status] No correlated outbound call message found')
+        return c.json({ received: true, processed: false, warning: 'MESSAGE_NOT_FOUND' })
+      }
+
+      if (isTerminalCallStatus(callMessage.callStatus)) {
+        return c.json({
+          received: true,
+          processed: false,
+          ignored: 'TERMINAL_STATUS_ALREADY_RECORDED',
+        })
+      }
+
       const updateResult = await prisma.message.updateMany({
-        where: { callSid },
-        data: {
-          callStatus,
-          // Update content with status if call failed/missed
-          ...(callStatus !== 'completed' && {
-            content: getCallStatusMessage(callStatus),
-          }),
+        where: {
+          id: callMessage.id,
+          OR: [
+            { callStatus: null },
+            {
+              callStatus: {
+                notIn: [...TERMINAL_CALL_STATUSES],
+              },
+            },
+          ],
         },
+        data: buildTerminalCallStatusUpdate(callStatus),
       })
 
       if (updateResult.count === 0) {
-        console.warn(`[Voice Status] No message found for callSid: ${callSid}`)
+        const currentMessage = await prisma.message.findFirst({
+          where: { id: callMessage.id },
+          select: { callStatus: true },
+        })
+
+        if (currentMessage && isTerminalCallStatus(currentMessage.callStatus)) {
+          return c.json({
+            received: true,
+            processed: false,
+            ignored: 'TERMINAL_STATUS_ALREADY_RECORDED',
+          })
+        }
+
+        console.warn('[Voice Status] Correlated outbound call could not be updated')
         return c.json({ received: true, processed: false, warning: 'MESSAGE_NOT_FOUND' })
       }
 
@@ -688,6 +746,55 @@ function getCallStatusMessage(status: string): string {
     canceled: 'Call - Canceled',
   }
   return messages[status] || `Call - ${status}`
+}
+
+function isTerminalCallStatus(status: string | null | undefined): status is (typeof TERMINAL_CALL_STATUSES)[number] {
+  return typeof status === 'string' && TERMINAL_CALL_STATUSES.includes(status as (typeof TERMINAL_CALL_STATUSES)[number])
+}
+
+function buildTerminalCallStatusUpdate(status: (typeof TERMINAL_CALL_STATUSES)[number]) {
+  return status === 'completed'
+    ? { callStatus: status }
+    : { callStatus: status, content: getCallStatusMessage(status) }
+}
+
+async function findOutboundCallStatusMessage(input: {
+  messageId?: string
+  parentCallSid?: string
+  callSid?: string
+}) {
+  const scope = {
+    channel: 'CALL' as const,
+    direction: 'OUTBOUND' as const,
+  }
+
+  if (input.messageId) {
+    const message = await prisma.message.findFirst({
+      where: { id: input.messageId, ...scope },
+      select: { id: true, callStatus: true },
+    })
+    if (message) return message
+  }
+
+  const fallbackSid = getOutboundStatusFallbackSid(input)
+  if (!isNonEmptyString(fallbackSid)) return null
+
+  return prisma.message.findFirst({
+    where: { callSid: fallbackSid, ...scope },
+    select: { id: true, callStatus: true },
+  })
+}
+
+function getOutboundStatusFallbackSid(input: {
+  messageId?: string
+  parentCallSid?: string
+  callSid?: string
+}) {
+  if (isNonEmptyString(input.parentCallSid)) return input.parentCallSid
+  // Number callbacks carry a child CallSid. Raw CallSid is safe only for
+  // legacy callbacks that have neither messageId nor provider ParentCallSid.
+  if (input.messageId) return undefined
+  return input.callSid
 }
 
 // ============================================

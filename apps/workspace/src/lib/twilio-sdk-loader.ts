@@ -107,7 +107,7 @@ export interface TwilioDeviceInstance {
   // Overloaded on() for type-safe event handlers
   on(event: 'incoming', handler: (call: TwilioCall) => void): void
   on(event: 'registered' | 'unregistered', handler: () => void): void
-  on(event: 'error', handler: (error: unknown) => void): void
+  on(event: 'error', handler: (error: unknown, call?: TwilioCall) => void): void
   on(event: 'tokenWillExpire', handler: () => void): void
   on(event: TwilioDeviceEvent, handler: (...args: unknown[]) => void): void
   off(event: TwilioDeviceEvent, handler: (...args: unknown[]) => void): void

@@ -1,7 +1,32 @@
 # Project Changelog
 
-> **Last Updated:** 2026-07-20 ICT
+> **Last Updated:** 2026-07-27 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+### Outbound Call State Synchronization (2026-07-27)
+**Status:** Complete
+
+**Changed:**
+- Split outbound voice into a parent browser leg and a child PSTN leg. TwiML now keeps the parent leg ringing with `answerOnBridge="true"` and attaches progress callbacks to the child `<Number>` leg with server-resolved `messageId` correlation.
+- Bound outbound authorization to signed `From=client:staff_<id>` identity plus stored `sentById` and case scope, with no raw `To` fallback.
+- Kept the parent CallSid on the message for recording lookup, while the child terminal callback remains the persisted history authority.
+- Treated the browser SDK events as immediate UI authority so the modal stays `Ringing` until bridge, then transitions to `Connected`.
+- Hardened the workspace hook cleanup path with device setup gating, 30-second connect timeout handling, timer finalization, and stale replacement disconnect cleanup.
+- Documented voicemail as a post-answer/bridge outcome and kept AMD out of scope for this flow.
+
+**Validation:**
+- API tests passed, 5 files / 100 tests.
+- Workspace tests passed, 1 file / 20 tests.
+- API and Workspace package type-checks passed.
+- Touched lint reported 0 warnings/errors.
+- Package lint reported 0 errors and 15 unrelated warnings.
+- `git diff --check` passed.
+- Final reviewer score: 10/10.
+
+**Rollout Gate:**
+- External Twilio/PSTN smoke and deployment were not run or authorized in this update and remain the rollout confidence gate.
 
 ---
 

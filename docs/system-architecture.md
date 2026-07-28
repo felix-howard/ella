@@ -2626,6 +2626,10 @@ React/TanStack Router public checkout flow. Validates token → displays amount 
 - Phone presence tracking (staff online/offline)
 - Automatic call recording + transcription
 - SMS delivery for client onboarding and lead messaging
+- Outbound calls split a parent browser leg from the child PSTN leg: `answerOnBridge="true"` keeps the browser modal ringing until bridge, `<Number>` carries the progress callbacks, and the parent CallSid is retained for recording lookup while the child terminal callback remains the persisted history authority
+- Signed outbound callbacks must resolve from `From=client:staff_<id>` plus stored `sentById` + case; there is no raw `To` fallback
+- Workspace SDK events are the immediate UI authority for the active modal, but durable terminal history still comes from the backend status webhook; voicemail is a post-answer/bridge outcome and AMD is out of scope
+- Browser device setup stays user-gesture gated, outbound connect has a 30s timeout, and stale replacement calls are explicitly disconnected so they cannot overwrite the active attempt
 
 **Message Channels:**
 - SMS: Twilio integration

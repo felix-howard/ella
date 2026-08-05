@@ -89,6 +89,7 @@ function staff(overrides: Partial<ProfileResponse['staff']> = {}): ProfileRespon
     notifyOnChat: false,
     notifyOnAgreementSigned: false,
     notifyOnClientPayment: false,
+    notifyOnPaymentFailed: false,
     formSlug: null,
     autoSendUploadLink: false,
     defaultUploadLinkTemplateId: null,

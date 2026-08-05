@@ -641,6 +641,7 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
       notifyOnChat: true,
       notifyOnAgreementSigned: true,
       notifyOnClientPayment: true,
+      notifyOnPaymentFailed: true,
       formSlug: true,
       autoSendUploadLink: true,
       defaultUploadLinkTemplateId: true,
@@ -736,7 +737,7 @@ teamRoute.patch(
       return c.json({ error: 'Can only edit your own profile' }, 403)
     }
 
-    const { firstName, lastName, phoneNumber, title, notifyOnUpload, notifyOnChat, notifyOnAgreementSigned, notifyOnClientPayment } = c.req.valid('json')
+    const { firstName, lastName, phoneNumber, title, notifyOnUpload, notifyOnChat, notifyOnAgreementSigned, notifyOnClientPayment, notifyOnPaymentFailed } = c.req.valid('json')
 
     // Verify staff exists and belongs to org
     const staff = await prisma.staff.findFirst({
@@ -754,7 +755,11 @@ teamRoute.patch(
     // ADMIN-only toggles: reject (not silently drop) so a MANAGER/MEMBER
     // poking the API directly gets an explicit error instead of fake success.
     if (
-      (notifyOnAgreementSigned !== undefined || notifyOnClientPayment !== undefined) &&
+      (
+        notifyOnAgreementSigned !== undefined ||
+        notifyOnClientPayment !== undefined ||
+        notifyOnPaymentFailed !== undefined
+      ) &&
       staff.role !== 'ADMIN'
     ) {
       return c.json({ error: 'Agreement/payment notification toggles are admin-only' }, 403)
@@ -776,6 +781,7 @@ teamRoute.patch(
         ...(notifyOnChat !== undefined && { notifyOnChat }),
         ...(notifyOnAgreementSigned !== undefined && { notifyOnAgreementSigned }),
         ...(notifyOnClientPayment !== undefined && { notifyOnClientPayment }),
+        ...(notifyOnPaymentFailed !== undefined && { notifyOnPaymentFailed }),
       },
       select: {
         id: true,
@@ -788,6 +794,7 @@ teamRoute.patch(
         notifyOnChat: true,
         notifyOnAgreementSigned: true,
         notifyOnClientPayment: true,
+        notifyOnPaymentFailed: true,
       },
     })
 
@@ -807,8 +814,8 @@ teamRoute.patch(
     // Audit log when admin edits another member's profile
     if (targetStaffId !== user.staffId) {
       logTeamAction('PROFILE_EDITED', targetStaffId, user.staffId, {
-        oldValue: { name: staff.name, phoneNumber: staff.phoneNumber, notifyOnUpload: staff.notifyOnUpload, notifyOnChat: staff.notifyOnChat, notifyOnAgreementSigned: staff.notifyOnAgreementSigned, notifyOnClientPayment: staff.notifyOnClientPayment },
-        newValue: { name, phoneNumber, notifyOnUpload, notifyOnChat, notifyOnAgreementSigned, notifyOnClientPayment },
+        oldValue: { name: staff.name, phoneNumber: staff.phoneNumber, notifyOnUpload: staff.notifyOnUpload, notifyOnChat: staff.notifyOnChat, notifyOnAgreementSigned: staff.notifyOnAgreementSigned, notifyOnClientPayment: staff.notifyOnClientPayment, notifyOnPaymentFailed: staff.notifyOnPaymentFailed },
+        newValue: { name, phoneNumber, notifyOnUpload, notifyOnChat, notifyOnAgreementSigned, notifyOnClientPayment, notifyOnPaymentFailed },
       })
     }
 
@@ -831,6 +838,7 @@ teamRoute.patch(
           notifyOnChat,
           notifyOnAgreementSigned,
           notifyOnClientPayment,
+          notifyOnPaymentFailed,
         }),
         editedSelf: targetStaffId === user.staffId,
       },

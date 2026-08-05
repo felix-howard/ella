@@ -2182,6 +2182,8 @@
   "profile.notifyOnAgreementSignedDesc": "Nhắn tin cho tôi khi khách hàng ký hợp đồng",
   "profile.notifyOnClientPayment": "Thông báo khi khách thanh toán",
   "profile.notifyOnClientPaymentDesc": "Nhắn tin cho tôi khi khách hàng thanh toán",
+  "profile.notifyOnPaymentFailed": "Thông báo khi thanh toán thất bại",
+  "profile.notifyOnPaymentFailedDesc": "Nhắn tin cho tôi khi thu tiền recurring thất bại",
   "profile.notifyOnUpload": "Thông báo tài liệu mới",
   "profile.notifyOnUploadDesc": "Nhận SMS khi khách hàng tải tài liệu lên",
   "profile.notSet": "Chưa thiết lập",

@@ -125,6 +125,7 @@ function staffRow(overrides: Record<string, unknown> = {}) {
     notifyOnChat: false,
     notifyOnAgreementSigned: false,
     notifyOnClientPayment: false,
+    notifyOnPaymentFailed: false,
     ...overrides,
   }
 }
@@ -142,7 +143,11 @@ describe('PATCH /team/members/:staffId/profile — notify toggles', () => {
     vi.clearAllMocks()
     vi.mocked(prisma.staff.findFirst).mockResolvedValue(staffRow() as never)
     vi.mocked(prisma.staff.update).mockResolvedValue(
-      staffRow({ notifyOnAgreementSigned: true, notifyOnClientPayment: true }) as never
+      staffRow({
+        notifyOnAgreementSigned: true,
+        notifyOnClientPayment: true,
+        notifyOnPaymentFailed: true,
+      }) as never
     )
   })
 
@@ -150,6 +155,7 @@ describe('PATCH /team/members/:staffId/profile — notify toggles', () => {
     const res = await patchProfile(createApp(adminUser()), 'me', {
       notifyOnAgreementSigned: true,
       notifyOnClientPayment: true,
+      notifyOnPaymentFailed: true,
     })
 
     expect(res.status).toBe(200)
@@ -159,6 +165,7 @@ describe('PATCH /team/members/:staffId/profile — notify toggles', () => {
         data: expect.objectContaining({
           notifyOnAgreementSigned: true,
           notifyOnClientPayment: true,
+          notifyOnPaymentFailed: true,
         }),
       })
     )
@@ -186,7 +193,7 @@ describe('PATCH /team/members/:staffId/profile — notify toggles', () => {
     )
 
     const res = await patchProfile(createApp(adminUser()), 'staff_member', {
-      notifyOnClientPayment: true,
+      notifyOnPaymentFailed: true,
     })
 
     expect(res.status).toBe(403)

@@ -98,6 +98,14 @@ export function buildAdminQuotePaidMessage(params: {
   return `${params.payerName} paid ${params.amountFormatted} (quote)`
 }
 
+/** Admin SMS: a recurring sent-quote invoice was paid. */
+export function buildAdminRecurringQuotePaidMessage(params: {
+  payerName: string
+  amountFormatted: string
+}): string {
+  return `${params.payerName} paid ${params.amountFormatted} (recurring quote)`
+}
+
 /** Admin SMS: a quote appears to have been paid more than once. */
 export function buildAdminDuplicateQuotePaymentMessage(params: {
   payerName: string

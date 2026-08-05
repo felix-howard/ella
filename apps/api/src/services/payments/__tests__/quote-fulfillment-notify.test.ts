@@ -15,7 +15,12 @@ const signerSmsMocks = vi.hoisted(() => ({
 vi.mock('../../agreements/agreement-post-sign-notifications', () => adminNotifyMocks)
 vi.mock('../signer-sms-delivery', () => signerSmsMocks)
 
-import { notifyDuplicateQuotePayment, notifyFirstQuotePayment } from '../quote-fulfillment-notify'
+import {
+  notifyDuplicateQuotePayment,
+  notifyFirstQuotePayment,
+  notifyQuotePaymentFailed,
+  notifyRecurringQuotePayment,
+} from '../quote-fulfillment-notify'
 import type { QuoteSigner, SendableQuote } from '../quote-fulfillment-types'
 
 function quote(overrides: Partial<SendableQuote> = {}): SendableQuote {
@@ -110,6 +115,56 @@ describe('notifyDuplicateQuotePayment', () => {
         message:
           'Duplicate payment review: Tuyet Nguyen paid $899.00 again for quote. ' +
           'Review Stripe payment pi_dup_123 before refunding.',
+      }),
+    )
+    expect(signerSmsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
+  })
+})
+
+describe('notifyRecurringQuotePayment', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    adminNotifyMocks.smsOptedInAdmins.mockResolvedValue([])
+    signerSmsMocks.sendSignerSmsAndPersist.mockResolvedValue({ delivered: true })
+  })
+
+  it('notifies payment-alert admins without sending another payer receipt', async () => {
+    await notifyRecurringQuotePayment({
+      quote: quote(),
+      signer: signer(),
+      amountFormatted: '$85.00',
+    })
+
+    expect(adminNotifyMocks.smsOptedInAdmins).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: 'org_1',
+        toggle: 'notifyOnClientPayment',
+        message: 'Tuyet Nguyen paid $85.00 (recurring quote)',
+      }),
+    )
+    expect(signerSmsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()
+  })
+})
+
+describe('notifyQuotePaymentFailed', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    adminNotifyMocks.smsOptedInAdmins.mockResolvedValue([])
+    signerSmsMocks.sendSignerSmsAndPersist.mockResolvedValue({ delivered: true })
+  })
+
+  it('uses payment-success or payment-failure admin toggles', async () => {
+    await notifyQuotePaymentFailed({
+      quote: quote(),
+      signer: signer(),
+      amountFormatted: '$85.00',
+    })
+
+    expect(adminNotifyMocks.smsOptedInAdmins).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: 'org_1',
+        toggle: ['notifyOnClientPayment', 'notifyOnPaymentFailed'],
+        message: "Payment failed: couldn't collect $85.00 from Tuyet Nguyen. Follow up to update their card.",
       }),
     )
     expect(signerSmsMocks.sendSignerSmsAndPersist).not.toHaveBeenCalled()

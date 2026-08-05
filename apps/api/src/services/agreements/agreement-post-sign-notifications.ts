@@ -22,6 +22,11 @@ import {
   formatUsdAmount,
 } from '../payments/payment-sms-templates'
 
+type AdminSmsToggle =
+  | 'notifyOnAgreementSigned'
+  | 'notifyOnClientPayment'
+  | 'notifyOnPaymentFailed'
+
 /**
  * Narrow snapshot of a just-signed agreement handed to post-sign side effects
  * (admin notify + deposit payment creation). Built by the signing service from
@@ -76,7 +81,7 @@ export async function notifyAdminsAgreementSigned(
  */
 export async function smsOptedInAdmins(params: {
   organizationId: string
-  toggle: 'notifyOnAgreementSigned' | 'notifyOnClientPayment' | 'notifyOnPaymentFailed'
+  toggle: AdminSmsToggle | AdminSmsToggle[]
   message: string
   /** Human-readable context for failure logs, e.g. `agreement=abc signed`. */
   logContext: string
@@ -88,12 +93,18 @@ export async function smsOptedInAdmins(params: {
     return []
   }
 
+  const toggles = Array.isArray(params.toggle) ? params.toggle : [params.toggle]
+  const toggleWhere =
+    toggles.length === 1
+      ? { [toggles[0]]: true }
+      : { OR: toggles.map((toggle) => ({ [toggle]: true })) }
+
   const admins = await prisma.staff.findMany({
     where: {
       organizationId: params.organizationId,
       role: 'ADMIN',
       isActive: true,
-      [params.toggle]: true,
+      ...toggleWhere,
       phoneNumber: { not: null },
     },
     select: { id: true, phoneNumber: true },

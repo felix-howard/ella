@@ -4459,6 +4459,8 @@ export interface StaffProfile {
   notifyOnAgreementSigned: boolean
   /** ADMIN-only: SMS when a client completes a payment */
   notifyOnClientPayment: boolean
+  /** ADMIN-only: SMS when recurring payment collection fails */
+  notifyOnPaymentFailed: boolean
   formSlug: string | null
   autoSendUploadLink: boolean
   defaultUploadLinkTemplateId: UploadLinkTemplateId | null
@@ -4553,6 +4555,7 @@ export interface UpdateStaffProfileInput {
   /** ADMIN-only — server rejects for non-ADMIN staff */
   notifyOnAgreementSigned?: boolean
   notifyOnClientPayment?: boolean
+  notifyOnPaymentFailed?: boolean
 }
 
 export interface UpdateStaffPaymentInfoInput {

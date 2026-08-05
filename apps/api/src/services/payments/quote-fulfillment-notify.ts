@@ -12,6 +12,7 @@ import {
   buildAdminDuplicateQuotePaymentMessage,
   buildAdminPaymentFailedMessage,
   buildAdminQuotePaidMessage,
+  buildAdminRecurringQuotePaidMessage,
   buildQuoteReceiptMessage,
   formatUsdAmount,
   QUOTE_RECEIPT_TEMPLATE_NAME,
@@ -106,9 +107,37 @@ export async function notifyDuplicateQuotePayment(params: {
 }
 
 /**
- * Recurring charge failed: alert opted-in admins (notifyOnPaymentFailed) so they
- * can chase the client to update their card. No client SMS — Stripe dunning
- * handles card-update emails.
+ * Recurring sent-quote payment: notify opted-in admins only. The payer already
+ * has Stripe receipts/dunning emails, so Ella does not send another receipt SMS.
+ */
+export async function notifyRecurringQuotePayment(params: {
+  quote: SendableQuote
+  signer: QuoteSigner | null
+  amountFormatted: string
+}): Promise<void> {
+  const { quote, signer, amountFormatted } = params
+  if (!quote.organizationId) return
+
+  try {
+    await smsOptedInAdmins({
+      organizationId: quote.organizationId,
+      toggle: 'notifyOnClientPayment',
+      message: buildAdminRecurringQuotePaidMessage({
+        payerName: payerNameOf(signer),
+        amountFormatted,
+      }),
+      logContext: `quote=${quote.id} recurring_payment`,
+    })
+  } catch (err) {
+    console.error(`[QuoteFulfillment] Recurring-payment admin alert failed for quote=${quote.id}:`, err)
+  }
+}
+
+/**
+ * Recurring charge failed: alert payment-notification admins so they can chase
+ * the client to update their card. Existing payment-alert admins are included,
+ * while the dedicated failure toggle still supports failure-only subscriptions.
+ * No client SMS — Stripe dunning handles card-update emails.
  */
 export async function notifyQuotePaymentFailed(params: {
   quote: SendableQuote
@@ -121,7 +150,7 @@ export async function notifyQuotePaymentFailed(params: {
   try {
     await smsOptedInAdmins({
       organizationId: quote.organizationId,
-      toggle: 'notifyOnPaymentFailed',
+      toggle: ['notifyOnClientPayment', 'notifyOnPaymentFailed'],
       message: buildAdminPaymentFailedMessage({
         payerName: payerNameOf(signer),
         amountFormatted,

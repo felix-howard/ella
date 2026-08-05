@@ -80,7 +80,7 @@ function staff(overrides: Record<string, unknown> = {}) {
     id: 'staff_2', name: 'Member B', email: 'b@test.com', role: 'STAFF',
     isContractorAgent: false, avatarUrl: null, phoneNumber: null, title: null,
     notifyOnUpload: false, notifyOnChat: false, notifyOnAgreementSigned: false,
-    notifyOnClientPayment: false, formSlug: null, autoSendUploadLink: false,
+    notifyOnClientPayment: false, notifyOnPaymentFailed: false, formSlug: null, autoSendUploadLink: false,
     defaultUploadLinkTemplateId: null, isActive: true, deactivatedAt: null, paymentInfos: [],
     _count: { managedClientLinks: 0 },
     ...overrides,

@@ -14,6 +14,7 @@ export type NotifyPrefField =
   | 'notifyOnChat'
   | 'notifyOnAgreementSigned'
   | 'notifyOnClientPayment'
+  | 'notifyOnPaymentFailed'
 
 const PROFILE_QUERY_KEY = ['team-member-profile', 'me']
 

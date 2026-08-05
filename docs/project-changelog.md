@@ -1,7 +1,50 @@
 # Project Changelog
 
-> **Last Updated:** 2026-07-20 ICT
+> **Last Updated:** 2026-08-04 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+### Recurring Payment Admin SMS Notifications (2026-08-04)
+**Status:** Complete
+
+**Fixed:**
+- Recurring sent-quote `invoice.paid` events now notify ADMIN staff who enabled `notifyOnClientPayment` after a new `RECURRING` Payment row is recorded.
+- Already-processed duplicate recurring webhook deliveries still do not send duplicate SMS because Stripe event logging stops them before fulfillment runs.
+- Recurring `invoice.payment_failed` alerts now reach admins with `notifyOnClientPayment` or `notifyOnPaymentFailed`; Settings/API expose the failure-only toggle for admins who want failed-collection alerts without all successful payment alerts.
+- If a webhook retry finds the recurring Payment row already written but the event was not marked processed yet, the admin SMS can be retried instead of being permanently skipped.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/payments/__tests__/quote-fulfillment-service.test.ts src/services/payments/__tests__/quote-fulfillment-notify.test.ts src/services/payments/__tests__/payment-sms-templates.test.ts src/services/agreements/__tests__/agreement-post-sign-notifications.test.ts src/routes/team/__tests__/profile-notify-toggles.test.ts src/routes/webhooks/__tests__/stripe-webhook.test.ts` passed, 6 files / 110 tests.
+- `pnpm -F @ella/api type-check` passed.
+- `pnpm -F @ella/workspace type-check` passed.
+- `pnpm i18n:check` passed.
+- `git diff --check` passed.
+
+---
+
+### Outbound Call State Synchronization (2026-07-27)
+**Status:** Complete
+
+**Changed:**
+- Split outbound voice into a parent browser leg and a child PSTN leg. TwiML now keeps the parent leg ringing with `answerOnBridge="true"` and attaches progress callbacks to the child `<Number>` leg with server-resolved `messageId` correlation.
+- Bound outbound authorization to signed `From=client:staff_<id>` identity plus stored `sentById` and case scope, with no raw `To` fallback.
+- Kept the parent CallSid on the message for recording lookup, while the child terminal callback remains the persisted history authority.
+- Treated the browser SDK events as immediate UI authority so the modal stays `Ringing` until bridge, then transitions to `Connected`.
+- Hardened the workspace hook cleanup path with device setup gating, 30-second connect timeout handling, timer finalization, and stale replacement disconnect cleanup.
+- Documented voicemail as a post-answer/bridge outcome and kept AMD out of scope for this flow.
+
+**Validation:**
+- API tests passed, 5 files / 100 tests.
+- Workspace tests passed, 1 file / 20 tests.
+- API and Workspace package type-checks passed.
+- Touched lint reported 0 warnings/errors.
+- Package lint reported 0 errors and 15 unrelated warnings.
+- `git diff --check` passed.
+- Final reviewer score: 10/10.
+
+**Rollout Gate:**
+- External Twilio/PSTN smoke and deployment were not run or authorized in this update and remain the rollout confidence gate.
 
 ---
 

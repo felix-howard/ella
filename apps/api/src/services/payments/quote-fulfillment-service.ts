@@ -5,8 +5,8 @@
  *
  *  - First successful charge  → one Payment row (type OTHER) + Lead→Client
  *    auto-convert + client receipt SMS + admin paid alert.
- *  - Recurring cycle (invoice.paid, subscription_cycle) → silent Payment row
- *    (type RECURRING), no SMS.
+ *  - Recurring cycle (invoice.paid, subscription_cycle) → one Payment row
+ *    (type RECURRING) + admin paid alert.
  *  - Recurring failure (invoice.payment_failed) → admin alert only.
  *
  * Effects run ONLY for *sendable* quotes (those with a `payToken`); anonymous
@@ -29,6 +29,7 @@ import {
 import {
   notifyDuplicateQuotePayment,
   notifyFirstQuotePayment,
+  notifyRecurringQuotePayment,
   notifyQuotePaymentFailed,
 } from './quote-fulfillment-notify'
 import { formatUsdAmount } from './payment-sms-templates'
@@ -512,9 +513,10 @@ async function markDuplicateOrDelivery(params: {
 }
 
 /**
- * A true monthly cycle invoice (`subscription_cycle`) was paid — record a silent
- * RECURRING Payment. The subscription's FIRST invoice (`subscription_create`) is
- * deliberately skipped by the caller (handled by the checkout session above).
+ * A true monthly cycle invoice (`subscription_cycle`) was paid — record a
+ * RECURRING Payment and notify payment-alert admins once the insert wins.
+ * The subscription's FIRST invoice (`subscription_create`) is deliberately
+ * skipped by the caller (handled by the checkout session above).
  */
 export async function recordRecurringQuotePayment(params: {
   quote: SendableQuote
@@ -530,7 +532,7 @@ export async function recordRecurringQuotePayment(params: {
   const dedupeKey = invoice.paymentIntentId ?? invoice.id
   if (!dedupeKey) return
 
-  await createQuotePayment({
+  const paymentStatus = await createQuotePayment({
     paymentQuoteId: quote.id,
     payToken: `qf_${dedupeKey}`,
     organizationId: quote.organizationId,
@@ -543,6 +545,13 @@ export async function recordRecurringQuotePayment(params: {
     receiptFacts: invoice.receiptFacts,
     paidAt: eventAt,
     description: 'Monthly service',
+  })
+  if (paymentStatus !== 'PAID' && paymentStatus !== 'EXISTING_PAID') return
+
+  await notifyRecurringQuotePayment({
+    quote,
+    signer: currentQuoteSigner(quote),
+    amountFormatted: formatUsdAmount(centsToAmount(amountPaidCents)),
   })
 }
 
@@ -595,16 +604,25 @@ async function linkRecipientStripeCustomerIfMissing({
 }
 
 /**
- * Insert a settled Payment row. Returns false (without throwing) when the
- * deterministic payToken already exists — i.e. a duplicate webhook delivery —
- * so callers can skip follow-up notifications.
+ * Insert a settled Payment row. If the deterministic payToken already exists,
+ * return the existing terminal status so an interrupted webhook can retry
+ * admin-only SMS without writing another Payment.
  */
-async function createQuotePayment(input: QuotePaymentInput): Promise<boolean> {
+async function createQuotePayment(
+  input: QuotePaymentInput,
+): Promise<'PAID' | 'REFUNDED' | 'EXISTING_PAID' | 'EXISTING_REFUNDED' | null> {
   try {
-    await prisma.$transaction((tx) => insertQuotePayment(tx, input))
-    return true
+    return await prisma.$transaction((tx) => insertQuotePayment(tx, input))
   } catch (err) {
-    if (isUniqueViolation(err)) return false
+    if (isUniqueViolation(err)) {
+      const existing = await prisma.payment.findUnique({
+        where: { payToken: input.payToken },
+        select: { status: true },
+      })
+      if (existing?.status === 'PAID') return 'EXISTING_PAID'
+      if (existing?.status === 'REFUNDED') return 'EXISTING_REFUNDED'
+      return null
+    }
     console.error(`[QuoteFulfillment] Payment insert failed (payToken=${input.payToken}):`, err)
     throw err
   }

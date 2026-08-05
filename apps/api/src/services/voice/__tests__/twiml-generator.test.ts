@@ -11,6 +11,10 @@ import {
   type TwimlVoiceOptions,
 } from '../twiml-generator'
 
+function getOpeningTag(result: string, tagName: 'Dial' | 'Number') {
+  return result.match(new RegExp(`<${tagName}\\s+[^>]*>`))?.[0]
+}
+
 describe('TwiML Voice Response Generator', () => {
   describe('generateEmptyTwimlResponse', () => {
     it('should generate valid empty TwiML response', () => {
@@ -117,6 +121,38 @@ describe('TwiML Voice Response Generator', () => {
       const result = generateTwimlVoiceResponse(options)
 
       expect(result).toContain('<Number>+14155552671</Number>')
+    })
+
+    it('keeps the parent leg ringing until the destination answers', () => {
+      const result = generateTwimlVoiceResponse({
+        to: '+15551234567',
+        callerId: '+15559876543',
+        record: false,
+      })
+
+      expect(getOpeningTag(result, 'Dial')).toContain('answerOnBridge="true"')
+    })
+
+    it('places progress callbacks on Number instead of Dial', () => {
+      const result = generateTwimlVoiceResponse({
+        to: '+15551234567',
+        callerId: '+15559876543',
+        record: false,
+        statusCallback:
+          'https://example.com/webhooks/call-status?messageId=message_1&source=voice',
+        statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+      })
+
+      const dialOpeningTag = getOpeningTag(result, 'Dial')
+      const numberOpeningTag = getOpeningTag(result, 'Number')
+
+      expect(dialOpeningTag).not.toContain('statusCallback')
+      expect(numberOpeningTag).toContain(
+        'statusCallback="https://example.com/webhooks/call-status?messageId=message_1&amp;source=voice"'
+      )
+      expect(numberOpeningTag).toContain(
+        'statusCallbackEvent="initiated ringing answered completed"'
+      )
     })
 
     it('should add recording when enabled', () => {

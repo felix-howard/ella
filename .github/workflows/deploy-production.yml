@@ -73,6 +73,17 @@ jobs:
           DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL_PRODUCTION }}
           DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL_PRODUCTION }}
 
+      - name: Verify database schema has no drift
+        working-directory: packages/db
+        run: |
+          pnpm exec prisma migrate diff \
+            --from-url "$DIRECT_DATABASE_URL" \
+            --to-schema-datamodel prisma/schema.prisma \
+            --exit-code
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL_PRODUCTION }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL_PRODUCTION }}
+
   verify:
     name: Verify Production Deployment
     runs-on: ubuntu-latest

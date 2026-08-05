@@ -31,6 +31,57 @@ jobs:
             exit 1
           fi
 
+  migration-drift:
+    name: Migration Drift Gate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: prisma
+          POSTGRES_PASSWORD: prisma
+          POSTGRES_DB: ella_ci
+        options: >-
+          --health-cmd "pg_isready -U prisma -d ella_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    env:
+      DATABASE_URL: postgresql://prisma:prisma@localhost:5432/ella_ci?schema=public
+      DIRECT_DATABASE_URL: postgresql://prisma:prisma@localhost:5432/ella_ci?schema=public
+      SHADOW_DATABASE_URL: postgresql://prisma:prisma@localhost:5432/ella_shadow?schema=public
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create disposable shadow database
+        run: |
+          PGPASSWORD=prisma psql \
+            --host=localhost \
+            --username=prisma \
+            --dbname=ella_ci \
+            --command='CREATE DATABASE ella_shadow;'
+
+      - name: Verify migrations match Prisma schema
+        working-directory: packages/db
+        run: |
+          pnpm exec prisma migrate diff \
+            --from-migrations prisma/migrations \
+            --to-schema-datamodel prisma/schema.prisma \
+            --shadow-database-url "$SHADOW_DATABASE_URL" \
+            --exit-code
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

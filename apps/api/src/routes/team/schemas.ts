@@ -182,6 +182,7 @@ export const updateProfileSchema = z.object({
   // ADMIN-only preferences — handler rejects when target staff is not ADMIN
   notifyOnAgreementSigned: z.boolean().optional(),
   notifyOnClientPayment: z.boolean().optional(),
+  notifyOnPaymentFailed: z.boolean().optional(),
 })
 
 // Notification subscriptions update

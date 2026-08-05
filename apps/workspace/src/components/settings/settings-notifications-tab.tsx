@@ -55,6 +55,7 @@ export function SettingsNotificationsTab() {
   const chatMutation = useNotifyPrefMutation(staff, 'notifyOnChat')
   const agreementSignedMutation = useNotifyPrefMutation(staff, 'notifyOnAgreementSigned')
   const clientPaymentMutation = useNotifyPrefMutation(staff, 'notifyOnClientPayment')
+  const paymentFailedMutation = useNotifyPrefMutation(staff, 'notifyOnPaymentFailed')
 
   if (isLoading) {
     return (
@@ -139,6 +140,13 @@ export function SettingsNotificationsTab() {
                 labelKey="profile.notifyOnClientPayment"
                 descKey="profile.notifyOnClientPaymentDesc"
                 onToggle={(checked) => clientPaymentMutation.mutate(checked)}
+              />
+              <NotifyToggleRow
+                field="notifyOnPaymentFailed"
+                checked={staff.notifyOnPaymentFailed}
+                labelKey="profile.notifyOnPaymentFailed"
+                descKey="profile.notifyOnPaymentFailedDesc"
+                onToggle={(checked) => paymentFailedMutation.mutate(checked)}
               />
             </>
           )}

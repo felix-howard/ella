@@ -1,7 +1,25 @@
 # Project Changelog
 
-> **Last Updated:** 2026-07-27 ICT
+> **Last Updated:** 2026-08-04 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+### Recurring Payment Admin SMS Notifications (2026-08-04)
+**Status:** Complete
+
+**Fixed:**
+- Recurring sent-quote `invoice.paid` events now notify ADMIN staff who enabled `notifyOnClientPayment` after a new `RECURRING` Payment row is recorded.
+- Already-processed duplicate recurring webhook deliveries still do not send duplicate SMS because Stripe event logging stops them before fulfillment runs.
+- Recurring `invoice.payment_failed` alerts now reach admins with `notifyOnClientPayment` or `notifyOnPaymentFailed`; Settings/API expose the failure-only toggle for admins who want failed-collection alerts without all successful payment alerts.
+- If a webhook retry finds the recurring Payment row already written but the event was not marked processed yet, the admin SMS can be retried instead of being permanently skipped.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/payments/__tests__/quote-fulfillment-service.test.ts src/services/payments/__tests__/quote-fulfillment-notify.test.ts src/services/payments/__tests__/payment-sms-templates.test.ts src/services/agreements/__tests__/agreement-post-sign-notifications.test.ts src/routes/team/__tests__/profile-notify-toggles.test.ts src/routes/webhooks/__tests__/stripe-webhook.test.ts` passed, 6 files / 110 tests.
+- `pnpm -F @ella/api type-check` passed.
+- `pnpm -F @ella/workspace type-check` passed.
+- `pnpm i18n:check` passed.
+- `git diff --check` passed.
 
 ---
 

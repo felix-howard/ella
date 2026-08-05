@@ -12,6 +12,7 @@ import {
   buildQuotePayLinkMessage,
   buildQuoteReceiptMessage,
   buildAdminQuotePaidMessage,
+  buildAdminRecurringQuotePaidMessage,
   buildAdminPaymentFailedMessage,
   formatUsdAmount,
   DEPOSIT_PAY_LINK_TEMPLATE_NAME,
@@ -382,6 +383,17 @@ describe('admin payment failed message', () => {
 
     expect(message).toMatch(/Payment failed: couldn't collect \$1000\.00 from Test User\./)
     expect(message).toMatch(/Follow up to update their card\./)
+  })
+})
+
+describe('admin recurring quote paid message', () => {
+  it('matches exact copy format', () => {
+    const message = buildAdminRecurringQuotePaidMessage({
+      payerName: 'Test User',
+      amountFormatted: '$85.00',
+    })
+
+    expect(message).toBe('Test User paid $85.00 (recurring quote)')
   })
 })
 

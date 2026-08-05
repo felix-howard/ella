@@ -23,7 +23,7 @@ const dbMocks = vi.hoisted(() => {
     tx,
     prisma: {
       paymentQuote: { findUnique: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
-      payment: { create: vi.fn() },
+      payment: { create: vi.fn(), findUnique: vi.fn() },
       $transaction: vi.fn(),
     },
   }
@@ -36,6 +36,7 @@ const stripeMocks = vi.hoisted(() => ({
 const notifyMocks = vi.hoisted(() => ({
   notifyDuplicateQuotePayment: vi.fn(),
   notifyFirstQuotePayment: vi.fn(),
+  notifyRecurringQuotePayment: vi.fn(),
   notifyQuotePaymentFailed: vi.fn(),
 }))
 
@@ -534,19 +535,21 @@ describe('quote fulfillment service', () => {
   })
 
   it('links recurring payments to the same quote', async () => {
+    const quote = quoteRow({
+      clientId: 'client_existing',
+      leadId: null,
+      client: {
+        id: 'client_existing',
+        organizationId: 'org_1',
+        firstName: 'Anna',
+        lastName: 'Nguyen',
+        phone: '+18135550123',
+      },
+      lead: null,
+    })
+
     await recordRecurringQuotePayment({
-      quote: quoteRow({
-        clientId: 'client_existing',
-        leadId: null,
-        client: {
-          id: 'client_existing',
-          organizationId: 'org_1',
-          firstName: 'Anna',
-          lastName: 'Nguyen',
-          phone: '+18135550123',
-        },
-        lead: null,
-      }),
+      quote,
       invoice: {
         id: 'in_cycle_1',
         billingReason: 'subscription_cycle',
@@ -569,6 +572,17 @@ describe('quote fulfillment service', () => {
         amount: '85.00',
         payToken: 'qf_pi_cycle_1',
       }),
+    })
+    expect(notifyMocks.notifyRecurringQuotePayment).toHaveBeenCalledWith({
+      quote,
+      signer: expect.objectContaining({
+        id: 'client_existing',
+        firstName: 'Anna',
+        lastName: 'Nguyen',
+        phone: '+18135550123',
+        kind: 'client',
+      }),
+      amountFormatted: '$85.00',
     })
   })
 
@@ -611,8 +625,9 @@ describe('quote fulfillment service', () => {
     expect(dbMocks.tx.payment.create).not.toHaveBeenCalled()
   })
 
-  it('keeps recurring webhook delivery idempotent when the pay token already exists', async () => {
+  it('retries recurring admin notification when the payment row already exists', async () => {
     dbMocks.tx.payment.create.mockRejectedValueOnce({ code: 'P2002' })
+    dbMocks.prisma.payment.findUnique.mockResolvedValueOnce({ status: 'PAID' })
 
     await expect(
       recordRecurringQuotePayment({
@@ -630,6 +645,35 @@ describe('quote fulfillment service', () => {
     ).resolves.toBeUndefined()
 
     expect(dbMocks.tx.payment.create).toHaveBeenCalledTimes(1)
+    expect(dbMocks.prisma.payment.findUnique).toHaveBeenCalledWith({
+      where: { payToken: 'qf_pi_cycle_1' },
+      select: { status: true },
+    })
+    expect(notifyMocks.notifyRecurringQuotePayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amountFormatted: '$85.00',
+      }),
+    )
+  })
+
+  it('does not notify recurring admins when the existing payment is refunded', async () => {
+    dbMocks.tx.payment.create.mockRejectedValueOnce({ code: 'P2002' })
+    dbMocks.prisma.payment.findUnique.mockResolvedValueOnce({ status: 'REFUNDED' })
+
+    await recordRecurringQuotePayment({
+      quote: quoteRow(),
+      invoice: {
+        id: 'in_cycle_1',
+        billingReason: 'subscription_cycle',
+        amountPaidCents: 8500,
+        amountDueCents: 8500,
+        paymentIntentId: 'pi_cycle_1',
+        subscriptionId: 'sub_1',
+      },
+      eventAt,
+    })
+
+    expect(notifyMocks.notifyRecurringQuotePayment).not.toHaveBeenCalled()
   })
 
   it('rejects recurring fulfillment when the quote target is outside its organization', async () => {

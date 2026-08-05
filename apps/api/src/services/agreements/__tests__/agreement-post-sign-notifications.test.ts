@@ -91,6 +91,21 @@ describe('smsOptedInAdmins', () => {
     )
   })
 
+  it('can match admins opted into any requested notification toggle', async () => {
+    await smsOptedInAdmins({
+      ...baseParams,
+      toggle: ['notifyOnClientPayment', 'notifyOnPaymentFailed'],
+    })
+
+    expect(prismaMocks.staff.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ notifyOnClientPayment: true }, { notifyOnPaymentFailed: true }],
+        }),
+      }),
+    )
+  })
+
   it('skips entirely when Twilio is not configured', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     twilioMocks.isTwilioConfigured.mockReturnValue(false)

@@ -9,6 +9,7 @@ const stripeMocks = vi.hoisted(() => ({
 const fulfillmentNotifyMocks = vi.hoisted(() => ({
   notifyDuplicateQuotePayment: vi.fn(),
   notifyFirstQuotePayment: vi.fn(),
+  notifyRecurringQuotePayment: vi.fn(),
   notifyQuotePaymentFailed: vi.fn(),
 }))
 
@@ -151,6 +152,7 @@ describe('Stripe webhook route', () => {
     prismaMocks.$queryRaw.mockResolvedValue([])
     fulfillmentNotifyMocks.notifyDuplicateQuotePayment.mockResolvedValue(undefined)
     fulfillmentNotifyMocks.notifyFirstQuotePayment.mockResolvedValue(undefined)
+    fulfillmentNotifyMocks.notifyRecurringQuotePayment.mockResolvedValue(undefined)
     fulfillmentNotifyMocks.notifyQuotePaymentFailed.mockResolvedValue(undefined)
     prismaMocks.$transaction.mockImplementation(async (input: unknown) => {
       if (typeof input === 'function') {
@@ -613,6 +615,20 @@ describe('Stripe webhook route', () => {
         receiptSyncedAt: expect.any(Date),
       }),
     })
+    expect(fulfillmentNotifyMocks.notifyRecurringQuotePayment).toHaveBeenCalledWith({
+      quote: expect.objectContaining({
+        id: 'quote_123',
+        organizationId: 'org_1',
+        clientId: 'client_123',
+      }),
+      signer: expect.objectContaining({
+        id: 'client_123',
+        firstName: 'Anna',
+        lastName: 'Nguyen',
+        kind: 'client',
+      }),
+      amountFormatted: '$85.00',
+    })
   })
 
   it.each([null, 'subscription_update'])(
@@ -866,6 +882,48 @@ describe('Stripe webhook route', () => {
 
     expect(res.status).toBe(200)
     expect(fulfillmentNotifyMocks.notifyQuotePaymentFailed).not.toHaveBeenCalled()
+  })
+
+  it('alerts admins for a fresh recurring payment failure', async () => {
+    stripeMocks.constructEvent.mockReturnValueOnce(
+      stripeEvent('invoice.payment_failed', {
+        id: 'in_failed_123',
+        object: 'invoice',
+        subscription: 'sub_123',
+        amount_due: 8500,
+      })
+    )
+    prismaMocks.paymentQuote.findFirst.mockResolvedValueOnce({
+      id: 'quote_123',
+      organizationId: 'org_1',
+      status: 'active',
+      lastStripeEventId: 'evt_previous',
+      client: {
+        id: 'client_123',
+        organizationId: 'org_1',
+        firstName: 'Anna',
+        lastName: 'Nguyen',
+        phone: null,
+      },
+      lead: null,
+    })
+
+    const res = await postStripeWebhook()
+
+    expect(res.status).toBe(200)
+    expect(fulfillmentNotifyMocks.notifyQuotePaymentFailed).toHaveBeenCalledWith({
+      quote: expect.objectContaining({
+        id: 'quote_123',
+        organizationId: 'org_1',
+      }),
+      signer: expect.objectContaining({
+        id: 'client_123',
+        firstName: 'Anna',
+        lastName: 'Nguyen',
+        kind: 'client',
+      }),
+      amountFormatted: '$85.00',
+    })
   })
 
   it('allows a newer invoice paid event to recover failed recurring health', async () => {

@@ -2182,6 +2182,8 @@
   "profile.notifyOnAgreementSignedDesc": "Text me when a client signs an agreement",
   "profile.notifyOnClientPayment": "Client payment notifications",
   "profile.notifyOnClientPaymentDesc": "Text me when a client makes a payment",
+  "profile.notifyOnPaymentFailed": "Payment failure notifications",
+  "profile.notifyOnPaymentFailedDesc": "Text me when recurring payment collection fails",
   "profile.notifyOnUpload": "Document upload notifications",
   "profile.notifyOnUploadDesc": "Receive SMS when clients upload documents",
   "profile.notSet": "Not set",

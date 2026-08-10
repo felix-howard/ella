@@ -72,6 +72,7 @@ import { clientsAgreementsRoute } from './agreements'
 import { clientsAgreementsStaffRoute } from './agreements-staff'
 import { clientsPaymentsStaffRoute } from './payments-staff'
 import { clientsPaidServicesRoute } from './paid-services'
+import { clientsDriveStructureRoute } from './drive-structure'
 import {
   IDENTITY_RETENTION_DELETE_IN_PROGRESS_REASON,
   IDENTITY_RETENTION_POLICY,
@@ -128,6 +129,7 @@ clientsRoute.route('/', clientsAgreementsRoute)
 clientsRoute.route('/', clientsAgreementsStaffRoute)
 clientsRoute.route('/', clientsPaymentsStaffRoute)
 clientsRoute.route('/', clientsPaidServicesRoute)
+clientsRoute.route('/', clientsDriveStructureRoute)
 
 /**
  * Compute display name from firstName and lastName

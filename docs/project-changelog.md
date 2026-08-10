@@ -1,7 +1,26 @@
 # Project Changelog
 
-> **Last Updated:** 2026-08-04 ICT
+> **Last Updated:** 2026-08-10 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+### Google Drive Folder Structure Automation (2026-08-10)
+**Status:** Complete
+
+**Added:**
+- Org-level Google Drive connection settings for admins, including OAuth connection, root folder test, and optional admin group fallback.
+- Client-detail Drive action/status for users allowed to manage clients.
+- Per-client folder structure creation for root client folder, `AM WORK`, `CORP ADMIN`, and `AM WORK/SHARED TO CLIENT`.
+- Retry-safe persistence of created Drive folder ids/web links and safe permission/input snapshots.
+
+**Permissions:**
+- Account-manager staff receive Drive `writer` on `AM WORK`.
+- Admins and optional admin Google Group receive `writer` on `CORP ADMIN`.
+- Client email receives `writer` on `SHARED TO CLIENT`; this accepted MVP risk allows client uploads, edits, and deletes inside that shared folder.
+
+**Rollout Gate:**
+- Production rollout still requires Google OAuth setup, API env configuration, database backup/approval before migration, root-folder/admin-group test, fake-client smoke, and manual Drive ACL verification.
 
 ---
 

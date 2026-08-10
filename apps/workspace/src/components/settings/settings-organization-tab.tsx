@@ -5,6 +5,7 @@ import { MissedCallTextBackCard } from './settings-general-tab'
 import { SettingsFormLinksTab } from './settings-form-links-tab'
 import { SettingsScopeHeader } from './settings-scope-header'
 import { useOrgRole } from '../../hooks/use-org-role'
+import { GoogleDriveIntegrationCard } from './google-drive-integration-card'
 
 export function SettingsOrganizationTab() {
   const { t } = useTranslation()
@@ -24,6 +25,7 @@ export function SettingsOrganizationTab() {
         badge={scopeBadge}
       />
       <FirmInfoCard />
+      <GoogleDriveIntegrationCard />
       <CalculatorPaymentAfterSignatureCard />
       <SettingsFormLinksTab />
       <MissedCallTextBackCard />

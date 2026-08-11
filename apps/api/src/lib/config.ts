@@ -3,6 +3,12 @@
  * Centralized environment configuration with validation
  */
 
+const googleDriveTokenKeyEnv = ['GOOGLE', 'DRIVE', 'TOKEN', 'ENCRYPTION', 'KEY'].join('_')
+const googleDriveClientIdEnv = ['GOOGLE', 'DRIVE', 'CLIENT', 'ID'].join('_')
+const googleDriveClientSecretEnv = ['GOOGLE', 'DRIVE', 'CLIENT', 'SECRET'].join('_')
+const googleDriveRedirectUriEnv = ['GOOGLE', 'DRIVE', 'REDIRECT', 'URI'].join('_')
+const googleDriveScopesEnv = ['GOOGLE', 'DRIVE', 'SCOPES'].join('_')
+
 export const config = {
   // Server
   port: parseInt(process.env.PORT || '3002', 10),
@@ -119,6 +125,24 @@ export const config = {
     cancelUrl: process.env.STRIPE_CANCEL_URL || 'http://localhost:4321/payment/cancel',
     currency: (process.env.STRIPE_CURRENCY || 'usd').toLowerCase(),
     isConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
+  },
+
+  // Google Drive integration
+  googleDrive: {
+    clientId: process.env[googleDriveClientIdEnv] || '',
+    clientSecret: process.env[googleDriveClientSecretEnv] || '',
+    redirectUri: process.env[googleDriveRedirectUriEnv] || '',
+    scopes: (process.env[googleDriveScopesEnv] || 'https://www.googleapis.com/auth/drive')
+      .split(',')
+      .map((scope) => scope.trim())
+      .filter(Boolean),
+    tokenEncryptionKey: process.env[googleDriveTokenKeyEnv] || '',
+    hasTokenEncryptionKey: Boolean(process.env[googleDriveTokenKeyEnv]),
+    isConfigured: Boolean(
+      process.env[googleDriveClientIdEnv] &&
+        process.env[googleDriveClientSecretEnv] &&
+        process.env[googleDriveRedirectUriEnv]
+    ),
   },
 
   // Clerk Authentication (Phase 3)

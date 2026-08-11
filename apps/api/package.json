@@ -30,6 +30,7 @@
     "@hono/zod-validator": "^0.7.6",
     "@react-pdf/renderer": "^4.3.2",
     "domhandler": "^6.0.1",
+    "googleapis": "^174.0.1",
     "hono": "^4.12.25",
     "htmlparser2": "^12.0.0",
     "inngest": "^3.54.0",

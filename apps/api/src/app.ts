@@ -52,6 +52,7 @@ import { couponsRoute } from './routes/coupons'
 import { recipientsRoute } from './routes/recipients'
 import { companyVaultRoute } from './routes/company-vault'
 import { pushRoute } from './routes/push'
+import { googleDriveIntegrationsRoute } from './routes/integrations/google-drive'
 
 const app = new OpenAPIHono()
 
@@ -159,6 +160,7 @@ app.route('/agreement-templates', agreementTemplatesRoute)
 app.route('/activity', activityRoute)
 app.route('/company-vault', companyVaultRoute)
 app.route('/push', pushRoute)
+app.route('/integrations/google-drive', googleDriveIntegrationsRoute)
 
 // OpenAPI documentation
 app.doc('/doc', {

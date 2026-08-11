@@ -24,6 +24,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 │ PostgreSQL      │  │ External Services        │
 │ (via Prisma)    │  │ - Clerk org management  │
 └────────┬────────┘  │ - Google Gemini AI      │
+         │           │ - Google Drive API      │
          │           │ - Twilio Voice/SMS      │
          │           │ - Cloudflare R2         │
          │           │ - TaxBandits API        │
@@ -67,6 +68,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/messages` - Unified inbox with split-view conversations; conversation lists surface `replyMode` and last-message metadata, use staff-authored English source for translated outbound previews, and the reply composer translation UI lives in both the full case conversation page and the floating case chatbox. Translated outbound case SMS bubbles expose a Workspace-only `Show English` source toggle. Non-admin workspace previews and thread responses redact outbound automated payment/agreement SMS content; ADMIN keeps raw content. Lead chat stays direct-only.
 - `/actions` - Action queue with priority filtering, client/lead reply cards, and lead deep links
 - `/company-vault` - Org-scoped shared credentials list with encrypted username/password/note fields and persisted drag reorder
+- Organization settings - Admin-only Google Drive connection/root-folder settings for client folder automation
 - `/pricing-calculator` - Admin-only pricing calculator with quote summary, Stripe payment-link creation, send-to-client quotes, and direct Engagement Letter preparation through existing Agreement APIs
 - `/team` - Team profile access for all active staff; admin-only team management controls (Phase 3)
 - `/accept-invitation` - Clerk org invite acceptance (Phase 6)
@@ -166,6 +168,15 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /company-vault/:id` - Update provided fields by id and organization; activity metadata records changed field names only.
 - `DELETE /company-vault/:id` - Hard delete credential by id and organization.
 - Activity logging uses `company_vault.*` actions with redacted metadata. Credential values must not be written to logs, snapshots, or activity metadata.
+
+**Google Drive Folder Automation:**
+- `GET /integrations/google-drive/status` reports API credential readiness and the org connection. Non-admins only see safe connection state.
+- `POST /integrations/google-drive/oauth-url`, `GET /integrations/google-drive/callback`, and `PATCH /integrations/google-drive/settings` are admin-owned connection/configuration routes.
+- `GET /clients/:id/drive-structure`, `GET /clients/:id/drive-structure/options`, and `POST /clients/:id/drive-structure` are org/client-scoped admin-or-manager routes for creating one Drive folder structure per owner client/group.
+- Folder creation uses Google Drive app properties and persisted folder ids for retry-safe idempotency. Permission grants are sequential per folder because Google Drive does not support concurrent permission operations on the same file.
+- Permissions model: selected account-manager staff receive `writer` on `AM WORK`; active admins and optional admin Google Group receive `writer` on `CORP ADMIN`; the selected client email receives `writer` on `AM WORK/SHARED TO CLIENT`. Client `writer` access is an accepted MVP risk and allows uploads, edits, and deletes inside that shared folder.
+- Config lives in the API process env: `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`, `GOOGLE_DRIVE_REDIRECT_URI`, `GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY`, and optional `GOOGLE_DRIVE_SCOPES`. Local API dev loads `apps/api/.env`.
+- Rollout requires OAuth client setup, redirect URI registration, database backup/approval before migration, root-folder/admin-group test, one fake-client smoke folder, and manual Drive ACL verification. After migration, roll forward with corrective app code or a new migration; do not edit applied migrations.
 
 **Contractor Agent Agreements (Staff Compliance):**
 - `PATCH /team/members/:staffId/contractor-agent` - Admin-only toggle for `Staff.isContractorAgent`.
@@ -534,6 +545,8 @@ Organization (root entity)
 - **Client** - organizationId FK, managedById FK (legacy primary manager during rollout; `ClientManager` is canonical), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form), clientType (enum: INDIVIDUAL|BUSINESS, default INDIVIDUAL). For clientType=BUSINESS: businessType (BusinessType enum, required), einEncrypted (encrypted, required), businessAddress, businessCity, businessState, businessZip (all required). Database stores einEncrypted; API returns einMasked (XX-XXX####). clientGroupId FK (optional, links related clients like individual+business or partnerships). Relations: contractors, filingBatches, intakeTokens (all BUSINESS-type specific).
 - **ClientManager** - tenant-scoped canonical join row between Client and Staff. Backfilled from legacy managedById, unique on `[clientId, staffId]`, with org-scoped guards and tenant-scoped foreign keys.
 - **ClientGroup** - organizationId FK (optional, org-scoped grouping), name (group name), clients array relation. Phase 01 Entity Separation: new entity enables flexible grouping of related clients (e.g., family businesses, partnerships, multi-entity tax arrangements). Indexed on organizationId for fast group lookups.
+- **GoogleDriveConnection** - one org-level Drive connection. Stores root folder metadata, optional admin group email, connected Google account email, encrypted refresh token, connection status, and last-check timestamps. Token encryption depends on the API `GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY`.
+- **ClientDriveFolder** - one Drive folder structure per owner client and organization. Stores root, `AM WORK`, `CORP ADMIN`, and `SHARED TO CLIENT` folder ids/web links plus input and permission snapshots for idempotent retry and audit-safe display.
 - **Business** - REMOVED in Phase 15. Business model deleted from schema. All business information now stored directly on Client(clientType=BUSINESS) records.
 - **TaxCase** - Year-specific tax case, engagementId FK
 - **TaxEngagement** - Year-specific engagement (copy-from support)

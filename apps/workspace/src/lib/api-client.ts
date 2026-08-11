@@ -3,7 +3,13 @@
  * Centralized HTTP client with type-safe request handling
  * Features: timeout, retry logic, env validation
  */
-import type { MessageReaction } from '@ella/shared'
+import type {
+  ClientDriveStructureCreateInput,
+  ClientDriveStructureOptionsDto,
+  ClientDriveStructureResponseDto,
+  GoogleDriveConnectionDto,
+  MessageReaction,
+} from '@ella/shared'
 import { BULK_SMS_MAX_RECIPIENTS } from '@ella/shared/constants'
 import type { PricingCalculatorInput } from '@ella/shared/pricing'
 
@@ -546,6 +552,27 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
 // API methods organized by resource
 export const api = {
+  googleDrive: {
+    status: () => request<{
+      isConfigured: boolean
+      isAdmin: boolean
+      connected: boolean
+      connection: GoogleDriveConnectionDto | null
+    }>('/integrations/google-drive/status'),
+    getOAuthUrl: (data: { rootFolderId?: string; adminGroupEmail?: string | null }) =>
+      request<{ url: string }>('/integrations/google-drive/oauth-url', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+    saveSettings: (data: { rootFolderId: string; adminGroupEmail?: string | null }) =>
+      request<{ connection: GoogleDriveConnectionDto }>('/integrations/google-drive/settings', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+  },
+
   billing: {
     createCheckoutSession: (data: CreateCheckoutSessionInput) =>
       request<CheckoutSessionResponse>('/billing/checkout-sessions', {
@@ -730,6 +757,17 @@ export const api = {
     },
 
     get: (id: string) => request<ClientDetail>(`/clients/${id}`),
+
+    driveStructure: {
+      get: (id: string) => request<ClientDriveStructureResponseDto>(`/clients/${id}/drive-structure`),
+      options: (id: string) => request<ClientDriveStructureOptionsDto>(`/clients/${id}/drive-structure/options`),
+      create: (id: string, data: ClientDriveStructureCreateInput) =>
+        request<ClientDriveStructureResponseDto>(`/clients/${id}/drive-structure`, {
+          method: 'POST',
+          body: JSON.stringify(data),
+          retries: 0,
+        }),
+    },
 
     create: (data: CreateClientInput) =>
       request<CreateClientResponse>('/clients', {

@@ -63,7 +63,20 @@ export type {
   ScheduleETotals,
   ScheduleEStatus,
 } from './schedule-e'
-export {
-  createEmptyProperty,
-  PROPERTY_TYPE_LABELS,
-} from './schedule-e'
+export { createEmptyProperty, PROPERTY_TYPE_LABELS } from './schedule-e'
+
+// Google Drive integration DTO types
+export type {
+  GoogleDriveConnectionStatus,
+  ClientDriveBusinessMode,
+  ClientDriveFolderStatus,
+  GoogleDriveConnectionDto,
+  ClientDrivePermissionSnapshot,
+  ClientDriveInputSnapshot,
+  ClientDriveFolderDto,
+  ClientDriveStaffOption,
+  ClientDriveStructureOptionsDto,
+  ClientDriveStructureCreateInput,
+  ClientDrivePermissionSummary,
+  ClientDriveStructureResponseDto,
+} from './google-drive'

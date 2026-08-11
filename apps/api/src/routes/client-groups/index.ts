@@ -304,6 +304,10 @@ clientGroupsRoute.delete(
         where: { clientGroupId: id },
         data: { clientGroupId: null },
       })
+      await tx.clientDriveFolder.updateMany({
+        where: { clientGroupId: id, organizationId: orgId },
+        data: { clientGroupId: null },
+      })
       // Delete the group
       await tx.clientGroup.delete({ where: { id } })
     })

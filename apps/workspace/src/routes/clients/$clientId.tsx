@@ -63,6 +63,8 @@ import {
   BusinessDeleteWithScheduleCModal,
   ClientServicesTab,
 } from '../../components/clients'
+import { DriveStructureStatus } from '../../components/clients/drive-structure-status'
+import { DriveStructureModal } from '../../components/clients/drive-structure-modal'
 import { CaseFiledAction } from '../../components/cases/case-filed-action'
 import { useDeleteBusinessWithScheduleC } from '../../hooks/use-delete-business-with-schedule-c'
 import { countScheduleCExpenseLines } from '../../lib/schedule-c-expense-helpers'
@@ -80,6 +82,7 @@ import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, formatPhoneInput, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { api, type TaxCaseStatus, type RawImage, type DigitalDoc, type ClientPreview } from '../../lib/api-client'
 import type { IdentityRetentionExtensionDays } from '../../lib/api-client'
+import type { ClientDriveStructureCreateInput } from '@ella/shared'
 import { computeStatus } from '../../lib/computed-status'
 import { BUSINESS_TYPE_LABELS } from '../../lib/business-type-helpers'
 import { IndividualScheduleCActivities } from '../../components/cases/tabs/schedule-c-tab/individual-schedule-c-activities'
@@ -135,12 +138,15 @@ function ClientDetailPage() {
     canViewPhone,
     canManagePayments,
     canManageAgreements,
+    canManageClients,
+    isAdmin,
     isLoading: isRoleLoading,
   } = useOrgRole()
   // Multi-year engagement state
   const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null)
   const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)
   const [isSendUploadLinkOpen, setIsSendUploadLinkOpen] = useState(false)
+  const [isDriveStructureOpen, setIsDriveStructureOpen] = useState(false)
   const tempIdCounterRef = useRef(0)
   // Edit client modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -420,6 +426,26 @@ function ClientDetailPage() {
     queryKey: ['checklist', activeCaseId],
     queryFn: () => api.cases.getChecklist(activeCaseId!),
     enabled: !!activeCaseId,
+  })
+  const { data: driveConnection } = useQuery({
+    queryKey: ['google-drive-connection'],
+    queryFn: api.googleDrive.status,
+    enabled: canManageClients,
+  })
+  const { data: driveStructure, isLoading: isDriveStructureLoading, isError: isDriveStructureError } = useQuery({
+    queryKey: ['client-drive-structure', clientId],
+    queryFn: () => api.clients.driveStructure.get(clientId),
+    enabled: canManageClients,
+  })
+  const createDriveStructureMutation = useMutation({
+    mutationFn: (data: ClientDriveStructureCreateInput) => api.clients.driveStructure.create(clientId, data),
+    onSuccess: () => {
+      toast.success(t('googleDrive.createSuccess'))
+      setIsDriveStructureOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['client-drive-structure', clientId] })
+      queryClient.invalidateQueries({ queryKey: ['client-drive-options', clientId] })
+    },
+    onError: () => toast.error(t('googleDrive.createError')),
   })
 
   // Resolve portal URL for the selected year; business clients use the owner case for that year.
@@ -926,6 +952,15 @@ function ClientDetailPage() {
                   <span>{t('clients.sendUploadLink')}</span>
                 </Button>
               )}
+              <DriveStructureStatus
+                folder={driveStructure?.folder ?? null}
+                isLoading={isDriveStructureLoading}
+                isError={isDriveStructureError}
+                onCreate={() => setIsDriveStructureOpen(true)}
+                canManageClients={canManageClients}
+                isConnected={driveConnection?.connected === true}
+                isAdmin={isAdmin}
+              />
             </div>
           </div>
         </div>
@@ -1262,6 +1297,13 @@ function ClientDetailPage() {
           taxYear={activeCase.taxYear}
         />
       )}
+      <DriveStructureModal
+        open={isDriveStructureOpen}
+        clientId={clientId}
+        isPending={createDriveStructureMutation.isPending}
+        onClose={() => setIsDriveStructureOpen(false)}
+        onSubmit={(data) => createDriveStructureMutation.mutate(data)}
+      />
 
       {/* Edit Client Profile Modal */}
       <Modal open={isEditModalOpen} onClose={handleCancelEdit}>

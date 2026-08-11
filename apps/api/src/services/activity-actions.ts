@@ -53,6 +53,7 @@ export const ACTIVITY_ACTIONS = {
     SERVICE_LOG_DELETED: 'client.service_log_deleted',
     MANAGER_CHANGED: 'client.manager_changed',
     BUSINESS_LINKED: 'client.business_linked',
+    DRIVE_STRUCTURE_CREATED: 'client.drive_structure_created',
   },
   CASE: {
     CREATED: 'case.created',

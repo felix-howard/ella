@@ -135,8 +135,17 @@ MAGIC_LINK_EXPIRY_DAYS=60
 IDENTITY_DOC_RETENTION_DAYS=90
 TRUST_PROXY_HEADERS=false
 VITE_LANDING_URL=http://localhost:4321
+GOOGLE_DRIVE_CLIENT_ID=xxx.apps.googleusercontent.com
+GOOGLE_DRIVE_CLIENT_SECRET=xxx
+GOOGLE_DRIVE_REDIRECT_URI=http://localhost:3002/integrations/google-drive/callback
+GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY=64_hex_characters
+GOOGLE_DRIVE_SCOPES=https://www.googleapis.com/auth/drive
 ```
 Workspace PWA push notifications require the Web Push VAPID variables above on the API. Generate keys with `pnpm -F @ella/api exec web-push generate-vapid-keys --json`, deploy API and Workspace over HTTPS, then staff must add Workspace to the iPhone Home Screen before enabling notifications.
+
+Google Drive folder automation is optional and API-only. Configure a Google Cloud OAuth client with the redirect URI above, keep the app internal to the firm Workspace when possible, and store a 32-byte hex token encryption key in `GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY`. Admins connect the firm Drive account from Workspace Organization settings, choose a root folder, and may add an admin Google Group fallback.
+
+For Drive rollout, apply the committed migration after backup/approval, configure the OAuth variables in the API process, connect the firm account, save/test the root folder and admin group, then create one fake-client folder structure. Verify Drive permissions manually: account managers can write `AM WORK`, admins/admin group can write `CORP ADMIN`, and the client email can write `AM WORK/SHARED TO CLIENT`. The accepted MVP risk is that client `writer` access allows uploads, edits, and deletes inside the shared client folder. Roll back before migration by restoring the old app; after migration, roll forward with corrective code or a new migration.
 
 
 **Required for payment links:**

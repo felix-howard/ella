@@ -454,6 +454,19 @@ enum StaffPaymentCountry {
   PH
 }
 
+enum GoogleDriveConnectionStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
+enum ClientDriveFolderStatus {
+  NOT_STARTED
+  CREATING
+  READY
+  FAILED
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -530,6 +543,8 @@ model Staff {
   createdPaymentQuotes           PaymentQuote[]                  @relation("PaymentQuoteCreatedBy")
   sentQuotes                     PaymentQuote[]                  @relation("QuoteSentBy")
   createdPaymentTemplates        PaymentTemplate[]               @relation("PaymentTemplateCreatedBy")
+  connectedGoogleDriveAccounts   GoogleDriveConnection[]         @relation("GoogleDriveConnectionConnectedBy")
+  createdClientDriveFolders      ClientDriveFolder[]             @relation("ClientDriveFolderCreatedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -755,6 +770,8 @@ model Organization {
   contractorAgreementAcceptances ContractorAgreementAcceptance[]
   companyVaultCredentials        CompanyVaultCredential[]
   webPushSubscriptions           WebPushSubscription[]
+  googleDriveConnection          GoogleDriveConnection?
+  clientDriveFolders             ClientDriveFolder[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -778,16 +795,40 @@ model CompanyVaultCredential {
   @@index([organizationId, sortOrder])
 }
 
+model GoogleDriveConnection {
+  id                    String                      @id @default(cuid())
+  organizationId        String                      @unique
+  organization          Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rootFolderId          String
+  rootFolderName        String?
+  rootFolderWebUrl      String?                     @db.Text
+  adminGroupEmail       String?
+  googleAccountEmail    String
+  refreshTokenEncrypted String                      @db.Text
+  connectedByStaffId    String?
+  connectedByStaff      Staff?                      @relation("GoogleDriveConnectionConnectedBy", fields: [connectedByStaffId], references: [id], onDelete: SetNull)
+  status                GoogleDriveConnectionStatus @default(CONNECTED)
+  lastCheckedAt         DateTime?
+  disconnectedAt        DateTime?
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+
+  @@index([organizationId, status])
+  @@index([connectedByStaffId])
+}
+
 model ClientGroup {
-  id             String        @id @default(cuid())
+  id             String              @id @default(cuid())
   name           String
   organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  organization   Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   clients        Client[]
   magicLinks     MagicLink[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  driveFolders   ClientDriveFolder[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
+  @@unique([id, organizationId])
   @@index([organizationId])
 }
 
@@ -839,8 +880,9 @@ model Client {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   managedById String?
-  managedBy   Staff?          @relation("ManagedClients", fields: [managedById], references: [id], onDelete: SetNull)
+  managedBy   Staff?             @relation("ManagedClients", fields: [managedById], references: [id], onDelete: SetNull)
   managers    ClientManager[]
+  driveFolder ClientDriveFolder? @relation("ClientDriveFolderOwner")
 
   createdById String?
   createdBy   Staff?  @relation("CreatedClients", fields: [createdById], references: [id], onDelete: SetNull)
@@ -861,6 +903,40 @@ model Client {
   @@index([tags], type: Gin)
   @@index([clientType])
   @@index([clientGroupId])
+}
+
+model ClientDriveFolder {
+  id                    String                  @id @default(cuid())
+  organizationId        String
+  organization          Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ownerClientId         String
+  ownerClient           Client                  @relation("ClientDriveFolderOwner", fields: [ownerClientId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  clientGroupId         String?
+  clientGroup           ClientGroup?            @relation(fields: [clientGroupId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  folderName            String
+  rootFolderId          String?
+  rootFolderWebUrl      String?                 @db.Text
+  amWorkFolderId        String?
+  amWorkFolderWebUrl    String?                 @db.Text
+  corpAdminFolderId     String?
+  corpAdminFolderWebUrl String?                 @db.Text
+  sharedFolderId        String?
+  sharedFolderWebUrl    String?                 @db.Text
+  status                ClientDriveFolderStatus @default(NOT_STARTED)
+  inputSnapshot         Json                    @default("{}")
+  permissionSnapshot    Json                    @default("{}")
+  lastErrorCode         String?
+  lastErrorMessage      String?                 @db.Text
+  createdByStaffId      String?
+  createdByStaff        Staff?                  @relation("ClientDriveFolderCreatedBy", fields: [createdByStaffId], references: [id], onDelete: SetNull)
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  @@unique([ownerClientId, organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, ownerClientId])
+  @@index([organizationId, clientGroupId])
+  @@index([createdByStaffId])
 }
 
 model ClientManager {

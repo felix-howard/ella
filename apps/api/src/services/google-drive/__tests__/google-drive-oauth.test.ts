@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PrismaClient } from '@ella/db'
+import { google } from 'googleapis'
 import type { GoogleDriveConfig } from '../google-drive-config'
 import {
   buildGoogleDriveAuthUrl,
   createGoogleDriveOAuthState,
+  getGoogleDriveAccountEmail,
   saveGoogleDriveConnection,
   verifyGoogleDriveOAuthState,
 } from '../google-drive-oauth'
@@ -30,6 +32,7 @@ describe('Google Drive OAuth helpers', () => {
     } else {
       process.env[tokenKeyEnv] = originalKey
     }
+    vi.restoreAllMocks()
     vi.useRealTimers()
   })
 
@@ -81,6 +84,32 @@ describe('Google Drive OAuth helpers', () => {
       staffId: 'staff_1',
       rootFolderId: 'root_1',
       adminGroupEmail: 'admins@example.com',
+    })
+  })
+
+  it('reads the connected Google account email through the Drive about endpoint', async () => {
+    const auth = { setCredentials: vi.fn() } as never
+    const aboutGet = vi.fn().mockResolvedValue({
+      data: { user: { emailAddress: 'firm@example.com' } },
+    })
+    const driveSpy = vi.spyOn(google, 'drive').mockReturnValue({
+      about: { get: aboutGet },
+    } as never)
+
+    await expect(getGoogleDriveAccountEmail(auth)).resolves.toBe('firm@example.com')
+
+    expect(driveSpy).toHaveBeenCalledWith({ version: 'v3', auth })
+    expect(aboutGet).toHaveBeenCalledWith({ fields: 'user(emailAddress)' })
+  })
+
+  it('rejects a Drive account lookup without an email address', async () => {
+    const aboutGet = vi.fn().mockResolvedValue({ data: { user: {} } })
+    vi.spyOn(google, 'drive').mockReturnValue({
+      about: { get: aboutGet },
+    } as never)
+
+    await expect(getGoogleDriveAccountEmail({} as never)).rejects.toMatchObject({
+      code: 'DRIVE_AUTH_EXPIRED',
     })
   })
 

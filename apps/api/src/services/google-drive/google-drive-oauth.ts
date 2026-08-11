@@ -11,7 +11,7 @@ import { google } from 'googleapis'
 import { prisma } from '../../lib/db'
 import { encryptIntegrationSecret } from '../secrets/integration-secrets'
 import { getGoogleDriveConfig, type GoogleDriveConfig } from './google-drive-config'
-import { createGoogleDriveOAuthClient } from './google-drive-client'
+import { createGoogleDriveOAuthClient, type GoogleDriveOAuthClient } from './google-drive-client'
 import { GoogleDriveServiceError, normalizeGoogleDriveError } from './google-drive-errors'
 
 const STATE_MAX_AGE_MS = 10 * 60 * 1000
@@ -164,6 +164,16 @@ export function buildGoogleDriveAuthUrl(
   })
 }
 
+export async function getGoogleDriveAccountEmail(auth: GoogleDriveOAuthClient): Promise<string> {
+  const drive = google.drive({ version: 'v3', auth })
+  const userInfo = await drive.about.get({ fields: 'user(emailAddress)' })
+  const email = userInfo.data.user?.emailAddress
+  if (!email) {
+    throw new GoogleDriveServiceError('DRIVE_AUTH_EXPIRED')
+  }
+  return email
+}
+
 export async function exchangeGoogleDriveCodeForConnection(input: {
   code: string
   state: string
@@ -196,12 +206,7 @@ export async function exchangeGoogleDriveCodeForConnection(input: {
     }
 
     auth.setCredentials(tokens)
-    const oauth2 = google.oauth2({ version: 'v2', auth })
-    const userInfo = await oauth2.userinfo.get()
-    const googleAccountEmail = userInfo.data.email
-    if (!googleAccountEmail) {
-      throw new GoogleDriveServiceError('DRIVE_AUTH_EXPIRED')
-    }
+    const googleAccountEmail = await getGoogleDriveAccountEmail(auth)
 
     return {
       organizationId: statePayload.organizationId,

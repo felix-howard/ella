@@ -3265,7 +3265,13 @@
   "googleDrive.adminGroupPlaceholder": "admins@example.com",
   "googleDrive.businessName": "Business name",
   "googleDrive.businessNaming": "Business naming",
+  "googleDrive.addClientEmail": "Add email",
+  "googleDrive.changeClientEmail": "Change email",
+  "googleDrive.clientDriveAccess": "Client Drive access",
   "googleDrive.clientEmail": "Client email",
+  "googleDrive.clientEmailMissing": "No client email saved",
+  "googleDrive.clientEmailMissingHelp": "Add a client email before sharing Drive access.",
+  "googleDrive.clientEmailSaved": "Saved on client profile",
   "googleDrive.configureInSettings": "Configure Drive in Settings",
   "googleDrive.connect": "Connect Google Drive",
   "googleDrive.connectError": "Could not start Google Drive connection",
@@ -3289,7 +3295,7 @@
   "googleDrive.folderTreeTaxDocs": "{{year}} TAX DOCS",
   "googleDrive.loading": "Loading Drive status…",
   "googleDrive.loadError": "Could not load Google Drive settings.",
-  "googleDrive.modalDescription": "Confirm the folder name and Drive access before creating the structure.",
+  "googleDrive.modalDescription": "Confirm folder name and Drive permissions before creating folders.",
   "googleDrive.modalTitle": "Create Drive Folder Structure",
   "googleDrive.multi": "Multi",
   "googleDrive.notConnected": "Google Drive is not connected",
@@ -3303,6 +3309,7 @@
   "googleDrive.popupBlocked": "Allow pop-ups to connect Google Drive.",
   "googleDrive.permissionAdmins": "Admins: writer to OFFICE - ADMIN ONLY and AM WORK",
   "googleDrive.permissionClient": "Client ({{email}}): writer to SHARED TO CLIENT",
+  "googleDrive.permissionClientMissing": "Client: add a saved client email to grant SHARED TO CLIENT access",
   "googleDrive.permissionManagers": "Managers: writer to AM WORK",
   "googleDrive.permissionPreview": "Permission preview",
   "googleDrive.retryStructure": "Retry Drive Folder Structure",
@@ -3319,5 +3326,5 @@
   "googleDrive.ssnLast4": "SSN last 4",
   "googleDrive.state": "State",
   "googleDrive.testing": "Testing connection…",
-  "googleDrive.validationError": "Enter a 4-digit SSN last 4, a two-letter state, and a client email."
+  "googleDrive.validationError": "Enter a 4-digit SSN last 4, a two-letter state, and save a client email before sharing Drive access."
 }

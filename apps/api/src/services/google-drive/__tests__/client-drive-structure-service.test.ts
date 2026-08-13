@@ -24,7 +24,9 @@ vi.mock('../google-drive-permissions', () => ({
 
 import {
   createClientDriveStructure,
+  executeQueuedClientDriveStructureCreation,
   getClientDriveStructureOptions,
+  queueClientDriveStructureCreation,
   syncClientDriveBusinessFolders,
 } from '../client-drive-structure-service'
 import { GoogleDriveServiceError } from '../google-drive-errors'
@@ -639,6 +641,115 @@ describe('client Drive structure service', () => {
       code: 'DRIVE_PERMISSION_FAILED',
       message: 'Client email must match an org-scoped client email.',
     })
+  })
+
+  it('queues structure creation without calling Google Drive', async () => {
+    const createdRow = folderRow({
+      status: 'CREATING',
+      rootFolderId: null,
+      rootFolderWebUrl: null,
+      amWorkFolderId: null,
+      amWorkFolderWebUrl: null,
+      officeAdminFolderId: null,
+      officeAdminFolderWebUrl: null,
+      sharedFolderId: null,
+      sharedFolderWebUrl: null,
+      inputSnapshot: {
+        ownerClientId: CLIENT_ID,
+        clientGroupId: null,
+        folderName: 'Linh Nguyen 1234 - TX - Multi',
+        clientName: 'Linh Nguyen',
+        ssnLast4: '1234',
+        state: 'TX',
+        entityLabel: 'Multi',
+      },
+    })
+    const db = baseDb({
+      clientDriveFolder: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue(createdRow),
+        update: vi.fn(),
+        updateMany: vi.fn(),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(createdRow),
+      },
+    })
+
+    const response = await queueClientDriveStructureCreation({
+      organizationId: 'org_1',
+      clientId: CLIENT_ID,
+      actorStaffId: 'staff_1',
+      payload: {
+        ssnLast4: '1234',
+        state: 'TX',
+        businessMode: 'MULTI',
+        accountManagerStaffIds: [],
+        clientEmail: 'client@test.com',
+        sendNotificationEmail: false,
+      },
+    }, db)
+
+    expect(response.folder?.status).toBe('CREATING')
+    expect(response.queuedEvent).toEqual({
+      rowId: 'drive_folder_row',
+      rowUpdatedAt: '2026-08-10T00:00:00.000Z',
+      inputSnapshot: {
+        folderName: 'Linh Nguyen 1234 - TX - Multi',
+        ssnLast4: '1234',
+        state: 'TX',
+        entityLabel: 'Multi',
+      },
+    })
+    expect(driveMocks.createGoogleDriveClientForConnection).not.toHaveBeenCalled()
+    expect(driveMocks.createGoogleDriveFolder).not.toHaveBeenCalled()
+  })
+
+  it('skips stale queued events when the row has been claimed again', async () => {
+    const db = baseDb({
+      clientDriveFolder: {
+        findUnique: vi.fn().mockResolvedValue(folderRow({
+          status: 'CREATING',
+          updatedAt: new Date('2026-08-10T00:01:00.000Z'),
+          inputSnapshot: {
+            ownerClientId: CLIENT_ID,
+            clientGroupId: null,
+            folderName: 'Linh Nguyen 1234 - TX - Multi',
+            clientName: 'Linh Nguyen',
+            ssnLast4: '1234',
+            state: 'TX',
+            entityLabel: 'Multi',
+          },
+        })),
+        create: vi.fn(),
+        update: vi.fn(),
+        updateMany: vi.fn(),
+        findUniqueOrThrow: vi.fn(),
+      },
+    })
+
+    await expect(executeQueuedClientDriveStructureCreation({
+      organizationId: 'org_1',
+      clientId: CLIENT_ID,
+      actorStaffId: 'staff_1',
+      rowId: 'drive_folder_row',
+      rowUpdatedAt: '2026-08-10T00:00:00.000Z',
+      inputSnapshot: {
+        folderName: 'Linh Nguyen 1234 - TX - Multi',
+        ssnLast4: '1234',
+        state: 'TX',
+        entityLabel: 'Multi',
+      },
+      payload: {
+        ssnLast4: '1234',
+        state: 'TX',
+        businessMode: 'MULTI',
+        accountManagerStaffIds: [],
+        clientEmail: 'client@test.com',
+        sendNotificationEmail: false,
+      },
+    }, db)).resolves.toEqual({ skipped: true, reason: 'STALE_EVENT' })
+
+    expect(driveMocks.createGoogleDriveClientForConnection).not.toHaveBeenCalled()
+    expect((db as { clientDriveFolder: { updateMany: ReturnType<typeof vi.fn> } }).clientDriveFolder.updateMany).not.toHaveBeenCalled()
   })
 
   it('no-ops business folder sync when Drive is disconnected or no structure exists', async () => {

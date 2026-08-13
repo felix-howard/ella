@@ -3265,7 +3265,13 @@
   "googleDrive.adminGroupPlaceholder": "admins@example.com",
   "googleDrive.businessName": "Tên doanh nghiệp",
   "googleDrive.businessNaming": "Cách đặt tên doanh nghiệp",
+  "googleDrive.addClientEmail": "Thêm email",
+  "googleDrive.changeClientEmail": "Đổi email",
+  "googleDrive.clientDriveAccess": "Quyền Drive của khách hàng",
   "googleDrive.clientEmail": "Email khách hàng",
+  "googleDrive.clientEmailMissing": "Chưa lưu email khách hàng",
+  "googleDrive.clientEmailMissingHelp": "Thêm email khách hàng trước khi chia sẻ quyền Drive.",
+  "googleDrive.clientEmailSaved": "Đã lưu trong hồ sơ khách hàng",
   "googleDrive.configureInSettings": "Thiết lập Drive trong Cài đặt",
   "googleDrive.connect": "Kết nối Google Drive",
   "googleDrive.connectError": "Không thể bắt đầu kết nối Google Drive",
@@ -3289,7 +3295,7 @@
   "googleDrive.folderTreeTaxDocs": "{{year}} TAX DOCS",
   "googleDrive.loading": "Đang tải trạng thái Drive…",
   "googleDrive.loadError": "Không thể tải cài đặt Google Drive.",
-  "googleDrive.modalDescription": "Xác nhận tên thư mục và quyền truy cập Drive trước khi tạo cấu trúc.",
+  "googleDrive.modalDescription": "Xác nhận tên thư mục và quyền Drive trước khi tạo thư mục.",
   "googleDrive.modalTitle": "Tạo cấu trúc thư mục Drive",
   "googleDrive.multi": "Nhiều doanh nghiệp",
   "googleDrive.notConnected": "Google Drive chưa được kết nối",
@@ -3303,6 +3309,7 @@
   "googleDrive.popupBlocked": "Cho phép cửa sổ bật lên để kết nối Google Drive.",
   "googleDrive.permissionAdmins": "Quản trị viên: quyền chỉnh sửa OFFICE - ADMIN ONLY và AM WORK",
   "googleDrive.permissionClient": "Khách hàng ({{email}}): quyền chỉnh sửa SHARED TO CLIENT",
+  "googleDrive.permissionClientMissing": "Khách hàng: thêm email đã lưu để cấp quyền SHARED TO CLIENT",
   "googleDrive.permissionManagers": "Quản lý: quyền chỉnh sửa AM WORK",
   "googleDrive.permissionPreview": "Xem trước quyền truy cập",
   "googleDrive.retryStructure": "Thử lại tạo cấu trúc thư mục Drive",
@@ -3319,5 +3326,5 @@
   "googleDrive.ssnLast4": "4 số cuối SSN",
   "googleDrive.state": "Bang",
   "googleDrive.testing": "Đang kiểm tra kết nối…",
-  "googleDrive.validationError": "Nhập 4 số cuối SSN, mã bang gồm hai chữ cái và email khách hàng."
+  "googleDrive.validationError": "Nhập 4 số cuối SSN, mã bang gồm hai chữ cái và lưu email khách hàng trước khi chia sẻ Drive."
 }

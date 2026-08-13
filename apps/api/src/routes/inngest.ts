@@ -8,6 +8,7 @@ import { serve } from 'inngest/hono'
 import { inngest } from '../lib/inngest'
 import {
   classifyDocumentJob,
+  createClientDriveStructureJob,
   deleteExpiredIdentityDocsJob,
   detectMultiPageJob,
   groupDocumentsBatchJob,
@@ -25,6 +26,7 @@ export const registeredInngestFunctions = [
   detectMultiPageJob,
   groupDocumentsBatchJob,
   deleteExpiredIdentityDocsJob,
+  createClientDriveStructureJob,
 ]
 
 // Security check: Production requires signing key

@@ -31,7 +31,9 @@ describe('Drive structure workspace UI', () => {
     )
 
     expect(markup).toContain('value="tx"')
-    expect(markup).toContain('value="ada@example.com"')
+    expect(markup).toContain('ada@example.com')
+    expect(markup).toContain('googleDrive.clientEmailSaved')
+    expect(markup).not.toContain('type="email"')
     expect(markup).not.toContain('Grace Hopper')
     expect(markup).not.toContain('googleDrive.accountManagers')
     expect(markup).toContain('Analytical Engines LLC')
@@ -70,11 +72,14 @@ describe('Drive structure workspace UI', () => {
   it('blocks submission without a client email', () => {
     currentOptions = { ...options, clientEmail: null }
     const markup = renderToStaticMarkup(
-      <DriveStructureModal open clientId="client_1" isPending={false} onClose={vi.fn()} onSubmit={vi.fn()} />
+      <DriveStructureModal open clientId="client_1" isPending={false} onClose={vi.fn()} onSubmit={vi.fn()} onAddClientEmail={vi.fn()} />
     )
 
-    expect(markup).toContain('type="email"')
-    expect(markup).toContain('value=""')
+    expect(markup).toContain('googleDrive.clientEmailMissing')
+    expect(markup).toContain('googleDrive.clientEmailMissingHelp')
+    expect(markup).toContain('googleDrive.addClientEmail')
+    expect(markup).not.toContain('type="email"')
+    expect(markup).toContain('googleDrive.permissionClientMissing')
     expect(markup).toContain('disabled=""')
     currentOptions = options
   })

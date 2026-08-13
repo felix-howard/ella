@@ -1,20 +1,15 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-import { ActivityRiskLevel } from '@ella/db'
 import { prisma } from '../../lib/db'
+import { inngest } from '../../lib/inngest'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import { requireAdminOrManager, type AuthVariables } from '../../middleware/auth'
-import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
 import {
-  ACTIVITY_ACTIONS,
-  ACTIVITY_CATEGORIES,
-  ACTIVITY_TARGET_TYPES,
-} from '../../services/activity-actions'
-import {
-  createClientDriveStructure,
   getClientDriveStructureOptions,
   getClientDriveStructureStatus,
+  markQueuedClientDriveStructureDispatchFailed,
+  queueClientDriveStructureCreation,
 } from '../../services/google-drive/client-drive-structure-service'
 import { GoogleDriveServiceError } from '../../services/google-drive/google-drive-errors'
 import { clientIdParamSchema } from './schemas'
@@ -41,8 +36,10 @@ function driveErrorResponse(error: unknown) {
     }
     const status = error.code === 'DRIVE_PERMISSION_FAILED' || error.code === 'DRIVE_ROOT_INVALID'
       ? 400
-      : 409
-    return { body: { error: error.code, message: error.message }, status: status as 400 | 409 }
+      : error.code === 'DRIVE_QUEUE_FAILED'
+        ? 503
+        : 409
+    return { body: { error: error.code, message: error.message }, status: status as 400 | 409 | 503 }
   }
   throw error
 }
@@ -120,41 +117,35 @@ clientsDriveStructureRoute.post(
     }
 
     try {
-      const response = await createClientDriveStructure({
+      const response = await queueClientDriveStructureCreation({
         organizationId: user.organizationId,
         clientId: id,
         actorStaffId: user.staffId,
         payload,
       })
+      const { queuedEvent, ...body } = response
 
-      if (user.staffId && response.folder && response.created) {
-        await logStaffActivity({
-          organizationId: user.organizationId,
-          clientId: id,
-          actorStaffId: user.staffId,
-          category: ACTIVITY_CATEGORIES.CLIENT,
-          targetType: ACTIVITY_TARGET_TYPES.CLIENT,
-          targetId: id,
-          targetLabel: client.name,
-          summary: 'Created Google Drive folder structure',
-          action: ACTIVITY_ACTIONS.CLIENT.DRIVE_STRUCTURE_CREATED,
-          riskLevel: ActivityRiskLevel.MEDIUM,
-          metadata: {
-            status: response.folder.status,
-            ownerClientId: response.folder.ownerClientId,
-            clientGroupId: response.folder.clientGroupId,
-            permissionTargetCounts: {
-              accountManagers: response.permissionSummary?.accountManagerEmails.length ?? 0,
-              admins: response.permissionSummary?.adminEmails.length ?? 0,
-              hasAdminGroup: Boolean(response.permissionSummary?.adminGroupEmail),
-              hasClient: Boolean(response.permissionSummary?.clientEmail),
-            },
+      try {
+        await inngest.send({
+          name: 'client/drive-structure.create',
+          data: {
+            organizationId: user.organizationId,
+            clientId: id,
+            actorStaffId: user.staffId ?? null,
+            payload,
+            ...queuedEvent,
           },
-          request: getAuditRequestContext(c),
         })
+      } catch (error) {
+        await markQueuedClientDriveStructureDispatchFailed({
+          organizationId: user.organizationId,
+          rowId: queuedEvent.rowId,
+          message: error instanceof Error ? error.message : 'Could not queue Google Drive folder creation.',
+        })
+        throw new GoogleDriveServiceError('DRIVE_QUEUE_FAILED', undefined, error)
       }
 
-      return c.json(response, response.created ? 201 : 200)
+      return c.json(body, 202)
     } catch (error) {
       const response = driveErrorResponse(error)
       return c.json(response.body, response.status)

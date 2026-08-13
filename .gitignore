@@ -96,3 +96,7 @@ ck.md
 *repomix-output*
 clerk-migration-mapping.json
 nul
+
+# Per-app local agent tooling (Claude Code / AgentKit installs)
+apps/*/.claude/
+apps/*/.agentkit/

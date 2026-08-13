@@ -7,6 +7,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock prisma
 const mockTransaction = vi.fn()
+const driveStructureMocks = vi.hoisted(() => ({
+  createClientDriveStructure: vi.fn(),
+  getClientDriveStructureOptions: vi.fn(),
+  getClientDriveStructureStatus: vi.fn(),
+  syncClientDriveBusinessFolders: vi.fn(),
+}))
 vi.mock('../../../lib/db', () => ({
   prisma: {
     client: {
@@ -105,6 +111,8 @@ vi.mock('../../../services/magic-link', () => ({
   upgradeActivePortalLinksToGroup: vi.fn(),
 }))
 
+vi.mock('../../../services/google-drive/client-drive-structure-service', () => driveStructureMocks)
+
 vi.mock('../../../services/sms', () => ({
   isSmsEnabled: vi.fn(),
   sendWelcomeMessage: vi.fn(),
@@ -120,6 +128,7 @@ import { Hono } from 'hono'
 import { prisma } from '../../../lib/db'
 import type { AuthVariables } from '../../../middleware/auth'
 import { clientsRoute } from '../index'
+import { GoogleDriveServiceError } from '../../../services/google-drive/google-drive-errors'
 
 function createApp(user = defaultUser()) {
   const app = new Hono<{ Variables: AuthVariables }>()
@@ -487,6 +496,10 @@ describe('PATCH /clients/:id/managed-by', () => {
 describe('POST /clients/:id/link-business manager inheritance', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    driveStructureMocks.syncClientDriveBusinessFolders.mockResolvedValue({
+      synced: false,
+      businessClientIds: [],
+    })
     vi.mocked(prisma.clientProfile.findUnique).mockResolvedValue({ id: 'profile_1' } as never)
     vi.mocked(prisma.taxCase.findFirst).mockResolvedValue(null as never)
   })
@@ -559,5 +572,73 @@ describe('POST /clients/:id/link-business manager inheritance', () => {
       ],
       skipDuplicates: true,
     })
+    expect(driveStructureMocks.syncClientDriveBusinessFolders).toHaveBeenCalledWith({
+      organizationId: 'org_1',
+      ownerOrRequestedClientId: CID_1,
+      actorStaffId: 'staff_1',
+      businessClientIds: [CID_2],
+    })
+  })
+
+  it('returns created business when Drive business folder sync fails after commit', async () => {
+    vi.mocked(prisma.client.findFirst).mockResolvedValueOnce({
+      id: CID_1,
+      name: 'Parent Client',
+      clientType: 'INDIVIDUAL',
+      clientGroup: { id: 'group_1', name: 'Parent Group' },
+      managedById: STAFF_BOB,
+      managers: [
+        { staffId: STAFF_BOB },
+      ],
+    } as never)
+    driveStructureMocks.syncClientDriveBusinessFolders.mockRejectedValueOnce(
+      new GoogleDriveServiceError('DRIVE_RATE_LIMITED')
+    )
+
+    const tx = {
+      client: {
+        create: vi.fn().mockResolvedValue({
+          id: CID_2,
+          name: 'Acme LLC',
+          clientType: 'BUSINESS',
+          businessType: 'LLC',
+          profile: { id: 'profile_1' },
+        }),
+        update: vi.fn().mockResolvedValue({}),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      clientGroup: {
+        create: vi.fn(),
+      },
+      taxCase: {
+        create: vi.fn().mockResolvedValue({ id: 'case_1', taxYear: 2025 }),
+      },
+      clientManager: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        createMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    }
+    mockTransaction.mockImplementationOnce(async (fn: (tx: unknown) => Promise<unknown>) => {
+      return fn(tx)
+    })
+
+    const app = createApp()
+    const res = await app.request(`/clients/${CID_1}/link-business`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        firstName: 'Acme LLC',
+        phone: '+15551234567',
+        language: 'EN',
+        businessType: 'LLC',
+        taxYear: 2025,
+      }),
+    })
+
+    expect(res.status).toBe(201)
+    const json = await res.json()
+    expect(json.data.business.id).toBe(CID_2)
+    expect(mockTransaction).toHaveBeenCalledOnce()
+    expect(driveStructureMocks.syncClientDriveBusinessFolders).toHaveBeenCalledOnce()
   })
 })

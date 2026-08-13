@@ -80,6 +80,7 @@ function staff(overrides: Partial<ProfileResponse['staff']> = {}): ProfileRespon
     firstName: 'Ada',
     lastName: 'Admin',
     email: 'ada@example.com',
+    driveEmails: [],
     role: 'STAFF',
     isContractorAgent: false,
     avatarUrl: null,

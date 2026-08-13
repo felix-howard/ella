@@ -477,6 +477,7 @@ model Staff {
   email             String    @unique
   name              String
   role              StaffRole @default(STAFF)
+  driveEmails       String[]  @default([])
   avatarUrl         String?
   phoneNumber       String? // E.164 format (+84901234567)
   isActive          Boolean   @default(true)
@@ -772,6 +773,7 @@ model Organization {
   webPushSubscriptions           WebPushSubscription[]
   googleDriveConnection          GoogleDriveConnection?
   clientDriveFolders             ClientDriveFolder[]
+  clientDriveFolderNodes         ClientDriveFolderNode[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -879,10 +881,12 @@ model Client {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
-  managedById String?
-  managedBy   Staff?             @relation("ManagedClients", fields: [managedById], references: [id], onDelete: SetNull)
-  managers    ClientManager[]
-  driveFolder ClientDriveFolder? @relation("ClientDriveFolderOwner")
+  managedById              String?
+  managedBy                Staff?                  @relation("ManagedClients", fields: [managedById], references: [id], onDelete: SetNull)
+  managers                 ClientManager[]
+  driveFolder              ClientDriveFolder?      @relation("ClientDriveFolderOwner")
+  ownedDriveFolderNodes    ClientDriveFolderNode[] @relation("ClientDriveFolderNodeOwner")
+  businessDriveFolderNodes ClientDriveFolderNode[] @relation("ClientDriveFolderNodeBusiness")
 
   createdById String?
   createdBy   Staff?  @relation("CreatedClients", fields: [createdById], references: [id], onDelete: SetNull)
@@ -906,37 +910,64 @@ model Client {
 }
 
 model ClientDriveFolder {
-  id                    String                  @id @default(cuid())
-  organizationId        String
-  organization          Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  ownerClientId         String
-  ownerClient           Client                  @relation("ClientDriveFolderOwner", fields: [ownerClientId, organizationId], references: [id, organizationId], onDelete: Cascade)
-  clientGroupId         String?
-  clientGroup           ClientGroup?            @relation(fields: [clientGroupId, organizationId], references: [id, organizationId], onDelete: NoAction)
-  folderName            String
-  rootFolderId          String?
-  rootFolderWebUrl      String?                 @db.Text
-  amWorkFolderId        String?
-  amWorkFolderWebUrl    String?                 @db.Text
-  corpAdminFolderId     String?
-  corpAdminFolderWebUrl String?                 @db.Text
-  sharedFolderId        String?
-  sharedFolderWebUrl    String?                 @db.Text
-  status                ClientDriveFolderStatus @default(NOT_STARTED)
-  inputSnapshot         Json                    @default("{}")
-  permissionSnapshot    Json                    @default("{}")
-  lastErrorCode         String?
-  lastErrorMessage      String?                 @db.Text
-  createdByStaffId      String?
-  createdByStaff        Staff?                  @relation("ClientDriveFolderCreatedBy", fields: [createdByStaffId], references: [id], onDelete: SetNull)
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime                @updatedAt
+  id                      String                  @id @default(cuid())
+  organizationId          String
+  organization            Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ownerClientId           String
+  ownerClient             Client                  @relation("ClientDriveFolderOwner", fields: [ownerClientId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  clientGroupId           String?
+  clientGroup             ClientGroup?            @relation(fields: [clientGroupId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  folderName              String
+  rootFolderId            String?
+  rootFolderWebUrl        String?                 @db.Text
+  amWorkFolderId          String?
+  amWorkFolderWebUrl      String?                 @db.Text
+  officeAdminFolderId     String?
+  officeAdminFolderWebUrl String?                 @db.Text
+  sharedFolderId          String?
+  sharedFolderWebUrl      String?                 @db.Text
+  nodes                   ClientDriveFolderNode[]
+  status                  ClientDriveFolderStatus @default(NOT_STARTED)
+  inputSnapshot           Json                    @default("{}")
+  permissionSnapshot      Json                    @default("{}")
+  lastErrorCode           String?
+  lastErrorMessage        String?                 @db.Text
+  createdByStaffId        String?
+  createdByStaff          Staff?                  @relation("ClientDriveFolderCreatedBy", fields: [createdByStaffId], references: [id], onDelete: SetNull)
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
 
   @@unique([ownerClientId, organizationId])
+  @@unique([id, organizationId])
   @@index([organizationId, status])
   @@index([organizationId, ownerClientId])
   @@index([organizationId, clientGroupId])
   @@index([createdByStaffId])
+}
+
+model ClientDriveFolderNode {
+  id                  String            @id @default(cuid())
+  clientDriveFolderId String
+  clientDriveFolder   ClientDriveFolder @relation(fields: [clientDriveFolderId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  organizationId      String
+  organization        Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ownerClientId       String
+  ownerClient         Client            @relation("ClientDriveFolderNodeOwner", fields: [ownerClientId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  businessClientId    String?
+  businessClient      Client?           @relation("ClientDriveFolderNodeBusiness", fields: [businessClientId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  role                String
+  name                String
+  driveFolderId       String?
+  webViewLink         String?           @db.Text
+  parentDriveFolderId String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@unique([clientDriveFolderId, role, businessClientId], map: "ClientDriveFolderNode_folder_role_business_key")
+  @@index([organizationId, ownerClientId], map: "ClientDriveFolderNode_organization_owner_idx")
+  @@index([organizationId, businessClientId], map: "ClientDriveFolderNode_organization_business_idx")
+  @@index([clientDriveFolderId])
+  @@index([driveFolderId])
 }
 
 model ClientManager {

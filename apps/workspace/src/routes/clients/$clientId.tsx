@@ -82,7 +82,7 @@ import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, formatPhoneInput, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { api, type TaxCaseStatus, type RawImage, type DigitalDoc, type ClientPreview } from '../../lib/api-client'
 import type { IdentityRetentionExtensionDays } from '../../lib/api-client'
-import type { ClientDriveStructureCreateInput } from '@ella/shared'
+import type { ClientDriveStructureCreateInput, ClientDriveStructureResponseDto } from '@ella/shared'
 import { computeStatus } from '../../lib/computed-status'
 import { BUSINESS_TYPE_LABELS } from '../../lib/business-type-helpers'
 import { IndividualScheduleCActivities } from '../../components/cases/tabs/schedule-c-tab/individual-schedule-c-activities'
@@ -156,6 +156,8 @@ function ClientDetailPage() {
     phone: string
     email: string
   } | null>(null)
+  const [editEmailAutoFocus, setEditEmailAutoFocus] = useState(false)
+  const [reopenDriveAfterEdit, setReopenDriveAfterEdit] = useState(false)
 
   const invalidateRetentionQueries = useCallback((caseId?: string | null) => {
     queryClient.invalidateQueries({ queryKey: ['client', clientId] })
@@ -282,10 +284,17 @@ function ClientDetailPage() {
     mutationFn: (data: { firstName?: string; lastName?: string | null; phone?: string; email?: string | null }) =>
       api.clients.update(clientId, data),
     onSuccess: () => {
+      const shouldReopenDrive = reopenDriveAfterEdit
       toast.success(t('clientOverview.profileUpdated'))
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+      queryClient.invalidateQueries({ queryKey: ['client-drive-options', clientId] })
       setIsEditModalOpen(false)
       setEditData(null)
+      setEditEmailAutoFocus(false)
+      setReopenDriveAfterEdit(false)
+      if (shouldReopenDrive) {
+        setIsDriveStructureOpen(true)
+      }
     },
     onError: () => {
       toast.error(t('clientOverview.profileUpdateFailed'))
@@ -436,16 +445,20 @@ function ClientDetailPage() {
     queryKey: ['client-drive-structure', clientId],
     queryFn: () => api.clients.driveStructure.get(clientId),
     enabled: canManageClients,
+    refetchInterval: (query) => {
+      const data = query.state.data as ClientDriveStructureResponseDto | undefined
+      return data?.folder?.status === 'CREATING' ? 3000 : false
+    },
   })
   const createDriveStructureMutation = useMutation({
     mutationFn: (data: ClientDriveStructureCreateInput) => api.clients.driveStructure.create(clientId, data),
     onSuccess: () => {
-      toast.success(t('googleDrive.createSuccess'))
+      toast.success(t('googleDrive.creating'))
       setIsDriveStructureOpen(false)
       queryClient.invalidateQueries({ queryKey: ['client-drive-structure', clientId] })
       queryClient.invalidateQueries({ queryKey: ['client-drive-options', clientId] })
     },
-    onError: () => toast.error(t('googleDrive.createError')),
+    onError: (error) => toast.error(error instanceof Error ? error.message : t('googleDrive.createError')),
   })
 
   // Resolve portal URL for the selected year; business clients use the owner case for that year.
@@ -665,13 +678,15 @@ function ClientDetailPage() {
     setTimeout(() => setVerifyDoc(null), 200)
   }
 
-  const handleOpenEditModal = () => {
+  const handleOpenEditModal = (options?: { focusEmail?: boolean; reopenDriveAfterEdit?: boolean }) => {
     setEditData({
       firstName: client.firstName,
       lastName: client.lastName || '',
       phone: formatPhone(client.phone),
       email: client.email || '',
     })
+    setEditEmailAutoFocus(Boolean(options?.focusEmail))
+    setReopenDriveAfterEdit(Boolean(options?.reopenDriveAfterEdit))
     setIsEditModalOpen(true)
   }
 
@@ -692,6 +707,8 @@ function ClientDetailPage() {
   const handleCancelEdit = () => {
     setIsEditModalOpen(false)
     setEditData(null)
+    setEditEmailAutoFocus(false)
+    setReopenDriveAfterEdit(false)
   }
 
   const { clients: clientsText } = UI_TEXT
@@ -764,7 +781,7 @@ function ClientDetailPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-xl font-semibold text-foreground leading-tight">{client.name}</h1>
                   <button
-                    onClick={handleOpenEditModal}
+                    onClick={() => handleOpenEditModal()}
                     className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                     title={t('clientOverview.editProfile')}
                   >
@@ -1303,6 +1320,10 @@ function ClientDetailPage() {
         isPending={createDriveStructureMutation.isPending}
         onClose={() => setIsDriveStructureOpen(false)}
         onSubmit={(data) => createDriveStructureMutation.mutate(data)}
+        onAddClientEmail={() => {
+          setIsDriveStructureOpen(false)
+          handleOpenEditModal({ focusEmail: true, reopenDriveAfterEdit: true })
+        }}
       />
 
       {/* Edit Client Profile Modal */}
@@ -1359,6 +1380,7 @@ function ClientDetailPage() {
                   onChange={(e) => setEditData({ ...editData, email: e.target.value })}
                   placeholder={t('clientOverview.emailOptional')}
                   disabled={updateClientMutation.isPending}
+                  autoFocus={editEmailAutoFocus}
                 />
               </div>
             </div>

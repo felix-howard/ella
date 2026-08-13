@@ -8,16 +8,16 @@ const prismaMocks = vi.hoisted(() => ({
 const serviceMocks = vi.hoisted(() => ({
   getClientDriveStructureStatus: vi.fn(),
   getClientDriveStructureOptions: vi.fn(),
-  createClientDriveStructure: vi.fn(),
+  queueClientDriveStructureCreation: vi.fn(),
+  markQueuedClientDriveStructureDispatchFailed: vi.fn(),
 }))
-const activityMocks = vi.hoisted(() => ({
-  getAuditRequestContext: vi.fn(() => ({ route: '/clients/:id/drive-structure', method: 'POST' })),
-  logStaffActivity: vi.fn(),
+const inngestMocks = vi.hoisted(() => ({
+  send: vi.fn(),
 }))
 
 vi.mock('../../../lib/db', () => ({ prisma: prismaMocks }))
+vi.mock('../../../lib/inngest', () => ({ inngest: inngestMocks }))
 vi.mock('../../../services/google-drive/client-drive-structure-service', () => serviceMocks)
-vi.mock('../../../services/activity-log', () => activityMocks)
 
 import { clientsDriveStructureRoute } from '../drive-structure'
 
@@ -60,7 +60,8 @@ beforeEach(() => {
     staffOptions: [],
     existingFolder: null,
   })
-  serviceMocks.createClientDriveStructure.mockResolvedValue({
+  inngestMocks.send.mockResolvedValue({ ids: ['evt_1'] })
+  serviceMocks.queueClientDriveStructureCreation.mockResolvedValue({
     created: true,
     folder: {
       id: 'folder_row_1',
@@ -68,17 +69,30 @@ beforeEach(() => {
       ownerClientId: CLIENT_ID,
       clientGroupId: null,
       folderName: 'Linh Nguyen 1234 - TX - Multi',
-      rootFolderId: 'drive_root',
-      rootFolderWebUrl: 'https://drive.example/root',
-      amWorkFolderId: 'am_work',
-      amWorkFolderWebUrl: 'https://drive.example/am',
-      officeAdminFolderId: 'office',
-      officeAdminFolderWebUrl: 'https://drive.example/office',
-      sharedFolderId: 'shared',
-      sharedFolderWebUrl: 'https://drive.example/shared',
-      status: 'READY',
-      inputSnapshot: {},
-      permissionSnapshot: {},
+      rootFolderId: null,
+      rootFolderWebUrl: null,
+      amWorkFolderId: null,
+      amWorkFolderWebUrl: null,
+      officeAdminFolderId: null,
+      officeAdminFolderWebUrl: null,
+      sharedFolderId: null,
+      sharedFolderWebUrl: null,
+      status: 'CREATING',
+      inputSnapshot: {
+        ownerClientId: CLIENT_ID,
+        clientGroupId: null,
+        folderName: 'Linh Nguyen 1234 - TX - Multi',
+        clientName: 'Linh Nguyen',
+        ssnLast4: '1234',
+        state: 'TX',
+        entityLabel: 'Multi',
+      },
+      permissionSnapshot: {
+        accountManagerEmails: ['manager@test.com'],
+        adminGroupEmail: null,
+        adminEmails: ['admin@test.com'],
+        clientEmail: 'client@test.com',
+      },
       lastErrorCode: null,
       lastErrorMessage: null,
       createdByStaffId: 'staff_MANAGER',
@@ -92,6 +106,16 @@ beforeEach(() => {
       clientEmail: 'client@test.com',
     },
     warnings: [],
+    queuedEvent: {
+      rowId: 'folder_row_1',
+      rowUpdatedAt: '2026-08-10T00:00:00.000Z',
+      inputSnapshot: {
+        folderName: 'Linh Nguyen 1234 - TX - Multi',
+        ssnLast4: '1234',
+        state: 'TX',
+        entityLabel: 'Multi',
+      },
+    },
   })
 })
 
@@ -111,7 +135,8 @@ describe('client Drive structure routes', () => {
     })
 
     expect(response.status).toBe(403)
-    expect(serviceMocks.createClientDriveStructure).not.toHaveBeenCalled()
+    expect(serviceMocks.queueClientDriveStructureCreation).not.toHaveBeenCalled()
+    expect(inngestMocks.send).not.toHaveBeenCalled()
   })
 
   it('returns uniform 404 for inaccessible clients', async () => {
@@ -124,7 +149,7 @@ describe('client Drive structure routes', () => {
     expect(serviceMocks.getClientDriveStructureOptions).not.toHaveBeenCalled()
   })
 
-  it('creates via the service and logs redacted activity metadata', async () => {
+  it('queues Drive structure creation through Inngest and returns the CREATING row', async () => {
     const response = await buildApp().request(`/clients/${CLIENT_ID}/drive-structure`, {
       method: 'POST',
       body: JSON.stringify({
@@ -137,8 +162,8 @@ describe('client Drive structure routes', () => {
       headers: { 'content-type': 'application/json' },
     })
 
-    expect(response.status).toBe(201)
-    expect(serviceMocks.createClientDriveStructure).toHaveBeenCalledWith({
+    expect(response.status).toBe(202)
+    expect(serviceMocks.queueClientDriveStructureCreation).toHaveBeenCalledWith({
       organizationId: 'org_1',
       clientId: CLIENT_ID,
       actorStaffId: 'staff_MANAGER',
@@ -151,8 +176,50 @@ describe('client Drive structure routes', () => {
         sendNotificationEmail: false,
       },
     })
-    const activity = activityMocks.logStaffActivity.mock.calls[0]?.[0]
-    expect(JSON.stringify(activity.metadata)).not.toContain('client@test.com')
-    expect(JSON.stringify(activity.metadata)).not.toContain('drive_root')
+    expect(inngestMocks.send).toHaveBeenCalledWith({
+      name: 'client/drive-structure.create',
+      data: expect.objectContaining({
+        organizationId: 'org_1',
+        clientId: CLIENT_ID,
+        actorStaffId: 'staff_MANAGER',
+        rowId: 'folder_row_1',
+        rowUpdatedAt: '2026-08-10T00:00:00.000Z',
+        payload: expect.objectContaining({
+          ssnLast4: '1234',
+          state: 'TX',
+          businessMode: 'MULTI',
+        }),
+      }),
+    })
+    const body = await response.json()
+    expect(body.folder.status).toBe('CREATING')
+    expect(JSON.stringify(body)).not.toContain('queuedEvent')
+  })
+
+  it('marks the row failed when Inngest dispatch fails', async () => {
+    inngestMocks.send.mockRejectedValueOnce(new Error('Inngest unavailable'))
+
+    const response = await buildApp().request(`/clients/${CLIENT_ID}/drive-structure`, {
+      method: 'POST',
+      body: JSON.stringify({
+        ssnLast4: '1234',
+        state: 'TX',
+        businessMode: 'MULTI',
+        clientEmail: 'client@test.com',
+        sendNotificationEmail: false,
+      }),
+      headers: { 'content-type': 'application/json' },
+    })
+
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({
+      error: 'DRIVE_QUEUE_FAILED',
+      message: 'Could not queue Google Drive folder creation. Try again later.',
+    })
+    expect(serviceMocks.markQueuedClientDriveStructureDispatchFailed).toHaveBeenCalledWith({
+      organizationId: 'org_1',
+      rowId: 'folder_row_1',
+      message: 'Inngest unavailable',
+    })
   })
 })

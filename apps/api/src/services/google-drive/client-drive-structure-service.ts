@@ -98,6 +98,32 @@ type OwnerResolution = {
   businessClients: GroupClientForDrive[]
 }
 
+interface ClientDriveStructureClaim {
+  organizationId: string
+  owner: OwnerResolution
+  connection: NonNullable<Awaited<ReturnType<PrismaClient['googleDriveConnection']['findUnique']>>>
+  row: Awaited<ReturnType<PrismaClient['clientDriveFolder']['findUniqueOrThrow']>>
+  createdNewRow: boolean
+  permissionTargets: Awaited<ReturnType<typeof resolveClientDrivePermissionTargets>>
+  inputSnapshot: ClientDriveInputSnapshot
+  permissionSnapshot: ClientDrivePermissionSnapshot
+}
+
+interface ClientDriveStructureClaimOptions {
+  allowRecentCreating?: boolean
+  expectedRow?: {
+    id: string
+    updatedAt: Date
+  }
+}
+
+interface QueuedInputSnapshot {
+  folderName: string
+  ssnLast4: string | null
+  state: string | null
+  entityLabel: string
+}
+
 function assertOrganization(organizationId: string | null | undefined): string {
   if (!organizationId) {
     throw new GoogleDriveServiceError('DRIVE_NOT_CONNECTED', 'Organization required.')
@@ -686,63 +712,33 @@ function toPermissionSummary(snapshot: ClientDrivePermissionSnapshot): ClientDri
   }
 }
 
-export async function getClientDriveStructureOptions(
-  input: { organizationId?: string | null; clientId: string },
-  db: PrismaClient = prisma
-): Promise<ClientDriveStructureOptionsDto> {
-  const organizationId = assertOrganization(input.organizationId)
-  const owner = await resolveOwnerClient(db, { organizationId, clientId: input.clientId })
-  const mode = defaultBusinessMode(owner)
-  const existingFolder = await findExistingFolder(db, organizationId, owner.ownerClient.id)
-  const staffOptions = await db.staff.findMany({
-    where: { organizationId, isActive: true },
-    orderBy: { name: 'asc' },
-    select: { id: true, name: true, email: true, driveEmails: true },
-  })
-
+function toQueuedInputSnapshot(snapshot: ClientDriveInputSnapshot): QueuedInputSnapshot {
   return {
-    ownerClientId: owner.ownerClient.id,
-    clientGroupId: owner.clientGroupId,
-    clientName: getClientDriveDisplayName(owner.ownerClient),
-    clientEmail: owner.ownerClient.email ?? owner.requestedClient.email,
-    currentYear: new Date().getFullYear(),
-    businessNames: getBusinessFolderClients(owner).map(getClientDriveDisplayName),
-    defaultBusinessMode: mode,
-    defaultBusinessName: defaultBusinessName(mode, owner, owner.businessClients),
-    defaultState: owner.requestedClient.businessState ?? owner.businessClients[0]?.businessState ?? null,
-    selectedAccountManagerStaffIds: selectedManagerIds(owner.ownerClient),
-    staffOptions,
-    existingFolder: existingFolder ? mapDriveFolderDto(existingFolder) : null,
+    folderName: snapshot.folderName,
+    ssnLast4: snapshot.ssnLast4,
+    state: snapshot.state,
+    entityLabel: snapshot.entityLabel,
   }
 }
 
-export async function getClientDriveStructureStatus(
-  input: { organizationId?: string | null; clientId: string },
-  db: PrismaClient = prisma
-): Promise<ClientDriveStructureResponseDto> {
-  const organizationId = assertOrganization(input.organizationId)
-  const owner = await resolveOwnerClient(db, { organizationId, clientId: input.clientId })
-  const existingFolder = await findExistingFolder(db, organizationId, owner.ownerClient.id)
-
-  return {
-    created: false,
-    folder: existingFolder ? mapDriveFolderDto(existingFolder) : null,
-    permissionSummary: existingFolder
-      ? toPermissionSummary(existingFolder.permissionSnapshot as unknown as ClientDrivePermissionSnapshot)
-      : null,
-    warnings: [],
-  }
+function queuedInputSnapshotMatches(current: unknown, queued: QueuedInputSnapshot): boolean {
+  const snapshot = readClientDriveInputSnapshot(current)
+  return snapshot.folderName === queued.folderName &&
+    snapshot.ssnLast4 === queued.ssnLast4 &&
+    snapshot.state === queued.state &&
+    snapshot.entityLabel === queued.entityLabel
 }
 
-export async function createClientDriveStructure(
+async function claimClientDriveStructureRow(
   input: {
     organizationId?: string | null
     clientId: string
     actorStaffId?: string | null
     payload: ClientDriveStructureCreateInput
   },
-  db: PrismaClient = prisma
-): Promise<ClientDriveStructureResponseDto> {
+  db: PrismaClient,
+  options: ClientDriveStructureClaimOptions = {}
+): Promise<ClientDriveStructureClaim> {
   const organizationId = assertOrganization(input.organizationId)
   const owner = await resolveOwnerClient(db, { organizationId, clientId: input.clientId })
   const connection = await db.googleDriveConnection.findUnique({ where: { organizationId } })
@@ -753,6 +749,14 @@ export async function createClientDriveStructure(
 
   const readyFolder = await findExistingFolder(db, organizationId, owner.ownerClient.id)
   const createdNewRow = !readyFolder
+
+  if (readyFolder && options.expectedRow) {
+    const matchesExpectedRow = readyFolder.id === options.expectedRow.id &&
+      readyFolder.updatedAt.getTime() === options.expectedRow.updatedAt.getTime()
+    if (!matchesExpectedRow) {
+      throw new GoogleDriveServiceError('DRIVE_STRUCTURE_IN_PROGRESS')
+    }
+  }
 
   const folderName = buildClientDriveFolderName({
     clientName: getClientDriveDisplayName(owner.ownerClient),
@@ -785,7 +789,7 @@ export async function createClientDriveStructure(
     clientEmail: permissionTargets.clientEmail,
   }
 
-  if (readyFolder && isRecentCreating(readyFolder)) {
+  if (readyFolder && isRecentCreating(readyFolder) && !options.allowRecentCreating) {
     throw new GoogleDriveServiceError('DRIVE_STRUCTURE_IN_PROGRESS')
   }
 
@@ -835,7 +839,7 @@ export async function createClientDriveStructure(
     } catch (error) {
       if (!isUniqueConstraintError(error)) throw error
       const concurrentRow = await findExistingFolder(db, organizationId, owner.ownerClient.id)
-      if (!concurrentRow || isRecentCreating(concurrentRow)) {
+      if (!concurrentRow || (isRecentCreating(concurrentRow) && !options.allowRecentCreating)) {
         throw new GoogleDriveServiceError('DRIVE_STRUCTURE_IN_PROGRESS')
       }
       const claim = await db.clientDriveFolder.updateMany({
@@ -865,6 +869,143 @@ export async function createClientDriveStructure(
     }
   }
 
+  return {
+    organizationId,
+    owner,
+    connection,
+    row,
+    createdNewRow,
+    permissionTargets,
+    inputSnapshot,
+    permissionSnapshot,
+  }
+}
+
+export async function getClientDriveStructureOptions(
+  input: { organizationId?: string | null; clientId: string },
+  db: PrismaClient = prisma
+): Promise<ClientDriveStructureOptionsDto> {
+  const organizationId = assertOrganization(input.organizationId)
+  const owner = await resolveOwnerClient(db, { organizationId, clientId: input.clientId })
+  const mode = defaultBusinessMode(owner)
+  const existingFolder = await findExistingFolder(db, organizationId, owner.ownerClient.id)
+  const staffOptions = await db.staff.findMany({
+    where: { organizationId, isActive: true },
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true, email: true, driveEmails: true },
+  })
+
+  return {
+    ownerClientId: owner.ownerClient.id,
+    clientGroupId: owner.clientGroupId,
+    clientName: getClientDriveDisplayName(owner.ownerClient),
+    clientEmail: owner.ownerClient.email ?? owner.requestedClient.email,
+    currentYear: new Date().getFullYear(),
+    businessNames: getBusinessFolderClients(owner).map(getClientDriveDisplayName),
+    defaultBusinessMode: mode,
+    defaultBusinessName: defaultBusinessName(mode, owner, owner.businessClients),
+    defaultState: owner.requestedClient.businessState ?? owner.businessClients[0]?.businessState ?? null,
+    selectedAccountManagerStaffIds: selectedManagerIds(owner.ownerClient),
+    staffOptions,
+    existingFolder: existingFolder ? mapDriveFolderDto(existingFolder) : null,
+  }
+}
+
+export async function getClientDriveStructureStatus(
+  input: { organizationId?: string | null; clientId: string },
+  db: PrismaClient = prisma
+): Promise<ClientDriveStructureResponseDto> {
+  const organizationId = assertOrganization(input.organizationId)
+  const owner = await resolveOwnerClient(db, { organizationId, clientId: input.clientId })
+  const existingFolder = await findExistingFolder(db, organizationId, owner.ownerClient.id)
+
+  return {
+    created: false,
+    folder: existingFolder ? mapDriveFolderDto(existingFolder) : null,
+    permissionSummary: existingFolder
+      ? toPermissionSummary(existingFolder.permissionSnapshot as unknown as ClientDrivePermissionSnapshot)
+      : null,
+    warnings: [],
+  }
+}
+
+export async function queueClientDriveStructureCreation(
+  input: {
+    organizationId?: string | null
+    clientId: string
+    actorStaffId?: string | null
+    payload: ClientDriveStructureCreateInput
+  },
+  db: PrismaClient = prisma
+): Promise<ClientDriveStructureResponseDto & {
+  queuedEvent: {
+    rowId: string
+    rowUpdatedAt: string
+    inputSnapshot: QueuedInputSnapshot
+  }
+}> {
+  const claim = await claimClientDriveStructureRow(input, db)
+  const rowWithNodes = await db.clientDriveFolder.findUniqueOrThrow({
+    where: { id: claim.row.id },
+    include: {
+      nodes: {
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      },
+    },
+  })
+
+  return {
+    created: claim.createdNewRow,
+    folder: mapDriveFolderDto(rowWithNodes),
+    permissionSummary: toPermissionSummary(claim.permissionSnapshot),
+    warnings: claim.permissionTargets.admins.length === 0 && !claim.permissionTargets.adminGroupEmail
+      ? ['NO_ACTIVE_ADMIN_EMAILS']
+      : [],
+    queuedEvent: {
+      rowId: claim.row.id,
+      rowUpdatedAt: claim.row.updatedAt.toISOString(),
+      inputSnapshot: toQueuedInputSnapshot(claim.inputSnapshot),
+    },
+  }
+}
+
+export async function markQueuedClientDriveStructureDispatchFailed(
+  input: { organizationId?: string | null; rowId: string; message: string },
+  db: PrismaClient = prisma
+): Promise<void> {
+  const organizationId = assertOrganization(input.organizationId)
+  await db.clientDriveFolder.updateMany({
+    where: { id: input.rowId, organizationId, status: ClientDriveFolderStatus.CREATING },
+    data: {
+      status: ClientDriveFolderStatus.FAILED,
+      lastErrorCode: 'DRIVE_STRUCTURE_IN_PROGRESS',
+      lastErrorMessage: input.message,
+    },
+  })
+}
+
+export async function createClientDriveStructure(
+  input: {
+    organizationId?: string | null
+    clientId: string
+    actorStaffId?: string | null
+    payload: ClientDriveStructureCreateInput
+  },
+  db: PrismaClient = prisma,
+  options: ClientDriveStructureClaimOptions = {}
+): Promise<ClientDriveStructureResponseDto> {
+  const {
+    organizationId,
+    owner,
+    connection,
+    row: claimedRow,
+    createdNewRow,
+    permissionTargets,
+    inputSnapshot,
+    permissionSnapshot,
+  } = await claimClientDriveStructureRow(input, db, options)
+  let row = claimedRow
+
   try {
     const drive = createGoogleDriveClientForConnection(connection)
     const currentYear = new Date().getFullYear()
@@ -877,7 +1018,7 @@ export async function createClientDriveStructure(
       clientGroupId: owner.clientGroupId,
       parentFolderId: connection.rootFolderId,
       role: CLIENT_DRIVE_FOLDER_ROLES.CLIENT_ROOT,
-      name: folderName,
+      name: inputSnapshot.folderName,
       savedFolderId: row.rootFolderId,
       savedFolderWebUrl: row.rootFolderWebUrl,
       updateData: { idKey: 'rootFolderId', urlKey: 'rootFolderWebUrl' },
@@ -1101,7 +1242,7 @@ export async function createClientDriveStructure(
   } catch (error) {
     const driveError = error instanceof GoogleDriveServiceError
       ? error
-      : new GoogleDriveServiceError('DRIVE_ROOT_INVALID')
+      : new GoogleDriveServiceError('DRIVE_ROOT_INVALID', undefined, error)
     await db.clientDriveFolder.update({
       where: { id: row.id },
       data: {
@@ -1112,6 +1253,52 @@ export async function createClientDriveStructure(
     })
     throw driveError
   }
+}
+
+export async function executeQueuedClientDriveStructureCreation(
+  input: {
+    organizationId?: string | null
+    clientId: string
+    actorStaffId?: string | null
+    payload: ClientDriveStructureCreateInput
+    rowId: string
+    rowUpdatedAt: string
+    inputSnapshot: QueuedInputSnapshot
+  },
+  db: PrismaClient = prisma
+): Promise<ClientDriveStructureResponseDto | { skipped: true; reason: string }> {
+  const organizationId = assertOrganization(input.organizationId)
+  const row = await db.clientDriveFolder.findUnique({ where: { id: input.rowId } })
+
+  if (!row || row.organizationId !== organizationId) {
+    return { skipped: true, reason: 'ROW_NOT_FOUND' }
+  }
+  if (row.status === ClientDriveFolderStatus.READY) {
+    return { skipped: true, reason: 'ALREADY_READY' }
+  }
+  if (!queuedInputSnapshotMatches(row.inputSnapshot, input.inputSnapshot)) {
+    return { skipped: true, reason: 'STALE_EVENT' }
+  }
+  if (
+    row.status === ClientDriveFolderStatus.CREATING &&
+    row.updatedAt.toISOString() !== input.rowUpdatedAt
+  ) {
+    return { skipped: true, reason: 'STALE_EVENT' }
+  }
+
+  const expectedRow = row.status === ClientDriveFolderStatus.CREATING
+    ? { id: row.id, updatedAt: row.updatedAt }
+    : undefined
+
+  return createClientDriveStructure({
+    organizationId,
+    clientId: input.clientId,
+    actorStaffId: input.actorStaffId,
+    payload: input.payload,
+  }, db, {
+    allowRecentCreating: true,
+    expectedRow,
+  })
 }
 
 export async function syncClientDriveBusinessFolders(

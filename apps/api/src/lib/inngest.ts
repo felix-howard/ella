@@ -4,6 +4,7 @@
  */
 
 import { Inngest } from 'inngest'
+import type { ClientDriveInputSnapshot, ClientDriveStructureCreateInput } from '@ella/shared'
 
 /**
  * Event payload for document upload
@@ -76,6 +77,21 @@ export type StaffMessageSentEvent = {
 }
 
 /**
+ * Event payload for asynchronous Google Drive client folder creation.
+ */
+export type ClientDriveStructureCreateEvent = {
+  data: {
+    organizationId: string
+    clientId: string
+    actorStaffId: string | null
+    payload: ClientDriveStructureCreateInput
+    rowId: string
+    rowUpdatedAt: string
+    inputSnapshot: Pick<ClientDriveInputSnapshot, 'folderName' | 'ssnLast4' | 'state' | 'entityLabel'>
+  }
+}
+
+/**
  * Event map for type-safe event handling
  */
 export type Events = {
@@ -84,6 +100,7 @@ export type Events = {
   'document/classified': DocumentClassifiedEvent
   'document/group-batch': DocumentGroupBatchEvent
   'message/staff-sent': StaffMessageSentEvent
+  'client/drive-structure.create': ClientDriveStructureCreateEvent
 }
 
 /**

@@ -234,7 +234,13 @@ describe('client Drive structure service', () => {
       clientGroup: {
         id: 'group_1',
         clients: [
-          clientRow({ id: CLIENT_ID, clientGroupId: 'group_1' }),
+          clientRow({
+            id: CLIENT_ID,
+            clientGroupId: 'group_1',
+            managers: [
+              { staffId: 'manager_1', staff: { id: 'manager_1', name: 'Manager', email: 'manager@test.com', isActive: true } },
+            ],
+          }),
           clientRow({
             id: 'business_1',
             firstName: '',

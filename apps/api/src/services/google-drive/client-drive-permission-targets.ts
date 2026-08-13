@@ -55,6 +55,7 @@ export async function resolveClientDrivePermissionTargets(
   db: PrismaClient = prisma
 ): Promise<ClientDrivePermissionTargets> {
   const adminGroupEmail = input.adminGroupEmail ? assertEmail(input.adminGroupEmail) : null
+  const accountManagerStaffIds = Array.from(new Set(input.accountManagerStaffIds))
   const [admins, accountManagers] = await Promise.all([
     db.staff.findMany({
       where: {
@@ -65,15 +66,19 @@ export async function resolveClientDrivePermissionTargets(
       select: { id: true, name: true, email: true, driveEmails: true },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
     }),
-    db.staff.findMany({
-      where: {
-        organizationId: input.organizationId,
-        isActive: true,
-        role: 'MANAGER',
-      },
-      select: { id: true, name: true, email: true, driveEmails: true },
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
-    }),
+    // Only the account managers explicitly assigned to this client get AM WORK
+    // access — scope by their staff ids, never every manager in the org.
+    accountManagerStaffIds.length > 0
+      ? db.staff.findMany({
+          where: {
+            organizationId: input.organizationId,
+            isActive: true,
+            id: { in: accountManagerStaffIds },
+          },
+          select: { id: true, name: true, email: true, driveEmails: true },
+          orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        })
+      : Promise.resolve([]),
   ])
 
   return {

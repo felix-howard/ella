@@ -744,6 +744,111 @@ describe('client Drive structure service', () => {
     })
   })
 
+  it('renames a single-business root folder to Multi when a second business is linked', async () => {
+    const year = new Date().getFullYear()
+    const owner = clientRow({
+      firstName: 'An',
+      lastName: 'Nguyen',
+      name: 'An Nguyen',
+      clientGroupId: 'group_1',
+      clientGroup: {
+        id: 'group_1',
+        clients: [
+          clientRow({
+            id: CLIENT_ID,
+            firstName: 'An',
+            lastName: 'Nguyen',
+            name: 'An Nguyen',
+            clientGroupId: 'group_1',
+          }),
+          clientRow({
+            id: 'business_1',
+            firstName: '',
+            lastName: null,
+            name: 'Alpha Media',
+            email: 'alpha@test.com',
+            clientType: 'BUSINESS',
+            clientGroupId: 'group_1',
+            businessState: 'PA',
+          }),
+          clientRow({
+            id: 'business_2',
+            firstName: '',
+            lastName: null,
+            name: 'Beta Studio',
+            email: 'beta@test.com',
+            clientType: 'BUSINESS',
+            clientGroupId: 'group_1',
+            businessState: 'PA',
+          }),
+        ],
+      },
+    })
+    const existing = folderRow({
+      clientGroupId: 'group_1',
+      folderName: 'An Nguyen 2321 - PA - Alpha Media',
+      rootFolderId: 'root_single_business',
+      rootFolderWebUrl: 'https://drive.example/root_single_business',
+      amWorkFolderId: 'am_work',
+      inputSnapshot: {
+        ownerClientId: CLIENT_ID,
+        clientGroupId: 'group_1',
+        folderName: 'An Nguyen 2321 - PA - Alpha Media',
+        clientName: 'An Nguyen',
+        ssnLast4: '2321',
+        state: 'PA',
+        entityLabel: 'Alpha Media',
+      },
+      nodes: [],
+    })
+    const db = baseDb({
+      client: { findFirst: vi.fn().mockResolvedValue(owner) },
+      clientDriveFolder: {
+        findUnique: vi.fn().mockResolvedValue(existing),
+        create: vi.fn(),
+        update: vi.fn().mockResolvedValue(existing),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn(),
+      },
+      clientDriveFolderNode: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn(),
+        update: vi.fn(),
+      },
+    })
+
+    await expect(syncClientDriveBusinessFolders({
+      organizationId: 'org_1',
+      ownerOrRequestedClientId: CLIENT_ID,
+      actorStaffId: 'staff_1',
+      businessClientIds: ['business_2'],
+    }, db)).resolves.toEqual({ synced: true, businessClientIds: ['business_2'] })
+
+    expect(driveMocks.updateGoogleDriveFolder).toHaveBeenCalledWith(expect.anything(), {
+      folderId: 'root_single_business',
+      name: 'An Nguyen 2321 - PA - Multi',
+      appProperties: expect.objectContaining({ ellaFolderRole: 'CLIENT_ROOT' }),
+    })
+    expect((db as { clientDriveFolder: { update: ReturnType<typeof vi.fn> } }).clientDriveFolder.update).toHaveBeenCalledWith({
+      where: { id: existing.id },
+      data: expect.objectContaining({
+        folderName: 'An Nguyen 2321 - PA - Multi',
+        rootFolderId: 'root_single_business',
+        rootFolderWebUrl: 'https://drive.example/root_single_business',
+        inputSnapshot: expect.objectContaining({
+          folderName: 'An Nguyen 2321 - PA - Multi',
+          entityLabel: 'Multi',
+        }),
+      }),
+    })
+    const createdNames = driveMocks.createGoogleDriveFolder.mock.calls.map((call) => call[1].name)
+    expect(createdNames).toEqual([
+      'Beta Studio',
+      `${year}-Cash plan`,
+      `${year}-Other Docs`,
+    ])
+  })
+
   it('skips business folder sync during active structure creation', async () => {
     const owner = clientRow({
       clientGroupId: 'group_1',

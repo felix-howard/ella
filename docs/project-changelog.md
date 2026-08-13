@@ -14,6 +14,7 @@
 - Per-client folder structure creation for root client folder, `AM WORK`, `OFFICE - ADMIN ONLY`, `AM WORK/SHARED TO CLIENT`, current-year shared client folders, and per-business folders.
 - Staff profile Drive email aliases for external sharing, with login-email fallback.
 - Retry-safe persistence of created Drive folder ids/web links and safe permission/input snapshots.
+- Root folder rename from single business name to `Multi` when a client gains a second business.
 - Forward reconciliation from the old admin folder name when existing structures are touched by create/retry/status-linked flows.
 
 **Permissions:**
@@ -23,7 +24,7 @@
 - Client email receives `writer` on `AM WORK/SHARED TO CLIENT`; this accepted MVP risk allows client uploads, edits, and deletes inside that shared folder.
 
 **Rollout Gate:**
-- Production rollout still requires Google OAuth setup, API env configuration, database backup/approval before migration, root-folder/admin-group test, fake-client smoke with a second linked business, and manual Drive ACL verification.
+- Production rollout still requires Google OAuth setup, API env configuration, database backup/approval before migration, root-folder/admin-group test, fake-client smoke with a second linked business, root rename verification, and manual Drive ACL verification.
 
 ---
 

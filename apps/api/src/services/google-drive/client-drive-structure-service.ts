@@ -546,6 +546,56 @@ function getBusinessFolderClients(owner: OwnerResolution): GroupClientForDrive[]
   return []
 }
 
+function readClientDriveInputSnapshot(value: unknown): Partial<ClientDriveInputSnapshot> {
+  return typeof value === 'object' && value !== null
+    ? value as Partial<ClientDriveInputSnapshot>
+    : {}
+}
+
+function getFolderNodeByRole(input: {
+  nodes?: Array<{ role: string; driveFolderId: string | null; webViewLink: string | null }>
+}, role: string) {
+  return input.nodes?.find((node) => node.role === role) ?? null
+}
+
+function getMultiBusinessRootFolderUpdate(input: {
+  owner: OwnerResolution
+  existingFolder: {
+    folderName: string
+    inputSnapshot: unknown
+  }
+}): { folderName: string; inputSnapshot: ClientDriveInputSnapshot } | null {
+  if (input.owner.businessClients.length < 2) return null
+
+  const currentSnapshot = readClientDriveInputSnapshot(input.existingFolder.inputSnapshot)
+  const ssnLast4 = typeof currentSnapshot.ssnLast4 === 'string' ? currentSnapshot.ssnLast4 : null
+  const state = typeof currentSnapshot.state === 'string' ? currentSnapshot.state : null
+  if (!ssnLast4 || !state) return null
+
+  const clientName = getClientDriveDisplayName(input.owner.ownerClient)
+  const folderName = buildClientDriveFolderName({
+    clientName,
+    ssnLast4,
+    state,
+    businessMode: 'MULTI',
+  })
+
+  if (folderName === input.existingFolder.folderName) return null
+
+  return {
+    folderName,
+    inputSnapshot: {
+      ownerClientId: input.owner.ownerClient.id,
+      clientGroupId: input.owner.clientGroupId,
+      folderName,
+      clientName,
+      ssnLast4,
+      state: normalizeClientDriveState(state),
+      entityLabel: 'Multi',
+    },
+  }
+}
+
 async function ensureDriveBusinessFolderNodes(input: {
   db: PrismaClient
   drive: Parameters<typeof findGoogleDriveFolderByAppProperties>[0]
@@ -1122,6 +1172,41 @@ export async function syncClientDriveBusinessFolders(
 
   try {
     const drive = createGoogleDriveClientForConnection(connection)
+    const rootNode = getFolderNodeByRole(existingFolder, CLIENT_DRIVE_FOLDER_ROLES.CLIENT_ROOT)
+    const rootFolderId = existingFolder.rootFolderId ?? rootNode?.driveFolderId ?? null
+    const rootFolderWebUrl = existingFolder.rootFolderWebUrl ?? rootNode?.webViewLink ?? null
+    const rootFolderUpdate = getMultiBusinessRootFolderUpdate({ owner, existingFolder })
+
+    if (rootFolderUpdate && rootFolderId) {
+      const rootFolder = await ensureDriveFolderNode({
+        db,
+        drive,
+        rowId: existingFolder.id,
+        organizationId,
+        ownerClientId: owner.ownerClient.id,
+        clientGroupId: owner.clientGroupId,
+        parentFolderId: connection.rootFolderId,
+        role: CLIENT_DRIVE_FOLDER_ROLES.CLIENT_ROOT,
+        name: rootFolderUpdate.folderName,
+        savedFolderId: rootFolderId,
+        savedFolderWebUrl: rootFolderWebUrl,
+        updateData: { idKey: 'rootFolderId', urlKey: 'rootFolderWebUrl' },
+        renameSavedFolder: true,
+      })
+      await db.clientDriveFolder.update({
+        where: { id: existingFolder.id },
+        data: {
+          folderName: rootFolderUpdate.folderName,
+          rootFolderId: rootFolder.id,
+          rootFolderWebUrl: rootFolder.webViewLink,
+          inputSnapshot: rootFolderUpdate.inputSnapshot as unknown as Prisma.InputJsonObject,
+          status: ClientDriveFolderStatus.CREATING,
+          lastErrorCode: null,
+          lastErrorMessage: null,
+        },
+      })
+    }
+
     await ensureDriveBusinessFolderNodes({
       db,
       drive,

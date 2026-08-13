@@ -22,6 +22,8 @@ import {
   isCaseFiled,
   scheduleIdentityRetentionForFiledCase,
 } from '../../services/identity-doc-retention'
+import { syncClientDriveBusinessFolders } from '../../services/google-drive/client-drive-structure-service'
+import { GoogleDriveServiceError } from '../../services/google-drive/google-drive-errors'
 
 const clientGroupsRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -79,6 +81,27 @@ function serializeGroupPhones<T extends { clients: Array<{ phone: string | null 
   return {
     ...group,
     clients: group.clients.map((cl) => ({ ...cl, phone: serializePhone(user, cl.phone) })),
+  }
+}
+
+async function syncAddedBusinessDriveFolders(input: {
+  organizationId: string
+  actorStaffId: string
+  businessClientIds: string[]
+}) {
+  const [ownerOrRequestedClientId] = input.businessClientIds
+  if (!ownerOrRequestedClientId) return
+
+  try {
+    await syncClientDriveBusinessFolders({
+      organizationId: input.organizationId,
+      ownerOrRequestedClientId,
+      actorStaffId: input.actorStaffId,
+      businessClientIds: input.businessClientIds,
+    })
+  } catch (error) {
+    if (error instanceof GoogleDriveServiceError) return
+    throw error
   }
 }
 
@@ -208,7 +231,7 @@ clientGroupsRoute.patch(
     const { id } = c.req.valid('param')
     const { name, addClientIds, removeClientIds } = c.req.valid('json')
     const user = c.get('user')
-    const { orgId } = getVerifiedAuth(user)
+    const { orgId, staffId } = getVerifiedAuth(user)
 
     // Early return if nothing to update
     if (!name && !addClientIds?.length && !removeClientIds?.length) {
@@ -225,19 +248,23 @@ clientGroupsRoute.patch(
     }
 
     // Verify added clients belong to user's org
+    let addedBusinessClientIds: string[] = []
     if (addClientIds?.length) {
       const found = await prisma.client.findMany({
         where: {
           id: { in: addClientIds },
           ...buildClientScopeFilter(user),
         },
-        select: { id: true },
+        select: { id: true, clientType: true },
       })
       if (found.length !== addClientIds.length) {
         throw new HTTPException(400, {
           message: `Some client IDs not found or not in your org. Found ${found.length} of ${addClientIds.length}`,
         })
       }
+      addedBusinessClientIds = found
+        .filter((client) => client.clientType === 'BUSINESS')
+        .map((client) => client.id)
     }
 
     const group = await prisma.$transaction(async (tx) => {
@@ -273,6 +300,12 @@ clientGroupsRoute.patch(
         where: { id },
         include: { clients: { select: clientPreviewSelect } },
       })
+    })
+
+    await syncAddedBusinessDriveFolders({
+      organizationId: orgId,
+      actorStaffId: staffId,
+      businessClientIds: addedBusinessClientIds,
     })
 
     return c.json({ success: true, data: serializeGroupPhones(user, group) })

@@ -1079,6 +1079,7 @@ describe('Team Routes', () => {
   describe('Admin edit other member profiles', () => {
     const targetStaff = {
       id: 'staff_2', name: 'Member B', email: 'b@t.com', role: 'STAFF',
+      driveEmails: [],
       avatarUrl: null, phoneNumber: '+84123456789', notifyOnUpload: false,
       notifyOnChat: false, title: null, formSlug: null, autoSendUploadLink: false,
       defaultUploadLinkTemplateId: null, deactivatedAt: null, isContractorAgent: true,
@@ -1098,6 +1099,7 @@ describe('Team Routes', () => {
       const body = await res.json()
       expect(body.canEdit).toBe(true)
       expect(body.staff.isContractorAgent).toBe(true)
+      expect(body.staff.driveEmails).toEqual([])
       expect(body.staff._count).toEqual({ managedClients: 2 })
       expect(body.managedCount).toBe(2)
       expect(body.staff.firstName).toBe('Member')
@@ -1110,6 +1112,7 @@ describe('Team Routes', () => {
           },
           select: expect.objectContaining({
             isContractorAgent: true,
+            driveEmails: true,
             _count: { select: { managedClientLinks: true } },
           }),
         })
@@ -1164,12 +1167,14 @@ describe('Team Routes', () => {
     it('PATCH profile allows admin to edit another member', async () => {
       const targetForPatch = {
         id: 'staff_2', name: 'Member B', email: 'b@t.com', role: 'STAFF',
+        driveEmails: [],
         avatarUrl: null, phoneNumber: '+84123456789', notifyOnUpload: false,
         notifyOnChat: false, title: null, clerkId: 'c2', isActive: true,
       }
       vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(targetForPatch as never)
       vi.mocked(prisma.staff.update).mockResolvedValueOnce({
         id: 'staff_2', name: 'New Name', email: 'b@t.com',
+        driveEmails: [],
         phoneNumber: '+84123456789', avatarUrl: null, notifyOnUpload: false, notifyOnChat: false, title: null,
       } as never)
       vi.mocked(clerkClient.users.updateUser).mockResolvedValueOnce({} as never)
@@ -1191,6 +1196,90 @@ describe('Team Routes', () => {
           action: 'profile.updated',
         })
       )
+    })
+
+    it('PATCH profile normalizes and de-dupes Drive emails without logging raw values', async () => {
+      const targetForPatch = {
+        id: 'staff_2', name: 'Member B', email: 'b@t.com', role: 'STAFF',
+        driveEmails: [],
+        avatarUrl: null, phoneNumber: '+84123456789', notifyOnUpload: false,
+        notifyOnChat: false, title: null, clerkId: 'c2', isActive: true,
+      }
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(targetForPatch as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({
+        id: 'staff_2', name: 'Member B', email: 'b@t.com',
+        driveEmails: ['drive@example.com', 'other@example.com'],
+        phoneNumber: '+84123456789', avatarUrl: null, notifyOnUpload: false, notifyOnChat: false, title: null,
+      } as never)
+
+      const app = createApp()
+      const res = await app.request('/team/members/staff_2/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driveEmails: [' Drive@Example.COM ', 'drive@example.com', 'OTHER@example.com'],
+        }),
+      })
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.staff.driveEmails).toEqual(['drive@example.com', 'other@example.com'])
+      expect(vi.mocked(prisma.staff.update)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            driveEmails: ['drive@example.com', 'other@example.com'],
+          }),
+        })
+      )
+      expect(logStaffActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            changedFields: ['driveEmails'],
+            driveEmailCount: 2,
+          }),
+        })
+      )
+      expect(logStaffActivity).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            driveEmails: expect.anything(),
+          }),
+        })
+      )
+      expect(logTeamAction).toHaveBeenCalledWith(
+        'PROFILE_EDITED',
+        'staff_2',
+        'staff_1',
+        expect.objectContaining({ driveEmailCount: 2 })
+      )
+    })
+
+    it('PATCH profile rejects invalid Drive emails', async () => {
+      const app = createApp()
+      const res = await app.request('/team/members/staff_2/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driveEmails: ['not-an-email'] }),
+      })
+
+      expect(res.status).toBe(400)
+      expect(vi.mocked(prisma.staff.findFirst)).not.toHaveBeenCalled()
+      expect(vi.mocked(prisma.staff.update)).not.toHaveBeenCalled()
+    })
+
+    it('PATCH profile rejects too many Drive emails', async () => {
+      const app = createApp()
+      const res = await app.request('/team/members/staff_2/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driveEmails: Array.from({ length: 21 }, (_, index) => `drive-${index}@example.com`),
+        }),
+      })
+
+      expect(res.status).toBe(400)
+      expect(vi.mocked(prisma.staff.findFirst)).not.toHaveBeenCalled()
+      expect(vi.mocked(prisma.staff.update)).not.toHaveBeenCalled()
     })
 
     it('PATCH profile returns 403 for non-admin editing another member', async () => {

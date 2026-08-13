@@ -768,7 +768,10 @@ async function claimClientDriveStructureRow(
   assertClientEmailAllowed(owner, input.payload.clientEmail)
   const permissionTargets = await resolveClientDrivePermissionTargets({
     organizationId,
-    accountManagerStaffIds: input.payload.accountManagerStaffIds ?? [],
+    // AM WORK managers come from this client's own assignment (managedBy +
+    // managers), not the request payload, so only the client's managers are
+    // granted access.
+    accountManagerStaffIds: selectedManagerIds(owner.ownerClient),
     clientEmail: input.payload.clientEmail,
     adminGroupEmail: connection.adminGroupEmail,
   }, db)

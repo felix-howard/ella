@@ -16,6 +16,7 @@ export type GoogleDriveFolderAppProperties = {
   ellaOrgId: string
   ellaOwnerClientId: string
   ellaClientGroupId?: string | null
+  ellaBusinessClientId?: string | null
   ellaFolderRole: string
 }
 
@@ -62,6 +63,9 @@ function toDriveAppProperties(properties: GoogleDriveFolderAppProperties): Recor
     ...required,
     ...(properties.ellaClientGroupId && properties.ellaClientGroupId.trim() !== ''
       ? { ellaClientGroupId: properties.ellaClientGroupId }
+      : {}),
+    ...(properties.ellaBusinessClientId && properties.ellaBusinessClientId.trim() !== ''
+      ? { ellaBusinessClientId: properties.ellaBusinessClientId }
       : {}),
   }
 }
@@ -119,6 +123,31 @@ export async function createGoogleDriveFolder(
         appProperties: toDriveAppProperties(input.appProperties),
       },
       fields: 'id,name,webViewLink',
+      supportsAllDrives: true,
+    })
+
+    return asFolderView(response.data)
+  } catch (error) {
+    throw normalizeGoogleDriveError(error, 'DRIVE_ROOT_INVALID')
+  }
+}
+
+export async function updateGoogleDriveFolder(
+  drive: GoogleDriveClient,
+  input: {
+    folderId: string
+    name?: string
+    appProperties?: GoogleDriveFolderAppProperties
+  }
+): Promise<GoogleDriveFolderView> {
+  try {
+    const response = await drive.files.update({
+      fileId: input.folderId,
+      requestBody: {
+        ...(input.name ? { name: input.name } : {}),
+        ...(input.appProperties ? { appProperties: toDriveAppProperties(input.appProperties) } : {}),
+      },
+      fields: FOLDER_FIELDS,
       supportsAllDrives: true,
     })
 

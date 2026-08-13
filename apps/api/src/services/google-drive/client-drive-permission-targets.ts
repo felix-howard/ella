@@ -23,6 +23,28 @@ function assertEmail(email: string): string {
   return normalized
 }
 
+function resolveStaffDriveEmails(staff: { email: string; driveEmails?: string[] | null }): string[] {
+  const sourceEmails = staff.driveEmails && staff.driveEmails.length > 0
+    ? staff.driveEmails
+    : [staff.email]
+  return Array.from(new Set(sourceEmails.map(assertEmail)))
+}
+
+function expandStaffDriveTargets(staffRows: Array<{
+  id: string
+  name: string
+  email: string
+  driveEmails?: string[] | null
+}>): Array<{ id: string; name: string; email: string }> {
+  return staffRows.flatMap((staff) =>
+    resolveStaffDriveEmails(staff).map((email) => ({
+      id: staff.id,
+      name: staff.name,
+      email,
+    }))
+  )
+}
+
 export async function resolveClientDrivePermissionTargets(
   input: {
     organizationId: string
@@ -32,46 +54,32 @@ export async function resolveClientDrivePermissionTargets(
   },
   db: PrismaClient = prisma
 ): Promise<ClientDrivePermissionTargets> {
-  const staffIds = Array.from(new Set(input.accountManagerStaffIds))
-  const accountManagers = staffIds.length > 0
-    ? await db.staff.findMany({
-        where: {
-          id: { in: staffIds },
-          organizationId: input.organizationId,
-          isActive: true,
-        },
-        select: { id: true, name: true, email: true },
-        orderBy: { name: 'asc' },
-      })
-    : []
-
-  if (accountManagers.length !== staffIds.length) {
-    throw new GoogleDriveServiceError('DRIVE_PERMISSION_FAILED', 'Invalid account manager target.')
-  }
-
   const adminGroupEmail = input.adminGroupEmail ? assertEmail(input.adminGroupEmail) : null
-  const admins = adminGroupEmail
-    ? []
-    : await db.staff.findMany({
-        where: {
-          organizationId: input.organizationId,
-          isActive: true,
-          role: 'ADMIN',
-        },
-        select: { id: true, name: true, email: true },
-        orderBy: [{ name: 'asc' }, { id: 'asc' }],
-      })
+  const [admins, accountManagers] = await Promise.all([
+    db.staff.findMany({
+      where: {
+        organizationId: input.organizationId,
+        isActive: true,
+        role: 'ADMIN',
+      },
+      select: { id: true, name: true, email: true, driveEmails: true },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+    }),
+    db.staff.findMany({
+      where: {
+        organizationId: input.organizationId,
+        isActive: true,
+        role: 'MANAGER',
+      },
+      select: { id: true, name: true, email: true, driveEmails: true },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+    }),
+  ])
 
   return {
-    accountManagers: accountManagers.map((staff) => ({
-      ...staff,
-      email: assertEmail(staff.email),
-    })),
+    accountManagers: expandStaffDriveTargets(accountManagers),
     adminGroupEmail,
-    admins: admins.map((staff) => ({
-      ...staff,
-      email: assertEmail(staff.email),
-    })),
+    admins: expandStaffDriveTargets(admins),
     clientEmail: assertEmail(input.clientEmail),
   }
 }

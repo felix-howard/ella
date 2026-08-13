@@ -2,6 +2,21 @@ export type GoogleDriveConnectionStatus = 'CONNECTED' | 'DISCONNECTED' | 'ERROR'
 
 export type ClientDriveFolderStatus = 'NOT_STARTED' | 'CREATING' | 'READY' | 'FAILED'
 
+export type ClientDriveFolderRole =
+  | 'CLIENT_ROOT'
+  | 'AM_WORK'
+  | 'OFFICE_ADMIN_ONLY'
+  | 'OFFICE_ADMIN_DOCS'
+  | 'OFFICE_LLC_DOCS'
+  | 'SHARED_TO_CLIENT'
+  | 'SHARED_TAX_DOCS'
+  | 'SHARED_PAYSTUBS'
+  | 'SHARED_RECEIPTS'
+  | 'SHARED_STATEMENTS'
+  | 'BUSINESS_ROOT'
+  | 'BUSINESS_CASH_PLAN'
+  | 'BUSINESS_OTHER_DOCS'
+
 export interface GoogleDriveConnectionDto {
   id: string
   organizationId: string
@@ -35,6 +50,32 @@ export interface ClientDriveInputSnapshot {
   entityLabel: string
 }
 
+export interface ClientDriveFolderNodeDto {
+  id: string
+  clientDriveFolderId: string
+  organizationId: string
+  ownerClientId: string
+  businessClientId: string | null
+  role: ClientDriveFolderRole
+  name: string
+  driveFolderId: string | null
+  webViewLink: string | null
+  parentDriveFolderId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ClientDriveBusinessFolderSummary {
+  businessClientId: string
+  businessName: string
+  folderId: string | null
+  folderWebUrl: string | null
+  cashPlanFolderId: string | null
+  cashPlanFolderWebUrl: string | null
+  otherDocsFolderId: string | null
+  otherDocsFolderWebUrl: string | null
+}
+
 export interface ClientDriveFolderDto {
   id: string
   organizationId: string
@@ -45,10 +86,12 @@ export interface ClientDriveFolderDto {
   rootFolderWebUrl: string | null
   amWorkFolderId: string | null
   amWorkFolderWebUrl: string | null
-  corpAdminFolderId: string | null
-  corpAdminFolderWebUrl: string | null
+  officeAdminFolderId: string | null
+  officeAdminFolderWebUrl: string | null
   sharedFolderId: string | null
   sharedFolderWebUrl: string | null
+  folderNodes?: ClientDriveFolderNodeDto[]
+  businessFolders?: ClientDriveBusinessFolderSummary[]
   status: ClientDriveFolderStatus
   inputSnapshot: ClientDriveInputSnapshot
   permissionSnapshot: ClientDrivePermissionSnapshot
@@ -65,6 +108,7 @@ export interface ClientDriveStaffOption {
   id: string
   name: string
   email: string
+  driveEmails: string[]
 }
 
 export interface ClientDriveStructureOptionsDto {
@@ -72,6 +116,8 @@ export interface ClientDriveStructureOptionsDto {
   clientGroupId: string | null
   clientName: string
   clientEmail: string | null
+  currentYear: number
+  businessNames: string[]
   defaultBusinessMode: ClientDriveBusinessMode
   defaultBusinessName: string | null
   defaultState: string | null
@@ -85,7 +131,7 @@ export interface ClientDriveStructureCreateInput {
   state: string
   businessMode: ClientDriveBusinessMode
   businessName?: string
-  accountManagerStaffIds: string[]
+  accountManagerStaffIds?: string[]
   clientEmail: string
   sendNotificationEmail: boolean
 }

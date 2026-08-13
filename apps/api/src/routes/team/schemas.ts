@@ -165,6 +165,23 @@ export const invitationIdParamSchema = z.object({
   invitationId: z.string().min(1),
 })
 
+const staffDriveEmailSchema = z.string().trim().email('Invalid Drive email')
+const STAFF_DRIVE_EMAIL_MAX_COUNT = 20
+
+export function normalizeStaffDriveEmails(input: string[]): string[] {
+  const seen = new Set<string>()
+  const normalized: string[] = []
+
+  for (const email of input) {
+    const value = email.trim().toLowerCase()
+    if (!value || seen.has(value)) continue
+    seen.add(value)
+    normalized.push(value)
+  }
+
+  return normalized
+}
+
 // Profile update schema - self-edit only
 export const updateProfileSchema = z.object({
   firstName: z.string().min(1).max(50).optional(),
@@ -183,6 +200,7 @@ export const updateProfileSchema = z.object({
   notifyOnAgreementSigned: z.boolean().optional(),
   notifyOnClientPayment: z.boolean().optional(),
   notifyOnPaymentFailed: z.boolean().optional(),
+  driveEmails: z.array(staffDriveEmailSchema).max(STAFF_DRIVE_EMAIL_MAX_COUNT, `At most ${STAFF_DRIVE_EMAIL_MAX_COUNT} Drive emails`).optional(),
 })
 
 // Notification subscriptions update

@@ -4486,6 +4486,7 @@ export interface StaffProfile {
   firstName: string
   lastName: string
   email: string
+  driveEmails: string[]
   role: string
   isContractorAgent: boolean
   avatarUrl: string | null
@@ -4588,6 +4589,7 @@ export interface UpdateStaffProfileInput {
   lastName?: string
   phoneNumber?: string | null
   title?: string | null
+  driveEmails?: string[]
   notifyOnUpload?: boolean
   notifyOnChat?: boolean
   /** ADMIN-only — server rejects for non-ADMIN staff */

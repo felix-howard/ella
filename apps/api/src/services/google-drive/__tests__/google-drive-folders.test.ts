@@ -7,6 +7,7 @@ import {
   createGoogleDriveFolder,
   findGoogleDriveFolderByAppProperties,
   testGoogleDriveRootFolderAccess,
+  updateGoogleDriveFolder,
 } from '../google-drive-folders'
 
 function mockDrive(files: Partial<GoogleDriveClient['files']>): GoogleDriveClient {
@@ -70,6 +71,7 @@ describe('Google Drive folder helpers', () => {
           ellaOrgId: 'org_1',
           ellaOwnerClientId: 'client_1',
           ellaClientGroupId: null,
+          ellaBusinessClientId: 'business_1',
           ellaFolderRole: 'AM_WORK',
         },
       })
@@ -87,6 +89,7 @@ describe('Google Drive folder helpers', () => {
         appProperties: {
           ellaOrgId: 'org_1',
           ellaOwnerClientId: 'client_1',
+          ellaBusinessClientId: 'business_1',
           ellaFolderRole: 'AM_WORK',
         },
       },
@@ -114,6 +117,7 @@ describe('Google Drive folder helpers', () => {
         appProperties: {
           ellaOrgId: 'org_1',
           ellaOwnerClientId: 'client_1',
+          ellaBusinessClientId: 'business_1',
           ellaFolderRole: 'CLIENT_ROOT',
         },
       })
@@ -133,7 +137,49 @@ describe('Google Drive folder helpers', () => {
     })
     expect(call?.q).toContain("'root\\'1' in parents")
     expect(call?.q).toContain("appProperties has { key='ellaOrgId' and value='org_1' }")
+    expect(call?.q).toContain("appProperties has { key='ellaBusinessClientId' and value='business_1' }")
     expect(call?.q).toContain("appProperties has { key='ellaFolderRole' and value='CLIENT_ROOT' }")
+  })
+
+  it('updates folder name and Ella appProperties without replacing parents', async () => {
+    const update = vi.fn().mockResolvedValue({
+      data: {
+        id: 'folder_1',
+        name: 'OFFICE - ADMIN ONLY',
+        webViewLink: 'https://drive.example/folder_1',
+      },
+    })
+
+    await expect(
+      updateGoogleDriveFolder(mockDrive({ update }), {
+        folderId: 'folder_1',
+        name: 'OFFICE - ADMIN ONLY',
+        appProperties: {
+          ellaOrgId: 'org_1',
+          ellaOwnerClientId: 'client_1',
+          ellaClientGroupId: null,
+          ellaFolderRole: 'OFFICE_ADMIN_ONLY',
+        },
+      })
+    ).resolves.toEqual({
+      id: 'folder_1',
+      name: 'OFFICE - ADMIN ONLY',
+      webViewLink: 'https://drive.example/folder_1',
+    })
+
+    expect(update).toHaveBeenCalledWith({
+      fileId: 'folder_1',
+      requestBody: {
+        name: 'OFFICE - ADMIN ONLY',
+        appProperties: {
+          ellaOrgId: 'org_1',
+          ellaOwnerClientId: 'client_1',
+          ellaFolderRole: 'OFFICE_ADMIN_ONLY',
+        },
+      },
+      fields: 'id,name,mimeType,webViewLink,capabilities/canAddChildren,appProperties',
+      supportsAllDrives: true,
+    })
   })
 
   it('rejects blank required appProperties before creating or searching', async () => {

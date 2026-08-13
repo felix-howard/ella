@@ -31,6 +31,34 @@ function staffRoleToAppRole(role: string): AppRole {
   return 'MEMBER'
 }
 
+const driveEmailSplitPattern = /[,;\n\r]+/
+const driveEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const staffDriveEmailMaxCount = 20
+
+export function formatStaffDriveEmailsInput(driveEmails: string[]): string {
+  return driveEmails.join('\n')
+}
+
+export function parseStaffDriveEmailsInput(input: string): { emails: string[]; invalidEmails: string[]; tooMany: boolean } {
+  const seen = new Set<string>()
+  const emails: string[] = []
+  const invalidEmails: string[] = []
+
+  for (const rawEmail of input.split(driveEmailSplitPattern)) {
+    const email = rawEmail.trim().toLowerCase()
+    if (!email) continue
+    if (!driveEmailPattern.test(email)) {
+      invalidEmails.push(rawEmail.trim())
+      continue
+    }
+    if (seen.has(email)) continue
+    seen.add(email)
+    emails.push(email)
+  }
+
+  return { emails, invalidEmails, tooMany: emails.length > staffDriveEmailMaxCount }
+}
+
 interface ProfileFormProps {
   staff: StaffProfile
   canEdit: boolean
@@ -60,11 +88,13 @@ export function ProfileForm({
   const queryClient = useQueryClient()
   const invalidateReadiness = useInvalidateNdaReadiness()
   const [isEditing, setIsEditing] = useState(false)
+  const staffDriveEmails = staff.driveEmails ?? []
 
   // Form state - only used during edit mode
   const [editFirstName, setEditFirstName] = useState(staff.firstName)
   const [editLastName, setEditLastName] = useState(staff.lastName)
   const [editTitle, setEditTitle] = useState(staff.title ?? '')
+  const [editDriveEmails, setEditDriveEmails] = useState(formatStaffDriveEmailsInput(staffDriveEmails))
   const [editPhoneNumber, setEditPhoneNumber] = useState<E164Number | undefined>(
     staff.phoneNumber as E164Number | undefined
   )
@@ -75,13 +105,16 @@ export function ProfileForm({
   // Validation errors
   const [firstNameError, setFirstNameError] = useState<string | null>(null)
   const [lastNameError, setLastNameError] = useState<string | null>(null)
+  const [driveEmailsError, setDriveEmailsError] = useState<string | null>(null)
   const [phoneError, setPhoneError] = useState<string | null>(null)
 
   const currentAppRole = staffRoleToAppRole(staff.role)
+  const savedDriveEmailsInput = formatStaffDriveEmailsInput(staffDriveEmails)
   const isProfileDirty =
     editFirstName !== staff.firstName ||
     editLastName !== staff.lastName ||
     editTitle !== (staff.title ?? '') ||
+    editDriveEmails !== savedDriveEmailsInput ||
     editPhoneNumber !== staff.phoneNumber ||
     editNotifyOnUpload !== staff.notifyOnUpload
   const isRoleDirty = editRole !== currentAppRole
@@ -103,6 +136,7 @@ export function ProfileForm({
           lastName: editLastName.trim(),
           phoneNumber: editPhoneNumber || null,
           title: editTitle.trim() || null,
+          driveEmails: parseStaffDriveEmailsInput(editDriveEmails).emails,
           notifyOnUpload: editNotifyOnUpload,
         })
         invalidateStaffProfileCaches()
@@ -158,6 +192,17 @@ export function ProfileForm({
       setPhoneError(null)
     }
 
+    const parsedDriveEmails = parseStaffDriveEmailsInput(editDriveEmails)
+    if (parsedDriveEmails.invalidEmails.length > 0) {
+      setDriveEmailsError(t('profile.driveEmailsInvalid', { emails: parsedDriveEmails.invalidEmails.join(', ') }))
+      hasError = true
+    } else if (parsedDriveEmails.tooMany) {
+      setDriveEmailsError(t('profile.driveEmailsTooMany', { max: staffDriveEmailMaxCount }))
+      hasError = true
+    } else {
+      setDriveEmailsError(null)
+    }
+
     if (hasError) return
 
     updateMutation.mutate()
@@ -167,12 +212,14 @@ export function ProfileForm({
     setEditFirstName(staff.firstName)
     setEditLastName(staff.lastName)
     setEditTitle(staff.title ?? '')
+    setEditDriveEmails(formatStaffDriveEmailsInput(staffDriveEmails))
     setEditPhoneNumber(staff.phoneNumber as E164Number | undefined)
     setEditNotifyOnUpload(staff.notifyOnUpload)
     setEditRole(staffRoleToAppRole(staff.role))
     setEditIsContractorAgent(staff.isContractorAgent)
     setFirstNameError(null)
     setLastNameError(null)
+    setDriveEmailsError(null)
     setPhoneError(null)
     setIsEditing(false)
   }
@@ -325,17 +372,56 @@ export function ProfileForm({
 
         {/* Email (read-only always) */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
+          <label htmlFor="loginEmail" className="block text-sm font-medium text-foreground mb-1.5">
             {t('profile.email')}
           </label>
           {isEditing ? (
             <Input
+              id="loginEmail"
               value={staff.email}
               readOnly
               className="cursor-not-allowed"
             />
           ) : (
             <p className="text-foreground">{staff.email}</p>
+          )}
+        </div>
+
+        {/* Drive Emails */}
+        <div>
+          <label htmlFor="driveEmails" className="block text-sm font-medium text-foreground mb-1.5">
+            {t('profile.driveEmails')}
+          </label>
+          {isEditing ? (
+            <>
+              <textarea
+                id="driveEmails"
+                value={editDriveEmails}
+                onChange={(e) => {
+                  setEditDriveEmails(e.target.value)
+                  if (driveEmailsError) setDriveEmailsError(null)
+                }}
+                rows={3}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                placeholder={t('profile.driveEmailsPlaceholder')}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t('profile.driveEmailsHelp')}
+              </p>
+              {driveEmailsError && (
+                <p className="text-sm text-destructive mt-1">{driveEmailsError}</p>
+              )}
+            </>
+          ) : staffDriveEmails.length > 0 ? (
+            <div className="space-y-1">
+              {staffDriveEmails.map((email) => (
+                <p key={email} className="text-foreground">{email}</p>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground">
+              {t('profile.driveEmailsFallback', { email: staff.email })}
+            </p>
           )}
         </div>
 

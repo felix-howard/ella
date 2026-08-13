@@ -73,6 +73,8 @@ import { clientsAgreementsStaffRoute } from './agreements-staff'
 import { clientsPaymentsStaffRoute } from './payments-staff'
 import { clientsPaidServicesRoute } from './paid-services'
 import { clientsDriveStructureRoute } from './drive-structure'
+import { syncClientDriveBusinessFolders } from '../../services/google-drive/client-drive-structure-service'
+import { GoogleDriveServiceError } from '../../services/google-drive/google-drive-errors'
 import {
   IDENTITY_RETENTION_DELETE_IN_PROGRESS_REASON,
   IDENTITY_RETENTION_POLICY,
@@ -172,6 +174,20 @@ async function logClientMutation(
     metadata: input.metadata,
     request: getAuditRequestContext(c),
   })
+}
+
+async function syncLinkedBusinessDriveFolders(input: {
+  organizationId: string
+  ownerOrRequestedClientId: string
+  actorStaffId: string
+  businessClientIds: string[]
+}) {
+  try {
+    await syncClientDriveBusinessFolders(input)
+  } catch (error) {
+    if (error instanceof GoogleDriveServiceError) return
+    throw error
+  }
 }
 
 
@@ -2448,6 +2464,13 @@ clientsRoute.post(
       if (individualCase) {
         await upgradeActivePortalLinksToGroup(individualCase.id, result.group.id)
       }
+
+      await syncLinkedBusinessDriveFolders({
+        organizationId: user.organizationId,
+        ownerOrRequestedClientId: clientId,
+        actorStaffId: user.staffId,
+        businessClientIds: [result.businessClient.id],
+      })
 
       await logClientMutation(c, user, {
         clientId,

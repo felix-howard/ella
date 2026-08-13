@@ -16,6 +16,7 @@ import {
   inviteMemberSchema,
   updateMemberRoleSchema,
   updateContractorAgentSchema,
+  normalizeStaffDriveEmails,
   updateProfileSchema,
   updateNotificationSubscriptionsSchema,
   avatarPresignedUrlSchema,
@@ -632,6 +633,7 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
       id: true,
       name: true,
       email: true,
+      driveEmails: true,
       role: true,
       isContractorAgent: true,
       avatarUrl: true,
@@ -737,7 +739,10 @@ teamRoute.patch(
       return c.json({ error: 'Can only edit your own profile' }, 403)
     }
 
-    const { firstName, lastName, phoneNumber, title, notifyOnUpload, notifyOnChat, notifyOnAgreementSigned, notifyOnClientPayment, notifyOnPaymentFailed } = c.req.valid('json')
+    const { firstName, lastName, phoneNumber, title, notifyOnUpload, notifyOnChat, notifyOnAgreementSigned, notifyOnClientPayment, notifyOnPaymentFailed, driveEmails } = c.req.valid('json')
+    const normalizedDriveEmails = driveEmails !== undefined
+      ? normalizeStaffDriveEmails(driveEmails)
+      : undefined
 
     // Verify staff exists and belongs to org
     const staff = await prisma.staff.findFirst({
@@ -782,11 +787,13 @@ teamRoute.patch(
         ...(notifyOnAgreementSigned !== undefined && { notifyOnAgreementSigned }),
         ...(notifyOnClientPayment !== undefined && { notifyOnClientPayment }),
         ...(notifyOnPaymentFailed !== undefined && { notifyOnPaymentFailed }),
+        ...(normalizedDriveEmails !== undefined && { driveEmails: normalizedDriveEmails }),
       },
       select: {
         id: true,
         name: true,
         email: true,
+        driveEmails: true,
         phoneNumber: true,
         avatarUrl: true,
         title: true,
@@ -816,6 +823,7 @@ teamRoute.patch(
       logTeamAction('PROFILE_EDITED', targetStaffId, user.staffId, {
         oldValue: { name: staff.name, phoneNumber: staff.phoneNumber, notifyOnUpload: staff.notifyOnUpload, notifyOnChat: staff.notifyOnChat, notifyOnAgreementSigned: staff.notifyOnAgreementSigned, notifyOnClientPayment: staff.notifyOnClientPayment, notifyOnPaymentFailed: staff.notifyOnPaymentFailed },
         newValue: { name, phoneNumber, notifyOnUpload, notifyOnChat, notifyOnAgreementSigned, notifyOnClientPayment, notifyOnPaymentFailed },
+        ...(normalizedDriveEmails !== undefined && { driveEmailCount: normalizedDriveEmails.length }),
       })
     }
 
@@ -839,7 +847,9 @@ teamRoute.patch(
           notifyOnAgreementSigned,
           notifyOnClientPayment,
           notifyOnPaymentFailed,
+          driveEmails: normalizedDriveEmails,
         }),
+        ...(normalizedDriveEmails !== undefined && { driveEmailCount: normalizedDriveEmails.length }),
         editedSelf: targetStaffId === user.staffId,
       },
       request: getAuditRequestContext(c),

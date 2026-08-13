@@ -3,6 +3,7 @@ import { prisma } from '../../lib/db'
 import type {
   ClientDriveBusinessMode,
   ClientDriveFolderDto,
+  ClientDriveFolderRole,
   ClientDriveInputSnapshot,
   ClientDrivePermissionSnapshot,
   ClientDriveStructureCreateInput,
@@ -13,25 +14,52 @@ import { createGoogleDriveClientForConnection } from './google-drive-client'
 import {
   createGoogleDriveFolder,
   findGoogleDriveFolderByAppProperties,
+  updateGoogleDriveFolder,
   type GoogleDriveFolderView,
 } from './google-drive-folders'
 import {
   grantGoogleDrivePermissionsSequentially,
   type GoogleDrivePermissionGrant,
 } from './google-drive-permissions'
-import { GoogleDriveServiceError } from './google-drive-errors'
+import { GoogleDriveServiceError, normalizeGoogleDriveError } from './google-drive-errors'
 import {
   buildClientDriveFolderName,
   getClientDriveDisplayName,
   normalizeClientDriveState,
 } from './client-drive-folder-name'
 import { resolveClientDrivePermissionTargets } from './client-drive-permission-targets'
+import {
+  CLIENT_DRIVE_FOLDER_NAMES,
+  CLIENT_DRIVE_FOLDER_ROLES,
+  getClientDriveBusinessCashPlanFolderName,
+  getClientDriveBusinessOtherDocsFolderName,
+  getClientDriveSharedPaystubsFolderName,
+  getClientDriveSharedReceiptsFolderName,
+  getClientDriveSharedStatementsFolderName,
+  getClientDriveSharedTaxDocsFolderName,
+} from './client-drive-folder-tree'
 
-const ROOT_ROLE = 'CLIENT_ROOT'
-const AM_WORK_ROLE = 'AM_WORK'
-const CORP_ADMIN_ROLE = 'CORP_ADMIN'
-const SHARED_TO_CLIENT_ROLE = 'SHARED_TO_CLIENT'
 const CREATING_LOCK_MS = 2 * 60 * 1000
+const CORP_ADMIN_ROLE_ALIAS = 'CORP_ADMIN'
+
+function getGoogleDriveErrorStatus(error: unknown): number | null {
+  const candidate = error as {
+    code?: unknown
+    status?: unknown
+    response?: { status?: unknown }
+    cause?: unknown
+  }
+  const status = candidate.response?.status ?? candidate.status ?? candidate.code
+  if (typeof status === 'number') return status
+  if (candidate.cause && candidate.cause !== error) {
+    return getGoogleDriveErrorStatus(candidate.cause)
+  }
+  return null
+}
+
+function isGoogleDriveNotFoundError(error: unknown): boolean {
+  return getGoogleDriveErrorStatus(error) === 404
+}
 
 type ClientForDrive = {
   id: string
@@ -87,8 +115,8 @@ function mapDriveFolderDto(row: {
   rootFolderWebUrl: string | null
   amWorkFolderId: string | null
   amWorkFolderWebUrl: string | null
-  corpAdminFolderId: string | null
-  corpAdminFolderWebUrl: string | null
+  officeAdminFolderId: string | null
+  officeAdminFolderWebUrl: string | null
   sharedFolderId: string | null
   sharedFolderWebUrl: string | null
   status: ClientDriveFolderStatus
@@ -99,7 +127,59 @@ function mapDriveFolderDto(row: {
   createdByStaffId: string | null
   createdAt: Date
   updatedAt: Date
+  nodes?: Array<{
+    id: string
+    clientDriveFolderId: string
+    organizationId: string
+    ownerClientId: string
+    businessClientId: string | null
+    role: string
+    name: string
+    driveFolderId: string | null
+    webViewLink: string | null
+    parentDriveFolderId: string | null
+    createdAt: Date
+    updatedAt: Date
+  }>
 }): ClientDriveFolderDto {
+  const folderNodes = row.nodes?.map((node) => ({
+    id: node.id,
+    clientDriveFolderId: node.clientDriveFolderId,
+    organizationId: node.organizationId,
+    ownerClientId: node.ownerClientId,
+    businessClientId: node.businessClientId,
+    role: node.role as ClientDriveFolderRole,
+    name: node.name,
+    driveFolderId: node.driveFolderId,
+    webViewLink: node.webViewLink,
+    parentDriveFolderId: node.parentDriveFolderId,
+    createdAt: node.createdAt.toISOString(),
+    updatedAt: node.updatedAt.toISOString(),
+  }))
+  const businessFolders = folderNodes
+    ?.filter((node) => node.role === CLIENT_DRIVE_FOLDER_ROLES.BUSINESS_ROOT && node.businessClientId)
+    .map((rootNode) => {
+      const cashPlanNode = folderNodes.find((node) =>
+        node.businessClientId === rootNode.businessClientId &&
+        node.role === CLIENT_DRIVE_FOLDER_ROLES.BUSINESS_CASH_PLAN
+      )
+      const otherDocsNode = folderNodes.find((node) =>
+        node.businessClientId === rootNode.businessClientId &&
+        node.role === CLIENT_DRIVE_FOLDER_ROLES.BUSINESS_OTHER_DOCS
+      )
+
+      return {
+        businessClientId: rootNode.businessClientId ?? '',
+        businessName: rootNode.name,
+        folderId: rootNode.driveFolderId,
+        folderWebUrl: rootNode.webViewLink,
+        cashPlanFolderId: cashPlanNode?.driveFolderId ?? null,
+        cashPlanFolderWebUrl: cashPlanNode?.webViewLink ?? null,
+        otherDocsFolderId: otherDocsNode?.driveFolderId ?? null,
+        otherDocsFolderWebUrl: otherDocsNode?.webViewLink ?? null,
+      }
+    })
+
   return {
     id: row.id,
     organizationId: row.organizationId,
@@ -110,10 +190,12 @@ function mapDriveFolderDto(row: {
     rootFolderWebUrl: row.rootFolderWebUrl,
     amWorkFolderId: row.amWorkFolderId,
     amWorkFolderWebUrl: row.amWorkFolderWebUrl,
-    corpAdminFolderId: row.corpAdminFolderId,
-    corpAdminFolderWebUrl: row.corpAdminFolderWebUrl,
+    officeAdminFolderId: row.officeAdminFolderId,
+    officeAdminFolderWebUrl: row.officeAdminFolderWebUrl,
     sharedFolderId: row.sharedFolderId,
     sharedFolderWebUrl: row.sharedFolderWebUrl,
+    ...(folderNodes ? { folderNodes } : {}),
+    ...(businessFolders ? { businessFolders } : {}),
     status: row.status,
     inputSnapshot: row.inputSnapshot as ClientDriveInputSnapshot,
     permissionSnapshot: row.permissionSnapshot as ClientDrivePermissionSnapshot,
@@ -235,6 +317,11 @@ async function findExistingFolder(
     where: {
       ownerClientId_organizationId: { ownerClientId, organizationId },
     },
+    include: {
+      nodes: {
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      },
+    },
   })
 }
 
@@ -250,70 +337,264 @@ function isUniqueConstraintError(error: unknown): boolean {
     (error as { code?: unknown }).code === 'P2002'
 }
 
+async function heartbeatDriveFolderRow(db: PrismaClient, rowId: string): Promise<void> {
+  await db.clientDriveFolder.update({
+    where: { id: rowId },
+    data: {
+      status: ClientDriveFolderStatus.CREATING,
+      lastErrorCode: null,
+      lastErrorMessage: null,
+    },
+  })
+}
+
 function appProperties(input: {
   organizationId: string
   ownerClientId: string
   clientGroupId: string | null
   role: string
+  businessClientId?: string | null
 }) {
   return {
     ellaOrgId: input.organizationId,
     ellaOwnerClientId: input.ownerClientId,
     ellaClientGroupId: input.clientGroupId,
+    ellaBusinessClientId: input.businessClientId,
     ellaFolderRole: input.role,
   }
 }
 
-async function ensureFolder(input: {
+async function persistDriveFolderNode(input: {
+  db: PrismaClient
+  rowId: string
+  organizationId: string
+  ownerClientId: string
+  businessClientId: string | null
+  role: string
+  name: string
+  parentFolderId: string
+  folder: GoogleDriveFolderView
+}) {
+  await heartbeatDriveFolderRow(input.db, input.rowId)
+  const existingNode = await input.db.clientDriveFolderNode.findFirst({
+    where: {
+      clientDriveFolderId: input.rowId,
+      role: input.role,
+      businessClientId: input.businessClientId,
+    },
+  })
+  const data = {
+    organizationId: input.organizationId,
+    ownerClientId: input.ownerClientId,
+    businessClientId: input.businessClientId,
+    role: input.role,
+    name: input.name,
+    driveFolderId: input.folder.id,
+    webViewLink: input.folder.webViewLink,
+    parentDriveFolderId: input.parentFolderId,
+  }
+
+  if (existingNode) {
+    await input.db.clientDriveFolderNode.update({
+      where: { id: existingNode.id },
+      data,
+    })
+    return
+  }
+
+  await input.db.clientDriveFolderNode.create({
+    data: {
+      clientDriveFolderId: input.rowId,
+      ...data,
+    },
+  })
+}
+
+async function ensureDriveFolderNode(input: {
   db: PrismaClient
   drive: Parameters<typeof findGoogleDriveFolderByAppProperties>[0]
   rowId: string
   organizationId: string
   ownerClientId: string
   clientGroupId: string | null
+  businessClientId?: string | null
   parentFolderId: string
   role: string
+  roleAliases?: string[]
   name: string
-  savedFolderId: string | null
-  savedFolderWebUrl: string | null
-  updateData: { idKey: string; urlKey: string }
+  savedFolderId?: string | null
+  savedFolderWebUrl?: string | null
+  updateData?: { idKey: string; urlKey: string }
+  renameSavedFolder?: boolean
 }): Promise<GoogleDriveFolderView> {
-  if (input.savedFolderId) {
-    return {
-      id: input.savedFolderId,
-      name: input.name,
-      webViewLink: input.savedFolderWebUrl,
-    }
-  }
+  const businessClientId = input.businessClientId ?? null
+  const node = await input.db.clientDriveFolderNode.findFirst({
+    where: {
+      clientDriveFolderId: input.rowId,
+      role: input.role,
+      businessClientId,
+    },
+  })
 
+  let folder: GoogleDriveFolderView | null = null
+  let savedFolderUpdateError: unknown = null
   const properties = appProperties({
     organizationId: input.organizationId,
     ownerClientId: input.ownerClientId,
     clientGroupId: input.clientGroupId,
+    businessClientId,
     role: input.role,
   })
-  const existing = await findGoogleDriveFolderByAppProperties(input.drive, {
-    parentFolderId: input.parentFolderId,
-    appProperties: properties,
-  })
-  const folder = existing ?? await createGoogleDriveFolder(input.drive, {
+
+  if (node?.driveFolderId) {
+    folder = {
+      id: node.driveFolderId,
+      name: node.name,
+      webViewLink: node.webViewLink,
+    }
+  } else if (input.savedFolderId) {
+    folder = {
+      id: input.savedFolderId,
+      name: input.name,
+      webViewLink: input.savedFolderWebUrl ?? null,
+    }
+  }
+
+  if (folder && input.renameSavedFolder) {
+    try {
+      await heartbeatDriveFolderRow(input.db, input.rowId)
+      folder = await updateGoogleDriveFolder(input.drive, {
+        folderId: folder.id,
+        name: input.name,
+        appProperties: properties,
+      })
+    } catch (error) {
+      savedFolderUpdateError = isGoogleDriveNotFoundError(error) ? null : error
+      folder = null
+    }
+  }
+
+  const rolesToSearch = [input.role, ...(input.roleAliases ?? [])]
+  for (const role of rolesToSearch) {
+    if (folder) break
+    await heartbeatDriveFolderRow(input.db, input.rowId)
+    const existing = await findGoogleDriveFolderByAppProperties(input.drive, {
+      parentFolderId: input.parentFolderId,
+      appProperties: appProperties({
+        organizationId: input.organizationId,
+        ownerClientId: input.ownerClientId,
+        clientGroupId: input.clientGroupId,
+        businessClientId,
+        role,
+      }),
+    })
+    if (existing && role !== input.role) {
+      folder = await updateGoogleDriveFolder(input.drive, {
+        folderId: existing.id,
+        name: input.name,
+        appProperties: properties,
+      })
+    } else {
+      folder = existing
+    }
+  }
+
+  if (!folder && savedFolderUpdateError) {
+    throw savedFolderUpdateError
+  }
+
+  await heartbeatDriveFolderRow(input.db, input.rowId)
+  folder ??= await createGoogleDriveFolder(input.drive, {
     parentFolderId: input.parentFolderId,
     name: input.name,
     appProperties: properties,
   })
 
-  await input.db.clientDriveFolder.update({
-    where: { id: input.rowId },
-    data: {
-      [input.updateData.idKey]: folder.id,
-      [input.updateData.urlKey]: folder.webViewLink,
-      status: ClientDriveFolderStatus.CREATING,
-      lastErrorCode: null,
-      lastErrorMessage: null,
-    },
+  await persistDriveFolderNode({
+    db: input.db,
+    rowId: input.rowId,
+    organizationId: input.organizationId,
+    ownerClientId: input.ownerClientId,
+    businessClientId,
+    role: input.role,
+    name: input.name,
+    parentFolderId: input.parentFolderId,
+    folder,
   })
 
+  if (input.updateData) {
+    await input.db.clientDriveFolder.update({
+      where: { id: input.rowId },
+      data: {
+        [input.updateData.idKey]: folder.id,
+        [input.updateData.urlKey]: folder.webViewLink,
+        status: ClientDriveFolderStatus.CREATING,
+        lastErrorCode: null,
+        lastErrorMessage: null,
+      },
+    })
+  }
+
   return folder
+}
+
+function getBusinessFolderClients(owner: OwnerResolution): GroupClientForDrive[] {
+  if (owner.businessClients.length > 0) return owner.businessClients
+  if (!owner.clientGroupId && owner.requestedClient.clientType === 'BUSINESS') {
+    return [owner.requestedClient as GroupClientForDrive]
+  }
+  return []
+}
+
+async function ensureDriveBusinessFolderNodes(input: {
+  db: PrismaClient
+  drive: Parameters<typeof findGoogleDriveFolderByAppProperties>[0]
+  rowId: string
+  organizationId: string
+  ownerClientId: string
+  clientGroupId: string | null
+  amWorkFolderId: string
+  businessClients: GroupClientForDrive[]
+  currentYear: number
+}) {
+  for (const business of input.businessClients) {
+    const businessFolder = await ensureDriveFolderNode({
+      db: input.db,
+      drive: input.drive,
+      rowId: input.rowId,
+      organizationId: input.organizationId,
+      ownerClientId: input.ownerClientId,
+      clientGroupId: input.clientGroupId,
+      businessClientId: business.id,
+      parentFolderId: input.amWorkFolderId,
+      role: CLIENT_DRIVE_FOLDER_ROLES.BUSINESS_ROOT,
+      name: getClientDriveDisplayName(business),
+    })
+    await ensureDriveFolderNode({
+      db: input.db,
+      drive: input.drive,
+      rowId: input.rowId,
+      organizationId: input.organizationId,
+      ownerClientId: input.ownerClientId,
+      clientGroupId: input.clientGroupId,
+      businessClientId: business.id,
+      parentFolderId: businessFolder.id,
+      role: CLIENT_DRIVE_FOLDER_ROLES.BUSINESS_CASH_PLAN,
+      name: getClientDriveBusinessCashPlanFolderName(input.currentYear),
+    })
+    await ensureDriveFolderNode({
+      db: input.db,
+      drive: input.drive,
+      rowId: input.rowId,
+      organizationId: input.organizationId,
+      ownerClientId: input.ownerClientId,
+      clientGroupId: input.clientGroupId,
+      businessClientId: business.id,
+      parentFolderId: businessFolder.id,
+      role: CLIENT_DRIVE_FOLDER_ROLES.BUSINESS_OTHER_DOCS,
+      name: getClientDriveBusinessOtherDocsFolderName(input.currentYear),
+    })
+  }
 }
 
 function getAllowedClientEmails(owner: OwnerResolution): Set<string> {
@@ -366,7 +647,7 @@ export async function getClientDriveStructureOptions(
   const staffOptions = await db.staff.findMany({
     where: { organizationId, isActive: true },
     orderBy: { name: 'asc' },
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, email: true, driveEmails: true },
   })
 
   return {
@@ -374,6 +655,8 @@ export async function getClientDriveStructureOptions(
     clientGroupId: owner.clientGroupId,
     clientName: getClientDriveDisplayName(owner.ownerClient),
     clientEmail: owner.ownerClient.email ?? owner.requestedClient.email,
+    currentYear: new Date().getFullYear(),
+    businessNames: getBusinessFolderClients(owner).map(getClientDriveDisplayName),
     defaultBusinessMode: mode,
     defaultBusinessName: defaultBusinessName(mode, owner, owner.businessClients),
     defaultState: owner.requestedClient.businessState ?? owner.businessClients[0]?.businessState ?? null,
@@ -419,14 +702,7 @@ export async function createClientDriveStructure(
   }
 
   const readyFolder = await findExistingFolder(db, organizationId, owner.ownerClient.id)
-  if (readyFolder?.status === ClientDriveFolderStatus.READY) {
-    return {
-      created: false,
-      folder: mapDriveFolderDto(readyFolder),
-      permissionSummary: toPermissionSummary(readyFolder.permissionSnapshot as unknown as ClientDrivePermissionSnapshot),
-      warnings: [],
-    }
-  }
+  const createdNewRow = !readyFolder
 
   const folderName = buildClientDriveFolderName({
     clientName: getClientDriveDisplayName(owner.ownerClient),
@@ -438,7 +714,7 @@ export async function createClientDriveStructure(
   assertClientEmailAllowed(owner, input.payload.clientEmail)
   const permissionTargets = await resolveClientDrivePermissionTargets({
     organizationId,
-    accountManagerStaffIds: input.payload.accountManagerStaffIds,
+    accountManagerStaffIds: input.payload.accountManagerStaffIds ?? [],
     clientEmail: input.payload.clientEmail,
     adminGroupEmail: connection.adminGroupEmail,
   }, db)
@@ -541,7 +817,8 @@ export async function createClientDriveStructure(
 
   try {
     const drive = createGoogleDriveClientForConnection(connection)
-    const rootFolder = await ensureFolder({
+    const currentYear = new Date().getFullYear()
+    const rootFolder = await ensureDriveFolderNode({
       db,
       drive,
       rowId: row.id,
@@ -549,7 +826,7 @@ export async function createClientDriveStructure(
       ownerClientId: owner.ownerClient.id,
       clientGroupId: owner.clientGroupId,
       parentFolderId: connection.rootFolderId,
-      role: ROOT_ROLE,
+      role: CLIENT_DRIVE_FOLDER_ROLES.CLIENT_ROOT,
       name: folderName,
       savedFolderId: row.rootFolderId,
       savedFolderWebUrl: row.rootFolderWebUrl,
@@ -557,7 +834,7 @@ export async function createClientDriveStructure(
     })
 
     row = await db.clientDriveFolder.findUniqueOrThrow({ where: { id: row.id } })
-    const amWorkFolder = await ensureFolder({
+    const amWorkFolder = await ensureDriveFolderNode({
       db,
       drive,
       rowId: row.id,
@@ -565,15 +842,15 @@ export async function createClientDriveStructure(
       ownerClientId: owner.ownerClient.id,
       clientGroupId: owner.clientGroupId,
       parentFolderId: rootFolder.id,
-      role: AM_WORK_ROLE,
-      name: 'AM WORK',
+      role: CLIENT_DRIVE_FOLDER_ROLES.AM_WORK,
+      name: CLIENT_DRIVE_FOLDER_NAMES.AM_WORK,
       savedFolderId: row.amWorkFolderId,
       savedFolderWebUrl: row.amWorkFolderWebUrl,
       updateData: { idKey: 'amWorkFolderId', urlKey: 'amWorkFolderWebUrl' },
     })
 
     row = await db.clientDriveFolder.findUniqueOrThrow({ where: { id: row.id } })
-    const corpAdminFolder = await ensureFolder({
+    const officeAdminFolder = await ensureDriveFolderNode({
       db,
       drive,
       rowId: row.id,
@@ -581,15 +858,17 @@ export async function createClientDriveStructure(
       ownerClientId: owner.ownerClient.id,
       clientGroupId: owner.clientGroupId,
       parentFolderId: rootFolder.id,
-      role: CORP_ADMIN_ROLE,
-      name: 'CORP ADMIN',
-      savedFolderId: row.corpAdminFolderId,
-      savedFolderWebUrl: row.corpAdminFolderWebUrl,
-      updateData: { idKey: 'corpAdminFolderId', urlKey: 'corpAdminFolderWebUrl' },
+      role: CLIENT_DRIVE_FOLDER_ROLES.OFFICE_ADMIN_ONLY,
+      roleAliases: [CORP_ADMIN_ROLE_ALIAS],
+      name: CLIENT_DRIVE_FOLDER_NAMES.OFFICE_ADMIN_ONLY,
+      savedFolderId: row.officeAdminFolderId,
+      savedFolderWebUrl: row.officeAdminFolderWebUrl,
+      updateData: { idKey: 'officeAdminFolderId', urlKey: 'officeAdminFolderWebUrl' },
+      renameSavedFolder: true,
     })
 
     row = await db.clientDriveFolder.findUniqueOrThrow({ where: { id: row.id } })
-    const sharedFolder = await ensureFolder({
+    const sharedFolder = await ensureDriveFolderNode({
       db,
       drive,
       rowId: row.id,
@@ -597,14 +876,100 @@ export async function createClientDriveStructure(
       ownerClientId: owner.ownerClient.id,
       clientGroupId: owner.clientGroupId,
       parentFolderId: amWorkFolder.id,
-      role: SHARED_TO_CLIENT_ROLE,
-      name: 'SHARED TO CLIENT',
+      role: CLIENT_DRIVE_FOLDER_ROLES.SHARED_TO_CLIENT,
+      name: CLIENT_DRIVE_FOLDER_NAMES.SHARED_TO_CLIENT,
       savedFolderId: row.sharedFolderId,
       savedFolderWebUrl: row.sharedFolderWebUrl,
       updateData: { idKey: 'sharedFolderId', urlKey: 'sharedFolderWebUrl' },
     })
 
+    await ensureDriveFolderNode({
+      db,
+      drive,
+      rowId: row.id,
+      organizationId,
+      ownerClientId: owner.ownerClient.id,
+      clientGroupId: owner.clientGroupId,
+      parentFolderId: officeAdminFolder.id,
+      role: CLIENT_DRIVE_FOLDER_ROLES.OFFICE_ADMIN_DOCS,
+      name: CLIENT_DRIVE_FOLDER_NAMES.OFFICE_ADMIN_DOCS,
+    })
+    await ensureDriveFolderNode({
+      db,
+      drive,
+      rowId: row.id,
+      organizationId,
+      ownerClientId: owner.ownerClient.id,
+      clientGroupId: owner.clientGroupId,
+      parentFolderId: officeAdminFolder.id,
+      role: CLIENT_DRIVE_FOLDER_ROLES.OFFICE_LLC_DOCS,
+      name: CLIENT_DRIVE_FOLDER_NAMES.OFFICE_LLC_DOCS,
+    })
+
+    const sharedYearFolders = [
+      {
+        role: CLIENT_DRIVE_FOLDER_ROLES.SHARED_TAX_DOCS,
+        name: getClientDriveSharedTaxDocsFolderName(currentYear),
+      },
+      {
+        role: CLIENT_DRIVE_FOLDER_ROLES.SHARED_PAYSTUBS,
+        name: getClientDriveSharedPaystubsFolderName(currentYear),
+      },
+      {
+        role: CLIENT_DRIVE_FOLDER_ROLES.SHARED_RECEIPTS,
+        name: getClientDriveSharedReceiptsFolderName(currentYear),
+      },
+      {
+        role: CLIENT_DRIVE_FOLDER_ROLES.SHARED_STATEMENTS,
+        name: getClientDriveSharedStatementsFolderName(currentYear),
+      },
+    ]
+
+    for (const folder of sharedYearFolders) {
+      await ensureDriveFolderNode({
+        db,
+        drive,
+        rowId: row.id,
+        organizationId,
+        ownerClientId: owner.ownerClient.id,
+        clientGroupId: owner.clientGroupId,
+        parentFolderId: sharedFolder.id,
+        role: folder.role,
+        name: folder.name,
+      })
+    }
+
+    const latestOwner = await resolveOwnerClient(db, {
+      organizationId,
+      clientId: input.clientId,
+    })
+    if (latestOwner.clientGroupId !== row.clientGroupId) {
+      await db.clientDriveFolder.update({
+        where: { id: row.id },
+        data: { clientGroupId: latestOwner.clientGroupId },
+      })
+    }
+
+    await ensureDriveBusinessFolderNodes({
+      db,
+      drive,
+      rowId: row.id,
+      organizationId,
+      ownerClientId: latestOwner.ownerClient.id,
+      clientGroupId: latestOwner.clientGroupId,
+      amWorkFolderId: amWorkFolder.id,
+      businessClients: getBusinessFolderClients(latestOwner),
+      currentYear,
+    })
+
     const grants: GoogleDrivePermissionGrant[] = [
+      ...permissionTargets.admins.map((admin) => ({
+        folderId: amWorkFolder.id,
+        email: admin.email,
+        role: 'writer' as const,
+        type: 'user' as const,
+        sendNotificationEmail: input.payload.sendNotificationEmail,
+      })),
       ...permissionTargets.accountManagers.map((staff) => ({
         folderId: amWorkFolder.id,
         email: staff.email,
@@ -614,19 +979,20 @@ export async function createClientDriveStructure(
       })),
       ...(permissionTargets.adminGroupEmail
         ? [{
-            folderId: corpAdminFolder.id,
+            folderId: officeAdminFolder.id,
             email: permissionTargets.adminGroupEmail,
             role: 'writer' as const,
             type: 'group' as const,
             sendNotificationEmail: input.payload.sendNotificationEmail,
           }]
-        : permissionTargets.admins.map((admin) => ({
-            folderId: corpAdminFolder.id,
+        : []),
+      ...permissionTargets.admins.map((admin) => ({
+            folderId: officeAdminFolder.id,
             email: admin.email,
             role: 'writer' as const,
             type: 'user' as const,
             sendNotificationEmail: input.payload.sendNotificationEmail,
-          }))),
+          })),
       {
         folderId: sharedFolder.id,
         email: permissionTargets.clientEmail,
@@ -653,7 +1019,7 @@ export async function createClientDriveStructure(
       })
     }
 
-    const updated = await db.clientDriveFolder.update({
+    await db.clientDriveFolder.update({
       where: { id: row.id },
       data: {
         status: ClientDriveFolderStatus.READY,
@@ -665,9 +1031,17 @@ export async function createClientDriveStructure(
         lastErrorMessage: null,
       },
     })
+    const updated = await db.clientDriveFolder.findUniqueOrThrow({
+      where: { id: row.id },
+      include: {
+        nodes: {
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        },
+      },
+    })
 
     return {
-      created: true,
+      created: createdNewRow,
       folder: mapDriveFolderDto(updated),
       permissionSummary: toPermissionSummary(permissionSnapshot),
       warnings: permissionTargets.admins.length === 0 && !permissionTargets.adminGroupEmail
@@ -680,6 +1054,98 @@ export async function createClientDriveStructure(
       : new GoogleDriveServiceError('DRIVE_ROOT_INVALID')
     await db.clientDriveFolder.update({
       where: { id: row.id },
+      data: {
+        status: ClientDriveFolderStatus.FAILED,
+        lastErrorCode: driveError.code,
+        lastErrorMessage: driveError.message,
+      },
+    })
+    throw driveError
+  }
+}
+
+export async function syncClientDriveBusinessFolders(
+  input: {
+    organizationId?: string | null
+    ownerOrRequestedClientId: string
+    actorStaffId?: string | null
+    businessClientIds?: string[]
+  },
+  db: PrismaClient = prisma
+): Promise<{ synced: boolean; businessClientIds: string[] }> {
+  const organizationId = assertOrganization(input.organizationId)
+  const owner = await resolveOwnerClient(db, {
+    organizationId,
+    clientId: input.ownerOrRequestedClientId,
+  })
+  const connection = await db.googleDriveConnection.findUnique({ where: { organizationId } })
+  if (!connection || connection.status !== 'CONNECTED') {
+    return { synced: false, businessClientIds: [] }
+  }
+
+  const existingFolder = await findExistingFolder(db, organizationId, owner.ownerClient.id)
+  if (!existingFolder) {
+    return { synced: false, businessClientIds: [] }
+  }
+
+  const requestedBusinessIds = new Set(input.businessClientIds ?? [])
+  const businessClients = getBusinessFolderClients(owner).filter((business) =>
+    requestedBusinessIds.size === 0 || requestedBusinessIds.has(business.id)
+  )
+  const amWorkFolderId = existingFolder.amWorkFolderId ??
+    existingFolder.nodes?.find((node) => node.role === CLIENT_DRIVE_FOLDER_ROLES.AM_WORK)?.driveFolderId ??
+    null
+  if (!amWorkFolderId || businessClients.length === 0) {
+    return { synced: false, businessClientIds: [] }
+  }
+  if (isRecentCreating(existingFolder)) {
+    return { synced: false, businessClientIds: [] }
+  }
+
+  const claim = await db.clientDriveFolder.updateMany({
+    where: {
+      id: existingFolder.id,
+      status: existingFolder.status,
+      updatedAt: existingFolder.updatedAt,
+    },
+    data: {
+      clientGroupId: owner.clientGroupId,
+      status: ClientDriveFolderStatus.CREATING,
+      lastErrorCode: null,
+      lastErrorMessage: null,
+      createdByStaffId: input.actorStaffId ?? existingFolder.createdByStaffId ?? null,
+    },
+  })
+  if (claim.count !== 1) {
+    return { synced: false, businessClientIds: [] }
+  }
+
+  try {
+    const drive = createGoogleDriveClientForConnection(connection)
+    await ensureDriveBusinessFolderNodes({
+      db,
+      drive,
+      rowId: existingFolder.id,
+      organizationId,
+      ownerClientId: owner.ownerClient.id,
+      clientGroupId: owner.clientGroupId,
+      amWorkFolderId,
+      businessClients,
+      currentYear: new Date().getFullYear(),
+    })
+    await db.clientDriveFolder.update({
+      where: { id: existingFolder.id },
+      data: {
+        status: ClientDriveFolderStatus.READY,
+        lastErrorCode: null,
+        lastErrorMessage: null,
+      },
+    })
+    return { synced: true, businessClientIds: businessClients.map((business) => business.id) }
+  } catch (error) {
+    const driveError = normalizeGoogleDriveError(error, 'DRIVE_ROOT_INVALID')
+    await db.clientDriveFolder.update({
+      where: { id: existingFolder.id },
       data: {
         status: ClientDriveFolderStatus.FAILED,
         lastErrorCode: driveError.code,

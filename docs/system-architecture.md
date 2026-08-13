@@ -173,10 +173,11 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /integrations/google-drive/status` reports API credential readiness and the org connection. Non-admins only see safe connection state.
 - `POST /integrations/google-drive/oauth-url`, `GET /integrations/google-drive/callback`, and `PATCH /integrations/google-drive/settings` are admin-owned connection/configuration routes.
 - `GET /clients/:id/drive-structure`, `GET /clients/:id/drive-structure/options`, and `POST /clients/:id/drive-structure` are org/client-scoped admin-or-manager routes for creating one Drive folder structure per owner client/group.
-- Folder creation uses Google Drive app properties and persisted folder ids for retry-safe idempotency. Permission grants are sequential per folder because Google Drive does not support concurrent permission operations on the same file.
-- Permissions model: selected account-manager staff receive `writer` on `AM WORK`; active admins and optional admin Google Group receive `writer` on `CORP ADMIN`; the selected client email receives `writer` on `AM WORK/SHARED TO CLIENT`. Client `writer` access is an accepted MVP risk and allows uploads, edits, and deletes inside that shared folder.
+- Folder creation uses Google Drive app properties and persisted folder ids for retry-safe idempotency. It creates current-year shared client folders and one folder per linked business. Existing structures using the old admin folder name reconcile forward through create/retry/status-linked flows when possible.
+- Permission grants are sequential per folder because Google Drive does not support concurrent permission operations on the same file.
+- Permissions model: active admins receive `writer` on `OFFICE - ADMIN ONLY`; active admins and managers receive `writer` on `AM WORK`; staff sharing targets use profile Drive email aliases with login-email fallback; optional admin Google Group access remains available; the selected client email receives `writer` on `AM WORK/SHARED TO CLIENT`. Client `writer` access is an accepted MVP risk and allows uploads, edits, and deletes inside that shared folder.
 - Config lives in the API process env: `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`, `GOOGLE_DRIVE_REDIRECT_URI`, `GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY`, and optional `GOOGLE_DRIVE_SCOPES`. Local API dev loads `apps/api/.env`.
-- Rollout requires OAuth client setup, redirect URI registration, database backup/approval before migration, root-folder/admin-group test, one fake-client smoke folder, and manual Drive ACL verification. After migration, roll forward with corrective app code or a new migration; do not edit applied migrations.
+- Rollout requires OAuth client setup, redirect URI registration, database backup/approval before migration, root-folder/admin-group test, one fake-client smoke folder, adding a second linked business to verify retry/business-folder sync, and manual Drive ACL verification. After migration, roll forward with corrective app code or a new migration; do not edit applied migrations.
 
 **Contractor Agent Agreements (Staff Compliance):**
 - `PATCH /team/members/:staffId/contractor-agent` - Admin-only toggle for `Staff.isContractorAgent`.
@@ -186,7 +187,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /contractor-agreements/download/:acceptanceId` - Owner/admin scoped signed PDF download URL.
 - Template asset: `apps/api/src/assets/agreements/independent-contractor-obamacare-2026-05-15.pdf`; API build copies assets into `dist/assets` and fails if the template is missing.
 - Storage keys: `contractor-agreements/{orgId}/{staffId}/{version}/{uuid}.pdf`; unique DB acceptance on `[staffId, version]` makes duplicate signing idempotent.
-- Firm signer lookup prefers `kaytax76@gmail.com` with a stored signature, then falls back to the first active admin with a stored signature. Production rollout must verify the exact signer account/title/signature before contractor staff sign.
+- Firm signer lookup prefers the configured firm signer account with a stored signature, then falls back to the first active admin with a stored signature. Production rollout must verify the exact signer account/title/signature before contractor staff sign.
 - Data model: `Staff.isContractorAgent` gates the workspace compliance flow; `ContractorAgreementAcceptance` stores the signed PDF, source template, SHA-256, signer snapshots, IP/User-Agent, and firm signer snapshot.
 
 **Billing (Stripe Checkout with Calculator + Custom Quote Sources):**
@@ -546,7 +547,7 @@ Organization (root entity)
 - **ClientManager** - tenant-scoped canonical join row between Client and Staff. Backfilled from legacy managedById, unique on `[clientId, staffId]`, with org-scoped guards and tenant-scoped foreign keys.
 - **ClientGroup** - organizationId FK (optional, org-scoped grouping), name (group name), clients array relation. Phase 01 Entity Separation: new entity enables flexible grouping of related clients (e.g., family businesses, partnerships, multi-entity tax arrangements). Indexed on organizationId for fast group lookups.
 - **GoogleDriveConnection** - one org-level Drive connection. Stores root folder metadata, optional admin group email, connected Google account email, encrypted refresh token, connection status, and last-check timestamps. Token encryption depends on the API `GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY`.
-- **ClientDriveFolder** - one Drive folder structure per owner client and organization. Stores root, `AM WORK`, `CORP ADMIN`, and `SHARED TO CLIENT` folder ids/web links plus input and permission snapshots for idempotent retry and audit-safe display.
+- **ClientDriveFolder** - one Drive folder structure per owner client and organization. Stores top-level folder ids plus input and permission snapshots for idempotent retry and audit-safe display; per-business folders live in `ClientDriveFolderNode`.
 - **Business** - REMOVED in Phase 15. Business model deleted from schema. All business information now stored directly on Client(clientType=BUSINESS) records.
 - **TaxCase** - Year-specific tax case, engagementId FK
 - **TaxEngagement** - Year-specific engagement (copy-from support)

@@ -5,6 +5,7 @@ export type GoogleDriveErrorCode =
   | 'DRIVE_RATE_LIMITED'
   | 'DRIVE_AUTH_EXPIRED'
   | 'DRIVE_STRUCTURE_IN_PROGRESS'
+  | 'DRIVE_QUEUE_FAILED'
 
 const PUBLIC_MESSAGES: Record<GoogleDriveErrorCode, string> = {
   DRIVE_NOT_CONNECTED: 'Google Drive is not connected.',
@@ -13,6 +14,7 @@ const PUBLIC_MESSAGES: Record<GoogleDriveErrorCode, string> = {
   DRIVE_RATE_LIMITED: 'Google Drive rate limit exceeded. Try again later.',
   DRIVE_AUTH_EXPIRED: 'Google Drive authorization expired. Reconnect Drive.',
   DRIVE_STRUCTURE_IN_PROGRESS: 'Google Drive folder structure creation is already in progress.',
+  DRIVE_QUEUE_FAILED: 'Could not queue Google Drive folder creation. Try again later.',
 }
 
 export class GoogleDriveServiceError extends Error {

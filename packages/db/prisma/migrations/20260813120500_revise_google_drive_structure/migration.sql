@@ -45,7 +45,7 @@ CREATE INDEX "ClientDriveFolderNode_driveFolderId_idx"
 CREATE UNIQUE INDEX "ClientDriveFolder_id_organizationId_key"
   ON "ClientDriveFolder"("id", "organizationId");
 
-ALTER TABLE "ClientDriveFolderNode" ADD CONSTRAINT "ClientDriveFolderNode_clientDriveFolderId_fkey"
+ALTER TABLE "ClientDriveFolderNode" ADD CONSTRAINT "ClientDriveFolderNode_clientDriveFolderId_organizationId_fkey"
   FOREIGN KEY ("clientDriveFolderId", "organizationId") REFERENCES "ClientDriveFolder"("id", "organizationId") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "ClientDriveFolderNode" ADD CONSTRAINT "ClientDriveFolderNode_organizationId_fkey"
@@ -54,5 +54,5 @@ ALTER TABLE "ClientDriveFolderNode" ADD CONSTRAINT "ClientDriveFolderNode_organi
 ALTER TABLE "ClientDriveFolderNode" ADD CONSTRAINT "ClientDriveFolderNode_ownerClientId_organizationId_fkey"
   FOREIGN KEY ("ownerClientId", "organizationId") REFERENCES "Client"("id", "organizationId") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "ClientDriveFolderNode" ADD CONSTRAINT "ClientDriveFolderNode_businessClientId_fkey"
+ALTER TABLE "ClientDriveFolderNode" ADD CONSTRAINT "ClientDriveFolderNode_businessClientId_organizationId_fkey"
   FOREIGN KEY ("businessClientId", "organizationId") REFERENCES "Client"("id", "organizationId") ON DELETE CASCADE ON UPDATE CASCADE;

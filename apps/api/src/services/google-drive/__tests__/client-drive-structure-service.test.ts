@@ -4,8 +4,9 @@ const driveMocks = vi.hoisted(() => ({
   createGoogleDriveClientForConnection: vi.fn(),
   createGoogleDriveFolder: vi.fn(),
   findGoogleDriveFolderByAppProperties: vi.fn(),
+  getGoogleDriveFileState: vi.fn(),
   updateGoogleDriveFolder: vi.fn(),
-  grantGoogleDrivePermissionsSequentially: vi.fn(),
+  reconcileGoogleDriveFolderPermissionsSequentially: vi.fn(),
 }))
 
 vi.mock('../google-drive-client', () => ({
@@ -15,18 +16,21 @@ vi.mock('../google-drive-client', () => ({
 vi.mock('../google-drive-folders', () => ({
   createGoogleDriveFolder: driveMocks.createGoogleDriveFolder,
   findGoogleDriveFolderByAppProperties: driveMocks.findGoogleDriveFolderByAppProperties,
+  getGoogleDriveFileState: driveMocks.getGoogleDriveFileState,
   updateGoogleDriveFolder: driveMocks.updateGoogleDriveFolder,
 }))
 
 vi.mock('../google-drive-permissions', () => ({
-  grantGoogleDrivePermissionsSequentially: driveMocks.grantGoogleDrivePermissionsSequentially,
+  reconcileGoogleDriveFolderPermissionsSequentially: driveMocks.reconcileGoogleDriveFolderPermissionsSequentially,
 }))
 
 import {
   createClientDriveStructure,
   executeQueuedClientDriveStructureCreation,
   getClientDriveStructureOptions,
+  getClientDriveStructureStatus,
   queueClientDriveStructureCreation,
+  reconcileClientDriveStaffPermissions,
   syncClientDriveBusinessFolders,
 } from '../client-drive-structure-service'
 import { GoogleDriveServiceError } from '../google-drive-errors'
@@ -96,6 +100,7 @@ function baseDb(overrides: Record<string, unknown> = {}) {
     },
     clientDriveFolder: {
       findUnique: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue(folderRow({
         status: 'CREATING',
         rootFolderId: null,
@@ -109,6 +114,7 @@ function baseDb(overrides: Record<string, unknown> = {}) {
       })),
       update: vi.fn(),
       updateMany: vi.fn(),
+      deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
       findUniqueOrThrow: vi.fn().mockResolvedValue(folderRow({
         status: 'CREATING',
         rootFolderId: null,
@@ -135,6 +141,11 @@ beforeEach(() => {
   let folderSequence = 0
   driveMocks.createGoogleDriveClientForConnection.mockReturnValue({ files: {} })
   driveMocks.findGoogleDriveFolderByAppProperties.mockResolvedValue(null)
+  driveMocks.getGoogleDriveFileState.mockResolvedValue({
+    id: 'root_folder',
+    trashed: false,
+    explicitlyTrashed: false,
+  })
   driveMocks.createGoogleDriveFolder.mockImplementation(async (_drive, input) => {
     folderSequence += 1
     return {
@@ -148,7 +159,20 @@ beforeEach(() => {
     name: input.name ?? null,
     webViewLink: `https://drive.example/${input.folderId}`,
   }))
-  driveMocks.grantGoogleDrivePermissionsSequentially.mockResolvedValue([])
+  driveMocks.reconcileGoogleDriveFolderPermissionsSequentially.mockImplementation(async (_drive, input) => {
+    const keys = input.desiredGrants.map((grant: {
+      folderId: string
+      type: string
+      email: string
+      role: string
+    }) => [grant.folderId, grant.type, grant.email.toLowerCase(), grant.role].join(':'))
+    await input.onAppliedPermissionKeysChange?.(keys)
+    return {
+      granted: [],
+      deleted: [],
+      appliedPermissionKeys: keys,
+    }
+  })
 })
 
 describe('client Drive structure service', () => {
@@ -175,6 +199,154 @@ describe('client Drive structure service', () => {
     expect(options.businessNames).toEqual(['Acme LLC'])
     expect(options.currentYear).toBe(new Date().getFullYear())
     expect(options.defaultState).toBe('TX')
+  })
+
+  it.each([
+    ['missing', null],
+    ['trashed', { id: 'root_folder', trashed: true, explicitlyTrashed: true }],
+  ])('unlinks a %s READY root folder during status polling', async (_label, fileState) => {
+    const existing = folderRow()
+    const deleteMany = vi.fn().mockResolvedValue({ count: 1 })
+    const db = baseDb({
+      clientDriveFolder: {
+        findUnique: vi.fn().mockResolvedValue(existing),
+        deleteMany,
+      },
+    })
+    driveMocks.getGoogleDriveFileState.mockResolvedValueOnce(fileState)
+
+    await expect(getClientDriveStructureStatus({
+      organizationId: 'org_1',
+      clientId: CLIENT_ID,
+    }, db)).resolves.toEqual({
+      created: false,
+      folder: null,
+      permissionSummary: null,
+      warnings: [],
+    })
+
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: existing.id,
+        organizationId: 'org_1',
+        ownerClientId: CLIENT_ID,
+        rootFolderId: 'root_folder',
+        status: 'READY',
+      },
+    })
+  })
+
+  it('preserves the READY folder row when Drive status polling fails transiently', async () => {
+    const existing = folderRow()
+    const deleteMany = vi.fn()
+    const db = baseDb({
+      clientDriveFolder: {
+        findUnique: vi.fn().mockResolvedValue(existing),
+        deleteMany,
+      },
+    })
+    driveMocks.getGoogleDriveFileState.mockRejectedValueOnce(
+      new GoogleDriveServiceError('DRIVE_RATE_LIMITED')
+    )
+
+    await expect(getClientDriveStructureStatus({
+      organizationId: 'org_1',
+      clientId: CLIENT_ID,
+    }, db)).rejects.toMatchObject({ code: 'DRIVE_RATE_LIMITED' })
+    expect(deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('returns the current row when a concurrent request changes the READY folder before unlink', async () => {
+    const existing = folderRow()
+    const claimed = folderRow({ status: 'CREATING', updatedAt: new Date('2026-08-15T00:00:00.000Z') })
+    const findUnique = vi.fn()
+      .mockResolvedValueOnce(existing)
+      .mockResolvedValueOnce(claimed)
+    const db = baseDb({
+      clientDriveFolder: {
+        findUnique,
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+    })
+    driveMocks.getGoogleDriveFileState.mockResolvedValueOnce(null)
+
+    const status = await getClientDriveStructureStatus({
+      organizationId: 'org_1',
+      clientId: CLIENT_ID,
+    }, db)
+
+    expect(status.folder?.status).toBe('CREATING')
+    expect(status.folder?.updatedAt).toBe('2026-08-15T00:00:00.000Z')
+    expect(findUnique).toHaveBeenCalledTimes(2)
+  })
+
+  it('allows a fresh creation claim after unlinking a missing READY root', async () => {
+    const existing = folderRow()
+    const creating = folderRow({
+      status: 'CREATING',
+      rootFolderId: null,
+      rootFolderWebUrl: null,
+      amWorkFolderId: null,
+      amWorkFolderWebUrl: null,
+      officeAdminFolderId: null,
+      officeAdminFolderWebUrl: null,
+      sharedFolderId: null,
+      sharedFolderWebUrl: null,
+    })
+    const create = vi.fn().mockResolvedValue(creating)
+    const db = baseDb({
+      clientDriveFolder: {
+        findUnique: vi.fn()
+          .mockResolvedValueOnce(existing)
+          .mockResolvedValueOnce(null),
+        create,
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(creating),
+      },
+    })
+    driveMocks.getGoogleDriveFileState.mockResolvedValueOnce(null)
+
+    await getClientDriveStructureStatus({ organizationId: 'org_1', clientId: CLIENT_ID }, db)
+    const queued = await queueClientDriveStructureCreation({
+      organizationId: 'org_1',
+      clientId: CLIENT_ID,
+      actorStaffId: 'staff_1',
+      payload: {
+        ssnLast4: '1234',
+        state: 'TX',
+        businessMode: 'MULTI',
+        accountManagerStaffIds: [],
+        clientEmail: 'client@test.com',
+        sendNotificationEmail: false,
+      },
+    }, db)
+
+    expect(queued.created).toBe(true)
+    expect(queued.folder?.status).toBe('CREATING')
+    expect(create).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a READY folder when Drive is disconnected because its provider state is unknown', async () => {
+    const existing = folderRow()
+    const deleteMany = vi.fn()
+    const db = baseDb({
+      googleDriveConnection: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+      clientDriveFolder: {
+        findUnique: vi.fn().mockResolvedValue(existing),
+        deleteMany,
+      },
+    })
+
+    const status = await getClientDriveStructureStatus({
+      organizationId: 'org_1',
+      clientId: CLIENT_ID,
+    }, db)
+
+    expect(status.folder?.id).toBe(existing.id)
+    expect(deleteMany).not.toHaveBeenCalled()
+    expect(driveMocks.getGoogleDriveFileState).not.toHaveBeenCalled()
   })
 
   it('reconciles existing READY folders instead of returning before provider work', async () => {
@@ -331,12 +503,13 @@ describe('client Drive structure service', () => {
     })
     expect(response.permissionSummary).toEqual({
       adminGroupEmail: null,
-      adminEmails: ['driveadmin@test.com'],
+      adminEmails: ['admin@test.com', 'driveadmin@test.com'],
       accountManagerEmails: ['manager@test.com'],
       clientEmail: 'owner@test.com',
     })
-    const grantedEmails = driveMocks.grantGoogleDrivePermissionsSequentially.mock.calls.map((call) => call[1][0].email)
+    const grantedEmails = driveMocks.reconcileGoogleDriveFolderPermissionsSequentially.mock.calls[0][1].desiredGrants.map((grant: { email: string }) => grant.email)
     expect(grantedEmails).toEqual(expect.arrayContaining([
+      'admin@test.com',
       'driveadmin@test.com',
       'manager@test.com',
       'owner@test.com',
@@ -1135,5 +1308,551 @@ describe('client Drive structure service', () => {
         lastErrorMessage: 'Google Drive root folder is invalid or unavailable.',
       },
     })
+  })
+
+  it('reconciles AM WORK permissions after manager assignments change', async () => {
+    const owner = clientRow({
+      managedBy: { id: 'manager_new', name: 'Manager New', email: 'manager-new@test.com', isActive: true },
+      managers: [
+        {
+          staffId: 'manager_new',
+          staff: { id: 'manager_new', name: 'Manager New', email: 'manager-new@test.com', isActive: true },
+        },
+      ],
+    })
+    const existing = folderRow({
+      permissionSnapshot: {
+        adminGroupEmail: null,
+        adminEmails: ['admin@test.com'],
+        accountManagerEmails: ['manager-old@test.com'],
+        clientEmail: 'client@test.com',
+        appliedPermissionKeys: [
+          'am_work:user:manager-old@test.com:writer',
+          'shared:user:client@test.com:writer',
+        ],
+      },
+      nodes: [],
+    })
+    const db = baseDb({
+      client: { findFirst: vi.fn().mockResolvedValue(owner) },
+      staff: {
+        findMany: vi.fn()
+          .mockResolvedValueOnce([{ id: 'admin_1', name: 'Admin', email: 'admin@test.com', driveEmails: [] }])
+          .mockResolvedValueOnce([{
+            id: 'manager_new',
+            name: 'Manager New',
+            email: 'manager-new@test.com',
+            driveEmails: ['manager-alias@test.com'],
+          }]),
+      },
+      clientDriveFolder: {
+        findUnique: vi.fn().mockResolvedValue(existing),
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn(),
+        update: vi.fn().mockResolvedValue(existing),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(existing),
+      },
+    })
+
+    const result = await reconcileClientDriveStaffPermissions({
+      organizationId: 'org_1',
+      ownerOrRequestedClientId: CLIENT_ID,
+      actorStaffId: 'staff_1',
+      reason: 'MANAGER_CHANGED',
+    }, db)
+
+    expect(result).toEqual({ synced: true, folderIds: ['drive_folder_row'], warnings: [] })
+    expect(driveMocks.reconcileGoogleDriveFolderPermissionsSequentially).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      deleteStale: true,
+      previouslyAppliedKeys: [
+        'am_work:user:manager-old@test.com:writer',
+        'shared:user:client@test.com:writer',
+      ],
+      desiredGrants: expect.arrayContaining([
+        expect.objectContaining({ folderId: 'am_work', email: 'admin@test.com', role: 'writer', type: 'user' }),
+        expect.objectContaining({ folderId: 'am_work', email: 'manager-new@test.com', role: 'writer', type: 'user' }),
+        expect.objectContaining({ folderId: 'am_work', email: 'manager-alias@test.com', role: 'writer', type: 'user' }),
+        expect.objectContaining({ folderId: 'shared', email: 'client@test.com', role: 'writer', type: 'user' }),
+      ]),
+    }))
+    expect((db as { clientDriveFolder: { update: ReturnType<typeof vi.fn> } }).clientDriveFolder.update).toHaveBeenLastCalledWith({
+      where: { id: existing.id },
+      data: {
+        status: 'READY',
+        permissionSnapshot: expect.objectContaining({
+          adminEmails: ['admin@test.com'],
+          accountManagerEmails: ['manager-new@test.com', 'manager-alias@test.com'],
+          clientEmail: 'client@test.com',
+          appliedPermissionKeys: expect.arrayContaining([
+            'am_work:user:manager-new@test.com:writer',
+            'am_work:user:manager-alias@test.com:writer',
+          ]),
+        }),
+        lastErrorCode: null,
+        lastErrorMessage: null,
+      },
+    })
+  })
+
+  it('reconciles affected ready folders after staff Drive email changes', async () => {
+    const owner = clientRow({
+      managedBy: { id: 'staff_2', name: 'Staff Two', email: 'staff2@test.com', isActive: true },
+      managers: [
+        {
+          staffId: 'staff_2',
+          staff: { id: 'staff_2', name: 'Staff Two', email: 'staff2@test.com', isActive: true },
+        },
+      ],
+    })
+    const existing = folderRow({
+      permissionSnapshot: {
+        adminGroupEmail: null,
+        adminEmails: [],
+        accountManagerEmails: ['old-alias@test.com'],
+        clientEmail: 'client@test.com',
+        appliedPermissionKeys: [
+          'am_work:user:old-alias@test.com:writer',
+          'shared:user:client@test.com:writer',
+        ],
+      },
+      nodes: [],
+    })
+    const db = baseDb({
+      client: { findFirst: vi.fn().mockResolvedValue(owner) },
+      staff: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'staff_2', role: 'STAFF' }),
+        findMany: vi.fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{
+            id: 'staff_2',
+            name: 'Staff Two',
+            email: 'staff2@test.com',
+            driveEmails: ['new-alias@test.com'],
+          }]),
+      },
+      clientDriveFolder: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([existing]),
+        create: vi.fn(),
+        update: vi.fn().mockResolvedValue(existing),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(existing),
+      },
+    })
+
+    const result = await reconcileClientDriveStaffPermissions({
+      organizationId: 'org_1',
+      staffId: 'staff_2',
+      actorStaffId: 'admin_1',
+      reason: 'STAFF_DRIVE_EMAILS_CHANGED',
+    }, db)
+
+    expect(result).toEqual({ synced: true, folderIds: ['drive_folder_row'], warnings: [] })
+    expect((db as { clientDriveFolder: { findMany: ReturnType<typeof vi.fn> } }).clientDriveFolder.findMany).toHaveBeenCalledWith({
+      where: {
+        organizationId: 'org_1',
+        status: 'READY',
+        OR: [
+          {
+            ownerClient: {
+              managedById: 'staff_2',
+            },
+          },
+          {
+            ownerClient: {
+              managers: { some: { staffId: 'staff_2' } },
+            },
+          },
+          {
+            clientGroup: {
+              clients: {
+                some: {
+                  managedById: 'staff_2',
+                },
+              },
+            },
+          },
+          {
+            clientGroup: {
+              clients: {
+                some: {
+                  managers: { some: { staffId: 'staff_2' } },
+                },
+              },
+            },
+          },
+        ],
+      },
+      include: {
+        nodes: {
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        },
+      },
+      orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+    })
+    expect(driveMocks.reconcileGoogleDriveFolderPermissionsSequentially).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      deleteStale: true,
+      desiredGrants: expect.arrayContaining([
+        expect.objectContaining({ folderId: 'am_work', email: 'staff2@test.com', role: 'writer', type: 'user' }),
+        expect.objectContaining({ folderId: 'am_work', email: 'new-alias@test.com', role: 'writer', type: 'user' }),
+      ]),
+    }))
+  })
+
+  it('keeps grouped business managers in desired AM WORK grants during reconcile', async () => {
+    const owner = clientRow({
+      clientGroupId: 'group_1',
+      managedBy: null,
+      managers: [],
+      clientGroup: {
+        id: 'group_1',
+        clients: [
+          clientRow({ id: CLIENT_ID, clientGroupId: 'group_1', managedBy: null, managers: [] }),
+          clientRow({
+            id: 'business_1',
+            firstName: '',
+            lastName: null,
+            name: 'Business One',
+            email: 'business@test.com',
+            clientType: 'BUSINESS',
+            clientGroupId: 'group_1',
+            managedBy: { id: 'staff_2', name: 'Staff Two', email: 'staff2@test.com', isActive: true },
+            managers: [
+              {
+                staffId: 'staff_2',
+                staff: { id: 'staff_2', name: 'Staff Two', email: 'staff2@test.com', isActive: true },
+              },
+            ],
+          }),
+        ],
+      },
+    })
+    const existing = folderRow({
+      clientGroupId: 'group_1',
+      permissionSnapshot: {
+        adminGroupEmail: null,
+        adminEmails: [],
+        accountManagerEmails: ['old@test.com'],
+        clientEmail: 'client@test.com',
+        appliedPermissionKeys: [
+          'am_work:user:old@test.com:writer',
+          'shared:user:client@test.com:writer',
+        ],
+      },
+      nodes: [],
+    })
+    const db = baseDb({
+      client: { findFirst: vi.fn().mockResolvedValue(owner) },
+      staff: {
+        findMany: vi.fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{
+            id: 'staff_2',
+            name: 'Staff Two',
+            email: 'staff2@test.com',
+            driveEmails: ['staff2-drive@test.com'],
+          }]),
+      },
+      clientDriveFolder: {
+        findUnique: vi.fn().mockResolvedValue(existing),
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn(),
+        update: vi.fn().mockResolvedValue(existing),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(existing),
+      },
+    })
+
+    await reconcileClientDriveStaffPermissions({
+      organizationId: 'org_1',
+      ownerOrRequestedClientId: CLIENT_ID,
+      actorStaffId: 'staff_1',
+      reason: 'MANAGER_CHANGED',
+    }, db)
+
+    expect(driveMocks.reconcileGoogleDriveFolderPermissionsSequentially).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      desiredGrants: expect.arrayContaining([
+        expect.objectContaining({ folderId: 'am_work', email: 'staff2@test.com', role: 'writer', type: 'user' }),
+        expect.objectContaining({ folderId: 'am_work', email: 'staff2-drive@test.com', role: 'writer', type: 'user' }),
+      ]),
+    }))
+  })
+
+  it('continues staff-wide reconcile after one folder Drive failure', async () => {
+    const first = folderRow({ id: 'folder_row_1', ownerClientId: CLIENT_ID })
+    const second = folderRow({ id: 'folder_row_2', ownerClientId: 'client_2' })
+    const firstOwner = clientRow({
+      id: CLIENT_ID,
+      managedBy: { id: 'staff_2', name: 'Staff Two', email: 'staff2@test.com', isActive: true },
+      managers: [
+        {
+          staffId: 'staff_2',
+          staff: { id: 'staff_2', name: 'Staff Two', email: 'staff2@test.com', isActive: true },
+        },
+      ],
+    })
+    const secondOwner = clientRow({
+      id: 'client_2',
+      managedBy: { id: 'staff_2', name: 'Staff Two', email: 'staff2@test.com', isActive: true },
+      managers: [
+        {
+          staffId: 'staff_2',
+          staff: { id: 'staff_2', name: 'Staff Two', email: 'staff2@test.com', isActive: true },
+        },
+      ],
+    })
+    const db = baseDb({
+      client: {
+        findFirst: vi.fn()
+          .mockResolvedValueOnce(firstOwner)
+          .mockResolvedValueOnce(secondOwner),
+      },
+      staff: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'staff_2', role: 'STAFF' }),
+        findMany: vi.fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{ id: 'staff_2', name: 'Staff Two', email: 'staff2@test.com', driveEmails: [] }])
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{ id: 'staff_2', name: 'Staff Two', email: 'staff2@test.com', driveEmails: [] }]),
+      },
+      clientDriveFolder: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([first, second]),
+        create: vi.fn(),
+        update: vi.fn().mockResolvedValue(second),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn()
+          .mockResolvedValueOnce(first)
+          .mockResolvedValueOnce(second),
+      },
+    })
+    const defaultReconcile = driveMocks.reconcileGoogleDriveFolderPermissionsSequentially.getMockImplementation()
+    driveMocks.reconcileGoogleDriveFolderPermissionsSequentially
+      .mockRejectedValueOnce(new GoogleDriveServiceError('DRIVE_PERMISSION_FAILED'))
+      .mockImplementationOnce(defaultReconcile!)
+
+    const result = await reconcileClientDriveStaffPermissions({
+      organizationId: 'org_1',
+      staffId: 'staff_2',
+      actorStaffId: 'admin_1',
+      reason: 'STAFF_DRIVE_EMAILS_CHANGED',
+    }, db)
+
+    expect(result).toEqual({
+      synced: true,
+      folderIds: ['folder_row_2'],
+      warnings: ['DRIVE_PERMISSION_FAILED'],
+    })
+    expect(driveMocks.reconcileGoogleDriveFolderPermissionsSequentially).toHaveBeenCalledTimes(2)
+    expect((db as { clientDriveFolder: { update: ReturnType<typeof vi.fn> } }).clientDriveFolder.update).toHaveBeenCalledWith({
+      where: { id: 'folder_row_1' },
+      data: {
+        status: 'FAILED',
+        lastErrorCode: 'DRIVE_PERMISSION_FAILED',
+        lastErrorMessage: 'Google Drive permission update failed.',
+      },
+    })
+  })
+
+  it('reconciles all ready folders after staff access changes', async () => {
+    const existing = folderRow({
+      permissionSnapshot: {
+        adminGroupEmail: null,
+        adminEmails: [],
+        accountManagerEmails: ['removed@test.com'],
+        clientEmail: 'client@test.com',
+        appliedPermissionKeys: [
+          'am_work:user:removed@test.com:writer',
+          'shared:user:client@test.com:writer',
+        ],
+      },
+      nodes: [],
+    })
+    const db = baseDb({
+      client: { findFirst: vi.fn().mockResolvedValue(clientRow()) },
+      staff: {
+        findMany: vi.fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([]),
+      },
+      clientDriveFolder: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([existing]),
+        create: vi.fn(),
+        update: vi.fn().mockResolvedValue(existing),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(existing),
+      },
+    })
+
+    const result = await reconcileClientDriveStaffPermissions({
+      organizationId: 'org_1',
+      staffId: 'staff_removed',
+      actorStaffId: 'admin_1',
+      reason: 'STAFF_ACCESS_CHANGED',
+    }, db)
+
+    expect(result).toEqual({ synced: true, folderIds: ['drive_folder_row'], warnings: [] })
+    expect((db as { clientDriveFolder: { findMany: ReturnType<typeof vi.fn> } }).clientDriveFolder.findMany).toHaveBeenCalledWith({
+      where: {
+        organizationId: 'org_1',
+        status: 'READY',
+      },
+      include: {
+        nodes: {
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        },
+      },
+      orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+    })
+    expect(driveMocks.reconcileGoogleDriveFolderPermissionsSequentially).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      deleteStale: true,
+      desiredGrants: expect.not.arrayContaining([
+        expect.objectContaining({ email: 'removed@test.com' }),
+      ]),
+      previouslyAppliedKeys: [
+        'am_work:user:removed@test.com:writer',
+        'shared:user:client@test.com:writer',
+      ],
+    }))
+  })
+
+  it('preserves tracked shared-folder grants when shared folder metadata is missing', async () => {
+    const owner = clientRow({
+      managedBy: { id: 'manager_new', name: 'Manager New', email: 'manager-new@test.com', isActive: true },
+      managers: [
+        {
+          staffId: 'manager_new',
+          staff: { id: 'manager_new', name: 'Manager New', email: 'manager-new@test.com', isActive: true },
+        },
+      ],
+    })
+    const existing = folderRow({
+      sharedFolderId: null,
+      sharedFolderWebUrl: null,
+      permissionSnapshot: {
+        adminGroupEmail: null,
+        adminEmails: [],
+        accountManagerEmails: ['manager-old@test.com'],
+        clientEmail: 'client@test.com',
+        appliedPermissionKeys: [
+          'am_work:user:manager-old@test.com:writer',
+          'shared:user:client@test.com:writer',
+        ],
+      },
+      nodes: [],
+    })
+    const db = baseDb({
+      client: { findFirst: vi.fn().mockResolvedValue(owner) },
+      staff: {
+        findMany: vi.fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{
+            id: 'manager_new',
+            name: 'Manager New',
+            email: 'manager-new@test.com',
+            driveEmails: [],
+          }]),
+      },
+      clientDriveFolder: {
+        findUnique: vi.fn().mockResolvedValue(existing),
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn(),
+        update: vi.fn().mockResolvedValue(existing),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(existing),
+      },
+    })
+
+    await reconcileClientDriveStaffPermissions({
+      organizationId: 'org_1',
+      ownerOrRequestedClientId: CLIENT_ID,
+      actorStaffId: 'staff_1',
+      reason: 'MANAGER_CHANGED',
+    }, db)
+
+    expect(driveMocks.reconcileGoogleDriveFolderPermissionsSequentially).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      deleteStale: true,
+      desiredGrants: expect.arrayContaining([
+        expect.objectContaining({ folderId: 'am_work', email: 'manager-new@test.com', role: 'writer', type: 'user' }),
+        expect.objectContaining({ folderId: 'shared', email: 'client@test.com', role: 'writer', type: 'user' }),
+      ]),
+    }))
+  })
+
+  it('preserves the shared folder SMS marker when reconciling Drive permissions', async () => {
+    const smsMarker = {
+      sharedFolderSmsFolderId: 'shared',
+      sharedFolderSmsFolderWebUrl: 'https://drive.example/shared',
+      sharedFolderSmsMessageId: 'message_1',
+      sharedFolderSmsSentAt: '2026-08-15T00:00:00.000Z',
+    }
+    const owner = clientRow({
+      managedBy: { id: 'manager_new', name: 'Manager New', email: 'manager-new@test.com', isActive: true },
+      managers: [
+        {
+          staffId: 'manager_new',
+          staff: { id: 'manager_new', name: 'Manager New', email: 'manager-new@test.com', isActive: true },
+        },
+      ],
+    })
+    const existing = folderRow({
+      permissionSnapshot: {
+        adminGroupEmail: null,
+        adminEmails: [],
+        accountManagerEmails: ['manager-old@test.com'],
+        clientEmail: 'client@test.com',
+        appliedPermissionKeys: [
+          'am_work:user:manager-old@test.com:writer',
+          'shared:user:client@test.com:writer',
+        ],
+        ...smsMarker,
+      },
+      nodes: [],
+    })
+    const db = baseDb({
+      client: { findFirst: vi.fn().mockResolvedValue(owner) },
+      staff: {
+        findMany: vi.fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{
+            id: 'manager_new',
+            name: 'Manager New',
+            email: 'manager-new@test.com',
+            driveEmails: [],
+          }]),
+      },
+      clientDriveFolder: {
+        findUnique: vi.fn().mockResolvedValue(existing),
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn(),
+        update: vi.fn().mockResolvedValue(existing),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(existing),
+      },
+    })
+
+    await reconcileClientDriveStaffPermissions({
+      organizationId: 'org_1',
+      ownerOrRequestedClientId: CLIENT_ID,
+      actorStaffId: 'staff_1',
+      reason: 'MANAGER_CHANGED',
+    }, db)
+
+    expect((db as { clientDriveFolder: { updateMany: ReturnType<typeof vi.fn> } }).clientDriveFolder.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          permissionSnapshot: expect.objectContaining(smsMarker),
+        }),
+      })
+    )
+    expect((db as { clientDriveFolder: { update: ReturnType<typeof vi.fn> } }).clientDriveFolder.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          permissionSnapshot: expect.objectContaining(smsMarker),
+        }),
+      })
+    )
   })
 })

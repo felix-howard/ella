@@ -2,6 +2,7 @@ import { ActivityRiskLevel } from '@ella/db'
 import { inngest } from '../lib/inngest'
 import { prisma } from '../lib/db'
 import { executeQueuedClientDriveStructureCreation } from '../services/google-drive/client-drive-structure-service'
+import { sendDriveSharedFolderMessage } from '../services/sms/message-sender'
 import { logStaffActivity } from '../services/activity-log'
 import {
   ACTIVITY_ACTIONS,
@@ -21,9 +22,33 @@ export const createClientDriveStructureJob = inngest.createFunction(
       return executeQueuedClientDriveStructureCreation(event.data)
     })
 
-    if ('skipped' in result || !result.folder || result.folder.status !== 'READY') {
+    if ('skipped' in result) {
+      if (result.reason === 'ALREADY_READY') {
+        await step.run('send-drive-shared-folder-sms', async () => {
+          return sendDriveSharedFolderMessage({
+            organizationId: event.data.organizationId,
+            clientDriveFolderId: event.data.rowId,
+            actorStaffId: event.data.actorStaffId,
+          })
+        })
+      }
       return result
     }
+
+    if (!result.folder || result.folder.status !== 'READY') {
+      return result
+    }
+
+    await step.run('send-drive-shared-folder-sms', async () => {
+      return sendDriveSharedFolderMessage({
+        organizationId: event.data.organizationId,
+        ownerClientId: result.folder!.ownerClientId,
+        clientDriveFolderId: result.folder!.id,
+        sharedFolderId: result.folder!.sharedFolderId,
+        sharedFolderWebUrl: result.folder!.sharedFolderWebUrl,
+        actorStaffId: event.data.actorStaffId,
+      })
+    })
 
     if (event.data.actorStaffId) {
       await step.run('log-drive-structure-activity', async () => {

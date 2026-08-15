@@ -11,6 +11,7 @@ const driveStructureMocks = vi.hoisted(() => ({
   createClientDriveStructure: vi.fn(),
   getClientDriveStructureOptions: vi.fn(),
   getClientDriveStructureStatus: vi.fn(),
+  reconcileClientDriveStaffPermissions: vi.fn(),
   syncClientDriveBusinessFolders: vi.fn(),
 }))
 vi.mock('../../../lib/db', () => ({
@@ -197,6 +198,11 @@ function createManagerTx(input?: {
 describe('PATCH /clients/:id/managed-by', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    driveStructureMocks.reconcileClientDriveStaffPermissions.mockResolvedValue({
+      synced: false,
+      folderIds: [],
+      warnings: [],
+    })
   })
 
   it('propagates managedById to all group members', async () => {
@@ -221,6 +227,40 @@ describe('PATCH /clients/:id/managed-by', () => {
     const json = await res.json()
     expect(json.data.managedBy.name).toBe('Alice')
     expect(mockTransaction).toHaveBeenCalledOnce()
+    expect(driveStructureMocks.reconcileClientDriveStaffPermissions).toHaveBeenCalledWith({
+      organizationId: 'org_1',
+      ownerOrRequestedClientId: CID_1,
+      actorStaffId: 'staff_1',
+      reason: 'MANAGER_CHANGED',
+    })
+  })
+
+  it('keeps manager update successful and returns warning when Drive permission sync warns', async () => {
+    vi.mocked(prisma.client.findFirst).mockResolvedValueOnce({
+      id: CID_1,
+      clientGroupId: null,
+      name: 'Test Client',
+    } as never)
+    driveStructureMocks.reconcileClientDriveStaffPermissions.mockResolvedValueOnce({
+      synced: false,
+      folderIds: [],
+      warnings: ['DRIVE_NOT_CONNECTED'],
+    })
+    mockTransaction.mockImplementationOnce(async (fn: (tx: unknown) => Promise<unknown>) => {
+      return fn(createManagerTx({ clientIds: [CID_1] }))
+    })
+
+    const app = createApp()
+    const res = await app.request(`/clients/${CID_1}/managed-by`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ staffId: STAFF_ALICE }),
+    })
+
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.data.managedBy.name).toBe('Alice')
+    expect(json.warnings).toEqual(['DRIVE_NOT_CONNECTED'])
   })
 
   it('returns legacy managedBy from the synced primary staff id', async () => {

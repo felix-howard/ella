@@ -6,6 +6,7 @@ import {
   buildGoogleDriveFolderWebUrl,
   createGoogleDriveFolder,
   findGoogleDriveFolderByAppProperties,
+  getGoogleDriveFileState,
   testGoogleDriveRootFolderAccess,
   updateGoogleDriveFolder,
 } from '../google-drive-folders'
@@ -15,6 +16,38 @@ function mockDrive(files: Partial<GoogleDriveClient['files']>): GoogleDriveClien
 }
 
 describe('Google Drive folder helpers', () => {
+  it('reads active and trashed file state with limited fields', async () => {
+    const get = vi.fn()
+      .mockResolvedValueOnce({ data: { id: 'root_1', trashed: false, explicitlyTrashed: false } })
+      .mockResolvedValueOnce({ data: { id: 'root_1', trashed: true, explicitlyTrashed: true } })
+
+    await expect(getGoogleDriveFileState(mockDrive({ get }), 'root_1')).resolves.toEqual({
+      id: 'root_1',
+      trashed: false,
+      explicitlyTrashed: false,
+    })
+    await expect(getGoogleDriveFileState(mockDrive({ get }), 'root_1')).resolves.toEqual({
+      id: 'root_1',
+      trashed: true,
+      explicitlyTrashed: true,
+    })
+    expect(get).toHaveBeenCalledWith({
+      fileId: 'root_1',
+      fields: 'id,trashed,explicitlyTrashed',
+      supportsAllDrives: true,
+    })
+  })
+
+  it('returns null only for a missing file and preserves transient errors', async () => {
+    const missing = vi.fn().mockRejectedValue({ response: { status: 404 } })
+    const transient = vi.fn().mockRejectedValue({ response: { status: 429 } })
+
+    await expect(getGoogleDriveFileState(mockDrive({ get: missing }), 'root_1')).resolves.toBeNull()
+    await expect(getGoogleDriveFileState(mockDrive({ get: transient }), 'root_1')).rejects.toMatchObject({
+      code: 'DRIVE_RATE_LIMITED',
+    } satisfies Partial<GoogleDriveServiceError>)
+  })
+
   it('accepts an existing folder only when the caller can add children', async () => {
     const get = vi.fn().mockResolvedValue({
       data: {

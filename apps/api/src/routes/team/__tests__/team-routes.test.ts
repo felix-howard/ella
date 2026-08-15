@@ -95,6 +95,10 @@ vi.mock('../../../services/activity-log', () => ({
   logStaffActivity: vi.fn(),
 }))
 
+vi.mock('../../../services/google-drive/client-drive-structure-service', () => ({
+  reconcileClientDriveStaffPermissions: vi.fn(),
+}))
+
 // Mock auth middleware against the injected test user.
 vi.mock('../../../middleware/auth', () => ({
   requireOrg: async (_c: unknown, next: () => Promise<void>) => next(),
@@ -113,6 +117,7 @@ import { clerkClient } from '../../../lib/clerk-client'
 import { logTeamAction } from '../../../services/audit-logger'
 import { logStaffActivity } from '../../../services/activity-log'
 import { getSignedUploadUrl, generateAvatarKey, getSignedDownloadUrl } from '../../../services/storage'
+import { reconcileClientDriveStaffPermissions } from '../../../services/google-drive/client-drive-structure-service'
 import type { AuthVariables } from '../../../middleware/auth'
 import { teamRoute } from '../index'
 
@@ -169,6 +174,11 @@ function managerUser(): AuthVariables['user'] {
 describe('Team Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(reconcileClientDriveStaffPermissions).mockResolvedValue({
+      synced: false,
+      folderIds: [],
+      warnings: [],
+    })
     vi.mocked(prisma.client.findMany).mockResolvedValue([] as never)
     vi.mocked(prisma.client.updateMany).mockResolvedValue({ count: 0 } as never)
     vi.mocked(prisma.clientManager.deleteMany).mockResolvedValue({ count: 0 } as never)
@@ -385,6 +395,12 @@ describe('Team Routes', () => {
         where: { id: 's2' },
         data: { role: 'ADMIN' },
       })
+      expect(reconcileClientDriveStaffPermissions).toHaveBeenCalledWith({
+        organizationId: 'org_db_1',
+        staffId: 's2',
+        actorStaffId: 'staff_1',
+        reason: 'STAFF_ACCESS_CHANGED',
+      })
     })
 
     it('returns 404 for staff not in org', async () => {
@@ -527,6 +543,12 @@ describe('Team Routes', () => {
       expect(
         vi.mocked(clerkClient.organizations.deleteOrganizationMembership).mock.invocationCallOrder[0]
       ).toBeLessThan(vi.mocked(prisma.staff.update).mock.invocationCallOrder[0])
+      expect(reconcileClientDriveStaffPermissions).toHaveBeenCalledWith({
+        organizationId: 'org_db_1',
+        staffId: 's2',
+        actorStaffId: 'staff_1',
+        reason: 'STAFF_ACCESS_CHANGED',
+      })
     })
 
     it('detaches current client manager assignments when removing access', async () => {
@@ -965,6 +987,12 @@ describe('Team Routes', () => {
           }),
         })
       )
+      expect(reconcileClientDriveStaffPermissions).toHaveBeenCalledWith({
+        organizationId: 'org_db_1',
+        staffId: 's2',
+        actorStaffId: 'staff_1',
+        reason: 'STAFF_ACCESS_CHANGED',
+      })
     })
 
     it('prevents self-archive', async () => {
@@ -1252,6 +1280,44 @@ describe('Team Routes', () => {
         'staff_1',
         expect.objectContaining({ driveEmailCount: 2 })
       )
+      expect(reconcileClientDriveStaffPermissions).toHaveBeenCalledWith({
+        organizationId: 'org_db_1',
+        staffId: 'staff_2',
+        actorStaffId: 'staff_1',
+        reason: 'STAFF_DRIVE_EMAILS_CHANGED',
+      })
+    })
+
+    it('PATCH profile keeps Drive email update successful when Drive permission sync warns', async () => {
+      const targetForPatch = {
+        id: 'staff_2', name: 'Member B', email: 'b@t.com', role: 'STAFF',
+        driveEmails: ['old@example.com'],
+        avatarUrl: null, phoneNumber: '+84123456789', notifyOnUpload: false,
+        notifyOnChat: false, title: null, clerkId: 'c2', isActive: true,
+      }
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(targetForPatch as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({
+        id: 'staff_2', name: 'Member B', email: 'b@t.com',
+        driveEmails: ['new@example.com'],
+        phoneNumber: '+84123456789', avatarUrl: null, notifyOnUpload: false, notifyOnChat: false, title: null,
+      } as never)
+      vi.mocked(reconcileClientDriveStaffPermissions).mockResolvedValueOnce({
+        synced: false,
+        folderIds: [],
+        warnings: ['DRIVE_NOT_CONNECTED'],
+      })
+
+      const app = createApp()
+      const res = await app.request('/team/members/staff_2/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driveEmails: ['new@example.com'] }),
+      })
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.staff.driveEmails).toEqual(['new@example.com'])
+      expect(body.warnings).toEqual(['DRIVE_NOT_CONNECTED'])
     })
 
     it('PATCH profile rejects invalid Drive emails', async () => {

@@ -21,9 +21,13 @@ export {
   sendBlurryResendRequest,
   sendDocsCompleteMessage,
   sendCustomMessage,
+  sendDriveSharedFolderMessage,
   sendSmsOnly,
+  buildDriveSharedFolderMessage,
   isSmsEnabled,
   getOrgSmsLanguage,
+  type SendDriveSharedFolderMessageInput,
+  type SendDriveSharedFolderMessageResult,
   type SendMessageResult,
 } from './message-sender'
 

@@ -11,6 +11,7 @@ interface ClientSmsTemplateSelectorProps {
   language: ClientSmsLanguage
   selectedTemplateId: ClientSmsTemplateId | 'inherit'
   onSelect: (templateId: ClientSmsTemplateId, message: string) => void
+  templateIds?: readonly ClientSmsTemplateId[]
   disabled?: boolean
   name?: string
   className?: string
@@ -25,6 +26,7 @@ export function ClientSmsTemplateSelector({
   language,
   selectedTemplateId,
   onSelect,
+  templateIds,
   disabled = false,
   name = 'clientSmsTemplate',
   className,
@@ -35,6 +37,9 @@ export function ClientSmsTemplateSelector({
   onInherit,
 }: ClientSmsTemplateSelectorProps) {
   const { t } = useTranslation()
+  const templates = templateIds
+    ? CLIENT_SMS_TEMPLATES.filter((template) => templateIds.includes(template.id))
+    : CLIENT_SMS_TEMPLATES
   const inheritPreviewTemplate = inheritPreviewTemplateId
     ? CLIENT_SMS_TEMPLATES.find((template) => template.id === inheritPreviewTemplateId)
     : null
@@ -94,7 +99,7 @@ export function ClientSmsTemplateSelector({
             </span>
           </label>
         )}
-        {CLIENT_SMS_TEMPLATES.map((template) => {
+        {templates.map((template) => {
           const isSelected = selectedTemplateId === template.id
           return (
             <label

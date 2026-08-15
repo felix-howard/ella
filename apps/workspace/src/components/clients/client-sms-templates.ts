@@ -38,6 +38,8 @@ export const DEFAULT_SMS_TEMPLATE_EN = getSmsTemplateMessage('tax-documents', 'E
 
 export const DEFAULT_CLIENT_SMS_TEMPLATE_ID: ClientSmsTemplateId = 'official-channel'
 
+export const DEFAULT_NEW_CLIENT_SMS_LANGUAGE: ClientSmsLanguage = 'EN'
+
 export const CLIENT_SMS_TEMPLATES: ClientSmsTemplate[] = [
   {
     id: 'official-channel',

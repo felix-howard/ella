@@ -14,11 +14,12 @@ import { createGoogleDriveClientForConnection } from './google-drive-client'
 import {
   createGoogleDriveFolder,
   findGoogleDriveFolderByAppProperties,
+  getGoogleDriveFileState,
   updateGoogleDriveFolder,
   type GoogleDriveFolderView,
 } from './google-drive-folders'
 import {
-  grantGoogleDrivePermissionsSequentially,
+  reconcileGoogleDriveFolderPermissionsSequentially,
   type GoogleDrivePermissionGrant,
 } from './google-drive-permissions'
 import { GoogleDriveServiceError, normalizeGoogleDriveError } from './google-drive-errors'
@@ -122,6 +123,17 @@ interface QueuedInputSnapshot {
   ssnLast4: string | null
   state: string | null
   entityLabel: string
+}
+
+export type ClientDriveStaffPermissionReconcileReason =
+  | 'MANAGER_CHANGED'
+  | 'STAFF_ACCESS_CHANGED'
+  | 'STAFF_DRIVE_EMAILS_CHANGED'
+
+export interface ClientDriveStaffPermissionReconcileResult {
+  synced: boolean
+  folderIds: string[]
+  warnings: string[]
 }
 
 function assertOrganization(organizationId: string | null | undefined): string {
@@ -266,6 +278,13 @@ function selectedManagerIds(ownerClient: OwnerClientForDrive): string[] {
   return Array.from(new Set(ids.filter((id): id is string => Boolean(id))))
 }
 
+function selectedDriveManagerIds(owner: OwnerResolution): string[] {
+  return Array.from(new Set([
+    ...selectedManagerIds(owner.ownerClient),
+    ...owner.businessClients.flatMap(selectedManagerIds),
+  ]))
+}
+
 async function resolveOwnerClient(
   db: PrismaClient,
   input: { organizationId: string; clientId: string }
@@ -349,6 +368,54 @@ async function findExistingFolder(
       },
     },
   })
+}
+
+async function unlinkMissingClientDriveFolder(
+  db: PrismaClient,
+  input: { organizationId: string; ownerClientId: string; rowId: string; rootFolderId: string }
+): Promise<boolean> {
+  const result = await db.clientDriveFolder.deleteMany({
+    where: {
+      id: input.rowId,
+      organizationId: input.organizationId,
+      ownerClientId: input.ownerClientId,
+      rootFolderId: input.rootFolderId,
+      status: ClientDriveFolderStatus.READY,
+    },
+  })
+  return result.count === 1
+}
+
+async function unlinkClientDriveFolderIfMissing(
+  db: PrismaClient,
+  input: {
+    organizationId: string
+    ownerClientId: string
+    folder: NonNullable<Awaited<ReturnType<typeof findExistingFolder>>>
+  }
+) {
+  if (input.folder.status !== ClientDriveFolderStatus.READY || !input.folder.rootFolderId) {
+    return input.folder
+  }
+
+  const connection = await db.googleDriveConnection.findUnique({
+    where: { organizationId: input.organizationId },
+  })
+  if (!connection || connection.status !== 'CONNECTED') return input.folder
+
+  const drive = createGoogleDriveClientForConnection(connection)
+  const state = await getGoogleDriveFileState(drive, input.folder.rootFolderId)
+  if (state && !state.trashed && !state.explicitlyTrashed) return input.folder
+
+  const unlinked = await unlinkMissingClientDriveFolder(db, {
+    organizationId: input.organizationId,
+    ownerClientId: input.ownerClientId,
+    rowId: input.folder.id,
+    rootFolderId: input.folder.rootFolderId,
+  })
+  return unlinked
+    ? null
+    : findExistingFolder(db, input.organizationId, input.ownerClientId)
 }
 
 function isRecentCreating(row: { status: ClientDriveFolderStatus; updatedAt: Date }): boolean {
@@ -691,16 +758,149 @@ function assertClientEmailAllowed(owner: OwnerResolution, clientEmail: string): 
   }
 }
 
-function getPermissionGrantKey(grant: GoogleDrivePermissionGrant): string {
-  return [grant.folderId, grant.type, normalizeEmail(grant.email), grant.role].join(':')
-}
-
 function getAppliedPermissionKeys(snapshot: unknown): string[] {
   if (!snapshot || typeof snapshot !== 'object' || !('appliedPermissionKeys' in snapshot)) {
     return []
   }
   const keys = (snapshot as { appliedPermissionKeys?: unknown }).appliedPermissionKeys
   return Array.isArray(keys) ? keys.filter((key): key is string => typeof key === 'string') : []
+}
+
+function parsePermissionGrantKey(key: string): GoogleDrivePermissionGrant | null {
+  const [folderId, type, email, role, ...extra] = key.split(':')
+  if (
+    extra.length > 0 ||
+    !folderId ||
+    !email ||
+    (type !== 'user' && type !== 'group') ||
+    (role !== 'reader' && role !== 'writer')
+  ) {
+    return null
+  }
+
+  return { folderId, type, email, role }
+}
+
+function getSharedFolderSmsSnapshot(value: unknown): Pick<
+  ClientDrivePermissionSnapshot,
+  | 'sharedFolderSmsFolderId'
+  | 'sharedFolderSmsFolderWebUrl'
+  | 'sharedFolderSmsMessageId'
+  | 'sharedFolderSmsSentAt'
+> {
+  const snapshot = typeof value === 'object' && value !== null
+    ? value as Partial<ClientDrivePermissionSnapshot>
+    : {}
+  return {
+    ...(typeof snapshot.sharedFolderSmsFolderId === 'string' || snapshot.sharedFolderSmsFolderId === null
+      ? { sharedFolderSmsFolderId: snapshot.sharedFolderSmsFolderId }
+      : {}),
+    ...(typeof snapshot.sharedFolderSmsFolderWebUrl === 'string'
+      ? { sharedFolderSmsFolderWebUrl: snapshot.sharedFolderSmsFolderWebUrl }
+      : {}),
+    ...(typeof snapshot.sharedFolderSmsMessageId === 'string'
+      ? { sharedFolderSmsMessageId: snapshot.sharedFolderSmsMessageId }
+      : {}),
+    ...(typeof snapshot.sharedFolderSmsSentAt === 'string'
+      ? { sharedFolderSmsSentAt: snapshot.sharedFolderSmsSentAt }
+      : {}),
+  }
+}
+
+function getPermissionSnapshot(value: unknown): ClientDrivePermissionSnapshot {
+  const snapshot = typeof value === 'object' && value !== null
+    ? value as Partial<ClientDrivePermissionSnapshot>
+    : {}
+
+  return {
+    adminGroupEmail: typeof snapshot.adminGroupEmail === 'string' ? snapshot.adminGroupEmail : null,
+    adminEmails: Array.isArray(snapshot.adminEmails)
+      ? snapshot.adminEmails.filter((email): email is string => typeof email === 'string')
+      : [],
+    accountManagerEmails: Array.isArray(snapshot.accountManagerEmails)
+      ? snapshot.accountManagerEmails.filter((email): email is string => typeof email === 'string')
+      : [],
+    clientEmail: typeof snapshot.clientEmail === 'string' ? snapshot.clientEmail : null,
+    appliedPermissionKeys: getAppliedPermissionKeys(value),
+    ...getSharedFolderSmsSnapshot(value),
+  }
+}
+
+function buildPermissionSnapshot(
+  permissionTargets: Awaited<ReturnType<typeof resolveClientDrivePermissionTargets>>,
+  clientEmail: string | null,
+  existingSnapshot?: unknown
+): ClientDrivePermissionSnapshot {
+  return {
+    adminGroupEmail: permissionTargets.adminGroupEmail,
+    adminEmails: permissionTargets.admins.map((admin) => admin.email),
+    accountManagerEmails: permissionTargets.accountManagers.map((staff) => staff.email),
+    clientEmail,
+    ...getSharedFolderSmsSnapshot(existingSnapshot),
+  }
+}
+
+function buildClientDrivePermissionGrants(input: {
+  amWorkFolderId: string
+  officeAdminFolderId: string
+  sharedFolderId?: string | null
+  permissionTargets: Awaited<ReturnType<typeof resolveClientDrivePermissionTargets>>
+  clientEmail?: string | null
+  sendNotificationEmail: boolean
+  preserveAppliedKeysForFolderIds?: string[]
+  appliedPermissionKeys?: string[]
+}): GoogleDrivePermissionGrant[] {
+  const preserveFolderIds = new Set(input.preserveAppliedKeysForFolderIds ?? [])
+  const preservedGrants = preserveFolderIds.size === 0
+    ? []
+    : (input.appliedPermissionKeys ?? [])
+      .map(parsePermissionGrantKey)
+      .filter((grant): grant is GoogleDrivePermissionGrant =>
+        grant !== null && preserveFolderIds.has(grant.folderId)
+      ) ?? []
+
+  return [
+    ...input.permissionTargets.admins.map((admin) => ({
+      folderId: input.amWorkFolderId,
+      email: admin.email,
+      role: 'writer' as const,
+      type: 'user' as const,
+      sendNotificationEmail: input.sendNotificationEmail,
+    })),
+    ...input.permissionTargets.accountManagers.map((staff) => ({
+      folderId: input.amWorkFolderId,
+      email: staff.email,
+      role: 'writer' as const,
+      type: 'user' as const,
+      sendNotificationEmail: input.sendNotificationEmail,
+    })),
+    ...(input.permissionTargets.adminGroupEmail
+      ? [{
+          folderId: input.officeAdminFolderId,
+          email: input.permissionTargets.adminGroupEmail,
+          role: 'writer' as const,
+          type: 'group' as const,
+          sendNotificationEmail: input.sendNotificationEmail,
+        }]
+      : []),
+    ...input.permissionTargets.admins.map((admin) => ({
+      folderId: input.officeAdminFolderId,
+      email: admin.email,
+      role: 'writer' as const,
+      type: 'user' as const,
+      sendNotificationEmail: input.sendNotificationEmail,
+    })),
+    ...(input.sharedFolderId && input.clientEmail
+      ? [{
+          folderId: input.sharedFolderId,
+          email: input.clientEmail,
+          role: 'writer' as const,
+          type: 'user' as const,
+          sendNotificationEmail: input.sendNotificationEmail,
+        }]
+      : []),
+    ...preservedGrants,
+  ]
 }
 
 function toPermissionSummary(snapshot: ClientDrivePermissionSnapshot): ClientDriveStructureResponseDto['permissionSummary'] {
@@ -771,7 +971,7 @@ async function claimClientDriveStructureRow(
     // AM WORK managers come from this client's own assignment (managedBy +
     // managers), not the request payload, so only the client's managers are
     // granted access.
-    accountManagerStaffIds: selectedManagerIds(owner.ownerClient),
+    accountManagerStaffIds: selectedDriveManagerIds(owner),
     clientEmail: input.payload.clientEmail,
     adminGroupEmail: connection.adminGroupEmail,
   }, db)
@@ -785,12 +985,7 @@ async function claimClientDriveStructureRow(
     state: normalizeClientDriveState(input.payload.state),
     entityLabel: input.payload.businessMode === 'MULTI' ? 'Multi' : input.payload.businessName ?? '',
   }
-  const permissionSnapshot: ClientDrivePermissionSnapshot = {
-    adminGroupEmail: permissionTargets.adminGroupEmail,
-    adminEmails: permissionTargets.admins.map((admin) => admin.email),
-    accountManagerEmails: permissionTargets.accountManagers.map((staff) => staff.email),
-    clientEmail: permissionTargets.clientEmail,
-  }
+  let permissionSnapshot = buildPermissionSnapshot(permissionTargets, permissionTargets.clientEmail)
 
   if (readyFolder && isRecentCreating(readyFolder) && !options.allowRecentCreating) {
     throw new GoogleDriveServiceError('DRIVE_STRUCTURE_IN_PROGRESS')
@@ -798,6 +993,11 @@ async function claimClientDriveStructureRow(
 
   let row
   if (readyFolder) {
+    permissionSnapshot = buildPermissionSnapshot(
+      permissionTargets,
+      permissionTargets.clientEmail,
+      readyFolder.permissionSnapshot
+    )
     const claim = await db.clientDriveFolder.updateMany({
       where: {
         id: readyFolder.id,
@@ -845,6 +1045,11 @@ async function claimClientDriveStructureRow(
       if (!concurrentRow || (isRecentCreating(concurrentRow) && !options.allowRecentCreating)) {
         throw new GoogleDriveServiceError('DRIVE_STRUCTURE_IN_PROGRESS')
       }
+      permissionSnapshot = buildPermissionSnapshot(
+        permissionTargets,
+        permissionTargets.clientEmail,
+        concurrentRow.permissionSnapshot
+      )
       const claim = await db.clientDriveFolder.updateMany({
         where: {
           id: concurrentRow.id,
@@ -920,7 +1125,14 @@ export async function getClientDriveStructureStatus(
 ): Promise<ClientDriveStructureResponseDto> {
   const organizationId = assertOrganization(input.organizationId)
   const owner = await resolveOwnerClient(db, { organizationId, clientId: input.clientId })
-  const existingFolder = await findExistingFolder(db, organizationId, owner.ownerClient.id)
+  const persistedFolder = await findExistingFolder(db, organizationId, owner.ownerClient.id)
+  const existingFolder = persistedFolder
+    ? await unlinkClientDriveFolderIfMissing(db, {
+        organizationId,
+        ownerClientId: owner.ownerClient.id,
+        folder: persistedFolder,
+      })
+    : null
 
   return {
     created: false,
@@ -1156,62 +1368,31 @@ export async function createClientDriveStructure(
       currentYear,
     })
 
-    const grants: GoogleDrivePermissionGrant[] = [
-      ...permissionTargets.admins.map((admin) => ({
-        folderId: amWorkFolder.id,
-        email: admin.email,
-        role: 'writer' as const,
-        type: 'user' as const,
-        sendNotificationEmail: input.payload.sendNotificationEmail,
-      })),
-      ...permissionTargets.accountManagers.map((staff) => ({
-        folderId: amWorkFolder.id,
-        email: staff.email,
-        role: 'writer' as const,
-        type: 'user' as const,
-        sendNotificationEmail: input.payload.sendNotificationEmail,
-      })),
-      ...(permissionTargets.adminGroupEmail
-        ? [{
-            folderId: officeAdminFolder.id,
-            email: permissionTargets.adminGroupEmail,
-            role: 'writer' as const,
-            type: 'group' as const,
-            sendNotificationEmail: input.payload.sendNotificationEmail,
-          }]
-        : []),
-      ...permissionTargets.admins.map((admin) => ({
-            folderId: officeAdminFolder.id,
-            email: admin.email,
-            role: 'writer' as const,
-            type: 'user' as const,
-            sendNotificationEmail: input.payload.sendNotificationEmail,
-          })),
-      {
-        folderId: sharedFolder.id,
-        email: permissionTargets.clientEmail,
-        role: 'writer' as const,
-        type: 'user' as const,
-        sendNotificationEmail: input.payload.sendNotificationEmail,
-      },
-    ]
+    const grants = buildClientDrivePermissionGrants({
+      amWorkFolderId: amWorkFolder.id,
+      officeAdminFolderId: officeAdminFolder.id,
+      sharedFolderId: sharedFolder.id,
+      permissionTargets,
+      clientEmail: permissionTargets.clientEmail,
+      sendNotificationEmail: input.payload.sendNotificationEmail,
+    })
     row = await db.clientDriveFolder.findUniqueOrThrow({ where: { id: row.id } })
-    const appliedPermissionKeys = new Set(getAppliedPermissionKeys(row.permissionSnapshot))
-    for (const grant of grants) {
-      const permissionKey = getPermissionGrantKey(grant)
-      if (appliedPermissionKeys.has(permissionKey)) continue
-      await grantGoogleDrivePermissionsSequentially(drive, [grant])
-      appliedPermissionKeys.add(permissionKey)
-      await db.clientDriveFolder.update({
-        where: { id: row.id },
-        data: {
-          permissionSnapshot: {
-            ...permissionSnapshot,
-            appliedPermissionKeys: Array.from(appliedPermissionKeys),
-          } as unknown as Prisma.InputJsonObject,
-        },
-      })
-    }
+    const permissionReconcile = await reconcileGoogleDriveFolderPermissionsSequentially(drive, {
+      desiredGrants: grants,
+      previouslyAppliedKeys: getAppliedPermissionKeys(row.permissionSnapshot),
+      deleteStale: false,
+      onAppliedPermissionKeysChange: async (appliedPermissionKeys) => {
+        await db.clientDriveFolder.update({
+          where: { id: row.id },
+          data: {
+            permissionSnapshot: {
+              ...permissionSnapshot,
+              appliedPermissionKeys,
+            } as unknown as Prisma.InputJsonObject,
+          },
+        })
+      },
+    })
 
     await db.clientDriveFolder.update({
       where: { id: row.id },
@@ -1219,7 +1400,7 @@ export async function createClientDriveStructure(
         status: ClientDriveFolderStatus.READY,
         permissionSnapshot: {
           ...permissionSnapshot,
-          appliedPermissionKeys: Array.from(appliedPermissionKeys),
+          appliedPermissionKeys: permissionReconcile.appliedPermissionKeys,
         } as unknown as Prisma.InputJsonObject,
         lastErrorCode: null,
         lastErrorMessage: null,
@@ -1428,5 +1609,319 @@ export async function syncClientDriveBusinessFolders(
       },
     })
     throw driveError
+  }
+}
+
+function getDriveFolderIdForRole(
+  row: Awaited<ReturnType<typeof findExistingFolder>>,
+  role: string,
+  fallback: string | null | undefined
+): string | null {
+  return fallback ?? row?.nodes?.find((node) => node.role === role)?.driveFolderId ?? null
+}
+
+async function findStaffPermissionReconcileFolders(input: {
+  db: PrismaClient
+  organizationId: string
+  staffId: string
+}) {
+  const staff = await input.db.staff.findFirst({
+    where: {
+      id: input.staffId,
+      organizationId: input.organizationId,
+      isActive: true,
+    },
+    select: { id: true, role: true },
+  })
+  if (!staff) return []
+
+  const where: Prisma.ClientDriveFolderWhereInput = {
+    organizationId: input.organizationId,
+    status: ClientDriveFolderStatus.READY,
+    ...(staff.role === 'ADMIN'
+      ? {}
+      : {
+          OR: [
+            {
+              ownerClient: {
+                managedById: input.staffId,
+              },
+            },
+            {
+              ownerClient: {
+                managers: { some: { staffId: input.staffId } },
+              },
+            },
+            {
+              clientGroup: {
+                clients: {
+                  some: {
+                    managedById: input.staffId,
+                  },
+                },
+              },
+            },
+            {
+              clientGroup: {
+                clients: {
+                  some: {
+                    managers: { some: { staffId: input.staffId } },
+                  },
+                },
+              },
+            },
+          ],
+        }),
+  }
+
+  return input.db.clientDriveFolder.findMany({
+    where,
+    include: {
+      nodes: {
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      },
+    },
+    orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+  })
+}
+
+async function reconcileOneClientDriveStaffPermissionFolder(input: {
+  db: PrismaClient
+  drive: ReturnType<typeof createGoogleDriveClientForConnection>
+  connection: NonNullable<Awaited<ReturnType<PrismaClient['googleDriveConnection']['findUnique']>>>
+  row: NonNullable<Awaited<ReturnType<typeof findExistingFolder>>>
+  owner: OwnerResolution
+  actorStaffId?: string | null
+}): Promise<boolean> {
+  const amWorkFolderId = getDriveFolderIdForRole(
+    input.row,
+    CLIENT_DRIVE_FOLDER_ROLES.AM_WORK,
+    input.row.amWorkFolderId
+  )
+  const officeAdminFolderId = getDriveFolderIdForRole(
+    input.row,
+    CLIENT_DRIVE_FOLDER_ROLES.OFFICE_ADMIN_ONLY,
+    input.row.officeAdminFolderId
+  )
+  const sharedFolderId = getDriveFolderIdForRole(
+    input.row,
+    CLIENT_DRIVE_FOLDER_ROLES.SHARED_TO_CLIENT,
+    input.row.sharedFolderId
+  )
+
+  if (!amWorkFolderId || !officeAdminFolderId) return false
+
+  const existingSnapshot = getPermissionSnapshot(input.row.permissionSnapshot)
+  const clientEmail = existingSnapshot.clientEmail ??
+    input.owner.ownerClient.email ??
+    input.owner.requestedClient.email
+  if (!clientEmail) return false
+
+  const permissionTargets = await resolveClientDrivePermissionTargets({
+    organizationId: input.row.organizationId,
+    accountManagerStaffIds: selectedDriveManagerIds(input.owner),
+    clientEmail,
+    adminGroupEmail: input.connection.adminGroupEmail,
+  }, input.db)
+  const permissionSnapshot = buildPermissionSnapshot(
+    permissionTargets,
+    existingSnapshot.clientEmail ?? permissionTargets.clientEmail,
+    existingSnapshot
+  )
+  const managedFolderIds = new Set([
+    amWorkFolderId,
+    officeAdminFolderId,
+    ...(sharedFolderId ? [sharedFolderId] : []),
+  ])
+  const preserveAppliedKeysForFolderIds = Array.from(new Set(
+    (existingSnapshot.appliedPermissionKeys ?? [])
+      .map(parsePermissionGrantKey)
+      .filter((grant): grant is GoogleDrivePermissionGrant =>
+        grant !== null && !managedFolderIds.has(grant.folderId)
+      )
+      .map((grant) => grant.folderId)
+  ))
+  const grants = buildClientDrivePermissionGrants({
+    amWorkFolderId,
+    officeAdminFolderId,
+    sharedFolderId,
+    permissionTargets,
+    clientEmail: permissionSnapshot.clientEmail,
+    sendNotificationEmail: false,
+    appliedPermissionKeys: existingSnapshot.appliedPermissionKeys,
+    preserveAppliedKeysForFolderIds,
+  })
+
+  const claim = await input.db.clientDriveFolder.updateMany({
+    where: {
+      id: input.row.id,
+      status: ClientDriveFolderStatus.READY,
+      updatedAt: input.row.updatedAt,
+    },
+    data: {
+      clientGroupId: input.owner.clientGroupId,
+      status: ClientDriveFolderStatus.CREATING,
+      permissionSnapshot: {
+        ...permissionSnapshot,
+        appliedPermissionKeys: existingSnapshot.appliedPermissionKeys ?? [],
+      } as unknown as Prisma.InputJsonObject,
+      lastErrorCode: null,
+      lastErrorMessage: null,
+      createdByStaffId: input.actorStaffId ?? input.row.createdByStaffId ?? null,
+    },
+  })
+  if (claim.count !== 1) return false
+
+  try {
+    const latestRow = await input.db.clientDriveFolder.findUniqueOrThrow({ where: { id: input.row.id } })
+    const permissionReconcile = await reconcileGoogleDriveFolderPermissionsSequentially(input.drive, {
+      desiredGrants: grants,
+      previouslyAppliedKeys: getAppliedPermissionKeys(latestRow.permissionSnapshot),
+      deleteStale: true,
+      onAppliedPermissionKeysChange: async (appliedPermissionKeys) => {
+        await input.db.clientDriveFolder.update({
+          where: { id: input.row.id },
+          data: {
+            permissionSnapshot: {
+              ...permissionSnapshot,
+              appliedPermissionKeys,
+            } as unknown as Prisma.InputJsonObject,
+          },
+        })
+      },
+    })
+
+    await input.db.clientDriveFolder.update({
+      where: { id: input.row.id },
+      data: {
+        status: ClientDriveFolderStatus.READY,
+        permissionSnapshot: {
+          ...permissionSnapshot,
+          appliedPermissionKeys: permissionReconcile.appliedPermissionKeys,
+        } as unknown as Prisma.InputJsonObject,
+        lastErrorCode: null,
+        lastErrorMessage: null,
+      },
+    })
+    return true
+  } catch (error) {
+    const driveError = normalizeGoogleDriveError(error, 'DRIVE_PERMISSION_FAILED')
+    await input.db.clientDriveFolder.update({
+      where: { id: input.row.id },
+      data: {
+        status: ClientDriveFolderStatus.FAILED,
+        lastErrorCode: driveError.code,
+        lastErrorMessage: driveError.message,
+      },
+    })
+    throw driveError
+  }
+}
+
+export async function reconcileClientDriveStaffPermissions(
+  input: {
+    organizationId?: string | null
+    ownerOrRequestedClientId?: string
+    staffId?: string
+    actorStaffId?: string | null
+    reason: ClientDriveStaffPermissionReconcileReason
+  },
+  db: PrismaClient = prisma
+): Promise<ClientDriveStaffPermissionReconcileResult> {
+  const organizationId = assertOrganization(input.organizationId)
+  const connection = await db.googleDriveConnection.findUnique({ where: { organizationId } })
+  if (!connection || connection.status !== 'CONNECTED') {
+    return { synced: false, folderIds: [], warnings: ['DRIVE_NOT_CONNECTED'] }
+  }
+
+  const folders = input.reason === 'MANAGER_CHANGED'
+    ? await (async () => {
+        if (!input.ownerOrRequestedClientId) return []
+        const owner = await resolveOwnerClient(db, {
+          organizationId,
+          clientId: input.ownerOrRequestedClientId,
+        })
+        const folder = await findExistingFolder(db, organizationId, owner.ownerClient.id)
+        return folder && folder.status === ClientDriveFolderStatus.READY
+          ? [{ folder, owner }]
+          : []
+      })()
+    : input.reason === 'STAFF_ACCESS_CHANGED'
+      ? await (async () => {
+          const rows = await db.clientDriveFolder.findMany({
+            where: {
+              organizationId,
+              status: ClientDriveFolderStatus.READY,
+            },
+            include: {
+              nodes: {
+                orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+              },
+            },
+            orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+          })
+          const resolved = []
+          for (const row of rows) {
+            const owner = await resolveOwnerClient(db, {
+              organizationId,
+              clientId: row.ownerClientId,
+            })
+            resolved.push({ folder: row, owner })
+          }
+          return resolved
+        })()
+    : await (async () => {
+        if (!input.staffId) return []
+        const rows = await findStaffPermissionReconcileFolders({
+          db,
+          organizationId,
+          staffId: input.staffId,
+        })
+        const resolved = []
+        for (const row of rows) {
+          const owner = await resolveOwnerClient(db, {
+            organizationId,
+            clientId: row.ownerClientId,
+          })
+          resolved.push({ folder: row, owner })
+        }
+        return resolved
+      })()
+
+  if (folders.length === 0) {
+    return { synced: false, folderIds: [], warnings: [] }
+  }
+
+  const drive = createGoogleDriveClientForConnection(connection)
+  const syncedFolderIds: string[] = []
+  const warnings = new Set<string>()
+  for (const { folder, owner } of folders) {
+    try {
+      const synced = await reconcileOneClientDriveStaffPermissionFolder({
+        db,
+        drive,
+        connection,
+        row: folder,
+        owner,
+        actorStaffId: input.actorStaffId,
+      })
+      if (synced) {
+        syncedFolderIds.push(folder.id)
+      } else {
+        warnings.add('DRIVE_RECONCILE_SKIPPED')
+      }
+    } catch (error) {
+      if (error instanceof GoogleDriveServiceError) {
+        warnings.add(error.code)
+        continue
+      }
+      throw error
+    }
+  }
+
+  return {
+    synced: syncedFolderIds.length > 0,
+    folderIds: syncedFolderIds,
+    warnings: Array.from(warnings),
   }
 }

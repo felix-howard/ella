@@ -5,11 +5,18 @@ import { GoogleDriveServiceError, normalizeGoogleDriveError } from './google-dri
 
 const FOLDER_FIELDS = 'id,name,mimeType,webViewLink,capabilities/canAddChildren,appProperties'
 const LIST_FOLDER_FIELDS = 'files(id,name,mimeType,webViewLink,appProperties)'
+const FILE_STATE_FIELDS = 'id,trashed,explicitlyTrashed'
 
 export interface GoogleDriveFolderView {
   id: string
   name: string | null
   webViewLink: string | null
+}
+
+export interface GoogleDriveFileState {
+  id: string
+  trashed: boolean
+  explicitlyTrashed: boolean
 }
 
 export type GoogleDriveFolderAppProperties = {
@@ -86,6 +93,34 @@ export async function getGoogleDriveFolder(
     })
     return response.data
   } catch (error) {
+    throw normalizeGoogleDriveError(error, 'DRIVE_ROOT_INVALID')
+  }
+}
+
+export async function getGoogleDriveFileState(
+  drive: GoogleDriveClient,
+  fileId: string
+): Promise<GoogleDriveFileState | null> {
+  try {
+    const response = await drive.files.get({
+      fileId,
+      fields: FILE_STATE_FIELDS,
+      supportsAllDrives: true,
+    })
+
+    if (!response.data.id) {
+      throw new GoogleDriveServiceError('DRIVE_ROOT_INVALID')
+    }
+
+    return {
+      id: response.data.id,
+      trashed: response.data.trashed === true,
+      explicitlyTrashed: response.data.explicitlyTrashed === true,
+    }
+  } catch (error) {
+    const candidate = error as { code?: unknown; status?: unknown; response?: { status?: unknown } }
+    const status = candidate.response?.status ?? candidate.status ?? candidate.code
+    if (status === 404) return null
     throw normalizeGoogleDriveError(error, 'DRIVE_ROOT_INVALID')
   }
 }

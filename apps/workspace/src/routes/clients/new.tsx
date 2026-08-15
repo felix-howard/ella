@@ -14,6 +14,7 @@ import {
   ReturningClientSection,
   ConfirmStep,
   DEFAULT_CLIENT_SMS_TEMPLATE_ID,
+  DEFAULT_NEW_CLIENT_SMS_LANGUAGE,
   ensurePortalLinkPlaceholder,
   getClientSmsTemplate,
   BusinessAccordion,
@@ -73,7 +74,7 @@ function CreateClientPage() {
   // Individual form data
   const [basicInfo, setBasicInfo] = useState<BasicInfoData>({
     firstName: '', lastName: '', phone: '', email: '',
-    language: 'VI', taxYear: currentYear - 1,
+    language: DEFAULT_NEW_CLIENT_SMS_LANGUAGE, taxYear: currentYear - 1,
     hasBusiness: null,  // null = not selected
   })
 

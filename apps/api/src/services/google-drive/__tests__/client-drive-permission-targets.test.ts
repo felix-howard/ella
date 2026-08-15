@@ -25,12 +25,36 @@ describe('resolveClientDrivePermissionTargets', () => {
     }, db)
 
     expect(result.admins).toEqual([
+      { id: 'admin_1', name: 'Admin', email: 'admin@test.com' },
       { id: 'admin_1', name: 'Admin', email: 'drive@test.com' },
     ])
     expect(result.accountManagers).toEqual([
       { id: 'manager_1', name: 'Manager', email: 'manager@test.com' },
     ])
     expect(result.clientEmail).toBe('client@test.com')
+  })
+
+  it('collapses duplicate login and alias case variants', async () => {
+    const db = dbWithStaff(
+      [],
+      [{
+        id: 'manager_1',
+        name: 'Manager',
+        email: 'Manager@Test.COM',
+        driveEmails: ['manager@test.com', 'MANAGER@Test.COM', 'Drive@Test.COM'],
+      }],
+    )
+
+    const result = await resolveClientDrivePermissionTargets({
+      organizationId: 'org_1',
+      accountManagerStaffIds: ['manager_1'],
+      clientEmail: 'client@test.com',
+    }, db)
+
+    expect(result.accountManagers).toEqual([
+      { id: 'manager_1', name: 'Manager', email: 'manager@test.com' },
+      { id: 'manager_1', name: 'Manager', email: 'drive@test.com' },
+    ])
   })
 
   it('grants no account managers when the client has none assigned', async () => {

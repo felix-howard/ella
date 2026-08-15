@@ -38,6 +38,10 @@ export interface ClientDrivePermissionSnapshot {
   accountManagerEmails: string[]
   clientEmail: string | null
   appliedPermissionKeys?: string[]
+  sharedFolderSmsFolderId?: string | null
+  sharedFolderSmsFolderWebUrl?: string
+  sharedFolderSmsMessageId?: string
+  sharedFolderSmsSentAt?: string
 }
 
 export interface ClientDriveInputSnapshot {

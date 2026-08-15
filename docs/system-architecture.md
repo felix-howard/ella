@@ -174,8 +174,10 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /integrations/google-drive/oauth-url`, `GET /integrations/google-drive/callback`, and `PATCH /integrations/google-drive/settings` are admin-owned connection/configuration routes.
 - `GET /clients/:id/drive-structure`, `GET /clients/:id/drive-structure/options`, and `POST /clients/:id/drive-structure` are org/client-scoped admin-or-manager routes for creating one Drive folder structure per owner client/group.
 - Folder creation uses Google Drive app properties and persisted folder ids for retry-safe idempotency. It creates current-year shared client folders and one folder per linked business. Business sync renames a single-business root folder to `Multi` when the client gains a second business. Existing structures using the old admin folder name reconcile forward through create/retry/status-linked flows when possible.
+- After folder creation reaches `READY`, the Inngest job sends one English SMS containing the `AM WORK/SHARED TO CLIENT` Drive link through the normal case conversation. Sent-message markers live in the Drive permission snapshot so duplicate job retries skip repeat SMS; SMS-disabled environments skip without failing Drive creation.
+- Client profile status retrieval is the deletion reverse-sync boundary. It polls the persisted `READY` root through `getGoogleDriveFileState`; a Drive 404 or trashed root deletes the tenant-scoped `ClientDriveFolder` and cascade-owned nodes so the existing null-folder UI restores creation. Google uses 404 for both absence and lost read access, and the accepted product behavior treats either result as an unlink signal; authentication/rate-limit/transient errors and disconnected Drive never clear persisted state. Push channels remain out of scope until the deployment owns a public callback, verification, storage, and renewal lifecycle.
 - Permission grants are sequential per folder because Google Drive does not support concurrent permission operations on the same file.
-- Permissions model: active admins receive `writer` on `OFFICE - ADMIN ONLY`; active admins and managers receive `writer` on `AM WORK`; staff sharing targets use profile Drive email aliases with login-email fallback; optional admin Google Group access remains available; the selected client email receives `writer` on `AM WORK/SHARED TO CLIENT`. Client `writer` access is an accepted MVP risk and allows uploads, edits, and deletes inside that shared folder.
+- Permissions model: active admins receive `writer` on `OFFICE - ADMIN ONLY`; active admins and managers receive `writer` on `AM WORK`; staff sharing targets combine login email with profile Drive email aliases, normalized and deduped; existing client folders reconcile staff/admin ACLs when managers, staff Drive email aliases, roles, or active access change; optional admin Google Group access remains available; the selected client email receives `writer` on `AM WORK/SHARED TO CLIENT`. Client `writer` access is an accepted MVP risk and allows uploads, edits, and deletes inside that shared folder.
 - Config lives in the API process env: `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`, `GOOGLE_DRIVE_REDIRECT_URI`, `GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY`, and optional `GOOGLE_DRIVE_SCOPES`. Local API dev loads `apps/api/.env`.
 - Rollout requires OAuth client setup, redirect URI registration, database backup/approval before migration, root-folder/admin-group test, one fake-client smoke folder, adding a second linked business to verify root rename and business-folder sync, and manual Drive ACL verification. After migration, roll forward with corrective app code or a new migration; do not edit applied migrations.
 
@@ -1726,7 +1728,7 @@ CreateClientPage (new.tsx)
 ├── Step: 'confirm' (paths: INDIVIDUAL, INDIVIDUAL_WITH_BUSINESS)
 │   └── ConfirmStep
 │       ├── Client summary (name, phone, taxYear, language)
-│       ├── SMS template editor (customizable per language)
+│       ├── Official channel SMS editor (English initially; Vietnamese toggle available)
 │       └── Create button (submits form + sends SMS)
 ```
 
@@ -1771,7 +1773,7 @@ type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | '
 - lastName: required, non-empty trim check
 - phone: required, exactly 10 digits (after removing non-digits)
 - email: optional, but if provided must match email regex pattern
-- language: VI or EN (default VI)
+- language: VI or EN (default EN)
 - taxYear: valid year from TAX_YEARS list
 
 *Business Info (Business paths):*
@@ -1920,8 +1922,8 @@ POST /clients
 - Modal/drawer patterns: Escape key, backdrop click, focus trap
 
 **Internationalization (i18n):**
-- SMS template defaults: DEFAULT_SMS_TEMPLATE_VI and DEFAULT_SMS_TEMPLATE_EN
-- Template editable on confirm step (language selector changes active template)
+- New Client messaging defaults and its allowed template set are owned by `client-sms-templates.ts` and `confirm-step.tsx`; this flow intentionally offers only `Official channel`, initially in English, while retaining the Vietnamese toggle.
+- The legacy tax-documents template remains supported outside New Client for upload-link settings and other flows through the shared template registry.
 - Language passed to SMS send endpoint
 - Error messages: t('newClient.errorFirstNameRequired'), etc.
 - UI text: t('newClient.stepBasicInfo'), t('newClient.stepConfirm'), etc.

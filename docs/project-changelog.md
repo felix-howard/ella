@@ -1,7 +1,19 @@
 # Project Changelog
 
-> **Last Updated:** 2026-08-13 ICT
+> **Last Updated:** 2026-08-15 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+### New Client SMS Defaults (2026-08-15)
+**Status:** Complete
+
+**Changed:**
+- New Client now initializes SMS messaging in English and offers only the `Official channel` template while retaining the Vietnamese language toggle.
+- The legacy tax-documents template remains available to upload-link settings and other flows; the restriction applies only to New Client.
+
+**Validation:**
+- Focused Workspace tests passed, 12/12; workspace type-check and build passed.
 
 ---
 
@@ -12,7 +24,8 @@
 - Org-level Google Drive connection settings for admins, including OAuth connection, root folder test, and optional admin group fallback.
 - Client-detail Drive action/status for users allowed to manage clients.
 - Per-client folder structure creation for root client folder, `AM WORK`, `OFFICE - ADMIN ONLY`, `AM WORK/SHARED TO CLIENT`, current-year shared client folders, and per-business folders.
-- Staff profile Drive email aliases for external sharing, with login-email fallback.
+- Staff profile Drive email aliases for external sharing, combined with the login email.
+- Existing client folders reconcile staff/admin ACLs when manager assignments, staff Drive email aliases, roles, or active access change.
 - Retry-safe persistence of created Drive folder ids/web links and safe permission/input snapshots.
 - Root folder rename from single business name to `Multi` when a client gains a second business.
 - Forward reconciliation from the old admin folder name when existing structures are touched by create/retry/status-linked flows.
@@ -3051,9 +3064,9 @@
 **Status:** Complete
 
 **Changed:**
-- Create Client confirm step now lets staff choose between multiple upload-link SMS templates.
+- Create Client confirm step added selectable upload-link SMS templates; this behavior was later narrowed so New Client offers only `Official channel`.
 - Added official-channel template as default in English and Vietnamese.
-- Kept existing tax-document checklist template as selectable option.
+- The tax-document checklist template remains supported for upload-link settings and other flows, but is no longer selectable in New Client.
 
 **Validation:**
 - `pnpm -F @ella/workspace type-check` pass

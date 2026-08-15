@@ -49,6 +49,11 @@ import { removeTeamMemberAccess } from './team-member-access-removal'
 import {
   buildTeamReconciliation,
 } from './team-membership-reconciliation'
+import {
+  reconcileClientDriveStaffPermissions,
+  type ClientDriveStaffPermissionReconcileReason,
+} from '../../services/google-drive/client-drive-structure-service'
+import { GoogleDriveServiceError } from '../../services/google-drive/google-drive-errors'
 
 const teamRoute = new Hono<{ Variables: AuthVariables }>()
 const NOTIFICATION_SUBSCRIPTION_ACTIVITY_WINDOW_MS = 10 * 60 * 1000
@@ -120,6 +125,23 @@ function serializeStaffPaymentInfo(info: StaffPaymentInfoSummaryRecord) {
 
 function last4(value: string): string {
   return value.slice(-4)
+}
+
+async function reconcileStaffDrivePermissions(input: {
+  organizationId: string | null
+  staffId: string
+  actorStaffId: string | null
+  reason: ClientDriveStaffPermissionReconcileReason
+}): Promise<string[]> {
+  try {
+    const result = await reconcileClientDriveStaffPermissions({
+      ...input,
+    })
+    return result.warnings
+  } catch (error) {
+    if (error instanceof GoogleDriveServiceError) return [error.code]
+    throw error
+  }
 }
 
 // All team routes require active org
@@ -325,7 +347,17 @@ teamRoute.patch(
       },
     })
 
-    return c.json({ success: true })
+    const driveWarnings = await reconcileStaffDrivePermissions({
+      organizationId: user.organizationId,
+      staffId,
+      actorStaffId: user.staffId,
+      reason: 'STAFF_ACCESS_CHANGED',
+    })
+
+    return c.json({
+      success: true,
+      ...(driveWarnings.length > 0 && { warnings: driveWarnings }),
+    })
   }
 )
 
@@ -409,7 +441,17 @@ teamRoute.delete(
       },
     })
 
-    return c.json({ success: true })
+    const driveWarnings = await reconcileStaffDrivePermissions({
+      organizationId: user.organizationId,
+      staffId,
+      actorStaffId: user.staffId,
+      reason: 'STAFF_ACCESS_CHANGED',
+    })
+
+    return c.json({
+      success: true,
+      ...(driveWarnings.length > 0 && { warnings: driveWarnings }),
+    })
   }
 )
 
@@ -478,7 +520,17 @@ teamRoute.patch(
       },
     })
 
-    return c.json({ success: true })
+    const driveWarnings = await reconcileStaffDrivePermissions({
+      organizationId: user.organizationId,
+      staffId,
+      actorStaffId: user.staffId,
+      reason: 'STAFF_ACCESS_CHANGED',
+    })
+
+    return c.json({
+      success: true,
+      ...(driveWarnings.length > 0 && { warnings: driveWarnings }),
+    })
   }
 )
 
@@ -855,7 +907,20 @@ teamRoute.patch(
       request: getAuditRequestContext(c),
     })
 
-    return c.json({ success: true, staff: { ...updated, avatarUrl: await resolveAvatarUrl(updated.avatarUrl) } })
+    const driveWarnings = normalizedDriveEmails !== undefined
+      ? await reconcileStaffDrivePermissions({
+          organizationId: user.organizationId,
+          staffId: targetStaffId,
+          actorStaffId: user.staffId,
+          reason: 'STAFF_DRIVE_EMAILS_CHANGED',
+        })
+      : []
+
+    return c.json({
+      success: true,
+      staff: { ...updated, avatarUrl: await resolveAvatarUrl(updated.avatarUrl) },
+      ...(driveWarnings.length > 0 && { warnings: driveWarnings }),
+    })
   }
 )
 

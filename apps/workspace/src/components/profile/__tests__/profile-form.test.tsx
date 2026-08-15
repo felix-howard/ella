@@ -12,7 +12,7 @@ vi.mock('react-i18next', async (importOriginal) => {
     ...actual,
     useTranslation: () => ({
       t: (key: string, values?: Record<string, unknown>) => {
-        if (key === 'profile.driveEmailsFallback') return `Using login email: ${values?.email}`
+        if (key === 'profile.driveEmailsFallback') return `Login email included: ${values?.email}`
         return key
       },
     }),
@@ -111,11 +111,11 @@ describe('ProfileForm Drive emails', () => {
     })
   })
 
-  it('shows login email fallback when Drive emails are blank', () => {
+  it('shows included login email when Drive emails are blank', () => {
     const markup = renderProfileForm(staff())
 
     expect(markup).toContain('profile.driveEmails')
-    expect(markup).toContain('Using login email: ada@example.com')
+    expect(markup).toContain('Login email included: ada@example.com')
   })
 
   it('shows saved Drive emails when configured', () => {
@@ -123,6 +123,6 @@ describe('ProfileForm Drive emails', () => {
 
     expect(markup).toContain('drive@example.com')
     expect(markup).toContain('other@example.com')
-    expect(markup).not.toContain('Using login email')
+    expect(markup).not.toContain('Login email included')
   })
 })

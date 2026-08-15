@@ -73,7 +73,10 @@ import { clientsAgreementsStaffRoute } from './agreements-staff'
 import { clientsPaymentsStaffRoute } from './payments-staff'
 import { clientsPaidServicesRoute } from './paid-services'
 import { clientsDriveStructureRoute } from './drive-structure'
-import { syncClientDriveBusinessFolders } from '../../services/google-drive/client-drive-structure-service'
+import {
+  reconcileClientDriveStaffPermissions,
+  syncClientDriveBusinessFolders,
+} from '../../services/google-drive/client-drive-structure-service'
 import { GoogleDriveServiceError } from '../../services/google-drive/google-drive-errors'
 import {
   IDENTITY_RETENTION_DELETE_IN_PROGRESS_REASON,
@@ -186,6 +189,23 @@ async function syncLinkedBusinessDriveFolders(input: {
     await syncClientDriveBusinessFolders(input)
   } catch (error) {
     if (error instanceof GoogleDriveServiceError) return
+    throw error
+  }
+}
+
+async function reconcileClientManagerDrivePermissions(input: {
+  organizationId: string
+  ownerOrRequestedClientId: string
+  actorStaffId: string | null
+}): Promise<string[]> {
+  try {
+    const result = await reconcileClientDriveStaffPermissions({
+      ...input,
+      reason: 'MANAGER_CHANGED',
+    })
+    return result.warnings
+  } catch (error) {
+    if (error instanceof GoogleDriveServiceError) return [error.code]
     throw error
   }
 }
@@ -1885,7 +1905,16 @@ clientsRoute.patch(
       },
     })
 
-    return c.json({ data: { managedBy, managedByStaff } })
+    const driveWarnings = await reconcileClientManagerDrivePermissions({
+      organizationId,
+      ownerOrRequestedClientId: id,
+      actorStaffId: user.staffId,
+    })
+
+    return c.json({
+      data: { managedBy, managedByStaff },
+      ...(driveWarnings.length > 0 && { warnings: driveWarnings }),
+    })
   }
 )
 

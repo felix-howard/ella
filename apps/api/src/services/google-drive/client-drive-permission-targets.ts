@@ -24,9 +24,7 @@ function assertEmail(email: string): string {
 }
 
 function resolveStaffDriveEmails(staff: { email: string; driveEmails?: string[] | null }): string[] {
-  const sourceEmails = staff.driveEmails && staff.driveEmails.length > 0
-    ? staff.driveEmails
-    : [staff.email]
+  const sourceEmails = [staff.email, ...(staff.driveEmails ?? [])]
   return Array.from(new Set(sourceEmails.map(assertEmail)))
 }
 

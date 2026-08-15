@@ -18,6 +18,8 @@ import {
   type ClientSmsTemplateId,
 } from './client-sms-templates'
 
+const NEW_CLIENT_SMS_TEMPLATE_IDS = [DEFAULT_CLIENT_SMS_TEMPLATE_ID] as const
+
 interface ConfirmStepProps {
   clientName: string
   phone: string
@@ -109,6 +111,7 @@ export function ConfirmStep({
           <ClientSmsTemplateSelector
             language={language}
             selectedTemplateId={selectedTemplateId}
+            templateIds={NEW_CLIENT_SMS_TEMPLATE_IDS}
             onSelect={(templateId, message) => {
               onTemplateSelect?.(templateId)
               onMessageChange(message)

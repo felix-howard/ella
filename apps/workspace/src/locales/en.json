@@ -3299,6 +3299,7 @@
   "googleDrive.modalTitle": "Create Drive Folder Structure",
   "googleDrive.multi": "Multi",
   "googleDrive.notConnected": "Google Drive is not connected",
+  "googleDrive.reconnectRequired": "Google Drive authorization expired. Reconnect below to keep creating client folders.",
   "googleDrive.none": "None selected",
   "googleDrive.open.amWork": "Open AM Work",
   "googleDrive.open.officeAdmin": "Open Office Admin",

@@ -1474,15 +1474,29 @@ export async function executeQueuedClientDriveStructureCreation(
     ? { id: row.id, updatedAt: row.updatedAt }
     : undefined
 
-  return createClientDriveStructure({
-    organizationId,
-    clientId: input.clientId,
-    actorStaffId: input.actorStaffId,
-    payload: input.payload,
-  }, db, {
-    allowRecentCreating: true,
-    expectedRow,
-  })
+  try {
+    return await createClientDriveStructure({
+      organizationId,
+      clientId: input.clientId,
+      actorStaffId: input.actorStaffId,
+      payload: input.payload,
+    }, db, {
+      allowRecentCreating: true,
+      expectedRow,
+    })
+  } catch (error) {
+    // A dead refresh token (Google `invalid_grant`) surfaces as DRIVE_AUTH_EXPIRED.
+    // Flip the org-level connection to ERROR so Settings shows a reconnect prompt
+    // instead of every client silently failing with a "Retry" button. Reconnecting
+    // via OAuth resets status back to CONNECTED.
+    if (error instanceof GoogleDriveServiceError && error.code === 'DRIVE_AUTH_EXPIRED') {
+      await db.googleDriveConnection.updateMany({
+        where: { organizationId, status: 'CONNECTED' },
+        data: { status: 'ERROR', disconnectedAt: new Date(), lastCheckedAt: new Date() },
+      })
+    }
+    throw error
+  }
 }
 
 export async function syncClientDriveBusinessFolders(

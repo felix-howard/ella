@@ -16,6 +16,7 @@ type GoogleDriveSettingsFormProps = {
   initialRootFolderId: string
   isConfigured: boolean
   isConnected: boolean
+  needsReconnect: boolean
 }
 
 export function GoogleDriveIntegrationCard() {
@@ -50,7 +51,8 @@ export function GoogleDriveIntegrationCard() {
             initialAdminGroupEmail={connection?.adminGroupEmail ?? ''}
             initialRootFolderId={connection?.rootFolderId ?? ''}
             isConfigured={Boolean(data?.isConfigured)}
-            isConnected={Boolean(connection)}
+            isConnected={connection?.status === 'CONNECTED'}
+            needsReconnect={Boolean(connection) && connection?.status !== 'CONNECTED'}
           />
         )}
       </div>
@@ -65,6 +67,7 @@ function GoogleDriveSettingsForm({
   initialRootFolderId,
   isConfigured,
   isConnected,
+  needsReconnect,
 }: GoogleDriveSettingsFormProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -111,6 +114,7 @@ function GoogleDriveSettingsForm({
   return (
     <>
       {!isConfigured && <p className="rounded-lg bg-warning-light p-3 text-sm text-warning-foreground" role="status">{t('googleDrive.credentialsMissing')}</p>}
+      {needsReconnect && <p className="rounded-lg bg-error-light p-3 text-sm text-error" role="alert">{t('googleDrive.reconnectRequired')}</p>}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="google-drive-root-folder" className="mb-1.5 block text-sm font-medium text-foreground">{t('googleDrive.rootFolderId')}</label>

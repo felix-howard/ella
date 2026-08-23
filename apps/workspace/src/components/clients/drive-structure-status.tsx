@@ -14,5 +14,7 @@ export function DriveStructureStatus({ folder, isLoading, isError, onCreate, can
     [folder.rootFolderWebUrl, 'root'], [folder.amWorkFolderWebUrl, 'amWork'], [folder.officeAdminFolderWebUrl, 'officeAdmin'], [folder.sharedFolderWebUrl, 'shared'],
   ].filter((entry): entry is [string, string] => Boolean(entry[0])).map(([url, name]) => <a key={name} href={url} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ size: 'sm', variant: 'outline' }))}><ExternalLink className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />{t(`googleDrive.open.${name}`)}</a>)}</div>
   const label = !isConnected ? t(isAdmin ? 'googleDrive.configureInSettings' : 'googleDrive.notConnected') : folder?.status === 'FAILED' ? t('googleDrive.retryStructure') : t('googleDrive.createStructure')
-  return <Button size="sm" variant="outline" onClick={onCreate} disabled={!isConnected || isError || folder?.status === 'CREATING'}>{folder?.status === 'CREATING' ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <HardDrive className="mr-1 h-3.5 w-3.5" aria-hidden="true" />}{folder?.status === 'CREATING' ? t('googleDrive.creating') : label}</Button>
+  // Surface the async failure reason on hover so a FAILED state is not silent.
+  const failureReason = folder?.status === 'FAILED' ? folder.lastErrorMessage ?? undefined : undefined
+  return <Button size="sm" variant="outline" onClick={onCreate} disabled={!isConnected || isError || folder?.status === 'CREATING'} title={failureReason}>{folder?.status === 'CREATING' ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <HardDrive className="mr-1 h-3.5 w-3.5" aria-hidden="true" />}{folder?.status === 'CREATING' ? t('googleDrive.creating') : label}</Button>
 }

@@ -3299,6 +3299,7 @@
   "googleDrive.modalTitle": "Tạo cấu trúc thư mục Drive",
   "googleDrive.multi": "Nhiều doanh nghiệp",
   "googleDrive.notConnected": "Google Drive chưa được kết nối",
+  "googleDrive.reconnectRequired": "Google Drive đã hết hạn ủy quyền. Hãy kết nối lại bên dưới để tiếp tục tạo thư mục cho khách hàng.",
   "googleDrive.none": "Chưa chọn",
   "googleDrive.open.amWork": "Mở AM Work",
   "googleDrive.open.officeAdmin": "Mở Office Admin",

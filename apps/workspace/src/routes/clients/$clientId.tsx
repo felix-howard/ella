@@ -453,7 +453,10 @@ function ClientDetailPage() {
   const createDriveStructureMutation = useMutation({
     mutationFn: (data: ClientDriveStructureCreateInput) => api.clients.driveStructure.create(clientId, data),
     onSuccess: () => {
-      toast.success(t('googleDrive.creating'))
+      // Folder creation runs asynchronously (queued via Inngest). This confirms the
+      // request was accepted, not that folders exist yet — use an info toast so a
+      // later async failure (e.g. expired Drive auth) is not preceded by a false success.
+      toast.info(t('googleDrive.creating'))
       setIsDriveStructureOpen(false)
       queryClient.invalidateQueries({ queryKey: ['client-drive-structure', clientId] })
       queryClient.invalidateQueries({ queryKey: ['client-drive-options', clientId] })

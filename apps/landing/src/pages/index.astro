@@ -15,6 +15,7 @@ import {
   websiteSchema,
 } from "@/components/seo/structured-data";
 import TrustStrip from "@/components/trust-strip.astro";
+import UsStatesMarquee from "@/components/us-states-marquee.astro";
 import {
   homeAdvisors,
   homeAudienceSegments,
@@ -52,6 +53,8 @@ const structuredData = [
     />
 
     <TrustStrip items={homeTrustItems} />
+
+    <UsStatesMarquee />
 
     <section class="bg-white py-12 sm:py-16" aria-labelledby="irs-efile-provider-title">
       <div class="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:px-8">

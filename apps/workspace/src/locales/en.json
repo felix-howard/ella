@@ -3291,6 +3291,7 @@
   "googleDrive.folderTreePaystubs": "{{year}}-Paystubs",
   "googleDrive.folderTreeReceipts": "{{year}}-Receipts",
   "googleDrive.folderTreeShared": "SHARED TO CLIENT",
+  "googleDrive.folderTreeSharedCashPlan": "{{year}}-Cash Plan",
   "googleDrive.folderTreeStatements": "{{year}}-Statements",
   "googleDrive.folderTreeTaxDocs": "{{year}} TAX DOCS",
   "googleDrive.loading": "Loading Drive status…",

@@ -37,6 +37,7 @@ import {
   getClientDriveSharedPaystubsFolderName,
   getClientDriveSharedReceiptsFolderName,
   getClientDriveSharedStatementsFolderName,
+  getClientDriveSharedCashPlanFolderName,
   getClientDriveSharedTaxDocsFolderName,
 } from './client-drive-folder-tree'
 
@@ -1328,6 +1329,10 @@ export async function createClientDriveStructure(
       {
         role: CLIENT_DRIVE_FOLDER_ROLES.SHARED_STATEMENTS,
         name: getClientDriveSharedStatementsFolderName(currentYear),
+      },
+      {
+        role: CLIENT_DRIVE_FOLDER_ROLES.SHARED_CASH_PLAN,
+        name: getClientDriveSharedCashPlanFolderName(currentYear),
       },
     ]
 

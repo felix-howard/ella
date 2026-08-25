@@ -102,6 +102,7 @@ function DriveStructureModalContent({ clientId, isPending, onClose, onSubmit, on
           <li className="ml-10">{t('googleDrive.folderTreePaystubs', { year: options.currentYear })}</li>
           <li className="ml-10">{t('googleDrive.folderTreeReceipts', { year: options.currentYear })}</li>
           <li className="ml-10">{t('googleDrive.folderTreeStatements', { year: options.currentYear })}</li>
+          <li className="ml-10">{t('googleDrive.folderTreeSharedCashPlan', { year: options.currentYear })}</li>
           {businessNames.map((name) => (
             <li key={name} className="ml-5">
               <span className="break-words">{name}</span>

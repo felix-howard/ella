@@ -490,6 +490,7 @@ describe('client Drive structure service', () => {
       `${year}-Paystubs`,
       `${year}-Receipts`,
       `${year}-Statements`,
+      `${year}-Cash Plan`,
       'Acme LLC',
       `${year}-Cash plan`,
       `${year}-Other Docs`,

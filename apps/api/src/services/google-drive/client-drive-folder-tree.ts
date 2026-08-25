@@ -9,6 +9,7 @@ export const CLIENT_DRIVE_FOLDER_ROLES = {
   SHARED_PAYSTUBS: 'SHARED_PAYSTUBS',
   SHARED_RECEIPTS: 'SHARED_RECEIPTS',
   SHARED_STATEMENTS: 'SHARED_STATEMENTS',
+  SHARED_CASH_PLAN: 'SHARED_CASH_PLAN',
   BUSINESS_ROOT: 'BUSINESS_ROOT',
   BUSINESS_CASH_PLAN: 'BUSINESS_CASH_PLAN',
   BUSINESS_OTHER_DOCS: 'BUSINESS_OTHER_DOCS',
@@ -39,6 +40,10 @@ export function getClientDriveSharedReceiptsFolderName(year: number): string {
 
 export function getClientDriveSharedStatementsFolderName(year: number): string {
   return `${year}-Statements`
+}
+
+export function getClientDriveSharedCashPlanFolderName(year: number): string {
+  return `${year}-Cash Plan`
 }
 
 export function getClientDriveBusinessCashPlanFolderName(year: number): string {

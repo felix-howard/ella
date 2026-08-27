@@ -39,6 +39,7 @@ import {
   getClientDriveSharedStatementsFolderName,
   getClientDriveSharedCashPlanFolderName,
   getClientDriveSharedTaxDocsFolderName,
+  getClientDriveSharedToClientFolderName,
 } from './client-drive-folder-tree'
 
 const CREATING_LOCK_MS = 2 * 60 * 1000
@@ -1284,7 +1285,7 @@ export async function createClientDriveStructure(
       clientGroupId: owner.clientGroupId,
       parentFolderId: amWorkFolder.id,
       role: CLIENT_DRIVE_FOLDER_ROLES.SHARED_TO_CLIENT,
-      name: CLIENT_DRIVE_FOLDER_NAMES.SHARED_TO_CLIENT,
+      name: getClientDriveSharedToClientFolderName(inputSnapshot.clientName, inputSnapshot.ssnLast4),
       savedFolderId: row.sharedFolderId,
       savedFolderWebUrl: row.sharedFolderWebUrl,
       updateData: { idKey: 'sharedFolderId', urlKey: 'sharedFolderWebUrl' },

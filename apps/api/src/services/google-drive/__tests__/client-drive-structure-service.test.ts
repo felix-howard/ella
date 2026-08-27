@@ -485,7 +485,7 @@ describe('client Drive structure service', () => {
       'OFFICE - ADMIN ONLY',
       'ADMIN Docs',
       'LLC Docs',
-      'SHARED TO CLIENT',
+      'SHARED TO CLIENT - Linh Nguyen 1234',
       `${year} TAX DOCS`,
       `${year}-Paystubs`,
       `${year}-Receipts`,

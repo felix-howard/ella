@@ -42,7 +42,7 @@ function DriveStructureModalContent({ clientId, isPending, onClose, onSubmit, on
   const hasClientEmail = Boolean(clientEmail)
   const [error, setError] = useState<string | null>(null)
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => { setForm((previous) => ({ ...(previous ?? buildInitialForm(options!)), [key]: value })); setError(null) }
-  const preview = useMemo(() => initialForm && options && /^\d{4}$/.test(initialForm.ssnLast4) && /^[A-Za-z]{2}$/.test(initialForm.state.trim()) && (initialForm.businessMode === 'MULTI' || initialForm.businessName.trim()) ? `${options.clientName} ${initialForm.ssnLast4} - ${initialForm.state.trim().toUpperCase()} - ${initialForm.businessMode === 'MULTI' ? 'Multi' : initialForm.businessName.trim().replace(/\s+/g, ' ')}` : t('googleDrive.previewIncomplete'), [initialForm, options, t])
+  const preview = useMemo(() => initialForm && options && /^\d{4}$/.test(initialForm.ssnLast4) && /^[A-Za-z]{2}$/.test(initialForm.state.trim()) && (initialForm.businessMode === 'MULTI' || initialForm.businessName.trim()) ? `${options.clientName} ${initialForm.ssnLast4}-${initialForm.state.trim().toUpperCase()}-${initialForm.businessMode === 'MULTI' ? 'Multi' : initialForm.businessName.trim().replace(/\s+/g, ' ')}` : t('googleDrive.previewIncomplete'), [initialForm, options, t])
   const businessNames = useMemo(() => initialForm && options ? getPreviewBusinessNames(initialForm, options) : [], [initialForm, options])
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()

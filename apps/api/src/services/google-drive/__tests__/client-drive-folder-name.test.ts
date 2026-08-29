@@ -8,7 +8,7 @@ describe('buildClientDriveFolderName', () => {
       ssnLast4: '1234',
       state: 'tx',
       businessMode: 'MULTI',
-    })).toBe('Linh Nguyen 1234 - TX - Multi')
+    })).toBe('Linh Nguyen 1234-TX-Multi')
   })
 
   it('builds normalized single-business folder names', () => {
@@ -18,7 +18,7 @@ describe('buildClientDriveFolderName', () => {
       state: 'CA',
       businessMode: 'SINGLE_BUSINESS',
       businessName: '  Acme   LLC ',
-    })).toBe('Linh Nguyen 1234 - CA - Acme LLC')
+    })).toBe('Linh Nguyen 1234-CA-Acme LLC')
   })
 
   it('rejects invalid naming inputs', () => {

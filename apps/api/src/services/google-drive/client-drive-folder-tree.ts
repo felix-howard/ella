@@ -28,7 +28,7 @@ export const CLIENT_DRIVE_FOLDER_NAMES = {
 
 // The SHARED TO CLIENT folder name carries the client's display name and last 4
 // SSN digits so staff can identify the shared folder at a glance, e.g.
-// "SHARED TO CLIENT - Chaoyang You 7863". Falls back to the bare base name when
+// "SHARED TO CLIENT-Chaoyang You 7863". Falls back to the bare base name when
 // either part is missing so we never emit a dangling separator.
 export function getClientDriveSharedToClientFolderName(
   clientName: string,
@@ -38,7 +38,7 @@ export function getClientDriveSharedToClientFolderName(
   const ssn = (ssnLast4 ?? '').trim()
   const suffix = [name, ssn].filter(Boolean).join(' ')
   if (!suffix) return CLIENT_DRIVE_FOLDER_NAMES.SHARED_TO_CLIENT
-  return `${CLIENT_DRIVE_FOLDER_NAMES.SHARED_TO_CLIENT} - ${suffix}`
+  return `${CLIENT_DRIVE_FOLDER_NAMES.SHARED_TO_CLIENT}-${suffix}`
 }
 
 export function getClientDriveSharedTaxDocsFolderName(year: number): string {

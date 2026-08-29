@@ -60,7 +60,7 @@ function folderRow(overrides: Record<string, unknown> = {}) {
     organizationId: 'org_1',
     ownerClientId: CLIENT_ID,
     clientGroupId: null,
-    folderName: 'Linh Nguyen 1234 - TX - Multi',
+    folderName: 'Linh Nguyen 1234-TX-Multi',
     rootFolderId: 'root_folder',
     rootFolderWebUrl: 'https://drive.example/root',
     amWorkFolderId: 'am_work',
@@ -480,12 +480,12 @@ describe('client Drive structure service', () => {
 
     const createdNames = driveMocks.createGoogleDriveFolder.mock.calls.map((call) => call[1].name)
     expect(createdNames).toEqual(expect.arrayContaining([
-      'Linh Nguyen 1234 - TX - Acme LLC',
+      'Linh Nguyen 1234-TX-Acme LLC',
       'AM WORK',
       'OFFICE - ADMIN ONLY',
       'ADMIN Docs',
       'LLC Docs',
-      'SHARED TO CLIENT - Linh Nguyen 1234',
+      'SHARED TO CLIENT-Linh Nguyen 1234',
       `${year} TAX DOCS`,
       `${year}-Paystubs`,
       `${year}-Receipts`,
@@ -837,7 +837,7 @@ describe('client Drive structure service', () => {
       inputSnapshot: {
         ownerClientId: CLIENT_ID,
         clientGroupId: null,
-        folderName: 'Linh Nguyen 1234 - TX - Multi',
+        folderName: 'Linh Nguyen 1234-TX-Multi',
         clientName: 'Linh Nguyen',
         ssnLast4: '1234',
         state: 'TX',
@@ -873,7 +873,7 @@ describe('client Drive structure service', () => {
       rowId: 'drive_folder_row',
       rowUpdatedAt: '2026-08-10T00:00:00.000Z',
       inputSnapshot: {
-        folderName: 'Linh Nguyen 1234 - TX - Multi',
+        folderName: 'Linh Nguyen 1234-TX-Multi',
         ssnLast4: '1234',
         state: 'TX',
         entityLabel: 'Multi',
@@ -892,7 +892,7 @@ describe('client Drive structure service', () => {
           inputSnapshot: {
             ownerClientId: CLIENT_ID,
             clientGroupId: null,
-            folderName: 'Linh Nguyen 1234 - TX - Multi',
+            folderName: 'Linh Nguyen 1234-TX-Multi',
             clientName: 'Linh Nguyen',
             ssnLast4: '1234',
             state: 'TX',
@@ -913,7 +913,7 @@ describe('client Drive structure service', () => {
       rowId: 'drive_folder_row',
       rowUpdatedAt: '2026-08-10T00:00:00.000Z',
       inputSnapshot: {
-        folderName: 'Linh Nguyen 1234 - TX - Multi',
+        folderName: 'Linh Nguyen 1234-TX-Multi',
         ssnLast4: '1234',
         state: 'TX',
         entityLabel: 'Multi',
@@ -1117,17 +1117,17 @@ describe('client Drive structure service', () => {
 
     expect(driveMocks.updateGoogleDriveFolder).toHaveBeenCalledWith(expect.anything(), {
       folderId: 'root_single_business',
-      name: 'An Nguyen 2321 - PA - Multi',
+      name: 'An Nguyen 2321-PA-Multi',
       appProperties: expect.objectContaining({ ellaFolderRole: 'CLIENT_ROOT' }),
     })
     expect((db as { clientDriveFolder: { update: ReturnType<typeof vi.fn> } }).clientDriveFolder.update).toHaveBeenCalledWith({
       where: { id: existing.id },
       data: expect.objectContaining({
-        folderName: 'An Nguyen 2321 - PA - Multi',
+        folderName: 'An Nguyen 2321-PA-Multi',
         rootFolderId: 'root_single_business',
         rootFolderWebUrl: 'https://drive.example/root_single_business',
         inputSnapshot: expect.objectContaining({
-          folderName: 'An Nguyen 2321 - PA - Multi',
+          folderName: 'An Nguyen 2321-PA-Multi',
           entityLabel: 'Multi',
         }),
       }),

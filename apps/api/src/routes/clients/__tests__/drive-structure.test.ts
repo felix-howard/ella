@@ -68,7 +68,7 @@ beforeEach(() => {
       organizationId: 'org_1',
       ownerClientId: CLIENT_ID,
       clientGroupId: null,
-      folderName: 'Linh Nguyen 1234 - TX - Multi',
+      folderName: 'Linh Nguyen 1234-TX-Multi',
       rootFolderId: null,
       rootFolderWebUrl: null,
       amWorkFolderId: null,
@@ -81,7 +81,7 @@ beforeEach(() => {
       inputSnapshot: {
         ownerClientId: CLIENT_ID,
         clientGroupId: null,
-        folderName: 'Linh Nguyen 1234 - TX - Multi',
+        folderName: 'Linh Nguyen 1234-TX-Multi',
         clientName: 'Linh Nguyen',
         ssnLast4: '1234',
         state: 'TX',
@@ -110,7 +110,7 @@ beforeEach(() => {
       rowId: 'folder_row_1',
       rowUpdatedAt: '2026-08-10T00:00:00.000Z',
       inputSnapshot: {
-        folderName: 'Linh Nguyen 1234 - TX - Multi',
+        folderName: 'Linh Nguyen 1234-TX-Multi',
         ssnLast4: '1234',
         state: 'TX',
         entityLabel: 'Multi',

@@ -54,10 +54,10 @@ describe('Drive structure workspace UI', () => {
     )
     const ready = renderToStaticMarkup(
       <DriveStructureStatus folder={{
-        id: 'folder_1', organizationId: 'org_1', ownerClientId: 'owner_1', clientGroupId: null, folderName: 'Ada 1234 - TX - Multi',
+        id: 'folder_1', organizationId: 'org_1', ownerClientId: 'owner_1', clientGroupId: null, folderName: 'Ada 1234-TX-Multi',
         rootFolderId: 'root_1', rootFolderWebUrl: 'https://drive.example/root', amWorkFolderId: 'am_1', amWorkFolderWebUrl: 'https://drive.example/am',
         officeAdminFolderId: 'admin_1', officeAdminFolderWebUrl: 'https://drive.example/admin', sharedFolderId: 'shared_1', sharedFolderWebUrl: 'https://drive.example/shared',
-        status: 'READY', inputSnapshot: { ownerClientId: 'owner_1', clientGroupId: null, folderName: 'Ada 1234 - TX - Multi', clientName: 'Ada Lovelace', ssnLast4: '1234', state: 'TX', entityLabel: 'Multi' },
+        status: 'READY', inputSnapshot: { ownerClientId: 'owner_1', clientGroupId: null, folderName: 'Ada 1234-TX-Multi', clientName: 'Ada Lovelace', ssnLast4: '1234', state: 'TX', entityLabel: 'Multi' },
         permissionSnapshot: { adminGroupEmail: null, adminEmails: [], accountManagerEmails: [], clientEmail: 'ada@example.com' }, lastErrorCode: null, lastErrorMessage: null, createdByStaffId: 'staff_1', createdAt: '', updatedAt: '',
       }} isLoading={false} isError={false} onCreate={vi.fn()} canManageClients isConnected isAdmin />
     )
@@ -105,10 +105,10 @@ describe('Drive structure workspace UI', () => {
 
 function folderFixture() {
   return {
-    id: 'folder_1', organizationId: 'org_1', ownerClientId: 'owner_1', clientGroupId: null, folderName: 'Ada 1234 - TX - Multi',
+    id: 'folder_1', organizationId: 'org_1', ownerClientId: 'owner_1', clientGroupId: null, folderName: 'Ada 1234-TX-Multi',
     rootFolderId: 'root_1', rootFolderWebUrl: 'https://drive.example/root', amWorkFolderId: 'am_1', amWorkFolderWebUrl: 'https://drive.example/am',
     officeAdminFolderId: 'admin_1', officeAdminFolderWebUrl: 'https://drive.example/admin', sharedFolderId: 'shared_1', sharedFolderWebUrl: 'https://drive.example/shared',
-    status: 'READY' as const, inputSnapshot: { ownerClientId: 'owner_1', clientGroupId: null, folderName: 'Ada 1234 - TX - Multi', clientName: 'Ada Lovelace', ssnLast4: '1234', state: 'TX', entityLabel: 'Multi' },
+    status: 'READY' as const, inputSnapshot: { ownerClientId: 'owner_1', clientGroupId: null, folderName: 'Ada 1234-TX-Multi', clientName: 'Ada Lovelace', ssnLast4: '1234', state: 'TX', entityLabel: 'Multi' },
     permissionSnapshot: { adminGroupEmail: null, adminEmails: [], accountManagerEmails: [], clientEmail: 'ada@example.com' }, lastErrorCode: null, lastErrorMessage: null, createdByStaffId: 'staff_1', createdAt: '', updatedAt: '',
   }
 }

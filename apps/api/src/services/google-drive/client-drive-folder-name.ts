@@ -28,7 +28,7 @@ export function buildClientDriveFolderName(input: BuildClientDriveFolderNameInpu
   }
 
   if (input.businessMode === 'MULTI') {
-    return `${clientName} ${ssnLast4} - ${state} - Multi`
+    return `${clientName} ${ssnLast4}-${state}-Multi`
   }
 
   const businessName = normalizeWhitespace(input.businessName ?? '')
@@ -36,7 +36,7 @@ export function buildClientDriveFolderName(input: BuildClientDriveFolderNameInpu
     throw new GoogleDriveServiceError('DRIVE_ROOT_INVALID', 'Business name is required.')
   }
 
-  return `${clientName} ${ssnLast4} - ${state} - ${businessName}`
+  return `${clientName} ${ssnLast4}-${state}-${businessName}`
 }
 
 export function getClientDriveDisplayName(input: {

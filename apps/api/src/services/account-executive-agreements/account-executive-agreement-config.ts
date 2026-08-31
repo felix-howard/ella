@@ -1,0 +1,7 @@
+import { CURRENT_ACCOUNT_EXECUTIVE_AGREEMENT_VERSION } from '@ella/shared'
+
+export const CURRENT_ACCOUNT_EXECUTIVE_AGREEMENT = {
+  version: CURRENT_ACCOUNT_EXECUTIVE_AGREEMENT_VERSION,
+} as const
+
+export const ACCOUNT_EXECUTIVE_AGREEMENT_SIGNED_PDF_PREFIX = 'account-executive-agreements'

@@ -15,6 +15,7 @@ import { formatPhone } from '../../lib/formatters'
 import { NotificationSubscriptions } from './notification-subscriptions'
 import { TermsDownloadButton } from './terms-download-button'
 import { ContractorAgreementDownloadButton } from './contractor-agreement-download-button'
+import { AccountExecutiveAgreementDownloadButton } from './account-executive-agreement-download-button'
 import { useInvalidateNdaReadiness } from '../agreements/use-nda-readiness'
 
 // Phone input styles
@@ -505,6 +506,16 @@ export function ProfileForm({
             <ContractorAgreementDownloadButton
               staffId={staffId}
               isContractorAgent={staff.isContractorAgent}
+              canViewAgreement={canViewContractorAgreement}
+            />
+          </div>
+          <div className="mt-5 pt-5 border-t border-border/60">
+            <h3 className="text-sm font-medium text-foreground mb-4">
+              {t('profile.accountExecutiveAgreement', 'Account Executive Agreement')}
+            </h3>
+            <AccountExecutiveAgreementDownloadButton
+              staffId={staffId}
+              isManager={staff.role === 'MANAGER'}
               canViewAgreement={canViewContractorAgreement}
             />
           </div>

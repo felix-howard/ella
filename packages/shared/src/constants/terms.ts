@@ -11,3 +11,10 @@ export const CURRENT_TERMS_VERSION = '2026.03.27'
  * Bump this when the contractor agreement template changes to trigger re-acceptance
  */
 export const CURRENT_CONTRACTOR_AGREEMENT_VERSION = '2026.05.15'
+
+/**
+ * Current Account Executive Agreement version
+ * Format: YYYY.MM.DD
+ * Bump this when the account executive agreement content changes to trigger re-acceptance
+ */
+export const CURRENT_ACCOUNT_EXECUTIVE_AGREEMENT_VERSION = '2026.08.31'

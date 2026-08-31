@@ -11,7 +11,18 @@ export {
   getValidNextStatuses,
 } from './case-status'
 
-export { CURRENT_TERMS_VERSION, CURRENT_CONTRACTOR_AGREEMENT_VERSION } from './terms'
+export {
+  CURRENT_TERMS_VERSION,
+  CURRENT_CONTRACTOR_AGREEMENT_VERSION,
+  CURRENT_ACCOUNT_EXECUTIVE_AGREEMENT_VERSION,
+} from './terms'
+export {
+  type AccountExecutiveAgreementSection,
+  type AccountExecutiveAgreementContent,
+  type AccountExecutiveAgreementFillValues,
+  ACCOUNT_EXECUTIVE_AGREEMENT_CONTENT,
+  fillAccountExecutiveAgreementText,
+} from './account-executive-agreement-content'
 export {
   AUDIT_PROTECTION,
   CASH_PLAN,

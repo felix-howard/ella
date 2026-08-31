@@ -33,6 +33,7 @@ import { authSignupRoute } from './routes/auth/signup'
 import { formRoute } from './routes/form'
 import { termsRoute } from './routes/terms'
 import { contractorAgreementsRoute } from './routes/contractor-agreements'
+import { accountExecutiveAgreementsRoute } from './routes/account-executive-agreements'
 import { leadsRoute } from './routes/leads'
 import { contractorIntakeRoute } from './routes/contractor-intake'
 import { clientContractorsRoute } from './routes/contractors/client-contractors'
@@ -122,6 +123,7 @@ app.use('/shared-docs/*', authMiddleware)
 app.use('/upload-links/*', authMiddleware)
 app.use('/terms/*', authMiddleware)
 app.use('/contractor-agreements/*', authMiddleware)
+app.use('/account-executive-agreements/*', authMiddleware)
 app.use('/client-groups/*', authMiddleware)
 app.use('/agreement-templates/*', authMiddleware)
 app.use('/activity/*', authMiddleware)
@@ -154,6 +156,7 @@ app.route('/shared-docs', sharedDocsRoute)
 app.route('/upload-links', uploadLinksRoute)
 app.route('/terms', termsRoute)
 app.route('/contractor-agreements', contractorAgreementsRoute)
+app.route('/account-executive-agreements', accountExecutiveAgreementsRoute)
 app.route('/campaigns', campaignsRoute) // Admin-only, inline auth middleware
 app.route('/client-groups', clientGroupsRoute)
 app.route('/agreement-templates', agreementTemplatesRoute)

@@ -1,4 +1,5 @@
 import { ContractorAgreementGate } from '../contractor-agreements'
+import { AccountExecutiveAgreementGate } from '../account-executive-agreements'
 import { TermsGate } from './terms-gate'
 
 interface ComplianceGateProps {
@@ -8,7 +9,9 @@ interface ComplianceGateProps {
 export function ComplianceGate({ children }: ComplianceGateProps) {
   return (
     <TermsGate>
-      <ContractorAgreementGate>{children}</ContractorAgreementGate>
+      <ContractorAgreementGate>
+        <AccountExecutiveAgreementGate>{children}</AccountExecutiveAgreementGate>
+      </ContractorAgreementGate>
     </TermsGate>
   )
 }

@@ -526,26 +526,27 @@ model Staff {
   notificationSubscribers   NotificationSubscription[] @relation("NotificationTarget")
   webPushSubscriptions      WebPushSubscription[]
 
-  termsAcceptances               TermsAcceptance[]
-  contractorAgreementAcceptances ContractorAgreementAcceptance[]
-  staffFiles                     StaffFile[]                     @relation("StaffFiles")
-  uploadedStaffFiles             StaffFile[]                     @relation("UploadedStaffFiles")
-  reviewedStaffFiles             StaffFile[]                     @relation("ReviewedStaffFiles")
-  deletedStaffFiles              StaffFile[]                     @relation("DeletedStaffFiles")
-  paymentInfos                   StaffPaymentInfo[]              @relation("StaffPaymentInfos")
-  updatedPaymentInfos            StaffPaymentInfo[]              @relation("UpdatedStaffPaymentInfos")
-  sentSmsLogs                    SmsSendLog[]                    @relation("SentSmsLogs")
-  createdCampaigns               Campaign[]                      @relation("CreatedCampaigns")
-  agreementsCreated              Agreement[]                     @relation("AgreementCreatedBy")
-  agreementsLastEdited           Agreement[]                     @relation("AgreementLastEditedBy")
-  agreementsSent                 Agreement[]                     @relation("AgreementSentBy")
-  agreementsVoided               Agreement[]                     @relation("AgreementVoidedBy")
-  agreementTemplatesCreated      AgreementTemplate[]             @relation("AgreementTemplateCreatedBy")
-  createdPaymentQuotes           PaymentQuote[]                  @relation("PaymentQuoteCreatedBy")
-  sentQuotes                     PaymentQuote[]                  @relation("QuoteSentBy")
-  createdPaymentTemplates        PaymentTemplate[]               @relation("PaymentTemplateCreatedBy")
-  connectedGoogleDriveAccounts   GoogleDriveConnection[]         @relation("GoogleDriveConnectionConnectedBy")
-  createdClientDriveFolders      ClientDriveFolder[]             @relation("ClientDriveFolderCreatedBy")
+  termsAcceptances                     TermsAcceptance[]
+  contractorAgreementAcceptances       ContractorAgreementAcceptance[]
+  accountExecutiveAgreementAcceptances AccountExecutiveAgreementAcceptance[]
+  staffFiles                           StaffFile[]                           @relation("StaffFiles")
+  uploadedStaffFiles                   StaffFile[]                           @relation("UploadedStaffFiles")
+  reviewedStaffFiles                   StaffFile[]                           @relation("ReviewedStaffFiles")
+  deletedStaffFiles                    StaffFile[]                           @relation("DeletedStaffFiles")
+  paymentInfos                         StaffPaymentInfo[]                    @relation("StaffPaymentInfos")
+  updatedPaymentInfos                  StaffPaymentInfo[]                    @relation("UpdatedStaffPaymentInfos")
+  sentSmsLogs                          SmsSendLog[]                          @relation("SentSmsLogs")
+  createdCampaigns                     Campaign[]                            @relation("CreatedCampaigns")
+  agreementsCreated                    Agreement[]                           @relation("AgreementCreatedBy")
+  agreementsLastEdited                 Agreement[]                           @relation("AgreementLastEditedBy")
+  agreementsSent                       Agreement[]                           @relation("AgreementSentBy")
+  agreementsVoided                     Agreement[]                           @relation("AgreementVoidedBy")
+  agreementTemplatesCreated            AgreementTemplate[]                   @relation("AgreementTemplateCreatedBy")
+  createdPaymentQuotes                 PaymentQuote[]                        @relation("PaymentQuoteCreatedBy")
+  sentQuotes                           PaymentQuote[]                        @relation("QuoteSentBy")
+  createdPaymentTemplates              PaymentTemplate[]                     @relation("PaymentTemplateCreatedBy")
+  connectedGoogleDriveAccounts         GoogleDriveConnection[]               @relation("GoogleDriveConnectionConnectedBy")
+  createdClientDriveFolders            ClientDriveFolder[]                   @relation("ClientDriveFolderCreatedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -682,6 +683,30 @@ model ContractorAgreementAcceptance {
   @@index([version])
 }
 
+// Account Executive agreement acceptance tracking for staff with the MANAGER role.
+// Member-only signature (no firm counter-signature).
+model AccountExecutiveAgreementAcceptance {
+  id              String       @id @default(cuid())
+  staffId         String
+  staff           Staff        @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  version         String
+  signedAt        DateTime     @default(now())
+  signedPdfR2Key  String
+  pdfSha256       String
+  signerName      String
+  signerEmail     String
+  signerIpAddress String?
+  signerUserAgent String?      @db.Text
+  createdAt       DateTime     @default(now())
+
+  @@unique([staffId, version])
+  @@index([staffId])
+  @@index([organizationId])
+  @@index([version])
+}
+
 // Tracks which staff's client uploads an admin subscribes to for SMS notifications
 model NotificationSubscription {
   id            String           @id @default(cuid())
@@ -753,27 +778,28 @@ model Organization {
   firmEmail       String?
   firmWebsite     String?
 
-  staff                          Staff[]
-  staffFiles                     StaffFile[]
-  staffPaymentInfos              StaffPaymentInfo[]
-  clients                        Client[]
-  clientManagers                 ClientManager[]
-  clientGroups                   ClientGroup[]
-  leads                          Lead[]
-  paymentQuotes                  PaymentQuote[]
-  paymentTemplates               PaymentTemplate[]
-  coupons                        Coupon[]
-  payments                       Payment[]
-  smsSendLogs                    SmsSendLog[]
-  campaigns                      Campaign[]
-  agreements                     Agreement[]
-  agreementTemplates             AgreementTemplate[]
-  contractorAgreementAcceptances ContractorAgreementAcceptance[]
-  companyVaultCredentials        CompanyVaultCredential[]
-  webPushSubscriptions           WebPushSubscription[]
-  googleDriveConnection          GoogleDriveConnection?
-  clientDriveFolders             ClientDriveFolder[]
-  clientDriveFolderNodes         ClientDriveFolderNode[]
+  staff                                Staff[]
+  staffFiles                           StaffFile[]
+  staffPaymentInfos                    StaffPaymentInfo[]
+  clients                              Client[]
+  clientManagers                       ClientManager[]
+  clientGroups                         ClientGroup[]
+  leads                                Lead[]
+  paymentQuotes                        PaymentQuote[]
+  paymentTemplates                     PaymentTemplate[]
+  coupons                              Coupon[]
+  payments                             Payment[]
+  smsSendLogs                          SmsSendLog[]
+  campaigns                            Campaign[]
+  agreements                           Agreement[]
+  agreementTemplates                   AgreementTemplate[]
+  contractorAgreementAcceptances       ContractorAgreementAcceptance[]
+  accountExecutiveAgreementAcceptances AccountExecutiveAgreementAcceptance[]
+  companyVaultCredentials              CompanyVaultCredential[]
+  webPushSubscriptions                 WebPushSubscription[]
+  googleDriveConnection                GoogleDriveConnection?
+  clientDriveFolders                   ClientDriveFolder[]
+  clientDriveFolderNodes               ClientDriveFolderNode[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2073,20 +2099,20 @@ model StripeCheckoutSession {
 }
 
 model StripeWebhookEventLog {
-  id                      String    @id @default(cuid())
-  stripeEventId           String    @unique
-  eventType               String
-  stripeObjectId          String?
-  stripePaymentIntentId   String?
-  chargeFullyRefunded     Boolean?
-  livemode                Boolean
-  status                  String
-  attemptCount            Int       @default(1)
-  errorMessage            String?   @db.Text
-  receivedAt              DateTime  @default(now())
-  processedAt             DateTime?
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+  id                    String    @id @default(cuid())
+  stripeEventId         String    @unique
+  eventType             String
+  stripeObjectId        String?
+  stripePaymentIntentId String?
+  chargeFullyRefunded   Boolean?
+  livemode              Boolean
+  status                String
+  attemptCount          Int       @default(1)
+  errorMessage          String?   @db.Text
+  receivedAt            DateTime  @default(now())
+  processedAt           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   @@index([status, receivedAt])
   @@index([eventType])

@@ -188,6 +188,7 @@
 - **StaffFile**: org-scoped staff upload record for personal documents and invoices. Fields: organizationId, staffId, uploadedByStaffId, kind (PERSONAL_DOCUMENT|INVOICE), title, category, originalFilename, mimeType, fileSize, r2Key (unique), checksumSha256, invoiceYear, invoiceMonth, invoiceStatus, replacedById, isActive, reviewedByStaffId, reviewedAt, paidAt, adminNote, deletedAt, deletedByStaffId. Contract: invoice rows require invoiceYear/invoiceMonth/invoiceStatus and invoiceMonth 1-12; personal documents must not carry invoice metadata or paidAt. Indexes: organizationId+staffId+kind, organizationId+kind+invoiceYear+invoiceMonth. Storage keys use `staff-files/{org}/{staff}/documents/{uuid}.{ext}` or `staff-files/{org}/{staff}/invoices/{yyyy-mm}/{uuid}.{ext}`.
 - **CompanyVaultCredential**: org-scoped shared credential store for internal tools. Fields: organizationId, toolName, usernameEncrypted, passwordEncrypted, noteEncrypted, createdAt, updatedAt. Index: organizationId+toolName. `toolName` stays plaintext for search/sort; sensitive values are decrypted only at the authenticated API response boundary.
 - **ContractorAgreementAcceptance**: staff-level Independent Contractor agreement acceptance for Contractor Agent staff. Fields: staffId, organizationId, version, signedAt, signedPdfR2Key, sourceTemplateR2Key, pdfSha256, signerName, signerEmail, signerIpAddress, signerUserAgent, firmSignerName, firmSignerEmail, firmSignerTitle, firmSignaturePngKey. Unique on `[staffId, version]`.
+- **AccountExecutiveAgreementAcceptance**: staff-level Account Executive agreement acceptance required for `role = MANAGER` staff (member-only signature, no firm counter-signature). Fields: staffId, organizationId, version, signedAt, signedPdfR2Key, pdfSha256, signerName, signerEmail, signerIpAddress, signerUserAgent. Unique on `[staffId, version]`. Agreement text is a single shared source (`packages/shared` account-executive-agreement-content) rendered both to the signing modal and to a pdf-lib-generated signed PDF (no static template asset).
 - **Lead**: organizationId FK, firstName, lastName, phone (unique per org), email, businessName, status (NEW|CONTACTED|CONVERTED|LOST), campaignTag (formerly "source", eventSlug or null), tags String[] (auto-populated from campaignTag on creation, GIN indexed), convertedToId FK (Client). Phase 01 Tag-Based Categorization: renames source→campaignTag, adds tags field + GIN index.
 - **TaxCase**: caseId, engagementId FK, taxYear, status (INTAKE→FILED), caseDocs[], checklistItems[]
 - **TaxEngagement**: engagementId, clientId FK, taxYear, year-specific profile fields, status
@@ -236,6 +237,12 @@
 - `POST /contractor-agreements/accept` - Accept the current version with contractor PNG signature data URL; server builds the final PDF, stores it in R2, and persists SHA-256 plus signer snapshots.
 - `GET /contractor-agreements/acceptance/:staffId` - Owner/admin scoped current-version acceptance lookup.
 - `GET /contractor-agreements/download/:acceptanceId` - Owner/admin scoped signed PDF download URL.
+
+**Account Executive Agreements (MANAGER role compliance gate):**
+- `GET /account-executive-agreements/status` - Caller status; `required` = staff `role = MANAGER`. Returns organizationName + signerName for the modal fill.
+- `POST /account-executive-agreements/accept` - MANAGER-only accept with member PNG signature data URL; server renders the PDF from shared content (auto-filling company/name/date), stores it in R2, and persists SHA-256 + signer snapshot.
+- `GET /account-executive-agreements/acceptance/:staffId` - Owner/admin/manager scoped current-version acceptance lookup.
+- `GET /account-executive-agreements/download/:acceptanceId` - Owner/admin/manager scoped signed PDF download URL.
 - Storage key pattern: `contractor-agreements/{orgId}/{staffId}/{version}/{uuid}.pdf`
 - Rollout notes: verify exact firm signer account/signature/title in production, confirm source PDF version, confirm migration applied/status clean, deploy API + workspace together, mark staff, sign, verify profile download.
 

@@ -2143,6 +2143,26 @@ export const api = {
       request<ContractorAgreementAcceptance>(`/contractor-agreements/acceptance/${staffId}`),
   },
 
+  accountExecutiveAgreements: {
+    getStatus: () =>
+      request<AccountExecutiveAgreementStatus>('/account-executive-agreements/status'),
+
+    accept: (data: AcceptAccountExecutiveAgreementInput) =>
+      request<AccountExecutiveAgreementAcceptance>('/account-executive-agreements/accept', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+
+    getDownloadUrl: (acceptanceId: string) =>
+      request<{ url: string }>(`/account-executive-agreements/download/${acceptanceId}`),
+
+    getAcceptance: (staffId: string) =>
+      request<AccountExecutiveAgreementAcceptance>(
+        `/account-executive-agreements/acceptance/${staffId}`,
+      ),
+  },
+
   // Leads management (admin-only)
   leads: {
     list: (params?: { page?: number; limit?: number; status?: string; search?: string; tag?: string; includeConverted?: boolean }) =>
@@ -4645,6 +4665,30 @@ export interface ContractorAgreementAcceptance {
 }
 
 export interface AcceptContractorAgreementInput {
+  version: string
+  signaturePngDataUrl: string
+}
+
+export interface AccountExecutiveAgreementStatus {
+  required: boolean
+  hasAccepted: boolean
+  currentVersion: string
+  acceptedVersion?: string
+  acceptedAt?: string
+  acceptanceId?: string
+  organizationName: string
+  signerName: string
+}
+
+export interface AccountExecutiveAgreementAcceptance {
+  id: string
+  version: string
+  signedAt: string
+  signerName: string
+  signerEmail: string
+}
+
+export interface AcceptAccountExecutiveAgreementInput {
   version: string
   signaturePngDataUrl: string
 }

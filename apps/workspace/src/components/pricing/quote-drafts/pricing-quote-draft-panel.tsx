@@ -54,7 +54,7 @@ export function PricingQuoteDraftPanel({
   onBusyChange,
 }: PricingQuoteDraftPanelProps) {
   const id = useId()
-  const [selectedId, setSelectedId] = useState('')
+  const [selectedId, setSelectedId] = useState(activeDraft?.id ?? '')
   const [saveMode, setSaveMode] = useState<'save' | PricingQuoteDraftSummary | null>(null)
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -102,6 +102,7 @@ export function PricingQuoteDraftPanel({
       }
       setConfirmation(null)
     } catch (error) {
+      if (action.kind === 'load') setSelectedId(activeDraft?.id ?? '')
       setActionError(error instanceof Error ? error.message : 'Could not update quote draft.')
     }
   }
@@ -110,6 +111,11 @@ export function PricingQuoteDraftPanel({
     setActionError(null)
     if (action.kind === 'delete' || hasUnsavedChanges) setConfirmation(action)
     else void perform(action)
+  }
+
+  const cancelConfirmation = () => {
+    if (confirmation?.kind === 'load') setSelectedId(activeDraft?.id ?? '')
+    setConfirmation(null)
   }
 
   const save = async (name: string) => {
@@ -187,24 +193,17 @@ export function PricingQuoteDraftPanel({
         <Select
           className="min-w-0 flex-1"
           value={selected?.id ?? ''}
-          onChange={(event) => setSelectedId(event.target.value)}
+          onChange={(event) => {
+            const draft = drafts.find((candidate) => candidate.id === event.target.value)
+            setSelectedId(event.target.value)
+            if (draft) requestAction({ kind: 'load', draft })
+          }}
           disabled={locked || query.isLoading || drafts.length === 0}
           placeholder={query.isLoading ? 'Loading drafts...' : 'Choose a quote draft...'}
           options={drafts.map((draft) => ({ value: draft.id, label: draftLabel(draft) }))}
           aria-label="Choose a quote draft"
         />
         <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={locked || !selected}
-            onClick={() => {
-              if (selected) requestAction({ kind: 'load', draft: selected })
-            }}
-          >
-            Load draft
-          </Button>
           <Button
             type="button"
             variant="outline"
@@ -274,7 +273,7 @@ export function PricingQuoteDraftPanel({
       <Modal
         open={Boolean(confirmation)}
         onClose={() => {
-          if (!busy) setConfirmation(null)
+          if (!busy) cancelConfirmation()
         }}
         showCloseButton={false}
         aria-labelledby={`${id}-confirm-title`}
@@ -300,7 +299,7 @@ export function PricingQuoteDraftPanel({
             type="button"
             variant="outline"
             disabled={busy}
-            onClick={() => setConfirmation(null)}
+            onClick={cancelConfirmation}
           >
             Cancel
           </Button>

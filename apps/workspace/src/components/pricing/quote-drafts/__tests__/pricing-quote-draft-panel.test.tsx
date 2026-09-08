@@ -30,7 +30,14 @@ function button(label: string) {
   return matches[matches.length - 1]
 }
 async function click(label: string) { await act(async () => { button(label).click() }); await settle() }
-async function choose() { await act(async () => { const select = document.querySelector('select')!; select.value = draft.id; select.dispatchEvent(new Event('change', { bubbles: true })) }) }
+async function choose() {
+  await act(async () => {
+    const select = document.querySelector('select')!
+    select.value = draft.id
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  await settle()
+}
 async function name(value: string) {
   await act(async () => {
     const field = document.querySelector('input')!
@@ -73,7 +80,7 @@ describe('Pricing quote draft panel', () => {
       managementDisabled: true,
     })
     expect(button('New quote').disabled).toBe(true)
-    expect(button('Load draft').disabled).toBe(true)
+    expect(document.querySelector('select')!.disabled).toBe(true)
     expect(button('Rename').disabled).toBe(true)
     expect(button('Delete').disabled).toBe(true)
 
@@ -86,19 +93,18 @@ describe('Pricing quote draft panel', () => {
     mocks.list.mockResolvedValue({ drafts: [] })
     await render()
     expect(container.textContent).toContain('No quote drafts saved yet.')
-    expect(button('Load draft').disabled).toBe(true)
+    expect(document.querySelector('select')!.disabled).toBe(true)
     expect(mocks.create).not.toHaveBeenCalled()
   })
-  it('shows totals and update time, fetches selected detail, and never PATCHes on load', async () => {
+  it('shows totals and update time, then loads the selected draft without a separate action', async () => {
     await render(); await choose()
     expect(container.textContent).toContain('$435 due today')
     expect(container.textContent).toContain('$85/month')
     expect(container.textContent).toContain('Updated')
-    expect(mocks.get).not.toHaveBeenCalled()
-    await click('Load draft')
     expect(mocks.get).toHaveBeenCalledWith(draft.id)
     expect(props.onLoad).toHaveBeenCalledWith(draft)
     expect(mocks.update).not.toHaveBeenCalled()
+    expect(container.textContent).not.toContain('Load draft')
   })
   it('requires explicit nonempty naming and keeps duplicate-name errors in the dialog', async () => {
     await render(); await click('Save draft'); await submit()
@@ -132,11 +138,12 @@ describe('Pricing quote draft panel', () => {
     expect(container.textContent).not.toContain('No quote drafts saved yet.')
   })
   it('requires discard confirmation for load and New quote and preserves work on cancel', async () => {
-    await render({ hasUnsavedChanges: true }); await choose(); await click('Load draft')
+    await render({ hasUnsavedChanges: true }); await choose()
     expect(document.body.textContent).toContain('Discard unsaved changes?')
     expect(mocks.get).not.toHaveBeenCalled()
     await click('Cancel'); expect(props.onLoad).not.toHaveBeenCalled()
-    await click('Load draft'); await click('Discard and load')
+    expect(document.querySelector('select')!.value).toBe('')
+    await choose(); await click('Discard and load')
     expect(props.onLoad).toHaveBeenCalledWith(draft)
     await click('New quote'); expect(props.onNewQuote).not.toHaveBeenCalled()
     await click('Cancel'); expect(props.onNewQuote).not.toHaveBeenCalled()
@@ -145,7 +152,7 @@ describe('Pricing quote draft panel', () => {
   })
   it('renames with the active revision and no input overwrite', async () => {
     const updatedAt = '2026-09-08T11:00:00.000Z'
-    await render({ activeDraft: { ...draft, updatedAt }, hasUnsavedChanges: true }); await choose(); await click('Rename')
+    await render({ activeDraft: { ...draft, updatedAt }, hasUnsavedChanges: true }); await click('Rename')
     await name('Renamed'); await submit()
     expect(mocks.update).toHaveBeenCalledWith(draft.id, { name: 'Renamed', expectedUpdatedAt: updatedAt })
     expect(props.onRenamed).toHaveBeenCalledWith({ ...draft, name: 'Renamed' })
@@ -190,10 +197,11 @@ describe('Pricing quote draft panel', () => {
   it('shows list and load errors without replacing the current input', async () => {
     mocks.list.mockRejectedValueOnce(new Error('Network unavailable'))
     await render(); expect(container.textContent).toContain('Could not load quote drafts.')
-    await click('Retry'); await choose()
+    await click('Retry')
     mocks.get.mockRejectedValueOnce(new Error('Draft was deleted'))
-    await click('Load draft')
+    await choose()
     expect(container.textContent).toContain('Draft was deleted')
     expect(props.onLoad).not.toHaveBeenCalled()
+    expect(document.querySelector('select')!.value).toBe('')
   })
 })

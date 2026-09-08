@@ -5,6 +5,7 @@ import {
   PAYROLL,
   SALES_TAX_MONITORING_MONTHLY,
   TIER_BASIC,
+  TIER_ENTERPRISE,
   TIER_PRO,
 } from '../constants'
 import type { PricingCalculatorInput, Tier } from './calculator'
@@ -48,7 +49,7 @@ export function createDefaultPricingInput(): PricingCalculatorInput {
       tiers: {
         basicMonthly: TIER_BASIC.monthly,
         proMonthly: TIER_PRO.monthly,
-        vipMonthly: TIER_PRO.monthly,
+        vipMonthly: TIER_ENTERPRISE.calculatorMonthly,
       },
       payroll: {
         baseMonthly: PAYROLL.baseMonthly,

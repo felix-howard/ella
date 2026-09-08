@@ -30,10 +30,10 @@ describe('buildCalculatorEngagementLetterHtml', () => {
     expect(html).toContain('<p><strong>B. Payroll Services</strong></p>')
     expect(html).toContain('Payroll services include processing for up to 8 employees')
     expect(html).toContain('Payroll base: $50.')
-    expect(html).toContain('Payroll setup: $250.')
+    expect(html).toContain('Payroll setup: $400.')
     expect(html).toContain('Payroll employees (8 × $7, owner-manual): $56.')
-    expect(html).toContain('<strong>Total Monthly Billing:</strong> $181')
-    expect(html).toContain('<strong>Total Setup Fee:</strong> $400')
+    expect(html).toContain('<strong>Total Monthly Billing:</strong> $191')
+    expect(html).toContain('<strong>Total Setup Fee:</strong> $750')
     expect(html).toContain('<h3>23. Acceptance</h3>')
   })
 
@@ -48,7 +48,7 @@ describe('buildCalculatorEngagementLetterHtml', () => {
     expect(html).toContain('Current pricing assumes 7 non-owner employees')
     expect(html).toContain('Audit Detection Monitoring')
     expect(html).toContain('Federal tax liens')
-    expect(html).toContain('Cash Plan (7 emp × $5 + 1 owner × $50): $85.')
+    expect(html).toContain('Cash Plan (7 emp × $10 + 1 owner × $50): $120.')
     expect(html).toContain('Cash Plan setup: $1,000.')
     expect(html).toContain('Audit Detection: $300.')
     expect(html).toContain('Audit Detection setup: $1,000.')
@@ -140,8 +140,8 @@ describe('buildCalculatorEngagementLetterHtml', () => {
     expect(html).toContain('Business tax return pre-pay (1 tax year): $900.')
     expect(html).toContain('<strong>Total annual tax preparation fee:</strong> $900')
     expect(html).toContain('<strong>Monthly allocation:</strong> $150')
-    expect(html).toContain('<strong>Total Monthly Billing (Months 1-6):</strong> $225')
-    expect(html).toContain('<strong>Total Monthly Billing (After Month 6):</strong> $75')
+    expect(html).toContain('<strong>Total Monthly Billing (Months 1-6):</strong> $235')
+    expect(html).toContain('<strong>Total Monthly Billing (After Month 6):</strong> $85')
   })
 
   it('does not emit unresolved bracket placeholders', () => {

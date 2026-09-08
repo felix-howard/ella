@@ -173,8 +173,8 @@ describe('workspace pricing calculator', () => {
     expect(markup).toContain('Monthly bookkeeping service')
     expect(markup).toContain('Payroll employees')
     expect(markup).toContain('Cash Plan')
-    expect(markup).toContain('$245')
-    expect(markup).toContain('$1,400')
+    expect(markup).toContain('$280')
+    expect(markup).toContain('$1,750')
   })
 
   it('renders quantity fields as text inputs so browser scrolling cannot step values', () => {
@@ -218,7 +218,7 @@ describe('workspace pricing calculator', () => {
     expect(markup).toContain('aria-label="Setup rate"')
     expect(markup).toContain('aria-label="Audit / mo rate"')
     // Money fields render formatted (e.g. "$1,000") for clarity.
-    expect(markup).toContain('value="$75"')
+    expect(markup).toContain('value="$85"')
     expect(markup).toContain('value="$1,000"')
     expect(markup).toContain('value="$300"')
     expect(markup).not.toContain('min="75"')
@@ -453,12 +453,12 @@ describe('workspace pricing calculator', () => {
 
     expect(markup).toContain('Advisory add-on × 2')
     expect(markup).toContain('Clean-up project')
-    expect(result.monthlyTotal + result.setupTotal).toBe(425)
-    expect(result.monthlyTotal).toBe(155)
-    expect(result.setupDisplayTotal).toBe(270)
-    expect(markup).toContain('$425')
-    expect(markup).toContain('$155')
-    expect(markup).toContain('$270')
+    expect(result.monthlyTotal + result.setupTotal).toBe(635)
+    expect(result.monthlyTotal).toBe(165)
+    expect(result.setupDisplayTotal).toBe(470)
+    expect(markup).toContain('$635')
+    expect(markup).toContain('$165')
+    expect(markup).toContain('$470')
   })
 
   it('allows small-range print quotes', () => {

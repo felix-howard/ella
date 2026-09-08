@@ -28,6 +28,20 @@ describe('pricing calculator', () => {
     expect(detectPricingTier(21)).toBe('vip')
   })
 
+  it('creates calculator input with the current default rates', () => {
+    const input = createDefaultPricingInput()
+
+    expect(input.rates.tiers).toEqual({
+      basicMonthly: 85,
+      proMonthly: 95,
+      vipMonthly: 105,
+    })
+    expect(input.rates.bookkeeping?.setup).toBe(350)
+    expect(input.rates.payroll).toEqual({ baseMonthly: 50, setup: 400 })
+    expect(input.rates.cashPlan.perEmployeeMonthly).toBe(10)
+    expect(input.rates.oneTime.startLlc).toBe(1800)
+  })
+
   it('materializes the detected tier setup rate for legacy-shaped snapshots', () => {
     const input = createDefaultPricingInput()
     input.nec1099Count = 11
@@ -50,12 +64,12 @@ describe('pricing calculator', () => {
     expect(result.isEnterprise).toBe(false)
     expect(result.monthlyItems).toContainEqual({
       label: BOOKKEEPING_SERVICE_LABEL,
-      amount: 85,
+      amount: 105,
       kind: 'monthly',
     })
     expect(result.setupItems).toContainEqual({
       label: BOOKKEEPING_SETUP_LABEL,
-      amount: 150,
+      amount: 350,
       kind: 'setup',
     })
   })
@@ -69,8 +83,8 @@ describe('pricing calculator', () => {
     const result = calculatePricing(input)
 
     expect(result.tier).toBe('pro')
-    expect(result.monthlyTotal).toBe(245)
-    expect(result.setupTotal).toBe(1400)
+    expect(result.monthlyTotal).toBe(280)
+    expect(result.setupTotal).toBe(1750)
   })
 
   it('honors waived bookkeeping and payroll setup fees', () => {
@@ -125,13 +139,13 @@ describe('pricing calculator', () => {
 
     const result = calculatePricing(input)
 
-    expect(result.monthlyTotal).toBe(75)
-    expect(result.setupTotal).toBe(5000)
+    expect(result.monthlyTotal).toBe(85)
+    expect(result.setupTotal).toBe(5500)
     expect(result.yearlyItems).toEqual([
       { label: 'Business tax return pre-pay (1 tax year)', amount: 900, kind: 'setup' },
     ])
     expect(result.yearlyTotal).toBe(900)
-    expect(result.setupDisplayTotal).toBe(4100)
+    expect(result.setupDisplayTotal).toBe(4600)
     expect(result.setupDisplayItems.map((item) => item.label)).not.toContain(
       'Business tax return pre-pay (1 tax year)'
     )
@@ -156,7 +170,7 @@ describe('pricing calculator', () => {
       amount: 50,
       kind: 'monthly',
     })
-    expect(result.monthlyTotal).toBe(125)
+    expect(result.monthlyTotal).toBe(135)
   })
 
   it('adds one-time custom items to setup lines and totals', () => {
@@ -178,7 +192,7 @@ describe('pricing calculator', () => {
       amount: 300,
       kind: 'setup',
     })
-    expect(result.setupTotal).toBe(450)
+    expect(result.setupTotal).toBe(650)
   })
 
   it('does not treat custom-only input as a meaningful calculator selection', () => {
@@ -223,7 +237,7 @@ describe('pricing calculator', () => {
     delete (input as Partial<typeof input>).customItems
 
     expect(isPricingInputSane(input)).toBe(true)
-    expect(calculatePricing(input).monthlyTotal).toBe(75)
+    expect(calculatePricing(input).monthlyTotal).toBe(85)
   })
 
   it('flags checkout totals that exceed the shared line amount limit', () => {

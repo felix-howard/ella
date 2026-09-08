@@ -2,8 +2,8 @@ export const TIER_BASIC = {
   id: 'basic' as const,
   label: '0-10 workers',
   tagline: 'For smaller contractor teams',
-  monthly: 75,
-  setup: 150,
+  monthly: 85,
+  setup: 350,
   marketingMonthly: 125,
   maxNec1099: 10,
   bullets: [
@@ -18,8 +18,8 @@ export const TIER_PRO = {
   id: 'pro' as const,
   label: '11-20 workers',
   tagline: 'For growing contractor teams',
-  monthly: 85,
-  setup: 150,
+  monthly: 95,
+  setup: 350,
   marketingMonthly: 135,
   maxNec1099: 20,
   bullets: [
@@ -38,6 +38,7 @@ export const TIER_ENTERPRISE = {
   monthly: null,
   setup: null,
   marketingMonthly: 435,
+  calculatorMonthly: 105,
   bullets: [
     'Larger 1099-NEC worker counts',
     'Audit Detection included',
@@ -48,14 +49,14 @@ export const TIER_ENTERPRISE = {
 
 export const PAYROLL = {
   baseMonthly: 50,
-  baseSetup: 250,
+  baseSetup: 400,
   ownerManualPerEmp: 7,
   ellaStaffPerEmp: 10,
 }
 
 export const CASH_PLAN = {
   setup: 1000,
-  perEmployeeMonthly: 5,
+  perEmployeeMonthly: 10,
   perOwnerMonthly: 50,
 }
 
@@ -65,7 +66,7 @@ export const AUDIT_PROTECTION = {
 }
 
 export const ONE_TIME = {
-  startLlc: 1500,
+  startLlc: 1800,
   holdingLlcNew: 4000,
   holdingLlcModify: 1000,
   personalTaxReturn: 150,

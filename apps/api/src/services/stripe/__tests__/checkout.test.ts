@@ -104,7 +104,7 @@ describe('Stripe checkout session params', () => {
     expect(params.line_items?.[0]?.price_data?.recurring).toEqual({ interval: 'month' })
     expect(params.line_items?.[0]?.price_data?.unit_amount).toBe(24500)
     expect(params.line_items?.[0]?.price_data?.product_data?.name).toBe(BOOKKEEPING_SERVICE_LABEL)
-    expect(params.line_items?.[1]?.price_data?.unit_amount).toBe(140000)
+    expect(params.line_items?.[1]?.price_data?.unit_amount).toBe(175000)
     expect(params.customer_email).toBe('client@example.com')
     expect(params.custom_text?.submit).toEqual({
       message:
@@ -359,12 +359,12 @@ describe('Stripe checkout session params', () => {
     })
 
     expect(quote.monthlyTotal).toBe(65)
-    expect(quote.setupTotal).toBe(150)
+    expect(quote.setupTotal).toBe(350)
     expect(quote.monthlyItems).toEqual([
       { label: BOOKKEEPING_SERVICE_LABEL, amount: 65, kind: 'monthly' },
     ])
     expect(quote.setupItems).toEqual([
-      { label: BOOKKEEPING_SETUP_LABEL, amount: 150, kind: 'setup' },
+      { label: BOOKKEEPING_SETUP_LABEL, amount: 350, kind: 'setup' },
     ])
   })
 

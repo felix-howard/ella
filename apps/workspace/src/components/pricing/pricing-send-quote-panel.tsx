@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button, Combobox, type ComboboxItem } from '@ella/ui'
 import { Copy, Loader2, Send, UserPlus, X } from 'lucide-react'
 import type { PricingCalculatorInput } from '@ella/shared/pricing'
+import type { SendQuoteResponse } from '../../lib/api-client'
 import { copyToClipboard } from '../../lib/clipboard'
 import { toast } from '../../stores/toast-store'
 import { serializePricingInput } from './pricing-format'
@@ -10,21 +11,39 @@ import { useSendQuote } from './use-send-quote'
 
 interface PricingSendQuotePanelProps {
   pricingInput: PricingCalculatorInput
+  draftId?: string
   /** Same guard the link panel uses; non-null disables sending. */
   disabledReason: string | null
+  beforeSend?: () => Promise<string | undefined>
+  onSendSuccess?: (
+    response: SendQuoteResponse,
+    draftUpdatedAt?: string
+  ) => Promise<void> | void
+  onSendFailure?: () => void
+  onPendingChange?: (pending: boolean) => void
 }
 
 const sendQuoteStatusId = 'pricing-send-quote-status'
 
 export function PricingSendQuotePanel({
   pricingInput,
+  draftId,
   disabledReason,
+  beforeSend,
+  onSendSuccess,
+  onSendFailure,
+  onPendingChange,
 }: PricingSendQuotePanelProps) {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<ComboboxItem | null>(null)
   const [sentSignature, setSentSignature] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const { items, loading } = useRecipientSearch(query, { type: 'client' })
   const sendQuote = useSendQuote()
+
+  useEffect(() => {
+    return () => onPendingChange?.(false)
+  }, [onPendingChange])
 
   // Focus management: the combobox unmounts when a recipient is picked (replaced
   // by the chip) and remounts on clear, so move focus across that swap to keep
@@ -42,16 +61,18 @@ export function PricingSendQuotePanel({
   const result = sendQuote.data
   const currentSignature = serializePricingInput(pricingInput)
   const quoteChangedSinceSend = Boolean(result) && sentSignature !== currentSignature
-  const sendDisabled = Boolean(disabledReason) || !selected || sendQuote.isPending
+  const sendDisabled = Boolean(disabledReason) || !selected || isSubmitting
   const errorMessage = sendQuote.error instanceof Error ? sendQuote.error.message : null
 
   const handleSelect = (item: ComboboxItem) => {
+    if (isSubmitting) return
     setSelected(item)
     setQuery('')
     sendQuote.reset()
   }
 
   const clearSelection = () => {
+    if (isSubmitting) return
     setSelected(null)
     setQuery('')
     sendQuote.reset()
@@ -61,21 +82,30 @@ export function PricingSendQuotePanel({
     if (!selected) return
     const recipient = decodeRecipientId(selected.id)
     if (!recipient || recipient.type !== 'client') return
+    onPendingChange?.(true)
+    setIsSubmitting(true)
     try {
-      const response = await sendQuote.mutateAsync({
-        pricingInput,
-        recipient,
-      })
+      const draftUpdatedAt = await beforeSend?.()
+      const response = await sendQuote.mutateAsync(
+        draftId && draftUpdatedAt
+          ? { pricingInput, recipient, draftId, draftUpdatedAt }
+          : { pricingInput, recipient }
+      )
       setSentSignature(currentSignature)
+      await onSendSuccess?.(response, draftUpdatedAt)
       if (response.smsSent) {
         toast.success(`Quote sent to ${selected.label}`)
       } else {
         toast.info('Quote saved — SMS not sent. Copy the link to share it.')
       }
     } catch (error) {
+      onSendFailure?.()
       // Read the thrown error directly: sendQuote.error is still stale here
       // (React hasn't re-rendered yet). The inline <span> shows it post-render.
       toast.error(error instanceof Error ? error.message : 'Could not send quote')
+    } finally {
+      onPendingChange?.(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -119,6 +149,7 @@ export function PricingSendQuotePanel({
               ref={clearButtonRef}
               type="button"
               onClick={clearSelection}
+              disabled={isSubmitting}
               className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label="Clear selected recipient"
             >
@@ -159,7 +190,7 @@ export function PricingSendQuotePanel({
           disabled={sendDisabled}
           aria-describedby={sendQuoteStatusId}
         >
-          {sendQuote.isPending ? (
+          {isSubmitting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Send className="h-4 w-4" />

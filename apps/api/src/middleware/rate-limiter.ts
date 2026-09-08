@@ -136,6 +136,12 @@ export const standardRateLimit = rateLimiter({ keyPrefix: 'std', maxRequests: 60
 /** Strict rate limit for sensitive operations: 10 requests/minute */
 export const strictRateLimit = rateLimiter({ keyPrefix: 'strict', maxRequests: 10 })
 
+/** Draft writes are frequent autosaves and must not consume payment/send capacity. */
+export const pricingQuoteDraftWriteRateLimit = rateLimiter({
+  keyPrefix: 'pricing-quote-draft-write',
+  maxRequests: 120,
+})
+
 /** Legacy presence endpoint rate limit. Prefer endpoint-specific presence limiters below. */
 export const presenceRateLimit = rateLimiter({ keyPrefix: 'presence', maxRequests: 30 })
 

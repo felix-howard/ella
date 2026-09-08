@@ -40,6 +40,11 @@ vi.mock('@tanstack/react-query', () => ({
   }),
 }))
 
+// Draft behavior has dedicated DOM coverage; keep these static payment contract tests isolated.
+vi.mock('../quote-drafts/pricing-quote-draft-panel', () => ({
+  PricingQuoteDraftPanel: () => <section>Quote drafts</section>,
+}))
+
 vi.mock('@clerk/clerk-react', () => ({
   useAuth: () => ({ orgId: 'org_test' }),
 }))

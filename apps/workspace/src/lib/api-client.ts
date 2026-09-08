@@ -131,13 +131,20 @@ export interface PaginatedResponse<T> {
 
 export interface CreateCheckoutSessionInput {
   pricingInput: PricingCalculatorInput
+  draftId?: string
+  draftUpdatedAt?: string
   customerEmail?: string
   customerName?: string
   businessName?: string
   quoteNotes?: string
 }
 
-export interface CheckoutSessionResponse {
+export interface PricingQuoteDraftCleanupResult {
+  draftConsumed?: boolean
+  draftCleanupStatus?: PricingQuoteDraftCleanupStatus
+}
+
+export interface CheckoutSessionResponse extends PricingQuoteDraftCleanupResult {
   quoteId: string
   checkoutUrl: string
   sessionId: string
@@ -150,13 +157,15 @@ export interface SendQuoteRecipient {
 
 export interface SendQuoteInput {
   pricingInput: PricingCalculatorInput
+  draftId?: string
+  draftUpdatedAt?: string
   recipient: SendQuoteRecipient
   customerEmail?: string
   customerName?: string
   businessName?: string
 }
 
-export interface SendQuoteResponse {
+export interface SendQuoteResponse extends PricingQuoteDraftCleanupResult {
   quoteId: string
   payToken: string
   payUrl: string
@@ -164,6 +173,12 @@ export interface SendQuoteResponse {
   /** Set only when `smsSent` is false, so the UI can offer a copy-link fallback. */
   smsSkippedReason?: 'no_phone' | 'send_failed'
 }
+
+export type PricingQuoteDraftCleanupStatus =
+  | 'consumed'
+  | 'already_absent'
+  | 'version_conflict'
+  | 'failed'
 
 export interface RecipientResult {
   id: string
@@ -300,6 +315,30 @@ export interface CreateCustomCheckoutInput {
 
 export interface SendCustomQuoteInput extends CreateCustomCheckoutInput {
   recipient: SendQuoteRecipient
+}
+
+export interface PricingQuoteDraftSummary {
+  id: string
+  name: string
+  monthlyTotalCents: number
+  setupTotalCents: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PricingQuoteDraftDetail extends PricingQuoteDraftSummary {
+  pricingInput: PricingCalculatorInput
+}
+
+export interface CreatePricingQuoteDraftInput {
+  name: string
+  pricingInput: PricingCalculatorInput
+}
+
+export interface UpdatePricingQuoteDraftInput {
+  expectedUpdatedAt: string
+  name?: string
+  pricingInput?: PricingCalculatorInput
 }
 
 export type PaymentTemplatePayload = Pick<
@@ -602,6 +641,43 @@ export const api = {
         body: JSON.stringify(data),
         retries: 0,
       }),
+
+    listPricingQuoteDrafts: () =>
+      request<{ drafts: PricingQuoteDraftSummary[] }>('/billing/quote-drafts'),
+
+    getPricingQuoteDraft: async (id: string) => {
+      const response = await request<{ draft: PricingQuoteDraftDetail }>(
+        `/billing/quote-drafts/${encodeURIComponent(id)}`
+      )
+      return response.draft
+    },
+
+    createPricingQuoteDraft: async (data: CreatePricingQuoteDraftInput) => {
+      const response = await request<{ draft: PricingQuoteDraftDetail }>('/billing/quote-drafts', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      })
+      return response.draft
+    },
+
+    updatePricingQuoteDraft: async (id: string, data: UpdatePricingQuoteDraftInput) => {
+      const response = await request<{ draft: PricingQuoteDraftDetail }>(
+        `/billing/quote-drafts/${encodeURIComponent(id)}`,
+        { method: 'PATCH', body: JSON.stringify(data), retries: 0 }
+      )
+      return response.draft
+    },
+
+    deletePricingQuoteDraft: (id: string, expectedUpdatedAt?: string) => {
+      const query = expectedUpdatedAt
+        ? `?expectedUpdatedAt=${encodeURIComponent(expectedUpdatedAt)}`
+        : ''
+      return request<{ id: string; deleted: true }>(
+        `/billing/quote-drafts/${encodeURIComponent(id)}${query}`,
+        { method: 'DELETE', retries: 0 }
+      )
+    },
 
     listPaymentTemplates: () =>
       request<ListPaymentTemplatesResponse>('/billing/payment-templates'),

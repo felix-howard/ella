@@ -1,7 +1,12 @@
 import { Hono, type Context } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { strictRateLimit } from '../../middleware/rate-limiter'
-import { authMiddleware, requireOrg, requireOrgAdmin, type AuthVariables } from '../../middleware/auth'
+import {
+  authMiddleware,
+  requireOrg,
+  requireOrgAdmin,
+  type AuthVariables,
+} from '../../middleware/auth'
 import { CheckoutQuoteError, createCheckoutSession } from '../../services/stripe'
 import { createCustomCheckoutSession } from '../../services/stripe/custom-checkout'
 import { createSendableQuote } from '../../services/payments/quote-send-service'
@@ -15,6 +20,11 @@ import {
   sendQuoteInputSchema,
 } from './schemas'
 import { paymentTemplateRoute } from './payment-template-routes'
+import { pricingQuoteDraftRoute } from './pricing-quote-draft-routes'
+import {
+  consumePricingQuoteDraft,
+  type PricingQuoteDraftConsumeStatus,
+} from '../../services/payments/pricing-quote-draft-service'
 
 const billingRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -28,13 +38,22 @@ billingRoute.post(
   async (c) => {
     try {
       const input = c.req.valid('json')
-      assertNoCalculatorBusinessTaxPrepay(input.pricingInput)
+      const { draftId, draftUpdatedAt, ...checkoutInput } = input
+      assertNoCalculatorBusinessTaxPrepay(checkoutInput.pricingInput)
       const user = c.get('user')
-      const result = await createCheckoutSession(input, {
-        organizationId: user.organizationId,
-        createdByStaffId: user.staffId,
+      const { orgId, staffId } = getVerifiedAuth(user)
+      const result = await createCheckoutSession(checkoutInput, {
+        organizationId: orgId,
+        createdByStaffId: staffId,
       })
-      return c.json(result)
+      if (!draftId || !draftUpdatedAt) return c.json(result)
+      const draftCleanup = await consumeDraftAfterFinalAction(
+        draftId,
+        orgId,
+        draftUpdatedAt,
+        'checkout'
+      )
+      return c.json({ ...result, ...draftCleanup })
     } catch (error) {
       return handleBillingError(c, error)
     }
@@ -72,13 +91,21 @@ billingRoute.post(
   async (c) => {
     try {
       const input = c.req.valid('json')
-      assertNoCalculatorBusinessTaxPrepay(input.pricingInput)
+      const { draftId, draftUpdatedAt, ...sendInput } = input
+      assertNoCalculatorBusinessTaxPrepay(sendInput.pricingInput)
       const { orgId, staffId } = getVerifiedAuth(c.get('user'))
-      const result = await createSendableQuote(input, {
+      const result = await createSendableQuote(sendInput, {
         organizationId: orgId,
         staffId,
       })
-      return c.json(result)
+      if (!draftId || !draftUpdatedAt) return c.json(result)
+      const draftCleanup = await consumeDraftAfterFinalAction(
+        draftId,
+        orgId,
+        draftUpdatedAt,
+        'send'
+      )
+      return c.json({ ...result, ...draftCleanup })
     } catch (error) {
       return handleBillingError(c, error)
     }
@@ -107,6 +134,7 @@ billingRoute.post(
 )
 
 billingRoute.route('/', paymentTemplateRoute)
+billingRoute.route('/', pricingQuoteDraftRoute)
 
 /** Map billing/Stripe errors to stable codes; rethrow anything unrecognized. */
 function handleBillingError(c: Context, error: unknown) {
@@ -130,6 +158,24 @@ function assertNoCalculatorBusinessTaxPrepay(pricingInput: CheckoutPricingInput)
   throw new CheckoutQuoteError(
     'Business tax return yearly pre-pay must be created through Custom link'
   )
+}
+
+async function consumeDraftAfterFinalAction(
+  draftId: string,
+  organizationId: string,
+  expectedUpdatedAt: string,
+  action: 'checkout' | 'send'
+): Promise<{
+  draftConsumed: boolean
+  draftCleanupStatus: PricingQuoteDraftConsumeStatus | 'failed'
+}> {
+  try {
+    const status = await consumePricingQuoteDraft(draftId, organizationId, expectedUpdatedAt)
+    return { draftConsumed: status !== 'version_conflict', draftCleanupStatus: status }
+  } catch {
+    console.warn('[Billing] Pricing quote draft cleanup failed after final action', { action })
+    return { draftConsumed: false, draftCleanupStatus: 'failed' }
+  }
 }
 
 export { billingRoute }

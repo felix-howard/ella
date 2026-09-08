@@ -786,6 +786,7 @@ model Organization {
   clientGroups                         ClientGroup[]
   leads                                Lead[]
   paymentQuotes                        PaymentQuote[]
+  pricingQuoteDrafts                   PricingQuoteDraft[]
   paymentTemplates                     PaymentTemplate[]
   coupons                              Coupon[]
   payments                             Payment[]
@@ -2022,6 +2023,21 @@ model PaymentQuote {
   @@index([status])
   @@index([lastStripeEventAt])
   @@index([appliedCouponId])
+}
+
+model PricingQuoteDraft {
+  id                String       @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name              String       @db.VarChar(120)
+  inputSnapshot     Json
+  monthlyTotalCents Int
+  setupTotalCents   Int
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId, updatedAt])
 }
 
 // App-side source of truth for a discount, mirroring a Stripe Coupon + Promotion Code.

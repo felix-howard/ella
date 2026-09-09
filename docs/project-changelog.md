@@ -1,7 +1,18 @@
 # Project Changelog
 
-> **Last Updated:** 2026-08-15 ICT
+> **Last Updated:** 2026-09-09 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+### Workspace Quote PDF Production Handoff (2026-09-09)
+**Status:** Complete
+
+**Fixed:**
+- Workspace Quote PDF now opens the canonical `www.ella.tax` print origin, including when `VITE_LANDING_URL` still uses the redirecting apex domain. This preserves the in-memory payload handoff without exposing quote labels in URL or proxy logs.
+
+**Validation:**
+- Workspace calculator tests passed, 25/25; Workspace type-check and production build passed.
 
 ---
 

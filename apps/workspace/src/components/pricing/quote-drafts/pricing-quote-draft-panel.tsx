@@ -200,7 +200,7 @@ export function PricingQuoteDraftPanel({
           }}
           disabled={locked || query.isLoading || drafts.length === 0}
           placeholder={query.isLoading ? 'Loading drafts...' : 'Choose a quote draft...'}
-          options={drafts.map((draft) => ({ value: draft.id, label: draftLabel(draft) }))}
+          options={drafts.map((draft) => ({ value: draft.id, label: draft.name }))}
           aria-label="Choose a quote draft"
         />
         <div className="flex gap-2">

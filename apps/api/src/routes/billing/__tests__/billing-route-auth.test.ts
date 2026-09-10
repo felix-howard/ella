@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createDefaultPricingInput } from '@ella/shared/pricing'
 import { billingRoute } from '../index'
 import type { AuthVariables } from '../../../middleware/auth'
+import type * as PricingQuoteDraftService from '../../../services/payments/pricing-quote-draft-service'
 
 const authState = vi.hoisted(() => ({
   authenticated: true,
@@ -17,6 +18,10 @@ const checkoutMocks = vi.hoisted(() => ({
   createCustomCheckoutSession: vi.fn(),
   createSendableQuote: vi.fn(),
   createSendableCustomQuote: vi.fn(),
+}))
+
+const draftMocks = vi.hoisted(() => ({
+  consumePricingQuoteDraft: vi.fn(),
 }))
 
 vi.mock('../../../middleware/auth', () => ({
@@ -53,6 +58,7 @@ vi.mock('../../../middleware/auth', () => ({
 
 vi.mock('../../../middleware/rate-limiter', () => ({
   strictRateLimit: async (_c: Context, next: Next) => next(),
+  pricingQuoteDraftWriteRateLimit: async (_c: Context, next: Next) => next(),
 }))
 
 vi.mock('../../../services/stripe', () => ({
@@ -69,6 +75,10 @@ vi.mock('../../../services/payments/quote-send-service', () => ({
 vi.mock('../../../services/payments/custom-quote-send-service', () => ({
   createSendableCustomQuote: checkoutMocks.createSendableCustomQuote,
 }))
+vi.mock('../../../services/payments/pricing-quote-draft-service', async (importOriginal) => ({
+  ...(await importOriginal<typeof PricingQuoteDraftService>()),
+  consumePricingQuoteDraft: draftMocks.consumePricingQuoteDraft,
+}))
 
 function buildApp() {
   const app = new Hono<{ Variables: AuthVariables }>()
@@ -83,6 +93,7 @@ describe('billing route auth', () => {
     authState.organizationId = null
     authState.role = 'ADMIN'
     authState.orgRole = 'org:admin'
+    draftMocks.consumePricingQuoteDraft.mockResolvedValue('consumed')
   })
 
   it('rejects checkout session creation without an organization context', async () => {
@@ -162,6 +173,82 @@ describe('billing route auth', () => {
     })
   })
 
+  it('consumes a same-org draft only after checkout creation succeeds', async () => {
+    authState.organizationId = 'org_1'
+    const body = {
+      ...buildCalculatorCheckoutBody(),
+      draftId: 'draft_1',
+      draftUpdatedAt: '2026-09-08T10:00:00.000Z',
+    }
+    const result = {
+      quoteId: 'quote_1',
+      checkoutUrl: 'https://checkout.test/session',
+      sessionId: 'cs_test_1',
+    }
+    checkoutMocks.createCheckoutSession.mockResolvedValue(result)
+
+    const res = await postJson('/billing/checkout-sessions', body)
+
+    expect(await res.json()).toEqual({
+      ...result,
+      draftConsumed: true,
+      draftCleanupStatus: 'consumed',
+    })
+    expect(checkoutMocks.createCheckoutSession).toHaveBeenCalledWith(
+      { pricingInput: body.pricingInput },
+      { organizationId: 'org_1', createdByStaffId: 'staff_1' }
+    )
+    expect(draftMocks.consumePricingQuoteDraft).toHaveBeenCalledWith(
+      'draft_1',
+      'org_1',
+      body.draftUpdatedAt
+    )
+  })
+
+  it('preserves checkout success when post-success draft cleanup fails', async () => {
+    authState.organizationId = 'org_1'
+    const result = {
+      quoteId: 'quote_1',
+      checkoutUrl: 'https://checkout.test/session',
+      sessionId: 'cs_test_1',
+    }
+    checkoutMocks.createCheckoutSession.mockResolvedValue(result)
+    draftMocks.consumePricingQuoteDraft.mockRejectedValue(new Error('database unavailable'))
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    const res = await postJson('/billing/checkout-sessions', {
+      ...buildCalculatorCheckoutBody(),
+      draftId: 'draft_1',
+      draftUpdatedAt: '2026-09-08T10:00:00.000Z',
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      ...result,
+      draftConsumed: false,
+      draftCleanupStatus: 'failed',
+    })
+    expect(warning).toHaveBeenCalledWith(
+      '[Billing] Pricing quote draft cleanup failed after final action',
+      { action: 'checkout' }
+    )
+    warning.mockRestore()
+  })
+
+  it('does not consume the draft when checkout creation fails', async () => {
+    authState.organizationId = 'org_1'
+    checkoutMocks.createCheckoutSession.mockRejectedValue(new Error('provider failed'))
+
+    const res = await postJson('/billing/checkout-sessions', {
+      ...buildCalculatorCheckoutBody(),
+      draftId: 'draft_1',
+      draftUpdatedAt: '2026-09-08T10:00:00.000Z',
+    })
+
+    expect(res.status).toBe(500)
+    expect(draftMocks.consumePricingQuoteDraft).not.toHaveBeenCalled()
+  })
+
   it('rejects sendable calculator quotes with business tax yearly pre-pay', async () => {
     authState.organizationId = 'org_1'
     const body = {
@@ -201,6 +288,62 @@ describe('billing route auth', () => {
     expect(checkoutMocks.createSendableQuote).toHaveBeenCalledWith(body, {
       organizationId: 'org_1',
       staffId: 'staff_1',
+    })
+  })
+
+  it('consumes a draft after a durable send result even when SMS is unavailable', async () => {
+    authState.organizationId = 'org_1'
+    const body = {
+      ...buildCalculatorCheckoutBody(),
+      draftId: 'draft_1',
+      draftUpdatedAt: '2026-09-08T10:00:00.000Z',
+      recipient: { type: 'client' as const, id: 'client_1' },
+    }
+    const result = {
+      quoteId: 'quote_2',
+      payToken: 'tok_2',
+      payUrl: 'http://portal.test/quote/tok_2',
+      smsSent: false,
+      smsSkippedReason: 'no_phone',
+    }
+    checkoutMocks.createSendableQuote.mockResolvedValue(result)
+
+    const res = await postJson('/billing/quotes/send', body)
+
+    expect(await res.json()).toEqual({
+      ...result,
+      draftConsumed: true,
+      draftCleanupStatus: 'consumed',
+    })
+    expect(checkoutMocks.createSendableQuote).toHaveBeenCalledWith(
+      { pricingInput: body.pricingInput, recipient: body.recipient },
+      { organizationId: 'org_1', staffId: 'staff_1' }
+    )
+    expect(draftMocks.consumePricingQuoteDraft).toHaveBeenCalledWith(
+      'draft_1',
+      'org_1',
+      body.draftUpdatedAt
+    )
+  })
+
+  it('preserves a newer draft version after checkout succeeds', async () => {
+    authState.organizationId = 'org_1'
+    draftMocks.consumePricingQuoteDraft.mockResolvedValue('version_conflict')
+    checkoutMocks.createCheckoutSession.mockResolvedValue({
+      quoteId: 'quote_1',
+      checkoutUrl: 'https://checkout.test/session',
+      sessionId: 'cs_test_1',
+    })
+
+    const res = await postJson('/billing/checkout-sessions', {
+      ...buildCalculatorCheckoutBody(),
+      draftId: 'draft_1',
+      draftUpdatedAt: '2026-09-08T10:00:00.000Z',
+    })
+
+    expect(await res.json()).toMatchObject({
+      draftConsumed: false,
+      draftCleanupStatus: 'version_conflict',
     })
   })
 

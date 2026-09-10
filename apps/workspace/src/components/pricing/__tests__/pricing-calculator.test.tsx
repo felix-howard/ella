@@ -40,6 +40,11 @@ vi.mock('@tanstack/react-query', () => ({
   }),
 }))
 
+// Draft behavior has dedicated DOM coverage; keep these static payment contract tests isolated.
+vi.mock('../quote-drafts/pricing-quote-draft-panel', () => ({
+  PricingQuoteDraftPanel: () => <section>Quote drafts</section>,
+}))
+
 vi.mock('@clerk/clerk-react', () => ({
   useAuth: () => ({ orgId: 'org_test' }),
 }))
@@ -132,6 +137,7 @@ vi.mock('@ella/ui', () => ({
 describe('workspace pricing calculator', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
     useMutationMock.mockImplementation((options) => ({
       error: null,
       isPending: false,
@@ -547,10 +553,16 @@ describe('workspace pricing calculator', () => {
     const url = buildPricingPrintUrl()
     const message = buildPricingPrintMessage(input)
 
-    expect(url).toContain('/pricing/print')
+    expect(url).toBe('https://www.ella.tax/pricing/print')
     expect(url).not.toContain('?q=')
     expect(url).not.toContain('Sensitive client cleanup')
     expect(decodePricingQuote(message.quote)?.input.customItems).toEqual(input.customItems)
+  })
+
+  it('canonicalizes the legacy production landing origin before opening the print page', () => {
+    vi.stubEnv('VITE_LANDING_URL', 'https://ella.tax')
+
+    expect(buildPricingPrintUrl()).toBe('https://www.ella.tax/pricing/print')
   })
 
   it('renders zero-valued rate fields as empty so typing does not keep a leading zero', () => {

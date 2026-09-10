@@ -5,6 +5,8 @@ import {
   presenceHeartbeatRateLimit,
   presenceRegisterRateLimit,
   presenceUnregisterRateLimit,
+  pricingQuoteDraftWriteRateLimit,
+  strictRateLimit,
 } from '../rate-limiter'
 
 function createPresenceLimiterApp() {
@@ -43,5 +45,29 @@ describe('presence rate limiters', () => {
 
     expect(unregister.status).toBe(200)
     expect(heartbeat.status).toBe(200)
+  })
+})
+
+describe('pricing quote draft rate limiter', () => {
+  beforeEach(() => {
+    __resetRateLimitMapForTests()
+  })
+
+  it('does not consume the strict checkout and send bucket', async () => {
+    const app = new Hono<{ Variables: { user: { staffId: string } } }>()
+    app.use('*', async (c, next) => {
+      c.set('user', { staffId: 'staff_1' })
+      await next()
+    })
+    app.patch('/draft', pricingQuoteDraftWriteRateLimit, (c) => c.json({ ok: true }))
+    app.post('/final', strictRateLimit, (c) => c.json({ ok: true }))
+
+    for (let i = 0; i < 11; i++) {
+      expect((await app.request('/draft', { method: 'PATCH' })).status).toBe(200)
+    }
+    for (let i = 0; i < 10; i++) {
+      expect((await app.request('/final', { method: 'POST' })).status).toBe(200)
+    }
+    expect((await app.request('/final', { method: 'POST' })).status).toBe(429)
   })
 })

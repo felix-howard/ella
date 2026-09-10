@@ -107,9 +107,13 @@ function sendPricingPrintQuote(printWindow: Window, input: PricingCalculatorInpu
 
 function getLandingBaseUrl(): string {
   const configuredUrl = import.meta.env.VITE_LANDING_URL?.trim()
-  if (configuredUrl) return configuredUrl
+  if (configuredUrl) {
+    const url = new URL(configuredUrl)
+    if (url.origin === 'https://ella.tax') url.hostname = 'www.ella.tax'
+    return url.toString()
+  }
   if (typeof window !== 'undefined' && isLocalHost(window.location.hostname)) return 'http://localhost:4321'
-  return 'https://ella.tax'
+  return 'https://www.ella.tax'
 }
 
 function isLocalHost(hostname: string): boolean {

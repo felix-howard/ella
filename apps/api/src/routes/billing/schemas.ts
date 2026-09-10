@@ -9,15 +9,7 @@ import {
 
 const quantitySchema = z.number().int().min(0).max(1000)
 const rateSchema = z.number().int().min(0).max(MAX_CHECKOUT_LINE_AMOUNT)
-const calculatorCustomItemSchema = z.object({
-  id: z.string().trim().min(1).max(120),
-  label: z.string().trim().min(1).max(MAX_CALCULATOR_CUSTOM_LABEL_LENGTH),
-  amount: z.number().int().min(1).max(MAX_CALCULATOR_CUSTOM_ITEM_AMOUNT),
-  quantity: z.number().int().min(1).max(MAX_CALCULATOR_CUSTOM_ITEM_QUANTITY),
-  billingInterval: z.enum(['one_time', 'month']),
-})
-
-export const checkoutPricingInputSchema = z.object({
+const calculatorPricingFields = {
   nec1099Count: quantitySchema,
   payrollEmployees: quantitySchema,
   payrollMode: z.enum(['owner-manual', 'ella-staff']),
@@ -35,7 +27,6 @@ export const checkoutPricingInputSchema = z.object({
     businessTaxReturn: quantitySchema,
   }),
   salesTaxShops: quantitySchema,
-  customItems: z.array(calculatorCustomItemSchema).max(MAX_CALCULATOR_CUSTOM_ITEMS).default([]),
   rates: z.object({
     bookkeeping: z
       .object({
@@ -70,28 +61,103 @@ export const checkoutPricingInputSchema = z.object({
     }),
     salesTaxMonitoringMonthly: rateSchema,
   }),
+}
+const calculatorCustomItemSchema = z.object({
+  id: z.string().trim().min(1).max(120),
+  label: z.string().trim().min(1).max(MAX_CALCULATOR_CUSTOM_LABEL_LENGTH),
+  amount: z.number().int().min(1).max(MAX_CALCULATOR_CUSTOM_ITEM_AMOUNT),
+  quantity: z.number().int().min(1).max(MAX_CALCULATOR_CUSTOM_ITEM_QUANTITY),
+  billingInterval: z.enum(['one_time', 'month']),
 })
 
-export const createCheckoutSessionSchema = z.object({
-  pricingInput: checkoutPricingInputSchema,
-  customerEmail: z.string().email().optional(),
-  customerName: z.string().trim().min(1).max(120).optional(),
-  businessName: z.string().trim().min(1).max(120).optional(),
-  quoteNotes: z.string().trim().max(1000).optional(),
+export const checkoutPricingInputSchema = z.object({
+  ...calculatorPricingFields,
+  customItems: z.array(calculatorCustomItemSchema).max(MAX_CALCULATOR_CUSTOM_ITEMS).default([]),
 })
+
+const draftCalculatorCustomItemSchema = z.object({
+  id: z.string().trim().min(1).max(120),
+  label: z.string().trim().max(MAX_CALCULATOR_CUSTOM_LABEL_LENGTH),
+  amount: z.number().int().min(0).max(MAX_CALCULATOR_CUSTOM_ITEM_AMOUNT),
+  quantity: z.number().int().min(0).max(MAX_CALCULATOR_CUSTOM_ITEM_QUANTITY),
+  billingInterval: z.enum(['one_time', 'month']),
+})
+
+export const pricingQuoteDraftInputSchema = z.object({
+  ...calculatorPricingFields,
+  customItems: z
+    .array(draftCalculatorCustomItemSchema)
+    .max(MAX_CALCULATOR_CUSTOM_ITEMS)
+    .default([]),
+})
+
+const pricingQuoteDraftNameSchema = z.string().trim().min(1).max(120)
+const pricingQuoteDraftVersionFields = {
+  draftId: z.string().trim().min(1).optional(),
+  draftUpdatedAt: z.string().datetime({ offset: true }).optional(),
+}
+
+export const createPricingQuoteDraftSchema = z.object({
+  name: pricingQuoteDraftNameSchema,
+  pricingInput: pricingQuoteDraftInputSchema,
+})
+
+export const updatePricingQuoteDraftSchema = z
+  .object({
+    name: pricingQuoteDraftNameSchema.optional(),
+    pricingInput: pricingQuoteDraftInputSchema.optional(),
+    expectedUpdatedAt: z.string().datetime({ offset: true }),
+  })
+  .refine((value) => value.name !== undefined || value.pricingInput !== undefined, {
+    message: 'At least one editable field is required',
+  })
+
+export const pricingQuoteDraftIdParamSchema = z.object({
+  id: z.string().trim().min(1),
+})
+
+export const pricingQuoteDraftDeleteQuerySchema = z.object({
+  expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
+})
+
+export const createCheckoutSessionSchema = z
+  .object({
+    pricingInput: checkoutPricingInputSchema,
+    ...pricingQuoteDraftVersionFields,
+    customerEmail: z.string().email().optional(),
+    customerName: z.string().trim().min(1).max(120).optional(),
+    businessName: z.string().trim().min(1).max(120).optional(),
+    quoteNotes: z.string().trim().max(1000).optional(),
+  })
+  .superRefine(requireDraftVersion)
 
 const recipientSchema = z.object({
   type: z.enum(['client', 'lead']),
   id: z.string().trim().min(1),
 })
 
-export const sendQuoteInputSchema = z.object({
-  pricingInput: checkoutPricingInputSchema,
-  recipient: recipientSchema,
-  customerEmail: z.string().email().optional(),
-  customerName: z.string().trim().min(1).max(120).optional(),
-  businessName: z.string().trim().min(1).max(120).optional(),
-})
+export const sendQuoteInputSchema = z
+  .object({
+    pricingInput: checkoutPricingInputSchema,
+    ...pricingQuoteDraftVersionFields,
+    recipient: recipientSchema,
+    customerEmail: z.string().email().optional(),
+    customerName: z.string().trim().min(1).max(120).optional(),
+    businessName: z.string().trim().min(1).max(120).optional(),
+  })
+  .superRefine(requireDraftVersion)
+
+function requireDraftVersion(
+  value: { draftId?: string; draftUpdatedAt?: string },
+  ctx: z.RefinementCtx
+) {
+  if (Boolean(value.draftId) === Boolean(value.draftUpdatedAt)) return
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: value.draftId ? ['draftUpdatedAt'] : ['draftId'],
+    message: 'draftId and draftUpdatedAt must be provided together',
+  })
+}
 
 // --- Custom (free-form) payment links --------------------------------------
 // Staff type arbitrary line items instead of driving the pricing calculator.
@@ -181,6 +247,9 @@ export const paymentTemplateIdParamSchema = z.object({
 })
 
 export type CheckoutPricingInput = z.infer<typeof checkoutPricingInputSchema>
+export type PricingQuoteDraftInput = z.infer<typeof pricingQuoteDraftInputSchema>
+export type CreatePricingQuoteDraftInput = z.infer<typeof createPricingQuoteDraftSchema>
+export type UpdatePricingQuoteDraftInput = z.infer<typeof updatePricingQuoteDraftSchema>
 export type CreateCheckoutSessionInput = z.infer<typeof createCheckoutSessionSchema>
 export type SendQuoteInput = z.infer<typeof sendQuoteInputSchema>
 export type CustomLineItemSchema = z.infer<typeof customLineItemSchema>

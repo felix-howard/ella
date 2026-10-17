@@ -175,6 +175,7 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
       uploadedPdfKey: resolved.uploadedPdfKey,
       depositAmount: resolved.depositEnabled ? resolved.depositAmount : null,
       expiryDays: resolved.expiryDays,
+      firmSignerStaffId: resolved.firmSignerStaffId,
     }
     mutation.mutate(payload, { onSuccess: () => onClose() })
   }

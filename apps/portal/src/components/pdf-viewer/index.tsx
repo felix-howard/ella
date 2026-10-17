@@ -20,9 +20,11 @@ const ZOOM_STEP = 0.5
 
 export interface PdfViewerProps {
   url: string
+  /** Defaults to true; agreements turn it off so the signed document reads clean. */
+  watermark?: boolean
 }
 
-export function PdfViewer({ url }: PdfViewerProps) {
+export function PdfViewer({ url, watermark = true }: PdfViewerProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [numPages, setNumPages] = useState(0)
@@ -116,6 +118,7 @@ export function PdfViewer({ url }: PdfViewerProps) {
           onLoadError={handleLoadError}
           onPageChange={handlePageChange}
           scrollContainerRef={scrollContainerRef}
+          watermark={watermark}
         />
       </div>
 

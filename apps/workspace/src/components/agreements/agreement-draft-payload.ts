@@ -34,6 +34,7 @@ interface SaveDraftPayloadInput extends DraftPayloadInput {
 interface SendDraftPayloadInput extends DraftPayloadInput {
   expectedUpdatedAt: string
   paymentPortalMode?: AgreementPaymentPortalSendMode
+  firmSignerStaffId?: string
 }
 
 function realTemplateId(templateId: string | null): string | undefined {
@@ -92,6 +93,7 @@ export function buildSendAgreementDraftPayload(
     ...buildCreateAgreementPayload(input),
     expectedUpdatedAt: input.expectedUpdatedAt,
     ...(input.paymentPortalMode ? { paymentPortalMode: input.paymentPortalMode } : {}),
+    ...(input.firmSignerStaffId ? { firmSignerStaffId: input.firmSignerStaffId } : {}),
   }
 }
 

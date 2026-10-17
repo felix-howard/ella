@@ -88,6 +88,7 @@ import {
   updateAgreementDraftForEntity,
   discardAgreementDraftForEntity,
   sendAgreementDraftForEntity,
+  createAgreementForEntity,
   buildNdaUrl,
 } from '../agreement-service'
 
@@ -279,6 +280,35 @@ describe('NDA service', () => {
       // Defense-in-depth: the gate query must not run for non-NDA types.
       expect(mockNdaFindFirst).not.toHaveBeenCalled()
       expect(mockNdaCreate).toHaveBeenCalledTimes(1)
+    })
+
+    it('snapshots the chosen firm signer on direct create, keeping creator audit', async () => {
+      mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
+      mockStaffFindUnique.mockResolvedValue(
+        staffWithSignature({ id: 'staff-cpa', name: 'Tuyet Duong', title: 'Senior Account Advisor' }) as any,
+      )
+      mockNdaCreate.mockResolvedValueOnce(nda({ id: 'el-1', type: 'ENGAGEMENT_LETTER' }) as any)
+
+      await createAgreementForEntity({
+        entityType: 'lead',
+        entityId: 'lead-1',
+        orgId: 'org-1',
+        staffId: 'staff-ops',
+        firmSignerStaffId: 'staff-cpa',
+        type: 'ENGAGEMENT_LETTER',
+        contentHtml: '<p>Engagement scope: 2026 tax prep.</p>',
+      })
+
+      expect(mockStaffFindUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'staff-cpa' } }),
+      )
+      const createData = (mockNdaCreate.mock.calls[0][0] as any).data
+      expect(createData).toMatchObject({
+        firmSignerName: 'Tuyet Duong',
+        firmSignerTitle: 'Senior Account Advisor',
+        createdByUserId: 'staff-ops',
+      })
+      expect(createData.firmSignaturePngKey).toContain('agreement-firm-sigs/staff-cpa/')
     })
 
     it('allows new NDA when only a non-NDA agreement is active', async () => {
@@ -1013,6 +1043,83 @@ describe('NDA service', () => {
         }),
       )
       expect(result.url).toContain('/agreements/tok_fixed_28_char_aaaaaaaaaa')
+    })
+
+    it('snapshots the chosen firm signer while keeping sender audit', async () => {
+      const updatedAt = new Date('2026-06-25T10:00:00.000Z')
+      const draft = draftAgreement({
+        id: 'draft-1',
+        updatedAt,
+        createdByUserId: 'staff-creator',
+      })
+      const sent = nda({
+        id: 'draft-1',
+        status: 'SENT',
+        isActive: true,
+        sentByUserId: 'staff-sender',
+        createdByUserId: 'staff-creator',
+        lead: lead(),
+      })
+      mockNdaFindFirst.mockImplementation(((args: any) => {
+        if (args.where?.status === 'DRAFT') return draft as any
+        if (args.where?.type === 'NDA') return null
+        if (args.where?.id === 'draft-1') return sent as any
+        return null
+      }) as any)
+      mockStaffFindUnique.mockResolvedValue(
+        staffWithSignature({ id: 'staff-cpa', name: 'Tuyet Duong', title: 'Senior Account Advisor' }) as any,
+      )
+      mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
+      mockNdaUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+
+      await sendAgreementDraftForEntity({
+        entityType: 'lead',
+        entityId: 'lead-1',
+        agreementId: 'draft-1',
+        orgId: 'org-1',
+        staffId: 'staff-sender',
+        expectedUpdatedAt: updatedAt.toISOString(),
+        firmSignerStaffId: 'staff-cpa',
+      })
+
+      expect(mockStaffFindUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'staff-cpa' } }),
+      )
+      const updateData = (mockNdaUpdateMany.mock.calls[0][0] as any).data
+      expect(updateData).toMatchObject({
+        firmSignerName: 'Tuyet Duong',
+        firmSignerTitle: 'Senior Account Advisor',
+        sentByUserId: 'staff-sender',
+      })
+      expect(updateData.firmSignaturePngKey).toContain('agreement-firm-sigs/staff-cpa/')
+    })
+
+    it('rejects a chosen firm signer from another organization', async () => {
+      const updatedAt = new Date('2026-06-25T10:00:00.000Z')
+      mockNdaFindFirst.mockImplementation(((args: any) => {
+        if (args.where?.status === 'DRAFT') {
+          return draftAgreement({ id: 'draft-1', updatedAt, createdByUserId: 'staff-creator' }) as any
+        }
+        return null
+      }) as any)
+      mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
+      mockStaffFindUnique.mockResolvedValueOnce(
+        staffWithSignature({ id: 'staff-other', organizationId: 'org-other' }) as any,
+      )
+
+      await expect(
+        sendAgreementDraftForEntity({
+          entityType: 'lead',
+          entityId: 'lead-1',
+          agreementId: 'draft-1',
+          orgId: 'org-1',
+          staffId: 'staff-sender',
+          expectedUpdatedAt: updatedAt.toISOString(),
+          firmSignerStaffId: 'staff-other',
+        }),
+      ).rejects.toMatchObject({ status: 422 })
+      expect(mockCopyR2Object).not.toHaveBeenCalled()
+      expect(mockNdaUpdateMany).not.toHaveBeenCalled()
     })
 
     it('ignores payment portal mode on manual drafts without a linked quote', async () => {

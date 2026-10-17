@@ -1,9 +1,23 @@
 # Project Changelog
 
-> **Last Updated:** 2026-09-09 ICT
+> **Last Updated:** 2026-10-17 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
+
+### Agreement Firm Signer Choice and Layout Fixes (2026-10-17)
+**Status:** Complete
+
+**Added:**
+- Send wizard "Signs for the firm" picker (uploaded PDF, NDA, Engagement Letter) so an ops admin can send under the CPA's name, title, and signature. Choice is remembered per user in the browser; API field `firmSignerStaffId` is optional.
+
+**Fixed:**
+- Client signing page no longer overlays the `ella.tax` watermark on uploaded agreement PDFs (tax-return draft viewer keeps it).
+- NDA tagline no longer leaks into Custom/Service agreement PDFs; agreement PDF title reduced to 18pt.
+- Custom/Service agreement preview now matches the signed PDF (no non-editable parties block).
+
+**Validation:**
+- API, workspace, portal type-check; agreement/staff/workspace/portal tests passed.
 
 ### Workspace Quote PDF Production Handoff (2026-09-09)
 **Status:** Complete

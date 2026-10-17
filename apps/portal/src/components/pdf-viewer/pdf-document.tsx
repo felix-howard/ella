@@ -17,6 +17,8 @@ export interface PdfDocumentProps {
   onLoadError: () => void
   onPageChange?: (page: number) => void
   scrollContainerRef?: React.RefObject<HTMLDivElement | null>
+  /** Overlay the repeating "ella.tax" watermark. Off for documents the client signs. */
+  watermark?: boolean
 }
 
 export function PdfDocument({
@@ -27,6 +29,7 @@ export function PdfDocument({
   onLoadError,
   onPageChange,
   scrollContainerRef,
+  watermark = true,
 }: PdfDocumentProps) {
   const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -202,21 +205,23 @@ export function PdfDocument({
               }
             />
             {/* Watermark overlay per page - repeating grid */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden">
-              <div
-                className="absolute inset-0 flex flex-wrap items-center justify-center content-center gap-y-24"
-                style={{ transform: 'rotate(-30deg)', scale: '1.5' }}
-              >
-                {Array.from({ length: 20 }).map((_, i) => (
-                  <span
-                    key={i}
-                    className="text-[80px] font-bold text-gray-400/15 select-none whitespace-nowrap mx-12"
-                  >
-                    ella.tax
-                  </span>
-                ))}
+            {watermark && (
+              <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <div
+                  className="absolute inset-0 flex flex-wrap items-center justify-center content-center gap-y-24"
+                  style={{ transform: 'rotate(-30deg)', scale: '1.5' }}
+                >
+                  {Array.from({ length: 20 }).map((_, i) => (
+                    <span
+                      key={i}
+                      className="text-[80px] font-bold text-gray-400/15 select-none whitespace-nowrap mx-12"
+                    >
+                      ella.tax
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         ))}
       </Document>

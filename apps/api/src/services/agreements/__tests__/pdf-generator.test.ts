@@ -166,6 +166,12 @@ describe('generateSignedPdf', () => {
     ).toBe('Internal Revenue Code §7216 and Treas. Reg. §301.7216-3')
   })
 
+  it('drops the NDA subtitle for custom and service agreements', () => {
+    const ndaSubtitle = 'Firm Advice, Strategy, Planning, and Work Product Protection'
+    expect(resolveAgreementPdfSubtitle('CUSTOM', ndaSubtitle)).toBeUndefined()
+    expect(resolveAgreementPdfSubtitle('SERVICE_AGREEMENT', ndaSubtitle)).toBeUndefined()
+  })
+
   it('keeps the generated parties header and subtitle for NDA PDFs', () => {
     expect(shouldRenderAgreementPdfHeader('NDA')).toBe(true)
     expect(resolveAgreementPdfSubtitle('NDA', 'Mutual Confidentiality')).toBe(

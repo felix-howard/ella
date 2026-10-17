@@ -75,6 +75,8 @@ interface CreateAgreementInput {
   entityId: string
   orgId: string
   staffId: string
+  /** Staff who counter-signs for the firm. Defaults to `staffId`. */
+  firmSignerStaffId?: string
   /** Defaults to NDA for backward compatibility. */
   type?: AgreementType
   /** Display title shown to recipient + in PDF header. Defaults to type-based label. */
@@ -158,7 +160,7 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
     // requirements are relaxed. The firm signature + title are still required —
     // they render on the appended signature page.
     firmSnapshot = await snapshotFirmSide({
-      staffId: input.staffId,
+      staffId: input.firmSignerStaffId ?? input.staffId,
       orgId: input.orgId,
       type,
       orgAddressOk:
@@ -349,6 +351,10 @@ export async function renderPreviewPdf(input: {
   // v2 NDA preview: load full snapshot so header shows real firm + client
   // address. Signatures stay as placeholders (mode='preview' suppresses them).
   const v2Entity = await loadEntityForV2Snapshot(input)
+  // Types without a firm counter-signature (CUSTOM, SERVICE_AGREEMENT) sign on
+  // the legacy layout, which has no parties block. Preview must match it so
+  // staff never see a header the client won't get and can't edit.
+  const rendersFirmSide = agreementUsesFirmSnapshot({ type })
   const sanitized = input.contentHtml ? sanitizeAgreementHtml(input.contentHtml) : ''
   const customContentHtml = sanitized ? sanitized : null
   if (input.type === 'ENGAGEMENT_LETTER') {
@@ -412,7 +418,7 @@ export async function renderPreviewPdf(input: {
       signedAt: new Date(),
     },
     mode: 'preview',
-    firmSnapshot: firmAddress
+    firmSnapshot: rendersFirmSide && firmAddress
       ? {
           name: v2Entity.organization.name,
           address: firmAddress,
@@ -422,10 +428,12 @@ export async function renderPreviewPdf(input: {
           signerTitle: '',
         }
       : undefined,
-    clientSnapshot: {
-      nameOrBusiness: clientNameOrBusiness,
-      address: clientAddress ?? '[Address]',
-      clientType: v2Entity.client?.clientType ?? 'INDIVIDUAL',
-    },
+    clientSnapshot: rendersFirmSide
+      ? {
+          nameOrBusiness: clientNameOrBusiness,
+          address: clientAddress ?? '[Address]',
+          clientType: v2Entity.client?.clientType ?? 'INDIVIDUAL',
+        }
+      : undefined,
   })
 }

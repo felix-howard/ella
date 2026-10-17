@@ -3328,5 +3328,10 @@
   "googleDrive.ssnLast4": "4 số cuối SSN",
   "googleDrive.state": "Bang",
   "googleDrive.testing": "Đang kiểm tra kết nối…",
-  "googleDrive.validationError": "Nhập 4 số cuối SSN, mã bang gồm hai chữ cái và lưu email khách hàng trước khi chia sẻ Drive."
+  "googleDrive.validationError": "Nhập 4 số cuối SSN, mã bang gồm hai chữ cái và lưu email khách hàng trước khi chia sẻ Drive.",
+  "agreements.wizard.fields.firmSignerLabel": "Người ký thay mặt firm",
+  "agreements.wizard.fields.firmSignerHint": "Tên, chức danh và chữ ký đã lưu của người này sẽ hiện là chữ ký của firm.",
+  "agreements.wizard.fields.firmSignerEmpty": "Chưa có thành viên nào có chức danh và chữ ký đã lưu. Thêm trong Cài đặt > Hồ sơ.",
+  "agreements.wizard.fields.firmSignerLoadError": "Không tải được danh sách người ký. Đóng và mở lại để thử lại.",
+  "agreements.wizard.fields.firmSignerRequired": "Chọn người ký thay mặt firm trước khi gửi."
 }

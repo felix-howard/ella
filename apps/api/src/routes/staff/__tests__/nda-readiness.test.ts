@@ -6,6 +6,7 @@ vi.mock('../../../lib/db', () => ({
   prisma: {
     staff: {
       findUnique: vi.fn(),
+      findMany: vi.fn(),
     },
     organization: {
       findUnique: vi.fn(),
@@ -67,6 +68,26 @@ describe('GET /staff/me/nda-readiness', () => {
     twilioConfig.phoneNumber = '+15550001111'
     vi.mocked(prisma.staff.findUnique).mockResolvedValue(readyStaff as never)
     vi.mocked(prisma.organization.findUnique).mockResolvedValue(readyOrg as never)
+    vi.mocked(prisma.staff.findMany).mockResolvedValue([] as never)
+  })
+
+  it('is ready without own signature when another org signer is eligible', async () => {
+    vi.mocked(prisma.staff.findUnique).mockResolvedValue({ signaturePngKey: null, title: null } as never)
+    vi.mocked(prisma.staff.findMany).mockResolvedValue([
+      { id: 'staff-cpa', name: 'Tuyet Duong', title: 'Senior Account Advisor' },
+    ] as never)
+
+    const res = await createApp().request('/staff/me/nda-readiness?type=ENGAGEMENT_LETTER')
+
+    expect(await res.json()).toEqual({ ready: true, missing: [] })
+  })
+
+  it('requires own signature and title when no org signer is eligible', async () => {
+    vi.mocked(prisma.staff.findUnique).mockResolvedValue({ signaturePngKey: null, title: null } as never)
+
+    const res = await createApp().request('/staff/me/nda-readiness?type=ENGAGEMENT_LETTER')
+
+    expect(await res.json()).toEqual({ ready: false, missing: ['signature', 'title'] })
   })
 
   it('accepts the configured Twilio inbound number as firm contact phone', async () => {

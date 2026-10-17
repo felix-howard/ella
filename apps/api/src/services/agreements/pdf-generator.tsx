@@ -127,11 +127,18 @@ export function shouldRenderAgreementPdfHeader(type?: AgreementType): boolean {
   return type !== 'ENGAGEMENT_LETTER' && type !== 'CONSENT_7216'
 }
 
+/**
+ * Template subtitles are document-specific legal taglines (the NDA one reads
+ * "Firm Advice, Strategy, Planning, and Work Product Protection"). Only the
+ * documents that own them keep them; custom, service, and engagement letters
+ * share the NDA template version but must not inherit its tagline.
+ */
 export function resolveAgreementPdfSubtitle(
   type: AgreementType | undefined,
   subtitle?: string
 ): string | undefined {
-  return type === 'ENGAGEMENT_LETTER' ? undefined : subtitle
+  const ownsSubtitle = !type || type === 'NDA' || type === 'CONSENT_7216'
+  return ownsSubtitle ? subtitle : undefined
 }
 
 // ── Main export ───────────────────────────────────────────────────────────

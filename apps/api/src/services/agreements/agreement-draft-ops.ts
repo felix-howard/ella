@@ -65,6 +65,8 @@ export interface SendAgreementDraftInput extends DraftBaseInput {
   agreementId: string
   expectedUpdatedAt: string
   paymentPortalMode?: AgreementPaymentPortalMode
+  /** Staff who counter-signs for the firm. Defaults to the draft creator. */
+  firmSignerStaffId?: string
 }
 
 function expectedUpdatedAtDate(value?: string): Date | undefined {
@@ -400,7 +402,7 @@ export async function sendAgreementDraftForEntity(input: SendAgreementDraftInput
     : null
   const firmSnapshot = usesFirmSnapshot
     ? await snapshotFirmSide({
-        staffId: draft.createdByUserId,
+        staffId: input.firmSignerStaffId ?? draft.createdByUserId,
         orgId: input.orgId,
         type: merged.type,
         orgAddressOk:

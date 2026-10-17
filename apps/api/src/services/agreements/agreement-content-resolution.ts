@@ -208,10 +208,10 @@ export async function snapshotFirmSide(input: {
     },
   })
   if (!staff || staff.organizationId !== input.orgId) {
-    throw new HTTPException(422, { message: 'Draft creator firm profile was not found' })
+    throw new HTTPException(422, { message: 'Firm signer profile was not found' })
   }
   if (staff.isActive === false) {
-    throw new HTTPException(422, { message: 'Draft creator firm profile is inactive' })
+    throw new HTTPException(422, { message: 'Firm signer profile is inactive' })
   }
 
   const missing: string[] = []

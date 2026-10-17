@@ -14,6 +14,7 @@ import { UPLOAD_LINK_TEMPLATE_IDS } from '../../services/sms/upload-link-templat
 import type { AuthVariables } from '../../middleware/auth'
 import { signatureRoute } from './signature'
 import { ndaReadinessRoute } from './nda-readiness'
+import { agreementFirmSignersRoute } from './agreement-firm-signers'
 import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 
@@ -431,5 +432,8 @@ staffRoute.route('/me/signature', signatureRoute)
 
 // Mount NDA readiness check at /staff/me/nda-readiness
 staffRoute.route('/me/nda-readiness', ndaReadinessRoute)
+
+// Mount firm counter-signer options at /staff/agreement-firm-signers
+staffRoute.route('/agreement-firm-signers', agreementFirmSignersRoute)
 
 export { staffRoute }

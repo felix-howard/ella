@@ -1891,6 +1891,9 @@ export const api = {
     deleteSignature: () =>
       request<{ success: boolean }>('/staff/me/signature', { method: 'DELETE' }),
 
+    listAgreementFirmSigners: () =>
+      request<{ data: AgreementFirmSigner[] }>('/staff/agreement-firm-signers'),
+
     getNdaReadiness: (params?: { type?: 'NDA' | 'ENGAGEMENT_LETTER' }) =>
       request<{
         ready: boolean
@@ -2770,6 +2773,13 @@ export interface ClientPaymentsResponse {
   monitoring?: ClientPaymentsMonitoring
 }
 
+/** Org staff eligible to counter-sign agreements (active, titled, signature on file). */
+export interface AgreementFirmSigner {
+  id: string
+  name: string
+  title: string
+}
+
 export interface CreateAgreementPayload {
   type?: AgreementType
   title?: string
@@ -2783,6 +2793,8 @@ export interface CreateAgreementPayload {
   internalNote?: string
   /** Link validity in days. Server clamps to [1, 90]. Default 30 when omitted. */
   expiryDays?: number
+  /** Staff who counter-signs for the firm. Send/create only; draft saves reject it. */
+  firmSignerStaffId?: string
 }
 
 export interface CalculatorAgreementQuotePayload {

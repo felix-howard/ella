@@ -2,9 +2,10 @@
  * GET /staff/me/nda-readiness
  *
  * Returns whether the current staff + their organization have all data needed
- * to send a v2 NDA: per-staff signature PNG and title, plus org-level firm
- * address and governing law. Wizard pre-flight gate consumes this to block
- * sending until setup is complete.
+ * to send a v2 NDA: a firm signer (the current staff's own signature + title,
+ * or any other eligible org signer they can pick), plus org-level firm address
+ * and governing law. Wizard pre-flight gate consumes this to block sending
+ * until setup is complete.
  */
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
@@ -12,6 +13,7 @@ import { z } from 'zod'
 import { prisma } from '../../lib/db'
 import { hasRequiredFirmContact } from '../../lib/firm-contact'
 import type { AuthVariables } from '../../middleware/auth'
+import { listAgreementFirmSigners } from './agreement-firm-signers'
 
 export type NdaReadinessMissing = 'signature' | 'title' | 'orgAddress' | 'orgGoverningLaw' | 'orgContact'
 
@@ -58,8 +60,12 @@ ndaReadinessRoute.get('/', zValidator('query', readinessQuerySchema), async (c) 
   }
 
   const missing: NdaReadinessMissing[] = []
-  if (!staff.signaturePngKey) missing.push('signature')
-  if (!staff.title?.trim()) missing.push('title')
+  const ownSignerReady = Boolean(staff.signaturePngKey && staff.title?.trim())
+  // Sender without their own signature can still pick another eligible signer.
+  if (!ownSignerReady && (await listAgreementFirmSigners(user.organizationId)).length === 0) {
+    if (!staff.signaturePngKey) missing.push('signature')
+    if (!staff.title?.trim()) missing.push('title')
+  }
   if (!org.address?.trim() || !org.city?.trim() || !org.state?.trim() || !org.zip?.trim()) {
     missing.push('orgAddress')
   }

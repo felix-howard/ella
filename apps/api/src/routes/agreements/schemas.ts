@@ -177,8 +177,15 @@ function validateAgreementContentRules(val: AgreementEditableFields, ctx: z.Refi
 
 const expectedUpdatedAtSchema = z.string().datetime({ offset: true })
 
-export const createAgreementBodySchema =
-  agreementEditableFieldsSchema.superRefine(validateAgreementContentRules)
+/**
+ * Staff whose name, title, and saved signature counter-sign for the firm.
+ * Omitted = the acting staff (create) or the draft creator (send).
+ */
+const firmSignerStaffIdSchema = z.string().min(1).max(64).optional()
+
+export const createAgreementBodySchema = agreementEditableFieldsSchema
+  .extend({ firmSignerStaffId: firmSignerStaffIdSchema })
+  .superRefine(validateAgreementContentRules)
 
 const agreementDraftFieldsSchema = agreementEditableFieldsSchema.extend({
   source: agreementSourceSchema.optional(),
@@ -218,6 +225,7 @@ export const sendAgreementDraftBodySchema = agreementEditableFieldsSchema
   .extend({
     expectedUpdatedAt: expectedUpdatedAtSchema,
     paymentPortalMode: calculatorAgreementPaymentPortalModeSchema.optional(),
+    firmSignerStaffId: firmSignerStaffIdSchema,
   })
   .superRefine(validateAgreementContentRules)
 

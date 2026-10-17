@@ -22,6 +22,8 @@ import {
 } from './use-agreement-draft-saved-state'
 import { useAgreementDraftSubmitHandlers } from './use-agreement-draft-submit-handlers'
 import { useCreateAgreement } from './use-agreement-mutations'
+import { FirmSignerSelect } from './firm-signer-select'
+import { useFirmSignerChoice } from './use-firm-signer-choice'
 import { useSaveAgreementDraft, useSendAgreementDraft } from './use-agreement-draft-mutations'
 import {
   Step3ContentEditor,
@@ -74,6 +76,8 @@ export function AgreementDraftEditor({
   const createMutation = useCreateAgreement(entity)
   const saveDraftMutation = useSaveAgreementDraft(entity)
   const sendDraftMutation = useSendAgreementDraft(entity, type)
+  // Only NDA and Engagement Letter carry a firm counter-signature in the HTML path.
+  const needsFirmSigner = type === 'NDA' || type === 'ENGAGEMENT_LETTER'
 
   const [localDraft, setLocalDraft] = useState<Step3Draft>(() => existingDraft
     ? createStep3DraftFromAgreement(existingDraft)
@@ -87,6 +91,9 @@ export function AgreementDraftEditor({
     existingDraft,
     savedState,
     onSavedStateChange,
+  })
+  const firmSigner = useFirmSignerChoice(needsFirmSigner, {
+    draftCreatorId: savedAgreement?.createdByUserId,
   })
   const fallbackTitle = t(`agreements.type.${type}`)
   const { effectiveTemplateId, autosaveResolved, autosavePayload } = useAgreementDraftPayloadState({
@@ -172,6 +179,7 @@ export function AgreementDraftEditor({
     sourceSnapshot,
     calculatorQuote,
     paymentPortalMode,
+    firmSignerStaffId: firmSigner.firmSignerStaffId,
     savedAgreement,
     createMutation,
     saveDraftMutation,
@@ -183,6 +191,7 @@ export function AgreementDraftEditor({
     conflictMessage: t('agreements.draft.conflict.message'),
   })
 
+  const firmSignerUnavailable = needsFirmSigner && !firmSigner.firmSignerStaffId
   const sendBlockedReason = useMemo(() => {
     if (conflictMessage || autosaveState === 'conflict') {
       return t('agreements.draft.conflict.sendBlocked')
@@ -190,8 +199,11 @@ export function AgreementDraftEditor({
     if (autosaveState === 'saving') {
       return t('agreements.draft.savingSendBlocked')
     }
+    if (firmSignerUnavailable) {
+      return t('agreements.wizard.fields.firmSignerRequired')
+    }
     return null
-  }, [autosaveState, conflictMessage, t])
+  }, [autosaveState, conflictMessage, firmSignerUnavailable, t])
 
   const draftSaveState = saveDraftMutation.isPending ? 'saving' : autosaveState
 
@@ -239,6 +251,11 @@ export function AgreementDraftEditor({
       conflictMessage={conflictMessage}
       sendBlockedReason={sendBlockedReason}
       onReloadDraft={savedAgreement ? reloadDraft : undefined}
+      sendSettingsSlot={
+        needsFirmSigner
+          ? <FirmSignerSelect choice={firmSigner} disabled={isBusy} />
+          : undefined
+      }
       closeConfirmation={{
         open: confirmationOpen,
         savePending: confirmationBusy || draftSaveState === 'saving',

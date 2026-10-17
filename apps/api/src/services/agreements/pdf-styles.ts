@@ -18,9 +18,9 @@ export const pdfStyles = StyleSheet.create({
   },
 
   // ── Title / Subtitle ──────────────────────────────────────────────────────
-  /** v1 used 18pt; v2 bumps to 24pt per spec. Shared key — v1 benefits too. */
+  /** Shared v1/v2 heading; 18pt keeps long custom titles proportionate to the body. */
   title: {
-    fontSize: 24,
+    fontSize: 18,
     fontFamily: 'Helvetica-Bold',
     marginBottom: 8,
     textAlign: 'center',

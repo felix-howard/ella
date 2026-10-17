@@ -17,7 +17,7 @@
  *
  * Validation is UX-only — server is source of truth.
  */
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Check, Loader2, Plus, Trash2 } from 'lucide-react'
@@ -106,6 +106,8 @@ interface Props {
   conflictMessage?: string | null
   sendBlockedReason?: string | null
   onReloadDraft?: () => void
+  /** Extra controls rendered at the top of the Send settings card (e.g. firm signer). */
+  sendSettingsSlot?: ReactNode
 }
 
 const DEFAULT_DEPOSIT_AMOUNT = '500.00'
@@ -308,6 +310,7 @@ export function Step3ContentEditor({
   conflictMessage,
   sendBlockedReason,
   onReloadDraft,
+  sendSettingsSlot,
 }: Props) {
   const { t } = useTranslation()
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -704,6 +707,8 @@ export function Step3ContentEditor({
           <p className="text-sm font-semibold text-foreground">
             {t('agreements.wizard.sendSettingsTitle')}
           </p>
+
+          {sendSettingsSlot}
 
           <label className="mt-4 flex items-start gap-3 cursor-pointer">
             <input

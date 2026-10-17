@@ -104,6 +104,7 @@ clientsAgreementsStaffRoute.post(
       orgId,
       staffId,
       ...editableAgreementFields(body),
+      firmSignerStaffId: body.firmSignerStaffId,
     })
     return c.json({ success: true, data: stripAgreementToken(agreement), url }, 201)
   },
@@ -253,6 +254,7 @@ clientsAgreementsStaffRoute.post(
       ...editableAgreementFields(body),
       expectedUpdatedAt: body.expectedUpdatedAt,
       paymentPortalMode: body.paymentPortalMode,
+      firmSignerStaffId: body.firmSignerStaffId,
     })
     return c.json({ success: true, data: stripAgreementToken(result.agreement), url: result.url })
   },

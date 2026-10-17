@@ -27,6 +27,8 @@ interface UseAgreementDraftSubmitHandlersInput {
   sourceSnapshot?: Record<string, unknown>
   calculatorQuote?: CalculatorAgreementQuotePayload
   paymentPortalMode?: AgreementPaymentPortalSendMode
+  /** Firm counter-signer for send/create; omitted for types without a firm signature. */
+  firmSignerStaffId?: string
   savedAgreement: Agreement | null
   createMutation: {
     mutate: (payload: CreateAgreementPayload, options: { onSuccess: () => void }) => void
@@ -58,6 +60,7 @@ export function useAgreementDraftSubmitHandlers({
   sourceSnapshot,
   calculatorQuote,
   paymentPortalMode,
+  firmSignerStaffId,
   savedAgreement,
   createMutation,
   saveDraftMutation,
@@ -102,6 +105,7 @@ export function useAgreementDraftSubmitHandlers({
             resolved,
             expectedUpdatedAt,
             paymentPortalMode,
+            firmSignerStaffId,
           }),
         },
         {
@@ -110,7 +114,7 @@ export function useAgreementDraftSubmitHandlers({
         },
       )
     },
-    [handleSendError, onClose, paymentPortalMode, sendDraftMutation, type],
+    [firmSignerStaffId, handleSendError, onClose, paymentPortalMode, sendDraftMutation, type],
   )
 
   const handleSaveDraft = useCallback((resolved: Step3Resolved, onSuccess?: () => void) => {
@@ -167,7 +171,13 @@ export function useAgreementDraftSubmitHandlers({
         return
       }
 
-      createMutation.mutate(buildCreateAgreementPayload({ type, templateId, resolved }), { onSuccess: onClose })
+      createMutation.mutate(
+        {
+          ...buildCreateAgreementPayload({ type, templateId, resolved }),
+          ...(firmSignerStaffId ? { firmSignerStaffId } : {}),
+        },
+        { onSuccess: onClose },
+      )
       return
     }
 
@@ -181,6 +191,7 @@ export function useAgreementDraftSubmitHandlers({
     calculatorQuote,
     createMutation,
     effectiveTemplateId,
+    firmSignerStaffId,
     onClose,
     resetSavedBaseline,
     saveDraftMutation,

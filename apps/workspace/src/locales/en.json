@@ -3328,5 +3328,10 @@
   "googleDrive.ssnLast4": "SSN last 4",
   "googleDrive.state": "State",
   "googleDrive.testing": "Testing connection…",
-  "googleDrive.validationError": "Enter a 4-digit SSN last 4, a two-letter state, and save a client email before sharing Drive access."
+  "googleDrive.validationError": "Enter a 4-digit SSN last 4, a two-letter state, and save a client email before sharing Drive access.",
+  "agreements.wizard.fields.firmSignerLabel": "Signs for the firm",
+  "agreements.wizard.fields.firmSignerHint": "Their name, title, and saved signature appear as the firm signature.",
+  "agreements.wizard.fields.firmSignerEmpty": "No team member has a title and saved signature yet. Add them in Settings > Profile.",
+  "agreements.wizard.fields.firmSignerLoadError": "Couldn't load firm signers. Close and reopen to try again.",
+  "agreements.wizard.fields.firmSignerRequired": "Choose who signs for the firm before sending."
 }

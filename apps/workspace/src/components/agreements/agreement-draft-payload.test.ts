@@ -133,6 +133,26 @@ describe('agreement draft payload helpers', () => {
     })
   })
 
+  it('carries the chosen firm signer only on send', () => {
+    expect(
+      buildSendAgreementDraftPayload({
+        type: 'ENGAGEMENT_LETTER',
+        templateId: null,
+        resolved,
+        expectedUpdatedAt: '2026-06-25T10:00:00.000Z',
+        firmSignerStaffId: 'staff-cpa',
+      }),
+    ).toMatchObject({ firmSignerStaffId: 'staff-cpa' })
+    expect(
+      buildSaveAgreementDraftPayload({
+        type: 'ENGAGEMENT_LETTER',
+        templateId: null,
+        resolved,
+        source: 'MANUAL',
+      }),
+    ).not.toHaveProperty('firmSignerStaffId')
+  })
+
   it('hydrates editor state from an existing draft row', () => {
     expect(createStep3DraftFromAgreement(draftAgreement())).toMatchObject({
       titleOverride: 'Draft title',

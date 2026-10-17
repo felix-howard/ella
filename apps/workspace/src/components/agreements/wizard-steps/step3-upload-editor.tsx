@@ -12,6 +12,8 @@ import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { FileText, Loader2, Upload, X } from 'lucide-react'
 import { agreementsApi } from '../use-agreement-mutations'
+import { FirmSignerSelect } from '../firm-signer-select'
+import { useFirmSignerChoice } from '../use-firm-signer-choice'
 import { toast } from '../../../stores/toast-store'
 import {
   EXPIRY_DAYS_DEFAULT,
@@ -35,6 +37,7 @@ export interface UploadStep3Resolved {
   depositEnabled: boolean
   depositAmount: string
   expiryDays: number
+  firmSignerStaffId: string
 }
 
 interface Props {
@@ -55,6 +58,8 @@ export function Step3UploadEditor({ entity, type, isSubmitting, onCancel, onSubm
   const [depositEnabled, setDepositEnabled] = useState(false)
   const [depositAmount, setDepositAmount] = useState(DEFAULT_DEPOSIT_AMOUNT)
   const [expiryDays, setExpiryDays] = useState(EXPIRY_DAYS_DEFAULT)
+  // Uploaded PDFs always carry a firm counter-signature on the appended page.
+  const firmSigner = useFirmSignerChoice(true)
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => agreementsApi(entity).uploadPdf(entity.id, file),
@@ -88,17 +93,19 @@ export function Step3UploadEditor({ entity, type, isSubmitting, onCancel, onSubm
     !!title.trim() &&
     depositValid &&
     expiryValid &&
+    !!firmSigner.firmSignerStaffId &&
     !uploadMutation.isPending &&
     !isSubmitting
 
   const handleSubmit = () => {
-    if (!canSubmit || !uploaded) return
+    if (!canSubmit || !uploaded || !firmSigner.firmSignerStaffId) return
     onSubmit({
       uploadedPdfKey: uploaded.key,
       title: title.trim(),
       depositEnabled,
       depositAmount: depositAmount.trim(),
       expiryDays,
+      firmSignerStaffId: firmSigner.firmSignerStaffId,
     })
   }
 
@@ -194,6 +201,8 @@ export function Step3UploadEditor({ entity, type, isSubmitting, onCancel, onSubm
           <p className="text-sm font-semibold text-foreground">
             {t('agreements.wizard.sendSettingsTitle')}
           </p>
+
+          <FirmSignerSelect choice={firmSigner} disabled={isSubmitting} />
 
           <label className="mt-4 flex items-start gap-3 cursor-pointer">
             <input

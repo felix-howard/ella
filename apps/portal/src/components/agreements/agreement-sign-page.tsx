@@ -208,7 +208,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
                       </div>
                     }
                   >
-                    <PdfViewer url={view.uploadedPdfUrl} />
+                    <PdfViewer url={view.uploadedPdfUrl} watermark={false} />
                   </Suspense>
                 </div>
               ) : view.templateHtml ? (

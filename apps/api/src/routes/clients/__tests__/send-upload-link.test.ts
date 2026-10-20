@@ -25,7 +25,6 @@ vi.mock('../../../services/magic-link', () => ({
     id: 'link_1',
     token: 'test-token',
     url: 'https://portal.ellatax.com/upload/test-token',
-    expiresAt: new Date('2026-07-17T00:00:00.000Z'),
     scope: 'CASE',
     clientGroupId: null,
   }),
@@ -131,7 +130,6 @@ describe('POST /clients/:id/send-upload-link', () => {
       id: 'link_1',
       token: 'test-token',
       url: 'https://portal.ellatax.com/upload/test-token',
-      expiresAt: new Date('2026-07-17T00:00:00.000Z'),
       scope: 'CASE',
       clientGroupId: null,
     })
@@ -234,7 +232,6 @@ describe('POST /clients/:id/send-upload-link', () => {
     vi.mocked(prisma.magicLink.findFirst).mockResolvedValueOnce({
       id: 'link_existing',
       token: 'existing-token',
-      expiresAt: new Date('2026-07-17T00:00:00.000Z'),
       scope: 'CASE',
       clientGroupId: null,
     } as never)
@@ -450,7 +447,7 @@ describe('POST /clients/:id/send-upload-link', () => {
     expect(res.status).toBe(500)
   })
 
-  it('resend-sms only selects unexpired active portal links', async () => {
+  it('resend-sms selects active portal links without filtering by expiry', async () => {
     vi.mocked(prisma.client.findFirst).mockResolvedValueOnce({
       id: CID_IND,
       name: 'Test',
@@ -475,15 +472,15 @@ describe('POST /clients/:id/send-upload-link', () => {
                 type: 'PORTAL',
                 revokedAt: null,
                 replacedById: null,
-                OR: expect.arrayContaining([
-                  { expiresAt: null },
-                  { expiresAt: expect.objectContaining({ gt: expect.any(Date) }) },
-                ]),
               }),
             }),
           }),
         }),
       }),
     }))
+    const findArgs = vi.mocked(prisma.client.findFirst).mock.calls[0]?.[0] as unknown as {
+      include: { taxCases: { include: { magicLinks: { where: Record<string, unknown> } } } }
+    }
+    expect(findArgs.include.taxCases.include.magicLinks.where).not.toHaveProperty('OR')
   })
 })

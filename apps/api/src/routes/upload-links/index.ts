@@ -16,15 +16,9 @@ import {
   logStaffActivity,
 } from '../../services/activity-log'
 import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
-import {
-  caseIdParamSchema,
-  extendUploadLinkSchema,
-  linkIdParamSchema,
-} from './schemas'
+import { caseIdParamSchema, linkIdParamSchema } from './schemas'
 
 const uploadLinksRoute = new Hono<{ Variables: AuthVariables }>()
-
-const DAY_MS = 24 * 60 * 60 * 1000
 
 type ScopedLink = Awaited<ReturnType<typeof findScopedPortalLink>>
 
@@ -33,7 +27,6 @@ interface SerializableLink {
   token: string
   scope: 'CASE' | 'GROUP'
   clientGroupId: string | null
-  expiresAt: Date | null
   isActive: boolean
   revokedAt: Date | null
   extendedAt: Date | null
@@ -52,7 +45,6 @@ function serializeLink(link: SerializableLink) {
     url: status === 'ACTIVE' ? getMagicLinkUrl(link.token, 'PORTAL') : null,
     scope: link.scope,
     clientGroupId: link.clientGroupId,
-    expiresAt: link.expiresAt?.toISOString() ?? null,
     revokedAt: link.revokedAt?.toISOString() ?? null,
     extendedAt: link.extendedAt?.toISOString() ?? null,
     lastUsedAt: link.lastUsedAt?.toISOString() ?? null,
@@ -139,16 +131,10 @@ async function logUploadLinkAction(
     summary:
       action === ACTIVITY_ACTIONS.UPLOAD_LINK.GENERATED
         ? `Generated upload link for ${link.taxCase?.client.name ?? 'client'}`
-        : action === ACTIVITY_ACTIONS.UPLOAD_LINK.EXTENDED
-          ? `Extended upload link for ${link.taxCase?.client.name ?? 'client'}`
-          : `Revoked upload link for ${link.taxCase?.client.name ?? 'client'}`,
+        : `Revoked upload link for ${link.taxCase?.client.name ?? 'client'}`,
     metadata,
     request: getAuditRequestContext(c),
   })
-}
-
-function addDays(days: number) {
-  return new Date(Date.now() + days * DAY_MS)
 }
 
 // GET /upload-links/cases/:caseId
@@ -230,51 +216,6 @@ uploadLinksRoute.post(
   }
 )
 
-// POST /upload-links/:id/extend
-uploadLinksRoute.post(
-  '/:id/extend',
-  zValidator('param', linkIdParamSchema),
-  zValidator('json', extendUploadLinkSchema),
-  async (c) => {
-    const user = c.get('user')
-    const { id } = c.req.valid('param')
-    const { days } = c.req.valid('json')
-    const link = await findScopedPortalLink(user, id)
-    if (!link) {
-      return c.json({ error: 'NOT_FOUND', message: 'Upload link not found' }, 404)
-    }
-
-    const status = getMagicLinkStatus(link)
-    if (status === 'REVOKED' || status === 'REPLACED') {
-      return c.json({ error: 'LINK_NOT_ACTIVE', message: 'Only active or expired links can be extended' }, 400)
-    }
-
-    const expiresAt = addDays(days)
-    const updated = await prisma.magicLink.update({
-      where: { id },
-      data: {
-        expiresAt,
-        isActive: true,
-        extendedAt: new Date(),
-        extendedById: user.staffId,
-      },
-      include: { taxCase: { select: { id: true, client: { select: { id: true, organizationId: true } } } } },
-    })
-
-    await logUploadLinkAction(c, user, link, ACTIVITY_ACTIONS.UPLOAD_LINK.EXTENDED, ActivityRiskLevel.MEDIUM, {
-      previousStatus: status,
-      days,
-      expiresAt: expiresAt.toISOString(),
-    })
-
-    return c.json({
-      success: true,
-      expiresAt: expiresAt.toISOString(),
-      magicLink: serializeLink(updated),
-    })
-  }
-)
-
 // POST /upload-links/cases/:caseId/generate
 uploadLinksRoute.post(
   '/cases/:caseId/generate',
@@ -301,7 +242,6 @@ uploadLinksRoute.post(
     await logUploadLinkAction(c, user, link, ACTIVITY_ACTIONS.UPLOAD_LINK.GENERATED, ActivityRiskLevel.HIGH, {
       scope: created.scope,
       clientGroupId: created.clientGroupId,
-      expiresAt: created.expiresAt?.toISOString() ?? null,
     })
 
     return c.json({

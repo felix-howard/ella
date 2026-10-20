@@ -42,16 +42,15 @@ describe('upgradeActivePortalLinksToGroup', () => {
 describe('createPortalMagicLink', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('creates a random 32-character portal token with default expiry and replaces active case links', async () => {
+  it('creates a random 32-character portal token that never expires and replaces active case links', async () => {
     vi.mocked(prisma.magicLink.create).mockImplementationOnce(({ data, select: _select }) => {
       expect(data.token).toMatch(/^[0-9A-Za-z_-]{32}$/)
-      expect(data.expiresAt).toBeInstanceOf(Date)
+      expect(data.expiresAt).toBeNull()
       expect(data.type).toBe('PORTAL')
       expect(data.isActive).toBe(true)
       return Promise.resolve({
         id: 'link-new',
         token: data.token,
-        expiresAt: data.expiresAt,
         scope: data.scope,
         clientGroupId: data.clientGroupId,
       }) as never
@@ -120,5 +119,26 @@ describe('validateMagicLink lifecycle checks', () => {
 
     expect(result).toEqual({ valid: false, error: 'INVALID_TOKEN' })
     expect(prisma.magicLink.update).not.toHaveBeenCalled()
+  })
+
+  it('does not reject portal links with a past legacy expiry date', async () => {
+    vi.mocked(prisma.magicLink.findUnique).mockResolvedValueOnce({
+      id: 'link_1',
+      token: 'tok',
+      type: 'PORTAL',
+      scope: 'CASE',
+      isActive: true,
+      revokedAt: null,
+      replacedById: null,
+      expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+      taxCase: null,
+      clientGroup: null,
+    } as never)
+
+    const result = await validateMagicLink('tok')
+
+    expect(result.error).not.toBe('EXPIRED_TOKEN')
+    // Usage is recorded only after the link passes lifecycle checks.
+    expect(prisma.magicLink.update).toHaveBeenCalled()
   })
 })

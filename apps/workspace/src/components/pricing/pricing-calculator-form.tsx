@@ -4,7 +4,14 @@ import {
   type PricingCalculatorInput,
 } from '@ella/shared/pricing'
 import { PAYROLL, TIER_BASIC } from '@ella/shared/constants'
-import { Calculator, ShieldCheck, Store, WalletCards, type LucideIcon } from 'lucide-react'
+import {
+  Calculator,
+  ChevronDown,
+  ShieldCheck,
+  Store,
+  WalletCards,
+  type LucideIcon,
+} from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Input, SelectField, Switch } from '@ella/ui'
 import { clampWholeNumber, formatCurrency } from './pricing-format'
@@ -42,6 +49,7 @@ const oneTimeRows: OneTimeRow[] = [
 const numberInputClass =
   '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
 const cashPlanParticipantsErrorId = 'pricing-cash-plan-participants-error'
+const tierRatesPanelId = 'pricing-tier-rates-panel'
 
 export function PricingCalculatorForm({
   input,
@@ -50,6 +58,8 @@ export function PricingCalculatorForm({
 }: PricingCalculatorFormProps) {
   const hasOneTimeSelection = Object.values(input.oneTime).some((quantity) => quantity > 0)
   const [oneTimeManuallyEnabled, setOneTimeManuallyEnabled] = useState(false)
+  // 1099 tier rates rarely change per quote, so they start collapsed.
+  const [tierRatesOpen, setTierRatesOpen] = useState(false)
   const oneTimeEnabled = oneTimeManuallyEnabled || hasOneTimeSelection
   const cashPlanNeedsParticipant =
     input.cashPlan.enabled && input.cashPlan.employees + input.cashPlan.owners <= 0
@@ -129,22 +139,53 @@ export function PricingCalculatorForm({
               },
             ]}
           />
+          <div className="rounded-lg border border-border/70">
+            <button
+              type="button"
+              aria-expanded={tierRatesOpen}
+              aria-controls={tierRatesPanelId}
+              onClick={() => setTierRatesOpen((open) => !open)}
+              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
+            >
+              <span className="text-sm font-medium text-foreground">1099 worker tier rates</span>
+              <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                {/* Keep current rates visible while collapsed so edits are never hidden. */}
+                {[
+                  input.rates.tiers.basicMonthly,
+                  input.rates.tiers.proMonthly,
+                  input.rates.tiers.vipMonthly,
+                ]
+                  .map((rate) => formatCurrency(rate))
+                  .join(' / ')}
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${tierRatesOpen ? 'rotate-180' : ''}`}
+                />
+              </span>
+            </button>
+            {tierRatesOpen && (
+              <div
+                id={tierRatesPanelId}
+                className="grid gap-3 border-t border-border/70 p-3 sm:grid-cols-2 lg:grid-cols-3"
+              >
+                <RateField
+                  label="0-10 workers / mo"
+                  value={input.rates.tiers.basicMonthly}
+                  onChange={(value) => setRate('tiers', 'basicMonthly', value)}
+                />
+                <RateField
+                  label="11-20 workers / mo"
+                  value={input.rates.tiers.proMonthly}
+                  onChange={(value) => setRate('tiers', 'proMonthly', value)}
+                />
+                <RateField
+                  label="21+ workers / mo"
+                  value={input.rates.tiers.vipMonthly}
+                  onChange={(value) => setRate('tiers', 'vipMonthly', value)}
+                />
+              </div>
+            )}
+          </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <RateField
-              label="0-10 workers / mo"
-              value={input.rates.tiers.basicMonthly}
-              onChange={(value) => setRate('tiers', 'basicMonthly', value)}
-            />
-            <RateField
-              label="11-20 workers / mo"
-              value={input.rates.tiers.proMonthly}
-              onChange={(value) => setRate('tiers', 'proMonthly', value)}
-            />
-            <RateField
-              label="21+ workers / mo"
-              value={input.rates.tiers.vipMonthly}
-              onChange={(value) => setRate('tiers', 'vipMonthly', value)}
-            />
             <RateField
               label="Payroll base / mo"
               value={input.rates.payroll.baseMonthly}

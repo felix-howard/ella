@@ -2,13 +2,11 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Copy, ExternalLink, KeyRound, Loader2, RotateCw, Send, ShieldOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Button, cn } from '@ella/ui'
+import { Button } from '@ella/ui'
 import { api, type UploadLinkData } from '../../lib/api-client'
 import { copyToClipboard } from '../../lib/clipboard'
 import { toast } from '../../stores/toast-store'
 import { UploadLinkConfirmModal } from './upload-link-confirm-modal'
-import { UploadLinkExtendMenu, type UploadLinkExtendDays } from './upload-link-extend-menu'
-import { getDaysUntilExpiry } from './upload-link-state'
 import { UploadLinkStatusBadge } from './upload-link-status-badge'
 interface UploadLinkManagerProps {
   caseId: string
@@ -39,9 +37,6 @@ export function UploadLinkManager({ caseId, clientId, onSendSms, isSendingSms = 
   })
   const currentLink = useMemo(() => selectDisplayLink(data?.data ?? []), [data?.data])
   const canUseLink = currentLink?.status === 'ACTIVE' && !!currentLink.url
-  const canExtend = currentLink?.status === 'ACTIVE' || currentLink?.status === 'EXPIRED'
-  const expiryDate = formatDate(currentLink?.expiresAt ?? null, i18n.language)
-  const daysUntilExpiry = getDaysUntilExpiry(currentLink?.expiresAt ?? null)
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey })
     await queryClient.invalidateQueries({ queryKey: ['activity'] })
@@ -57,15 +52,6 @@ export function UploadLinkManager({ caseId, clientId, onSendSms, isSendingSms = 
       await invalidate()
     },
     onError: () => toast.error(t('uploadLinks.revokeError')),
-  })
-  const extendMutation = useMutation({
-    mutationFn: ({ id, days }: { id: string; days: UploadLinkExtendDays }) =>
-      api.uploadLinks.extend(id, days),
-    onSuccess: async () => {
-      toast.success(t('uploadLinks.extendSuccess'))
-      await invalidate()
-    },
-    onError: () => toast.error(t('uploadLinks.extendError')),
   })
   const generateMutation = useMutation({
     mutationFn: () => api.uploadLinks.generate(caseId),
@@ -91,7 +77,7 @@ export function UploadLinkManager({ caseId, clientId, onSendSms, isSendingSms = 
     }
     generateMutation.mutate()
   }
-  const isMutating = revokeMutation.isPending || extendMutation.isPending || generateMutation.isPending
+  const isMutating = revokeMutation.isPending || generateMutation.isPending
   return (
     <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -113,17 +99,7 @@ export function UploadLinkManager({ caseId, clientId, onSendSms, isSendingSms = 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             {isError && <span className="text-destructive">{t('uploadLinks.loadError')}</span>}
             {!isLoading && !isError && !currentLink && <span>{t('uploadLinks.noLink')}</span>}
-            {expiryDate && (
-              <span>
-                {t('uploadLinks.expiresOn', { date: expiryDate })}
-                {typeof daysUntilExpiry === 'number' && daysUntilExpiry >= 0 && (
-                  <span className={cn(daysUntilExpiry <= 3 && 'text-amber-600 font-medium')}>
-                    {' '}
-                    {t('uploadLinks.daysLeft', { days: daysUntilExpiry })}
-                  </span>
-                )}
-              </span>
-            )}
+            {canUseLink && <span>{t('uploadLinks.neverExpires')}</span>}
             {currentLink?.lastUsedAt && (
               <span>{t('uploadLinks.lastUsed', { date: formatDate(currentLink.lastUsedAt, i18n.language) })}</span>
             )}
@@ -155,12 +131,6 @@ export function UploadLinkManager({ caseId, clientId, onSendSms, isSendingSms = 
             {isSendingSms ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
             {t(currentLink ? 'uploadLinks.resendSms' : 'uploadLinks.sendSms')}
           </Button>
-          {canExtend && currentLink && (
-            <UploadLinkExtendMenu
-              isLoading={extendMutation.isPending}
-              onSelect={(days) => extendMutation.mutate({ id: currentLink.id, days })}
-            />
-          )}
           {canUseLink && currentLink && (
             <Button type="button" variant="outline" size="sm" onClick={() => setConfirmAction('revoke')} disabled={isMutating} className="gap-1.5">
               <ShieldOff className="h-3.5 w-3.5" />

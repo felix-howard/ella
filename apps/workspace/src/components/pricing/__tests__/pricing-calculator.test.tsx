@@ -218,13 +218,12 @@ describe('workspace pricing calculator', () => {
       <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
     )
 
-    expect(markup).toContain('aria-label="0-10 workers / mo rate"')
     expect(markup).toContain('aria-label="Bookkeeping setup rate"')
     expect(markup).toContain('aria-label="Payroll setup rate"')
     expect(markup).toContain('aria-label="Setup rate"')
     expect(markup).toContain('aria-label="Audit / mo rate"')
     // Money fields render formatted (e.g. "$1,000") for clarity.
-    expect(markup).toContain('value="$85"')
+    expect(markup).toContain('value="$350"')
     expect(markup).toContain('value="$1,000"')
     expect(markup).toContain('value="$300"')
     expect(markup).not.toContain('min="75"')
@@ -565,15 +564,27 @@ describe('workspace pricing calculator', () => {
     expect(buildPricingPrintUrl()).toBe('https://www.ella.tax/pricing/print')
   })
 
+  it('collapses 1099 tier rate fields by default while still showing their values', () => {
+    const markup = renderToStaticMarkup(
+      <PricingCalculatorForm input={createDefaultPricingInput()} onInputChange={vi.fn()} />
+    )
+
+    expect(markup).toContain('aria-expanded="false"')
+    expect(markup).toContain('$85 / $95 / $105')
+    expect(markup).not.toContain('aria-label="0-10 workers / mo rate"')
+    expect(markup).not.toContain('aria-label="11-20 workers / mo rate"')
+    expect(markup).not.toContain('aria-label="21+ workers / mo rate"')
+  })
+
   it('renders zero-valued rate fields as empty so typing does not keep a leading zero', () => {
     const input = createDefaultPricingInput()
-    input.rates.tiers.proMonthly = 0
+    input.rates.payroll.baseMonthly = 0
 
     const markup = renderToStaticMarkup(
       <PricingCalculatorForm input={input} onInputChange={vi.fn()} />
     )
 
-    expect(markup).toContain('aria-label="11-20 workers / mo rate"')
+    expect(markup).toContain('aria-label="Payroll base / mo rate"')
     expect(markup).toContain('value=""')
     expect(markup).not.toContain('value="0"')
   })

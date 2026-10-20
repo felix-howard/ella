@@ -25,8 +25,6 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     i18n: { language: 'en' },
     t: (key: string, values?: Record<string, unknown>) => {
-      if (key === 'uploadLinks.daysLeft') return `(${values?.days} days left)`
-      if (key === 'uploadLinks.expiresOn') return `Expires ${values?.date}`
       if (key === 'uploadLinks.usageCount') return `${values?.count} uses`
       return key
     },
@@ -49,7 +47,6 @@ vi.mock('../../lib/api-client', () => ({
     uploadLinks: {
       listForCase: vi.fn(),
       revoke: vi.fn(),
-      extend: vi.fn(),
       generate: vi.fn(),
     },
   },
@@ -73,7 +70,6 @@ function activeLink(overrides: Partial<UploadLinkData> = {}): UploadLinkData {
     url: 'https://portal.test/upload/abc123',
     scope: 'CASE',
     clientGroupId: null,
-    expiresAt: '2026-05-25T00:00:00.000Z',
     revokedAt: null,
     extendedAt: null,
     lastUsedAt: null,
@@ -94,6 +90,8 @@ describe('UploadLinkManager', () => {
     expect(markup).toContain('uploadLinks.open')
     expect(markup).toContain('uploadLinks.resendSms')
     expect(markup).toContain('uploadLinks.revoke')
+    expect(markup).toContain('uploadLinks.neverExpires')
+    expect(markup).not.toContain('uploadLinks.extend')
     expect(markup).not.toContain('Token')
   })
 })

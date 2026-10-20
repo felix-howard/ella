@@ -74,7 +74,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/accept-invitation` - Clerk org invite acceptance (Phase 6)
 
 **Key Pages (Portal):**
-- `/upload/:token` - Document upload portal with random 32-character magic link tokens, default 60-day expiry, and token auth
+- `/upload/:token` - Document upload portal with random 32-character magic link tokens (no expiry; valid until revoked/replaced), and token auth
 - `/u/:token` - Legacy document upload portal (backward compatible, deprecated)
 - `/schedule-c/:token` - Schedule C expense form (magic link auth)
 - `/schedule-e/:token` - Schedule E rental form (magic link auth)
@@ -259,7 +259,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /portal/:token` - Validate MagicLink token, return portal data (client, taxCase, checklist, stats). Returns 401 for invalid/expired/revoked/replaced token and 429 when rate limited. Read requests are capped at 120 requests / 10 minutes per token hash + IP when trusted proxy headers are enabled; invalid-token probes are capped separately at 30 requests / 10 minutes per IP. Current buckets are process-local memory, so multi-instance deploys need sticky routing or shared limiter storage for global enforcement.
 - `POST /portal/:token/upload` - Upload document images via token (public). Validates token, checks file signatures against the declared MIME, stores only supported PDF/JPEG/PNG/WebP/HEIC/HEIF content, then writes RawImage records and triggers async Gemini classification + activity tracking. Returns `INVALID_FILE_CONTENT` before any R2 write or RawImage create when signature and MIME do not match. Returns 400 for invalid files, 401 for invalid token, and 429 when rate limited. Upload requests are capped at 20 requests / hour per token hash + IP when trusted proxy headers are enabled; invalid-token probes use the same separate 30 requests / 10 minutes per IP guard.
 - Public portal file lists and upload responses expose safe labels/status only; original filenames, AI-renamed filenames, R2 keys, and signed URLs stay internal.
-- PORTAL MagicLink generation: 32-character URL-safe random token, `/upload/:token` route, default 60-day expiry from `MAGIC_LINK_EXPIRY_DAYS`, CASE or GROUP scope, and replacement locking. Staff can reuse active links, extend 7/14/30/60 days, revoke, or replace from the Files tab. Other MagicLink types keep their existing token/expiry behavior.
+- PORTAL MagicLink generation: 32-character URL-safe random token, `/upload/:token` route, no expiry (legacy `expiresAt` values ignored), CASE or GROUP scope, and replacement locking. Staff can reuse active links, revoke, or replace from the Files tab. Other MagicLink types keep their existing token/expiry behavior.
 - Sensitive staff document access: signed URLs default to 900 seconds, workspace cache is shorter than the URL lifetime, and file/media proxy responses use private/no-store cache headers.
 - Identity document retention: identity doc types become retention-eligible when staff explicitly clicks `Mark return filed`; review, verification, data entry, checklist completion, and Files tab usage are not prerequisites. Late uploads or reclassification on already-filed cases can schedule retention from the original `filedAt`. The default retention window is 90 days from `IDENTITY_DOC_RETENTION_DAYS`; staff can reopen a filed case to clear pending schedules or extend scheduled identity retention 30/60/90 days. The delete job removes only due R2 objects, preserves DB metadata, marks storage deleted, and logs audit activity without R2 keys, filenames, OCR text, or signed URLs.
 - Out of scope: malware/virus scanning and quarantine before CPA preview/download are not implemented yet.
@@ -374,7 +374,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /clients/:id` - Update profile/intakeAnswers/tags (admin/manager only). Tags support add/remove/replace mutations. Phase 10: Can update clientType, ein (re-encrypted), businessType, business address fields.
 - `DELETE /clients/:id` - Deactivate (admin/manager only)
 - `GET /clients/:id/resend-sms` - Resend welcome link
-- `POST /clients/:id/send-upload-link` - Send upload link SMS to client with random expiring `/upload/:token` URL. Reuses active unexpired links and supports lifecycle controls through Files tab. For business clients with clientGroupId, resolves individual client's taxCase for same year and creates magic link on individual's case—uploads go to individual. Falls back to business case with warning if individual has no taxCase for year. Adds organizationId filter for security.
+- `POST /clients/:id/send-upload-link` - Send upload link SMS to client with random non-expiring `/upload/:token` URL. Reuses active links and supports lifecycle controls through Files tab. For business clients with clientGroupId, resolves individual client's taxCase for same year and creates magic link on individual's case—uploads go to individual. Falls back to business case with warning if individual has no taxCase for year. Adds organizationId filter for security.
 - `POST /clients/:id/avatar/presigned-url` - Get R2 upload URL for client avatar (Phase 02 Backend)
 - `PATCH /clients/:id/avatar` - Confirm avatar upload + return signed download URL (Phase 02 Backend)
 - `DELETE /clients/:id/avatar` - Remove client avatar (Phase 02 Backend)
@@ -1612,7 +1612,7 @@ Magic Link Service:
 ```typescript
 apps/api/src/services/magic-link.ts
 ├── getMagicLinkUrl() - Maps link types to URLs (/upload, /expense, /rental, /draft)
-├── createPortalMagicLink() - Generate 32-character random PORTAL token with default 60-day expiry and CASE/GROUP scope
+├── createPortalMagicLink() - Generate 32-character random non-expiring PORTAL token with CASE/GROUP scope
 ├── createMagicLink() - Generate token scoped to caseId; PORTAL delegates to createPortalMagicLink()
 ├── createMagicLinkWithDeactivation() - Atomically create replacement link and deactivate previous active link
 ├── resolveToken(type) - PORTAL → random 32-character token; other link types → random 12-character token

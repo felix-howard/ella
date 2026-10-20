@@ -37,11 +37,6 @@ export const config = {
     maxFilesPerUpload: parseInt(process.env.UPLOAD_MAX_FILES || '50', 10),
   },
 
-  // Magic link
-  magicLink: {
-    expiryDays: parseInt(process.env.MAGIC_LINK_EXPIRY_DAYS || '60', 10),
-  },
-
   // Sensitive document retention
   retention: {
     identityDocDeleteDays: parseInt(process.env.IDENTITY_DOC_RETENTION_DAYS || '90', 10),

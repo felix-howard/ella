@@ -17,29 +17,19 @@ vi.mock('../../../services/activity-log', () => ({
   logStaffActivity: vi.fn(),
 }))
 
-vi.mock('../../../services/magic-link', () => ({
+vi.mock('../../../services/magic-link', async (importOriginal) => ({
+  getMagicLinkStatus: (await importOriginal<typeof MagicLinkModule>()).getMagicLinkStatus,
   createPortalMagicLink: vi.fn().mockResolvedValue({
     id: 'link-new',
     token: 'RANDOM_32_CHAR_TOKEN_VALUE_TEST_123',
     url: 'https://portal.test/upload/RANDOM_32_CHAR_TOKEN_VALUE_TEST_123',
-    expiresAt: new Date('2026-07-17T00:00:00.000Z'),
     scope: 'CASE',
     clientGroupId: null,
   }),
   getMagicLinkUrl: vi.fn((token: string) => `https://portal.test/upload/${token}`),
-  getMagicLinkStatus: vi.fn((link: {
-    isActive: boolean
-    expiresAt: Date | null
-    revokedAt?: Date | null
-    replacedById?: string | null
-  }) => {
-    if (link.replacedById) return 'REPLACED'
-    if (link.revokedAt || !link.isActive) return 'REVOKED'
-    if (link.expiresAt && link.expiresAt < new Date('2026-05-18T00:00:00.000Z')) return 'EXPIRED'
-    return 'ACTIVE'
-  }),
 }))
 
+import type * as MagicLinkModule from '../../../services/magic-link'
 import { prisma } from '../../../lib/db'
 import { logStaffActivity } from '../../../services/activity-log'
 import { createPortalMagicLink } from '../../../services/magic-link'
@@ -148,26 +138,29 @@ describe('uploadLinksRoute', () => {
     }))
   })
 
-  it('extends an expired active link by an allowed duration', async () => {
-    const link = mockLink({ expiresAt: new Date('2026-05-01T00:00:00.000Z') })
-    vi.mocked(prisma.magicLink.findFirst).mockResolvedValueOnce(link as never)
-    vi.mocked(prisma.magicLink.update).mockResolvedValueOnce({
-      ...link,
-      expiresAt: new Date('2026-06-17T00:00:00.000Z'),
-      extendedAt: new Date('2026-05-18T00:00:00.000Z'),
-      extendedById: 'staff_1',
-    } as never)
+  it('reports a link with a past legacy expiry date as active', async () => {
+    vi.mocked(prisma.taxCase.findFirst).mockResolvedValueOnce(mockTaxCase() as never)
+    vi.mocked(prisma.magicLink.findMany).mockResolvedValueOnce([
+      mockLink({ expiresAt: new Date('2020-01-01T00:00:00.000Z') }),
+    ] as never)
 
+    const res = await createApp().request('/upload-links/cases/case_1')
+
+    const json = await res.json()
+    expect(json.data[0].status).toBe('ACTIVE')
+    expect(json.data[0].url).toBe('https://portal.test/upload/RANDOM_32_CHAR_TOKEN_VALUE_TEST_123')
+    expect(json.data[0].expiresAt).toBeUndefined()
+  })
+
+  it('no longer exposes an extend endpoint', async () => {
     const res = await createApp().request('/upload-links/link_1/extend', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ days: 30 }),
     })
 
-    expect(res.status).toBe(200)
-    expect(prisma.magicLink.update).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ isActive: true, extendedById: 'staff_1' }),
-    }))
+    expect(res.status).toBe(404)
+    expect(prisma.magicLink.update).not.toHaveBeenCalled()
   })
 
   it('generates a replacement portal link for a scoped case', async () => {

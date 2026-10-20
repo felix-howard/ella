@@ -2058,12 +2058,6 @@ export const api = {
         method: 'POST',
       }),
 
-    extend: (id: string, days: 7 | 14 | 30 | 60) =>
-      request<UploadLinkMutationResponse & { expiresAt: string }>(`/upload-links/${id}/extend`, {
-        method: 'POST',
-        body: JSON.stringify({ days }),
-      }),
-
     generate: (caseId: string) =>
       request<UploadLinkMutationResponse>(`/upload-links/cases/${caseId}/generate`, {
         method: 'POST',
@@ -4908,7 +4902,7 @@ export interface SharedDocMagicLinkData {
   lastUsedAt: string | null
 }
 
-export type UploadLinkStatus = 'ACTIVE' | 'EXPIRED' | 'REVOKED' | 'REPLACED'
+export type UploadLinkStatus = 'ACTIVE' | 'REVOKED' | 'REPLACED'
 
 export interface UploadLinkData {
   id: string
@@ -4916,7 +4910,6 @@ export interface UploadLinkData {
   url: string | null
   scope: 'CASE' | 'GROUP'
   clientGroupId: string | null
-  expiresAt: string | null
   revokedAt: string | null
   extendedAt: string | null
   lastUsedAt: string | null

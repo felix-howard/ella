@@ -6,9 +6,9 @@
 ## Current Behavior
 
 - Portal upload links use 32-character random URL-safe tokens at `/upload/:token`.
-- Portal links default to 60-day expiry via `MAGIC_LINK_EXPIRY_DAYS`.
-- Staff can copy/open, resend SMS, extend 7/14/30/60 days, revoke, or replace links from Files tab.
-- Active unexpired links are reused for resend instead of silently replaced.
+- Portal upload links never expire; they stay valid until staff revoke or replace them. Legacy `expiresAt` values on PORTAL rows are ignored.
+- Staff can copy/open, resend SMS, revoke, or replace links from Files tab.
+- Active links are reused for resend instead of silently replaced.
 - Portal public file lists and upload responses expose only safe labels, status, timestamps, and sequence numbers.
 - Public portal never returns original filenames, AI-generated filenames, R2 keys, signed URLs, OCR text, SSNs, or raw tokens.
 - Portal reads/uploads are rate limited by token hash + IP when trusted proxy headers are enabled; invalid-token probes are throttled separately.
@@ -42,11 +42,10 @@
 - [ ] Deploy API.
 - [ ] Deploy workspace.
 - [ ] Deploy portal.
-- [ ] Confirm `MAGIC_LINK_EXPIRY_DAYS=60` unless product chooses a different window.
 - [ ] Confirm `IDENTITY_DOC_RETENTION_DAYS=90` unless compliance chooses a different window.
 - [ ] Confirm `TRUST_PROXY_HEADERS=true` only when the API is behind a trusted proxy that overwrites `x-real-ip` / `x-forwarded-for`.
 - [ ] For multi-instance API deploys, confirm sticky routing or replace the process-local limiter with a shared store.
-- [ ] Verify an existing portal link has `expiresAt` populated.
+- [ ] Verify an existing portal link with a past `expiresAt` still opens the upload page.
 - [ ] Generate a new upload link and confirm URL token is random, not client-name based.
 - [ ] Open Files tab link manager and verify copy/open, SMS resend, extend, revoke, and replace controls.
 - [ ] Upload a sample file and verify portal shows a safe label, not original filename.

@@ -5,7 +5,6 @@
 import { prisma } from '../lib/db'
 import { customAlphabet } from 'nanoid'
 import { PORTAL_URL } from '../lib/constants'
-import { config } from '../lib/config'
 import type { MagicLinkType, MagicLinkScope } from '@ella/db'
 
 // Custom alphabet for URL-safe tokens (no confusing characters)
@@ -23,27 +22,20 @@ function resolveToken(type: MagicLinkType): string {
   return type === 'PORTAL' ? generatePortalToken() : generateToken()
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
-export const PORTAL_MAGIC_LINK_EXPIRY_DAYS = config.magicLink.expiryDays
-
-function portalExpiryFromNow(): Date {
-  return new Date(Date.now() + PORTAL_MAGIC_LINK_EXPIRY_DAYS * DAY_MS)
-}
-
 // Schedule C/E links stay on their existing long-extension behavior.
 const MAGIC_LINK_TTL_DAYS = 365
 
-export type MagicLinkStatus = 'ACTIVE' | 'EXPIRED' | 'REVOKED' | 'REPLACED'
+// PORTAL (upload) links never expire: they stay usable until staff revoke or
+// replace them. Legacy rows may still carry an old expiresAt, which is ignored.
+export type MagicLinkStatus = 'ACTIVE' | 'REVOKED' | 'REPLACED'
 
 export function getMagicLinkStatus(link: {
   isActive: boolean
-  expiresAt: Date | null
   revokedAt?: Date | null
   replacedById?: string | null
 }): MagicLinkStatus {
   if (link.replacedById) return 'REPLACED'
   if (link.revokedAt || !link.isActive) return 'REVOKED'
-  if (link.expiresAt && link.expiresAt < new Date()) return 'EXPIRED'
   return 'ACTIVE'
 }
 
@@ -78,17 +70,15 @@ export interface CreatedPortalMagicLink {
   id: string
   token: string
   url: string
-  expiresAt: Date | null
   scope: MagicLinkScope
   clientGroupId: string | null
 }
 
 export async function createPortalMagicLink(
   caseId: string,
-  options?: Pick<CreateMagicLinkOptions, 'expiresAt' | 'scope' | 'clientGroupId'>
+  options?: Pick<CreateMagicLinkOptions, 'scope' | 'clientGroupId'>
 ): Promise<CreatedPortalMagicLink> {
   const token = resolveToken('PORTAL')
-  const expiresAt = options?.expiresAt ?? portalExpiryFromNow()
   const scope: MagicLinkScope = options?.scope ?? 'CASE'
   if (scope === 'GROUP' && !options?.clientGroupId) {
     throw new Error('createPortalMagicLink: clientGroupId is required when scope=GROUP')
@@ -105,7 +95,7 @@ export async function createPortalMagicLink(
         caseId,
         token,
         type: 'PORTAL',
-        expiresAt,
+        expiresAt: null,
         isActive: true,
         scope,
         clientGroupId,
@@ -113,7 +103,6 @@ export async function createPortalMagicLink(
       select: {
         id: true,
         token: true,
-        expiresAt: true,
         scope: true,
         clientGroupId: true,
       },
@@ -151,7 +140,6 @@ export async function createMagicLink(
   const type: MagicLinkType = options?.type || 'PORTAL'
   if (type === 'PORTAL') {
     const link = await createPortalMagicLink(caseId, {
-      expiresAt: options?.expiresAt,
       scope: options?.scope,
       clientGroupId: options?.clientGroupId,
     })
@@ -218,7 +206,7 @@ export async function createMagicLinkWithDeactivation(
 ): Promise<{ url: string; expiresAt: Date | null }> {
   const token = resolveToken(type)
 
-  const expiresAt: Date | null = type === 'PORTAL' ? portalExpiryFromNow() : null
+  const expiresAt: Date | null = null
 
   await prisma.$transaction(async (tx) => {
     const link = await tx.magicLink.create({
@@ -415,7 +403,8 @@ export async function validateMagicLink(
     return { valid: false, error: 'INVALID_TOKEN' }
   }
 
-  if (link.expiresAt && link.expiresAt < new Date()) {
+  // Upload links never expire; other link types still honor expiresAt.
+  if (link.type !== 'PORTAL' && link.expiresAt && link.expiresAt < new Date()) {
     return { valid: false, error: 'EXPIRED_TOKEN' }
   }
 

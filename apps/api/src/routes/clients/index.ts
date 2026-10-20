@@ -85,16 +85,13 @@ import {
 
 const clientsRoute = new Hono<{ Variables: AuthVariables }>()
 
-function activePortalLinkWhere(now: Date) {
+// Upload links never expire, so "active" means not revoked and not replaced.
+function activePortalLinkWhere() {
   return {
     isActive: true,
     type: 'PORTAL' as const,
     revokedAt: null,
     replacedById: null,
-    OR: [
-      { expiresAt: null },
-      { expiresAt: { gt: now } },
-    ],
   }
 }
 
@@ -252,7 +249,6 @@ clientsRoute.get('/intake-questions', async (c) => {
 clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => {
   const { page, limit, search, managedById, attention, tag, clientType } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
-  const now = new Date()
 
   // Build where clause with org + assignment scope
   const user = c.get('user')
@@ -348,7 +344,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
             _count: {
               select: {
                 checklistItems: { where: { status: 'MISSING' } },
-                magicLinks: { where: activePortalLinkWhere(now) },
+                magicLinks: { where: activePortalLinkWhere() },
               }
             },
             digitalDocs: {
@@ -746,7 +742,6 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
 clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => {
   const { id } = c.req.valid('param')
   const user = c.get('user')
-  const now = new Date()
 
   const client = await prisma.client.findFirst({
     where: { id, ...buildClientScopeFilter(user) },
@@ -780,7 +775,7 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
                   magicLinks: {
                     // Only PORTAL links — Schedule C/E links live on the same case
                     // and would otherwise win the orderBy and break the upload button.
-                    where: activePortalLinkWhere(now),
+                    where: activePortalLinkWhere(),
                     orderBy: { createdAt: 'desc' },
                     take: 1,
                     select: { token: true },
@@ -799,7 +794,7 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
         include: {
           magicLinks: {
             // Only PORTAL links — see sibling-client query for rationale.
-            where: activePortalLinkWhere(now),
+            where: activePortalLinkWhere(),
             orderBy: { createdAt: 'desc' },
             take: 1,
           },
@@ -940,7 +935,6 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
 clientsRoute.post('/:id/resend-sms', zValidator('param', clientIdParamSchema), async (c) => {
   const { id } = c.req.valid('param')
   const user = c.get('user')
-  const now = new Date()
 
   // Fetch client with latest case and active magic link (org-scoped)
   const client = await prisma.client.findFirst({
@@ -952,7 +946,7 @@ clientsRoute.post('/:id/resend-sms', zValidator('param', clientIdParamSchema), a
         include: {
           magicLinks: {
             // Only PORTAL — resend-sms must not pick a Schedule C/E link.
-            where: activePortalLinkWhere(now),
+            where: activePortalLinkWhere(),
             orderBy: { createdAt: 'desc' },
             take: 1,
           },
@@ -1981,7 +1975,6 @@ clientsRoute.post(
     if (!isSmsEnabled()) {
       return c.json({ error: 'SMS not configured' }, 500)
     }
-    const now = new Date()
 
     // Resolve SMS recipient and target taxCase
     // For business clients with group, redirect to individual's phone + taxCase
@@ -2038,7 +2031,7 @@ clientsRoute.post(
     const linkScope = client.clientGroupId ? 'GROUP' : 'CASE'
     const existingPortalLink = await prisma.magicLink.findFirst({
       where: {
-        ...activePortalLinkWhere(now),
+        ...activePortalLinkWhere(),
         scope: linkScope,
         ...(client.clientGroupId
           ? { clientGroupId: client.clientGroupId, taxCase: { taxYear: selectedCase.taxYear } }
@@ -2048,7 +2041,6 @@ clientsRoute.post(
       select: {
         id: true,
         token: true,
-        expiresAt: true,
         scope: true,
         clientGroupId: true,
       },
@@ -2083,7 +2075,6 @@ clientsRoute.post(
           requestedClientId: client.id,
           scope: portalLink.scope,
           clientGroupId: portalLink.clientGroupId,
-          expiresAt: portalLink.expiresAt?.toISOString() ?? null,
         },
         request: getAuditRequestContext(c),
       })
